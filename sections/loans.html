@@ -1,0 +1,72 @@
+                    <div id="loanSection" class="d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h5 class="fw-bold m-0">Loan Management (Person-wise)</h5>
+                        </div>
+
+                        <!-- Search Loan filter -->
+                        <div class="mb-3">
+                            <div class="input-group" style="max-width: 400px;">
+                                <span class="input-group-text bg-dark border-end-0">🎓</span>
+                                <input type="text" id="loanSearchInput" class="form-control border-start-0"
+                                    placeholder="Search Person..." onkeyup="filterLoanSummary()">
+                            </div>
+                        </div>
+
+                        <!-- Loan Summary -->
+                        <div id="loanSummaryContainer" class="row g-3">
+                            <!-- Populated dynamically -->
+                        </div>
+
+                        <!-- Detailed Ledger Modal for Person -->
+                        <div id="loanDetailView" class="card premium-table-card mt-4 shadow-sm d-none">
+                            <div
+                                class="card-header bg-transparent border-0 d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                <h5 class="mb-0 fw-bold text-primary" id="loanDetailTitle">Ledger</h5>
+                                <div class="d-flex align-items-center gap-2 bg-light px-3 py-1 rounded-pill">
+                                    <span class="small fw-bold text-muted">Date Range:</span>
+                                    <input type="date" id="loanDetailStartDate"
+                                        class="form-control form-control-sm border-0 bg-transparent"
+                                        onchange="openLoanDetail(window.currentLoanPerson)" style="width: 120px;">
+                                    <span class="text-muted">-</span>
+                                    <input type="date" id="loanDetailEndDate"
+                                        class="form-control form-control-sm border-0 bg-transparent"
+                                        onchange="openLoanDetail(window.currentLoanPerson)" style="width: 120px;">
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-danger fw-bold" onclick="printLoanDetail()"><i
+                                            class='bi bi-printer-fill me-1'></i>
+                                        Print</button>
+                                    <button class="btn btn-sm btn-light border" onclick="closeLoanDetail()">Close
+                                        Details</button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle">
+                                        <thead style="background: rgba(0, 217, 255, 0.1); border-bottom: 2px solid var(--primary);">
+                                            <tr>
+                                                <th style="color: #fff;">#</th>
+                                                <th style="color: #fff;">DATE</th>
+                                                <th style="color: #fff;">TYPE</th>
+                                                <th style="color: #fff;">DESCRIPTION</th>
+                                                <th class="text-end" style="color: #ff4757;">DEBIT (-)</th>
+                                                <th class="text-end" style="color: #2ed573;">CREDIT (+)</th>
+                                                <th class="text-end" style="color: #fff;">BALANCE</th>
+                                                <th class="text-center" style="color: #fff;">ACTION</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="loanDetailBody"></tbody>
+                                        <tfoot class="fw-bold">
+                                            <tr style="border-top: 2px solid var(--primary);">
+                                                <td colspan="6" class="text-end" style="color: #fff;">NET BALANCE:</td>
+                                                <td class="text-end" id="loanDetailBalance" style="color: #fff;">0</td>
+                                                <td></td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LEDGER SECTION -->

@@ -1,0 +1,156 @@
+<div id="studentModalInline">
+    <!-- Add/Edit Student Modal -->
+    <div class="modal fade" id="studentModal" tabindex="-1" aria-labelledby="studentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content custom-modal">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold" id="studentModalLabel">👨‍🎓 Add New Student</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="studentForm" onsubmit="event.preventDefault(); handleStudentSubmit(event);">
+                        <input type="hidden" name="studentRowIndex" id="studentRowIndex">
+                        <input type="hidden" name="photoURL" id="photoURLInput">
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Student Name <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="name" id="studentName"
+                                    placeholder="Full Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Phone <span class="text-danger">*</span></label>
+                                <input type="tel" class="form-control" name="phone" id="studentPhone"
+                                    placeholder="01XXXXXXXXX" required>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Father's Name</label>
+                                <input type="text" class="form-control" name="fatherName" id="studentFatherName"
+                                    placeholder="Father's Name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Mother's Name</label>
+                                <input type="text" class="form-control" name="motherName" id="studentMotherName"
+                                    placeholder="Mother's Name">
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Course <span class="text-danger">*</span></label>
+                                <select class="form-select" name="course" id="studentCourseSelect" required>
+                                    <option value="">-- Select Course --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Batch <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" name="batch" id="studentBatchInput"
+                                    placeholder="e.g. Batch-12" required>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Enrollment Date</label>
+                                <input type="date" class="form-control" name="enrollDate" id="studentEnrollDate">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Blood Group</label>
+                                <select class="form-select" name="bloodGroup" id="studentBloodGroup">
+                                    <option value="">-- Select --</option>
+                                    <option>A+</option>
+                                    <option>A-</option>
+                                    <option>B+</option>
+                                    <option>B-</option>
+                                    <option>AB+</option>
+                                    <option>AB-</option>
+                                    <option>O+</option>
+                                    <option>O-</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Total Fee (৳)</label>
+                                <input type="number" class="form-control" name="totalPayment" id="inpTotal"
+                                    placeholder="0" min="0" oninput="calcDue()">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Paid (৳)</label>
+                                <input type="number" class="form-control" name="payment" id="inpPaid"
+                                    placeholder="0" min="0" oninput="calcDue()">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Due (৳)</label>
+                                <input type="number" class="form-control" name="due" id="inpDue" placeholder="0"
+                                    readonly>
+                            </div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Payment Method <span class="text-danger">*</span></label>
+                                <select class="form-select" name="method" id="studentMethodSelect" required
+                                    onchange="if(typeof showMethodBalance==='function') showMethodBalance('studentMethodSelect')">
+                                    <option value="">-- Select Method --</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Reminder Date</label>
+                                <input type="date" class="form-control" name="reminderDate"
+                                    id="studentReminderDate">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Remarks / Notes</label>
+                            <textarea class="form-control" name="remarks" id="studentRemarks" rows="2"
+                                placeholder="Any notes..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Student Photo</label>
+                            <div style="border:2px dashed rgba(0,217,255,0.4);border-radius:8px;padding:12px;text-align:center;cursor:pointer"
+                                onclick="document.getElementById('studentPhotoInput').click()">
+                                <p class="text-muted mb-1" id="photoUploadText">📷 Click to upload photo</p>
+                                <img id="studentPhotoPreview" src="" alt=""
+                                    style="display:none;max-height:100px;border-radius:8px;margin-top:8px">
+                            </div>
+                            <input type="file" id="studentPhotoInput" accept="image/*" style="display:none"
+                                onchange="previewStudentPhoto(this)">
+                            <button type="button" class="btn btn-sm btn-outline-danger mt-2" id="removePhotoBtn"
+                                style="display:none" onclick="removeStudentPhoto()">❌ Remove Photo</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary fw-bold px-4"
+                        onclick="handleStudentSubmit({preventDefault:function(){}})">💾 Save Student</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Actions Modal -->
+    <div class="modal fade" id="actionsModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered" style="max-width:340px">
+            <div class="modal-content custom-modal">
+                <div class="modal-header border-bottom">
+                    <h6 class="modal-title fw-bold">⚡ Student Actions</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="actionsModalBody"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Student Profile Modal -->
+    <div class="modal fade" id="studentProfileModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content custom-modal">
+                <div class="modal-header border-bottom">
+                    <h5 class="modal-title fw-bold">👤 Student Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="studentProfileContent"></div>
+            </div>
+        </div>
+    </div>
+</div>

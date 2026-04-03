@@ -1,0 +1,660 @@
+/* ============================================
+   WINGS FLY — PREMIUM STYLES & ANIMATIONS
+   Extracted from index.html for better performance
+   ============================================ */
+
+/* ── ATTENDANCE PRO STYLES ── */
+:root {
+    --att-cyan: #00d9ff;
+    --att-purple: #b537f2;
+    --att-green: #00ff88;
+    --att-red: #ff3b5c;
+    --att-gold: #ffd700;
+    --att-glass: rgba(12, 16, 40, 0.92);
+    --att-border: rgba(0, 217, 255, 0.25);
+    --att-glow: 0 0 24px rgba(0, 217, 255, 0.15);
+    --att-font: 'DM Sans', sans-serif;
+    --att-heading: 'Rajdhani', sans-serif;
+}
+
+#attendanceHubModal .modal-content {
+    background: linear-gradient(135deg, #07091c 0%, #0e0a28 50%, #07091c 100%) !important;
+    border: 1px solid var(--att-border) !important;
+    border-radius: 20px !important;
+    font-family: var(--att-font) !important;
+    overflow: hidden;
+    min-height: 600px;
+}
+
+#attendanceHubModal .modal-dialog {
+    max-width: 1250px !important;
+    width: 95% !important;
+}
+
+.att-tab-strip {
+    display: flex;
+    gap: 8px;
+    padding: 20px 24px 0;
+    border-bottom: 1px solid rgba(0, 217, 255, 0.1);
+    background: rgba(0, 0, 0, 0.25);
+    flex-wrap: wrap;
+}
+
+.att-tab-btn {
+    font-family: var(--att-heading);
+    font-size: 0.82rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border: 1px solid rgba(0, 217, 255, 0.2);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    white-space: nowrap;
+}
+
+.att-tab-btn:hover {
+    color: var(--att-cyan);
+    border-color: rgba(0, 217, 255, 0.4);
+    background: rgba(0, 217, 255, 0.06);
+}
+
+.att-tab-btn.active {
+    color: var(--att-cyan);
+    border-color: var(--att-cyan);
+    background: linear-gradient(180deg, rgba(0, 217, 255, 0.12) 0%, rgba(0, 0, 0, 0) 100%);
+    box-shadow: 0 -3px 12px rgba(0, 217, 255, 0.15);
+}
+
+.att-tab-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--att-cyan);
+    box-shadow: 0 0 8px var(--att-cyan);
+}
+
+.att-tab-btn i {
+    margin-right: 6px;
+    font-size: 0.9rem;
+}
+
+.att-pane {
+    display: none;
+    padding: 24px;
+    min-height: 380px;
+    animation: attFadeIn 0.3s ease;
+}
+
+.att-pane.active {
+    display: block;
+}
+
+@keyframes attFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.att-filter-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    margin-bottom: 22px;
+    padding: 18px 20px;
+    background: rgba(0, 217, 255, 0.04);
+    border: 1px solid rgba(0, 217, 255, 0.14);
+    border-radius: 14px;
+}
+
+.att-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 140px;
+}
+
+.att-filter-group label {
+    font-family: var(--att-heading);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(0, 217, 255, 0.7);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.att-filter-group select,
+.att-filter-group input {
+    background: rgba(0, 217, 255, 0.06) !important;
+    border: 1px solid rgba(0, 217, 255, 0.25) !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    font-family: var(--att-font);
+    font-size: 0.88rem;
+    padding: 9px 14px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.att-filter-group select:focus,
+.att-filter-group input:focus {
+    border-color: var(--att-cyan) !important;
+    box-shadow: 0 0 0 3px rgba(0, 217, 255, 0.12) !important;
+}
+
+.att-filter-group select option {
+    background: #0e0a28 !important;
+    color: #ffffff !important;
+}
+
+.att-stats-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.att-stat-card {
+    flex: 1;
+    min-width: 110px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    transition: transform 0.2s;
+}
+
+.att-stat-card:hover {
+    transform: translateY(-2px);
+}
+
+.att-stat-card .val {
+    font-family: var(--att-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+}
+
+.att-stat-card .lbl {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.5;
+}
+
+.att-stat-card.cyan { border-color: rgba(0, 217, 255, 0.3); }
+.att-stat-card.cyan .val { color: var(--att-cyan); }
+.att-stat-card.green { border-color: rgba(0, 255, 136, 0.3); }
+.att-stat-card.green .val { color: var(--att-green); }
+.att-stat-card.red { border-color: rgba(255, 59, 92, 0.3); }
+.att-stat-card.red .val { color: var(--att-red); }
+.att-stat-card.gold { border-color: rgba(255, 215, 0, 0.3); }
+.att-stat-card.gold .val { color: var(--att-gold); }
+.att-stat-card.purple { border-color: rgba(181, 55, 242, 0.3); }
+.att-stat-card.purple .val { color: var(--att-purple); }
+
+.att-table-wrap {
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 14px;
+    border: 1px solid rgba(0, 217, 255, 0.12);
+    overflow: hidden;
+}
+
+.att-table-wrap .table {
+    margin: 0;
+    font-family: var(--att-font);
+    font-size: 0.83rem;
+}
+
+.att-table-wrap thead th {
+    background: rgba(0, 217, 255, 0.08) !important;
+    color: rgba(0, 217, 255, 0.85) !important;
+    font-family: var(--att-heading);
+    font-size: 0.72rem;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    border-color: rgba(0, 217, 255, 0.12) !important;
+    padding: 10px 14px;
+}
+
+.att-table-wrap td {
+    border-color: rgba(255, 255, 255, 0.05) !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+    padding: 9px 14px;
+    vertical-align: middle;
+}
+
+.att-table-wrap tbody tr:hover td {
+    background: rgba(0, 217, 255, 0.05) !important;
+}
+
+.att-badge-p {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(0, 255, 136, 0.12);
+    border: 1px solid rgba(0, 255, 136, 0.35);
+    color: var(--att-green);
+    font-weight: 700;
+    font-size: 0.75rem;
+    font-family: var(--att-heading);
+    letter-spacing: 1px;
+}
+
+.att-badge-a {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(255, 59, 92, 0.12);
+    border: 1px solid rgba(255, 59, 92, 0.35);
+    color: var(--att-red);
+    font-weight: 700;
+    font-size: 0.75rem;
+    font-family: var(--att-heading);
+    letter-spacing: 1px;
+}
+
+.att-rate-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.att-rate-track {
+    flex: 1;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.att-rate-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+.att-mark-student-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.att-mark-student-row:hover {
+    background: rgba(0, 217, 255, 0.05);
+    border-color: rgba(0, 217, 255, 0.2);
+}
+
+.att-mark-student-row .stu-info .name {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.att-mark-student-row .stu-info .sid {
+    font-size: 0.75rem;
+    color: var(--att-cyan);
+    opacity: 0.7;
+    font-family: monospace;
+}
+
+.att-toggle-group {
+    display: flex;
+    gap: 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 217, 255, 0.2);
+}
+
+.att-toggle-btn {
+    width: 50px;
+    padding: 7px 0;
+    text-align: center;
+    border: none;
+    font-family: var(--att-heading);
+    font-weight: 700;
+    font-size: 0.8rem;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.18s;
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.att-toggle-btn.p-btn { border-right: 1px solid rgba(0, 217, 255, 0.15); }
+.att-toggle-btn.p-btn.active-p { background: rgba(0, 255, 136, 0.2); color: var(--att-green); }
+.att-toggle-btn.a-btn.active-a { background: rgba(255, 59, 92, 0.2); color: var(--att-red); }
+
+.att-btn {
+    font-family: var(--att-heading);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.22s;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.att-btn-primary {
+    background: linear-gradient(90deg, var(--att-cyan), var(--att-purple));
+    color: #0a0e27;
+    box-shadow: 0 4px 16px rgba(0, 217, 255, 0.3);
+}
+
+.att-action-row {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding: 16px 24px;
+  background: rgba(0,0,0,0.2);
+  border-top: 1px solid rgba(0,217,255,0.1);
+}
+
+.att-btn-outline {
+  background: transparent;
+  border: 1px solid rgba(0,217,255,0.35);
+  color: var(--att-cyan);
+}
+.att-btn-outline:hover {
+  background: rgba(0,217,255,0.1);
+  border-color: var(--att-cyan);
+}
+
+.att-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.5);
+}
+.att-btn-ghost:hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(255,255,255,0.85);
+}
+
+.att-empty {
+  text-align: center;
+  padding: 52px 20px;
+  color: rgba(255,255,255,0.25);
+}
+.att-empty i {
+  font-size: 3.5rem;
+  display: block;
+  margin-bottom: 14px;
+  opacity: 0.3;
+}
+.att-empty p {
+  font-family: var(--att-heading);
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+}
+
+/* ── Generic Modal ── */
+.modal-content {
+    background: linear-gradient(145deg, rgba(21, 26, 53, 0.95), rgba(31, 21, 69, 0.95)) !important;
+    backdrop-filter: blur(20px) saturate(160%) !important;
+    border: 1px solid rgba(0, 217, 255, 0.4) !important;
+    border-radius: 24px !important;
+}
+
+/* ── Progress Bars ── */
+@keyframes progressShine {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+.progress-bar {
+    background: linear-gradient(90deg, rgba(0, 217, 255, 0.6) 0%, #00d9ff 30%, #b537f2 60%, rgba(0, 255, 136, 0.8) 80%, rgba(0, 217, 255, 0.6) 100%) !important;
+    background-size: 200% auto !important;
+    animation: progressShine 2.5s linear infinite !important;
+}
+
+/* ── Donut Spinning Ring ── */
+.donut-ring-wrapper {
+    position: relative;
+    width: 250px;
+    height: 250px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.donut-spinning-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 4px;
+    background: conic-gradient(from 0deg, #00f2ff 0%, #7b2ff7 25%, #ffd700 50%, #00f2ff 75%, #7b2ff7 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: ringRotate 3s linear infinite !important;
+}
+
+@keyframes ringRotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ── Premium Transitions ── */
+#studentModal.modal.fade .modal-dialog { transform: translateY(100px) scale(0.8) !important; opacity: 0; transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+#studentModal.modal.show .modal-dialog { transform: translateY(0) scale(1) !important; opacity: 1 !important; }
+#financeModal.modal.fade .modal-dialog { transform: translateX(-200px) rotate(-5deg) !important; opacity: 0; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important; }
+#financeModal.modal.show .modal-dialog { transform: translateX(0) rotate(0deg) !important; opacity: 1 !important; }
+
+/* ── ADDITIONAL PREMIUM STYLES ── */
+
+/* Login Particle Canvas */
+#loginParticleCanvas {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    display: none;
+}
+
+#loginSection {
+    position: relative;
+}
+
+#loginSection .login-card {
+    position: relative;
+    z-index: 1;
+}
+
+/* Modal Backdrops */
+.modal-backdrop.show {
+    opacity: 0.8 !important;
+    background-color: #060818 !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+/* Diverse Modal Entrances */
+#examRegistrationModal.modal.fade .modal-dialog {
+    transform: scale(1.2) !important;
+    filter: blur(20px);
+    opacity: 0;
+    transition: all 0.7s ease-out !important;
+}
+#examRegistrationModal.modal.show .modal-dialog {
+    transform: scale(1) !important;
+    filter: blur(0);
+    opacity: 1 !important;
+}
+
+#settingsModal.modal.fade .modal-dialog {
+    transform: translateY(-200px) perspective(500px) rotateX(30deg) !important;
+    opacity: 0;
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+#settingsModal.modal.show .modal-dialog {
+    transform: translateY(0) perspective(500px) rotateX(0deg) !important;
+    opacity: 1 !important;
+}
+
+#visitorModal.modal.fade .modal-dialog {
+    transform: translateX(200px) !important;
+    opacity: 0;
+    transition: all 0.5s ease-out !important;
+}
+#visitorModal.modal.show .modal-dialog {
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+}
+
+/* Gradient Borders for Buttons */
+@keyframes gradBorderMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.btn-primary, .btn-success, .btn-danger, .btn-warning, .btn-info {
+    position: relative;
+    z-index: 0;
+}
+
+.btn-primary::before, .btn-success::before, .btn-danger::before, .btn-warning::before, .btn-info::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    z-index: -1;
+    background: linear-gradient(270deg, #00d9ff, #b537f2, #00ff88, #ff8c00, #00d9ff);
+    background-size: 400% 400%;
+    animation: gradBorderMove 4s ease infinite;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.btn-primary:hover::before, .btn-success:hover::before, .btn-danger:hover::before, .btn-warning:hover::before, .btn-info:hover::before {
+    opacity: 1;
+}
+
+/* Ripple effect */
+.ripple-wave {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(0);
+    animation: rippleWaveAnim 0.55s linear;
+    pointer-events: none;
+}
+@keyframes rippleWaveAnim {
+    to { transform: scale(5); opacity: 0; }
+}
+
+/* DEV MODE & Blinker */
+@keyframes devPulse {
+    0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+}
+@keyframes blinker { 50% { opacity: 0; } }
+
+/* ── PREMIUM LOGIN ANIMATION (AIRPLANE TAKEOFF) ── */
+.btn-login-premium {
+    position: relative;
+    overflow: hidden;
+    color: #fff;
+    background: linear-gradient(135deg, #00d9ff 0%, #0a4bf5 100%);
+    border: 1px solid rgba(0, 217, 255, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 150, 255, 0.25);
+    transition: all 0.3s ease;
+    z-index: 1;
+}
+
+.btn-login-premium:hover {
+    box-shadow: 0 6px 20px rgba(0, 217, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.btn-login-premium .login-text {
+    position: relative;
+    z-index: 2;
+    transition: opacity 0.3s ease;
+}
+
+.btn-login-premium .plane-icon {
+    position: absolute;
+    left: -40px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
+    z-index: 2;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* When the login is clicked, the text fades and the plane flies across the button and up into the sky */
+.btn-login-premium.takeoff .login-text {
+    opacity: 0;
+}
+
+.btn-login-premium.takeoff .plane-icon {
+    animation: planeTakeoff 1.2s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+@keyframes planeTakeoff {
+    0% {
+        left: -40px;
+        top: 50%;
+        transform: translateY(-50%) rotate(0deg) scale(1);
+    }
+    30% {
+        left: 30%;
+        top: 50%;
+        transform: translateY(-50%) rotate(0deg) scale(1.1);
+    }
+    60% {
+        left: 60%;
+        top: 40%;
+        transform: translateY(-50%) rotate(-15deg) scale(1.2);
+    }
+    100% {
+        left: 120%;
+        top: -30px;
+        transform: translateY(-50%) rotate(-35deg) scale(1.4);
+    }
+}
+
+/* Whole login section fade out transition */
+#loginSection {
+    transition: opacity 0.6s ease-in-out, transform 0.6s ease-in-out;
+}
+#loginSection.fly-away-fade {
+    opacity: 0;
+    transform: scale(0.95);
+}

@@ -1,0 +1,190 @@
+<!-- ══════════════════════════════════════════════════════════
+     SALARY PAY MODAL  — v4.0
+     Opens via openSalaryModal(emp) from salary-management.js
+     ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="salaryModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+        <div class="modal-content custom-modal">
+
+            <div class="modal-header border-bottom">
+                <div>
+                    <h5 class="modal-title fw-bold">💰 Record Payment</h5>
+                    <!-- Employee dropdown -->
+                    <div class="mt-2 text-start">
+                        <select id="salModalEmpSelect" class="form-select form-select-sm" style="background:#0d1b2a; color:#e0f0ff; border:1px solid rgba(0,212,170,0.3);" onchange="window.handleSalModalEmpChange()">
+                            <option value="">-- Employee Select --</option>
+                        </select>
+                    </div>
+                    <div id="salModalEmpRole" class="badge mt-2"
+                        style="background:rgba(0,212,170,0.18);color:#00d4aa;font-size:0.73rem;padding:2px 8px;border-radius:20px;font-weight:600;display:none;"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body pb-2">
+                <form id="salaryForm" onsubmit="handleSalarySubmit(event)">
+                    <!-- Hidden state -->
+                    <input type="hidden" id="salEmpId">
+                    <input type="hidden" id="salEmpName">
+                    <input type="hidden" id="salTypeHidden" value="Due">
+
+                    <!-- Payment Type selector -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Type <span class="text-danger">*</span></label>
+                        <div class="d-flex gap-2">
+
+                            <button type="button" id="btnTypeDue"
+                                class="sal-type-btn flex-fill py-2 rounded-3 fw-bold border-0"
+                                onclick="setSalType('Due')"
+                                style="background:linear-gradient(135deg,#00d4aa,#00a88a);color:#fff;box-shadow:0 3px 12px rgba(0,212,170,0.4);cursor:pointer;transition:all .2s;line-height:1.3;">
+                                🟢 Due
+                                <div style="font-size:0.72rem;opacity:0.85;font-weight:400;">বকেয়া পেমেন্ট</div>
+                            </button>
+
+                            <button type="button" id="btnTypeAdvance"
+                                class="sal-type-btn flex-fill py-2 rounded-3 fw-bold border-0"
+                                onclick="setSalType('Advance')"
+                                style="background:rgba(255,255,255,0.07);color:#a0c4ff;border:1px solid rgba(255,255,255,0.12)!important;cursor:pointer;transition:all .2s;line-height:1.3;">
+                                🔵 Advance
+                                <div style="font-size:0.72rem;opacity:0.75;font-weight:400;">অগ্রিম পেমেন্ট</div>
+                            </button>
+
+                            <button type="button" id="btnTypeBonus"
+                                class="sal-type-btn flex-fill py-2 rounded-3 fw-bold border-0"
+                                onclick="setSalType('Bonus')"
+                                style="background:rgba(255,255,255,0.07);color:#a0c4ff;border:1px solid rgba(255,255,255,0.12)!important;cursor:pointer;transition:all .2s;line-height:1.3;">
+                                🌟 Bonus
+                                <div style="font-size:0.72rem;opacity:0.75;font-weight:400;">বোনাস</div>
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <!-- Info panels (shown based on type) -->
+                    <div id="salDuePanel" class="py-2 px-3 mb-3 rounded-3"
+                        style="background:rgba(0,212,170,0.1);border:1px solid rgba(0,212,170,0.3);font-size:0.84rem;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span style="color:#a0ffdd;"><i class="bi bi-calendar-check me-1"></i>এই মাসের বকেয়া</span>
+                            <span id="salDueAmountBadge" class="fw-bold" style="color:#00d4aa;font-size:1rem;">৳ —</span>
+                        </div>
+                        <div class="mt-1" style="color:#7af0d0;font-size:0.77rem;opacity:0.8;">
+                            বকেয়া পরিমাণ অটো-ফিল হয়েছে। কম দিলে Partial হবে।
+                        </div>
+                    </div>
+
+                    <div id="salAdvancePanel" class="py-2 px-3 mb-3 rounded-3 d-none"
+                        style="background:rgba(0,150,255,0.1);border:1px solid rgba(0,150,255,0.3);font-size:0.84rem;">
+                        <div style="color:#7ab8ff;">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Advance <strong>Accounts › Advance Management</strong>-এ রেকর্ড হবে।
+                        </div>
+                        <div id="salExistingAdvance" class="mt-1 fw-bold d-none" style="color:#ff9f43;font-size:0.82rem;"></div>
+                    </div>
+
+                    <div id="salBonusPanel" class="py-2 px-3 mb-3 rounded-3 d-none"
+                        style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.3);font-size:0.84rem;">
+                        <span style="color:#ffd200;"><i class="bi bi-star-fill me-1"></i>
+                            Bonus সরাসরি Salary Expense হিসেবে রেকর্ড হবে।
+                        </span>
+                    </div>
+
+                    <!-- Amount + Date -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-7">
+                            <label class="form-label fw-bold">Amount (৳) <span class="text-danger">*</span></label>
+                            <input type="number" id="salAmount" class="form-control" required placeholder="0" min="1">
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label fw-bold">Payment Date <span class="text-danger">*</span></label>
+                            <input type="date" id="salDate" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                        <select id="salMethod" class="form-select" required>
+                            <option value="Cash">💵 Cash</option>
+                        </select>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-1">
+                        <label class="form-label fw-bold">Description / Notes</label>
+                        <textarea id="salDescription" class="form-control" rows="2"
+                            placeholder="e.g. Salary for March 2026"></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer border-top pt-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="salaryForm" id="salConfirmBtn"
+                    class="btn btn-success fw-bold px-4">💾 Confirm Payment</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════
+     SALARY EDIT MODAL  — v4.0
+     Opens via editSalaryRecord(txId) from salary-management.js
+     ══════════════════════════════════════════════════════════ -->
+<div class="modal fade" id="salaryEditModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+        <div class="modal-content custom-modal">
+
+            <div class="modal-header border-bottom">
+                <div>
+                    <h5 class="modal-title fw-bold">✏️ Edit Salary Record</h5>
+                    <!-- Shows "Employee — Type" e.g. "Rahim — Advance" -->
+                    <div id="salEditInfo" class="text-muted" style="font-size:0.82rem;margin-top:2px;"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body pb-2">
+                <form id="salaryEditForm" onsubmit="handleSalaryEditSubmit(event)">
+                    <!-- Hidden: transaction ID -->
+                    <input type="hidden" id="salEditTxId">
+
+                    <!-- Amount + Date -->
+                    <div class="row g-3 mb-3">
+                        <div class="col-7">
+                            <label class="form-label fw-bold">Amount (৳) <span class="text-danger">*</span></label>
+                            <input type="number" id="salEditAmount" class="form-control" required placeholder="0" min="1">
+                        </div>
+                        <div class="col-5">
+                            <label class="form-label fw-bold">Date <span class="text-danger">*</span></label>
+                            <input type="date" id="salEditDate" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Payment Method <span class="text-danger">*</span></label>
+                        <select id="salEditMethod" class="form-select" required>
+                            <option value="Cash">💵 Cash</option>
+                        </select>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="mb-1">
+                        <label class="form-label fw-bold">Description / Notes</label>
+                        <textarea id="salEditDesc" class="form-control" rows="2"
+                            placeholder="e.g. March salary payment"></textarea>
+                    </div>
+                </form>
+            </div>
+
+            <div class="modal-footer border-top pt-2">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" form="salaryEditForm"
+                    class="btn btn-warning fw-bold px-4" style="color:#1a1a2e;">✏️ Save Changes</button>
+            </div>
+
+        </div>
+    </div>
+</div>

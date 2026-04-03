@@ -1,0 +1,74 @@
+                <div id="visitorSection" class="d-none">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h4 class="fw-bold m-0"><span class="me-2">👤</span> Visitor Management</h4>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-primary fw-bold px-4 rounded-3" onclick="
+                                document.getElementById('visitorRowIndex') && (document.getElementById('visitorRowIndex').value = '');
+                                const _vm = document.getElementById('visitorModal');
+                                if (_vm) {
+                                  const _f = document.getElementById('visitorForm');
+                                  if (_f) _f.reset();
+                                  bootstrap.Modal.getOrCreateInstance(_vm).show();
+                                } else if (typeof openVisitorModal === 'function') {
+                                  openVisitorModal();
+                                }
+                              ">
+                                <i class="bi bi-person-plus-fill me-2"></i>Add New Visitor
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Visitor Filters -->
+                    <div class="card border-0 shadow-sm mb-4">
+                        <div class="card-body">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-dark border-end-0 text-muted"><i
+                                                class="bi bi-search"></i></span>
+                                        <input type="text" id="visitorSearchInput"
+                                            class="form-control premium-input-modern border-start-0"
+                                            placeholder="Search by name or phone..." onkeyup="searchVisitors()">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" id="visitorStartDate" class="form-control premium-input-modern"
+                                        onchange="searchVisitors()">
+                                </div>
+                                <div class="col-md-3">
+                                    <input type="date" id="visitorEndDate" class="form-control premium-input-modern"
+                                        onchange="searchVisitors()">
+                                </div>
+                                <div class="col-md-2">
+                                    <button class="btn btn-outline-secondary w-100 fw-bold"
+                                        onclick="clearVisitorFilters()">Reset</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visitor Table -->
+                    <div class="card premium-table-card shadow-sm mb-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle modern-table mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Name</th>
+                                        <th>Phone</th>
+                                        <th>Interested Course</th>
+                                        <th>Remarks</th>
+                                        <th class="text-end">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="visitorTableBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <!-- No Visitors Message -->
+                    <div id="noVisitorsMessage" class="text-center text-muted py-5 d-none">
+                        <p class="mb-0">No visitors found matching your search.</p>
+                    </div>
+                </div>
+
+                <!-- Employee Management Section -->

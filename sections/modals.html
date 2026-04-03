@@ -1,0 +1,2180 @@
+<div class="modal fade" id="financeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2">💰</span>Add Transaction
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="financeForm" onsubmit="handleFinanceSubmit(event)">
+                    <div class="row">
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-semibold">Type</label>
+                            <select name="type" class="form-select" onchange="updateFinanceCategoryOptions()">
+                                <option value="Income">Income (+)</option>
+                                <option value="Expense">Expense (-)</option>
+                                <option value="Loan Given">Loan Giving (Money Out)</option>
+                                <option value="Loan Received">Loan Receiving (Money In)</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-semibold">Method</label>
+                            <select name="method" class="form-select" id="financeMethodSelect">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-semibold">Date</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                        <div class="col-12 col-sm-6 mb-3">
+                            <label class="form-label fw-semibold">Category</label>
+                            <select name="category" class="form-select" id="financeCategorySelect">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3 d-none" id="financePersonContainer">
+                        <label class="form-label fw-semibold">Person / Counterparty</label>
+                        <input type="text" name="person" class="form-control" id="financePersonInput"
+                            placeholder="Name of person (required for Salary/Loans)" onkeyup="checkPersonBalance()">
+                        <div id="personBalanceDisplay" class="form-text fw-bold mt-1"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Amount</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-end-0">৳</span>
+                            <input type="number" name="amount" class="form-control border-start-0" placeholder="0"
+                                required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea name="description" class="form-control" rows="2"
+                            placeholder="Optional notes"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-semibold">Save
+                        Transaction</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+<!-- Settings Modal (Redesigned) -->
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content custom-modal" style="min-height: 500px;">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-primary-light">⚙️</span>System Settings
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <form id="settingsForm" onsubmit="handleSettingsSubmit(event)" class="h-100">
+                    <div class="d-flex h-100 flex-column flex-lg-row">
+                        <!-- Sidebar Navigation -->
+                        <div class="border-end p-3 settings-nav" style="min-width: 260px; background: var(--bg-card);">
+                            <div class="nav flex-column nav-pills" role="tablist">
+                                <button class="nav-link active" type="button"
+                                    onclick="switchSettingsTab('tab-general', this)">
+                                    <span>🏢</span> General Settings
+                                </button>
+                                <button class="nav-link" type="button" onclick="switchSettingsTab('tab-config', this)">
+                                    <span>🏷️</span> Categories & Courses
+                                </button>
+                                <button class="nav-link" type="button" onclick="switchSettingsTab('tab-data', this)">
+                                    <span>💾</span> Data Management
+                                </button>
+                                <button class="nav-link" type="button"
+                                    onclick="switchSettingsTab('tab-security', this)">
+                                    <span>🔒</span> Security & Access
+                                </button>
+                                <button class="nav-link" type="button"
+                                    onclick="switchSettingsTab('tab-activitylog', this); renderActivityLog()">
+                                    <span>📋</span> Activity Log
+                                </button>
+                                <button class="nav-link" type="button"
+                                    onclick="switchSettingsTab('tab-recyclebin', this); renderRecycleBin()">
+                                    <span>🗑️</span> Recycle Bin
+                                </button>
+                                <button class="nav-link" type="button"
+                                    onclick="switchSettingsTab('tab-diagnostic', this)">
+                                    <span>🔍</span> Sync Diagnostic
+                                </button>
+                                <button class="nav-link" type="button"
+                                    onclick="switchSettingsTab('tab-keeprecord', this); renderKeepRecords()">
+                                    <span>📝</span> Keep Record
+                                </button>
+                            </div>
+                            <div class="mt-auto pt-4 text-center">
+                                <button type="submit" class="btn btn-primary w-100 py-2 shadow-sm">
+                                    Save All Changes
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Main Content Area -->
+                        <div class="flex-grow-1 overflow-auto" style="background: var(--bg-app);">
+                            <div id="settingsTabContent">
+                                <!-- Tab 1: General Settings -->
+                                <div class="settings-tab-pane active" id="tab-general"
+                                    style="display:block; padding:24px;">
+                                    <h6 class="settings-section-title">Academy Information</h6>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">Academy Name</label>
+                                        <input type="text" name="academyName" class="form-control premium-input-modern"
+                                            placeholder="Enter Academy Name">
+                                    </div>
+                                    <div class="mb-4">
+                                        <label class="form-label fw-semibold">🎯 Monthly Target Income
+                                            (BDT)</label>
+                                        <input type="number" name="monthlyTarget"
+                                            class="form-control premium-input-modern" placeholder="e.g., 200000">
+                                        <small class="text-muted">This sets the goal for your monthly progress
+                                            bar.</small>
+                                    </div>
+
+                                    <!-- ===== AUTO SNAPSHOT SECTION ===== -->
+                                    <h6 class="settings-section-title mt-4">📸 Auto Snapshots</h6>
+                                    <div class="p-3 rounded-3 mb-2"
+                                        style="background: rgba(0,217,255,0.06); border: 1.5px solid rgba(0,217,255,0.2);">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <div>
+                                                <span style="color:#00d9ff;font-size:0.85rem;font-weight:600;">প্রতি
+                                                    ১ ঘন্টায় auto snapshot</span>
+                                                <span class="ms-2 badge"
+                                                    style="background:rgba(0,255,100,0.2);color:#00ff88;font-size:0.7rem;">Last
+                                                    7 রাখা হয়</span>
+                                            </div>
+                                            <button class="btn btn-sm" type="button"
+                                                onclick="takeSnapshot(); setTimeout(renderSnapshotList, 200);"
+                                                style="background:rgba(0,217,255,0.2);color:#00d9ff;border:1px solid #00d9ff;font-size:0.75rem;">
+                                                📸 এখনই নিন
+                                            </button>
+                                        </div>
+                                        <div id="snapshotListContainer">
+                                            <div class="text-center py-3" style="color:#888;font-size:0.85rem;">
+                                                Loading...</div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Tab 2: Configurations -->
+                                <div class="settings-tab-pane" id="tab-config" style="display:none; padding:24px;">
+                                    <div class="row g-4">
+                                        <!-- Income Categories -->
+                                        <div class="col-md-6">
+                                            <h6 class="settings-section-title">Income Categories
+                                            </h6>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" id="newIncomeCatInput"
+                                                    class="form-control premium-input-modern"
+                                                    placeholder="Add new category...">
+                                                <button class="btn btn-success" type="button"
+                                                    onclick="addIncomeCategory()">+ Add</button>
+                                            </div>
+                                            <div class="settings-list-container">
+                                                <ul class="list-unstyled mb-0" id="settingsIncomeCatList">
+                                                    <!-- Populated dynamically -->
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Expense Categories -->
+                                        <div class="col-md-6">
+                                            <h6 class="settings-section-title">Expense Categories
+                                            </h6>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" id="newExpenseCatInput"
+                                                    class="form-control premium-input-modern"
+                                                    placeholder="Add new category...">
+                                                <button class="btn btn-danger" type="button"
+                                                    onclick="addExpenseCategory()">+ Add</button>
+                                            </div>
+                                            <div class="settings-list-container">
+                                                <ul class="list-unstyled mb-0" id="settingsExpenseCatList">
+                                                    <!-- Populated dynamically -->
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Course Names -->
+                                        <div class="col-md-6">
+                                            <h6 class="settings-section-title">Course / Program
+                                                Names</h6>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" id="newCourseInput"
+                                                    class="form-control premium-input-modern"
+                                                    placeholder="Add new course...">
+                                                <button class="btn btn-primary" type="button"
+                                                    onclick="addCourseName()">+ Add</button>
+                                            </div>
+                                            <div class="settings-list-container">
+                                                <ul class="list-unstyled mb-0" id="settingsCourseList">
+                                                    <!-- Populated dynamically -->
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <!-- Employee Roles -->
+                                        <div class="col-md-6">
+                                            <h6 class="settings-section-title">Employee Roles / Designations</h6>
+                                            <div class="input-group input-group-sm mb-2">
+                                                <input type="text" id="newEmployeeRoleInput"
+                                                    class="form-control premium-input-modern"
+                                                    placeholder="Add new role...">
+                                                <button class="btn btn-secondary" type="button"
+                                                    onclick="addEmployeeRole()">+ Add</button>
+                                            </div>
+                                            <div class="settings-list-container">
+                                                <ul class="list-unstyled mb-0" id="settingsEmployeeRoleList">
+                                                    <!-- Populated dynamically -->
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tab 3: Data Management -->
+                                <div class="settings-tab-pane" id="tab-data" style="display:none; padding:24px;">
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-8">
+                                            <!-- 🔧 Paid/Finance Mismatch Fix -->
+                                            <div class="card border-0 shadow-sm mb-4"
+                                                style="border-left:3px solid #ffc107 !important;">
+                                                <div class="card-body p-3">
+                                                    <div class="d-flex align-items-center mb-2">
+                                                        <span style="font-size:1.4rem;margin-right:10px;">🔧</span>
+                                                        <div class="flex-grow-1">
+                                                            <h6 class="fw-bold mb-0 text-warning">Paid ও Finance
+                                                                Auto-Sync</h6>
+                                                            <small class="text-muted">Auto-Heal প্রতি ৬০ সেকেন্ডে
+                                                                background-এ চেক করে fix করে</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-2 p-2 rounded"
+                                                        style="background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);">
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <span class="small text-muted">Current Status:</span>
+                                                            <span id="krPaidFinanceStatus" class="small">
+                                                                <span style="color:#888;">চেক হচ্ছে...</span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-warning btn-sm w-100 fw-bold"
+                                                        onclick="manualHealPaidFinance()">
+                                                        ⚡ এখনই Fix করুন
+                                                    </button>
+                                                    <div id="krFixResult" class="mt-2 small"></div>
+                                                </div>
+                                            </div>
+                                            <!-- Backup & Restore -->
+                                            <div class="card border-0 shadow-sm mb-4">
+                                                <div class="card-body p-4">
+                                                    <div class="d-flex align-items-center mb-3">
+                                                        <div class="icon-box bg-light text-primary me-3"
+                                                            style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                            💾</div>
+                                                        <div>
+                                                            <h6 class="fw-bold mb-0">Backup &
+                                                                Restore</h6>
+                                                            <small class="text-muted">Save your data
+                                                                locally or
+                                                                restore from a file.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="row g-2">
+                                                        <div class="col-6">
+                                                            <button type="button"
+                                                                class="btn btn-outline-primary w-100 py-2"
+                                                                onclick="exportData()">
+                                                                💾 Export Data
+                                                            </button>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <button type="button"
+                                                                class="btn btn-outline-secondary w-100 py-2"
+                                                                onclick="importData()">
+                                                                📤 Import Data
+                                                            </button>
+                                                            <input type="file" id="importFile" accept=".json"
+                                                                style="display: none;"
+                                                                onchange="handleImportFile(event)">
+                                                        </div>
+                                                        <div class="col-12 mt-2">
+                                                            <button type="button" class="btn btn-success w-100 py-2"
+                                                                onclick="manualCloudSync()">
+                                                                ☁️ Sync with Cloud Now
+                                                            </button>
+                                                            <small class="text-muted d-block mt-1 text-center">
+                                                                Auto-syncs every 30 seconds
+                                                            </small>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Tools -->
+                                            <div class="card border-0 shadow-sm mb-4">
+                                                <div class="card-body p-4">
+                                                    <div class="d-flex align-items-center mb-3">
+                                                        <div class="icon-box bg-light text-info me-3"
+                                                            style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                            📊</div>
+                                                        <div>
+                                                            <h6 class="fw-bold mb-0">Account Details
+                                                            </h6>
+                                                            <small class="text-muted">View detailed
+                                                                breakdown of
+                                                                incomes and expenses.</small>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="btn btn-outline-info w-100 py-2"
+                                                        onclick="showAccountDetails()">
+                                                        View Account Analytics
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Danger Zone -->
+                                            <div class="card border border-danger bg-danger-light">
+                                                <div class="card-body p-4">
+                                                    <div class="d-flex align-items-center mb-3">
+                                                        <div class="icon-box bg-transparent text-danger me-3"
+                                                            style="width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+                                                            ⚠️</div>
+                                                        <div>
+                                                            <h6 class="fw-bold text-danger mb-0">
+                                                                Danger Zone
+                                                            </h6>
+                                                            <small class="text-danger">This action
+                                                                cannot be
+                                                                undone.</small>
+                                                        </div>
+                                                    </div>
+                                                    <div class="d-grid gap-2">
+                                                        <button type="button" class="btn btn-outline-danger py-2"
+                                                            onclick="handleDataReset()">
+                                                            🗑️ Reset Data Only (Keep Settings)
+                                                        </button>
+                                                        <button type="button" class="btn btn-danger py-2"
+                                                            onclick="handleResetAllData()">
+                                                            ⚠️ Factory Reset (Delete Everything)
+                                                        </button>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-2">
+                                                        <strong>Data Reset:</strong> Deletes students &
+                                                        transactions, keeps categories & settings.<br>
+                                                        <strong>Factory Reset:</strong> Deletes everything including
+                                                        all settings.
+                                                    </small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tab 4: Security & Access -->
+                                <div class="settings-tab-pane" id="tab-security" style="display:none; padding:24px;">
+                                    <div class="row justify-content-center">
+                                        <div class="col-md-8">
+                                            <div class="card border-0 shadow-sm mb-4">
+                                                <div class="card-body p-4">
+                                                    <div class="d-flex align-items-center mb-4">
+                                                        <div class="icon-box bg-primary-subtle text-primary me-3"
+                                                            style="width: 45px; height: 45px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+                                                            🔒</div>
+                                                        <div>
+                                                            <h6 class="fw-bold mb-0">Admin Login Credentials</h6>
+                                                            <small class="text-muted">Change your password to stop
+                                                                browser security warnings.</small>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label
+                                                            class="form-label fw-bold small text-uppercase text-muted">Admin
+                                                            Username</label>
+                                                        <input type="text" id="settingsUsername" name="adminUsername"
+                                                            class="form-control premium-input-modern"
+                                                            placeholder="Enter admin username">
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label
+                                                            class="form-label fw-bold small text-uppercase text-muted">New
+                                                            Admin Password</label>
+                                                        <div class="input-group">
+                                                            <input type="password" id="settingsPassword"
+                                                                name="adminPassword"
+                                                                class="form-control premium-input-modern"
+                                                                placeholder="Enter new password"
+                                                                oninput="checkPasswordMatch()">
+                                                            <button class="btn btn-outline-secondary" type="button"
+                                                                id="settingsPasswordToggleBtn"
+                                                                onclick="const p=document.getElementById('settingsPassword'); const icon=document.getElementById('settingsEyeIcon'); p.type=p.type==='password'?'text':'password'; icon.innerHTML=p.type==='password'?'👁️':'🙈';"
+                                                                style="background:white;">
+                                                                <span id="settingsEyeIcon">👁️</span>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="mb-3">
+                                                        <label
+                                                            class="form-label fw-bold small text-uppercase text-muted">Confirm
+                                                            Password</label>
+                                                        <div class="input-group">
+                                                            <input type="password" id="settingsPasswordConfirm"
+                                                                name="adminPasswordConfirm"
+                                                                class="form-control premium-input-modern"
+                                                                placeholder="Re-enter new password"
+                                                                oninput="checkPasswordMatch()">
+                                                            <button class="btn btn-outline-secondary" type="button"
+                                                                onclick="const p=document.getElementById('settingsPasswordConfirm'); const icon=document.getElementById('settingsConfirmEyeIcon'); p.type=p.type==='password'?'text':'password'; icon.innerHTML=p.type==='password'?'👁️':'🙈';"
+                                                                style="background:white;">
+                                                                <span id="settingsConfirmEyeIcon">👁️</span>
+                                                            </button>
+                                                        </div>
+                                                        <div id="passwordMatchMsg" class="small mt-1"
+                                                            style="display:none;"></div>
+                                                        <small class="text-muted mt-1 d-block">Use a unique password
+                                                            to avoid Google Password Manager alerts.</small>
+                                                    </div>
+
+                                                    <div class="alert alert-info border-0 rounded-4 small mb-0">
+                                                        <strong>Note:</strong> After changing, use this new password
+                                                        for both PCs. Make sure to <strong>Push to Cloud</strong>
+                                                        after saving.
+                                                    </div>
+
+                                                    <!-- Secret Question Section -->
+                                                    <hr class="my-4">
+                                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                                        <div class="d-flex align-items-center">
+                                                            <div class="icon-box bg-warning-subtle text-warning me-3"
+                                                                style="width:45px; height:45px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem;">
+                                                                🛡️</div>
+                                                            <div>
+                                                                <h6 class="fw-bold mb-0">Secret Recovery Question</h6>
+                                                                <small class="text-muted">পাসওয়ার্ড ভুলে গেলে এই প্রশ্ন
+                                                                    দিয়ে reset করতে পারবেন</small>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" id="secretQuestionToggleBtn"
+                                                            onclick="toggleSecretQuestionSection()"
+                                                            class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                                                            style="font-size:0.78rem; white-space:nowrap;">
+                                                            <span id="secretToggleIcon">👁️</span> <span
+                                                                id="secretToggleText">দেখুন</span>
+                                                        </button>
+                                                    </div>
+                                                    <div id="secretQuestionSection" style="display:none;">
+                                                        <div class="mb-3">
+                                                            <label
+                                                                class="form-label fw-bold small text-uppercase text-muted">আপনার
+                                                                প্রশ্ন লিখুন</label>
+                                                            <input type="text" id="secretQuestion" name="secretQuestion"
+                                                                class="form-control premium-input-modern"
+                                                                placeholder="যেমন: আপনার মায়ের নাম কী? / প্রিয় রঙ কোনটি?">
+                                                            <small class="text-muted mt-1 d-block">এমন প্রশ্ন লিখুন যার
+                                                                উত্তর শুধু আপনি জানেন</small>
+                                                        </div>
+                                                        <div class="mb-3">
+                                                            <label
+                                                                class="form-label fw-bold small text-uppercase text-muted">উত্তর</label>
+                                                            <div class="input-group">
+                                                                <input type="password" id="secretAnswer"
+                                                                    name="secretAnswer" autocomplete="off"
+                                                                    class="form-control premium-input-modern"
+                                                                    placeholder="গোপন উত্তর লিখুন">
+                                                                <button class="btn btn-outline-secondary" type="button"
+                                                                    onclick="const p=document.getElementById('secretAnswer'); p.type=p.type==='password'?'text':'password';">👁️</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Tab 5: Activity Log -->
+                            <div class="settings-tab-pane" id="tab-activitylog" style="display:none; padding:24px;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="settings-section-title mb-0">📋 Full Activity Log</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                                        onclick="clearActivityLog()">🗑️ Clear All</button>
+                                </div>
+                                <div class="d-flex gap-2 mb-3 flex-wrap">
+                                    <select id="logFilterType" class="form-select form-select-sm premium-input-modern"
+                                        style="max-width:160px;" onchange="renderActivityLog()">
+                                        <option value="all">All Actions</option>
+                                        <option value="ADD">➕ Add</option>
+                                        <option value="EDIT">✏️ Edit</option>
+                                        <option value="DELETE">🗑️ Delete</option>
+                                        <option value="LOGIN">🔐 Login</option>
+                                        <option value="PAYMENT">💰 Payment</option>
+                                        <option value="SETTINGS">⚙️ Settings</option>
+                                        <option value="RESTORE">♻️ Restore</option>
+                                    </select>
+                                    <input type="text" id="logSearch"
+                                        class="form-control form-control-sm premium-input-modern"
+                                        style="max-width:200px;" placeholder="🔍 Search..."
+                                        oninput="renderActivityLog()">
+                                </div>
+                                <div id="activityLogContainer" style="max-height:480px; overflow-y:auto;">
+
+                                </div>
+                            </div>
+
+                            <!-- Tab 6: Recycle Bin -->
+                            <div class="settings-tab-pane" id="tab-recyclebin" style="display:none; padding:24px;">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6 class="settings-section-title mb-0">🗑️ Recycle Bin</h6>
+                                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                                        onclick="clearRecycleBin()">🗑️ Empty Bin</button>
+                                </div>
+                                <p class="text-muted small mb-3">Deleted items — Restore করুন বা স্থায়ীভাবে মুছে
+                                    দিন।</p>
+                                <div class="mb-3">
+                                    <select id="binFilterType" class="form-select form-select-sm premium-input-modern"
+                                        style="max-width:160px;" onchange="renderRecycleBin()">
+                                        <option value="all">All Types</option>
+                                        <option value="Student">Student</option>
+                                        <option value="Employee">Employee</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Visitor">Visitor</option>
+                                    </select>
+                                </div>
+                                <div id="recycleBinContainer" style="max-height:350px; overflow-y:auto;">
+
+                                </div>
+                            </div>
+
+                            <!-- Tab: Sync Diagnostic & Function Test -->
+                            <div class="settings-tab-pane" id="tab-diagnostic" style="display:none; padding:0;">
+                                <style>
+                                    /* ── Dark Glassmorphism theme for Diagnostic tab ── */
+                                    .diag-wrap {
+                                        background: linear-gradient(135deg, #0d1b2e 0%, #0a1628 60%, #0d1f35 100%);
+                                        border-radius: 0;
+                                        padding: 20px;
+                                        min-height: 100%;
+                                        height: 100%;
+                                    }
+
+                                    .diag-title {
+                                        color: #00d4ff;
+                                        font-size: 1rem;
+                                        font-weight: 700;
+                                        letter-spacing: 1px;
+                                        margin-bottom: 2px;
+                                    }
+
+                                    .diag-subtitle {
+                                        color: #7aa0c4;
+                                        font-size: 0.78rem;
+                                        margin-bottom: 14px;
+                                    }
+
+                                    /* glass card */
+                                    .diag-card {
+                                        background: rgba(255, 255, 255, 0.05);
+                                        border: 1px solid rgba(255, 255, 255, 0.10);
+                                        border-radius: 12px;
+                                        backdrop-filter: blur(10px);
+                                        padding: 14px 16px;
+                                        margin-bottom: 12px;
+                                    }
+
+                                    .diag-card-title {
+                                        color: #00d4ff;
+                                        font-size: 0.78rem;
+                                        font-weight: 700;
+                                        letter-spacing: 1.5px;
+                                        text-transform: uppercase;
+                                        margin-bottom: 12px;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 6px;
+                                    }
+
+                                    /* stat boxes */
+                                    .diag-stat {
+                                        border-radius: 10px;
+                                        padding: 10px 14px;
+                                        text-align: center;
+                                        border: 1px solid rgba(255, 255, 255, 0.12);
+                                    }
+
+                                    .diag-stat-blue {
+                                        background: linear-gradient(135deg, #1a3a6e, #0e2347);
+                                    }
+
+                                    .diag-stat-green {
+                                        background: linear-gradient(135deg, #0d4a2a, #083320);
+                                    }
+
+                                    .diag-stat-red {
+                                        background: linear-gradient(135deg, #5a1a1a, #3d0f0f);
+                                    }
+
+                                    .diag-stat-purple {
+                                        background: linear-gradient(135deg, #2d1a5a, #1d0f3d);
+                                    }
+
+                                    .diag-stat-teal {
+                                        background: linear-gradient(135deg, #0d3d3d, #072828);
+                                    }
+
+                                    .diag-stat-orange {
+                                        background: linear-gradient(135deg, #4a2a0a, #2d1a04);
+                                    }
+
+                                    .diag-stat label {
+                                        display: block;
+                                        color: #7aa0c4;
+                                        font-size: 0.7rem;
+                                        margin-bottom: 2px;
+                                    }
+
+                                    .diag-stat .val {
+                                        color: #fff;
+                                        font-size: 1.1rem;
+                                        font-weight: 700;
+                                    }
+
+                                    .diag-stat .val-sm {
+                                        color: #e2f0ff;
+                                        font-size: 0.82rem;
+                                        font-weight: 600;
+                                    }
+
+                                    /* table rows */
+                                    .diag-row {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        padding: 6px 0;
+                                        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                                        font-size: 0.82rem;
+                                    }
+
+                                    .diag-row:last-child {
+                                        border-bottom: none;
+                                    }
+
+                                    .diag-row .lbl {
+                                        color: #7aa0c4;
+                                    }
+
+                                    .diag-row .rv {
+                                        color: #e2f0ff;
+                                        font-weight: 600;
+                                    }
+
+                                    /* check badges */
+                                    .diag-check {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        padding: 6px 10px;
+                                        border-radius: 8px;
+                                        font-size: 0.78rem;
+                                        margin-bottom: 4px;
+                                    }
+
+                                    .diag-check-ok {
+                                        background: rgba(0, 255, 136, 0.10);
+                                        border: 1px solid rgba(0, 255, 136, 0.25);
+                                    }
+
+                                    .diag-check-warn {
+                                        background: rgba(255, 200, 0, 0.10);
+                                        border: 1px solid rgba(255, 200, 0, 0.25);
+                                    }
+
+                                    .diag-check .chk-lbl {
+                                        color: #c8d8f0;
+                                    }
+
+                                    .diag-check .chk-ok {
+                                        color: #00ff88;
+                                        font-weight: 700;
+                                    }
+
+                                    .diag-check .chk-warn {
+                                        color: #ffcc00;
+                                        font-weight: 700;
+                                    }
+
+                                    /* buttons */
+                                    .diag-btn-primary {
+                                        background: linear-gradient(135deg, #0070cc, #0050a0);
+                                        color: #fff;
+                                        border: none;
+                                        border-radius: 8px;
+                                        padding: 6px 16px;
+                                        font-size: 0.8rem;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        transition: opacity 0.2s;
+                                    }
+
+                                    .diag-btn-primary:hover {
+                                        opacity: 0.85;
+                                    }
+
+                                    .diag-btn-green {
+                                        background: linear-gradient(135deg, #00a060, #007040);
+                                        color: #fff;
+                                        border: none;
+                                        border-radius: 8px;
+                                        padding: 6px 16px;
+                                        font-size: 0.8rem;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        transition: opacity 0.2s;
+                                    }
+
+                                    .diag-btn-green:hover {
+                                        opacity: 0.85;
+                                    }
+
+                                    .diag-btn-outline {
+                                        background: transparent;
+                                        color: #7aa0c4;
+                                        border: 1px solid rgba(255, 255, 255, 0.2);
+                                        border-radius: 8px;
+                                        padding: 6px 14px;
+                                        font-size: 0.8rem;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        text-decoration: none;
+                                        display: inline-block;
+                                        transition: all 0.2s;
+                                    }
+
+                                    .diag-btn-outline:hover {
+                                        color: #00d4ff;
+                                        border-color: #00d4ff;
+                                    }
+
+                                    /* overall bar */
+                                    #diag-overall {
+                                        border-radius: 10px;
+                                        padding: 12px 16px;
+                                        border: 1px solid rgba(255, 255, 255, 0.12);
+                                        margin-bottom: 12px;
+                                    }
+
+                                    /* log area */
+                                    .diag-log-area {
+                                        background: #05090f;
+                                        border-radius: 8px;
+                                        padding: 10px 12px;
+                                        font-family: monospace;
+                                        font-size: 0.73rem;
+                                        max-height: 130px;
+                                        overflow-y: auto;
+                                        border: 1px solid rgba(255, 255, 255, 0.08);
+                                    }
+
+                                    /* heal log */
+                                    #heal-log-container>div {
+                                        background: rgba(255, 255, 255, 0.04) !important;
+                                        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                                        color: #c8d8f0 !important;
+                                    }
+
+                                    /* functest rows */
+                                    .ft-row {
+                                        display: flex;
+                                        align-items: flex-start;
+                                        gap: 8px;
+                                        padding: 7px 10px;
+                                        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+                                        font-size: 0.78rem;
+                                    }
+
+                                    .ft-row .ft-name {
+                                        color: #c8d8f0;
+                                        flex: 1;
+                                    }
+
+                                    .ft-row .ft-detail {
+                                        color: #7aa0c4;
+                                        font-size: 0.72rem;
+                                    }
+
+                                    .ft-badge-pass {
+                                        background: rgba(0, 255, 136, 0.15);
+                                        color: #00ff88;
+                                        border: 1px solid #00ff8844;
+                                        padding: 2px 8px;
+                                        border-radius: 20px;
+                                        font-size: 0.7rem;
+                                        font-weight: 700;
+                                    }
+
+                                    .ft-badge-fail {
+                                        background: rgba(255, 68, 68, 0.15);
+                                        color: #ff4466;
+                                        border: 1px solid #ff446644;
+                                        padding: 2px 8px;
+                                        border-radius: 20px;
+                                        font-size: 0.7rem;
+                                        font-weight: 700;
+                                    }
+
+                                    .ft-badge-warn {
+                                        background: rgba(255, 200, 0, 0.15);
+                                        color: #ffcc00;
+                                        border: 1px solid #ffcc0044;
+                                        padding: 2px 8px;
+                                        border-radius: 20px;
+                                        font-size: 0.7rem;
+                                        font-weight: 700;
+                                    }
+                                </style>
+
+                                <div class="diag-wrap">
+                                    <div class="diag-title">⚡ System Diagnostic Center</div>
+                                    <div class="diag-subtitle">Data, Sync ও সব function ঠিকঠাক আছে কিনা এখানে দেখুন
+                                    </div>
+
+                                    <!-- ── ROW 1: Auto-Heal ── -->
+                                    <div class="diag-card">
+                                        <div class="diag-card-title">🛡️ Auto-Heal Engine</div>
+                                        <div
+                                            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                                            <span style="color:#7aa0c4;font-size:0.8rem;">Background-এ নিজে নিজে
+                                                সমস্যা খুঁজে fix করে — প্রতি ৬০ সেকেন্ডে</span>
+                                            <button type="button" class="diag-btn-green"
+                                                onclick="window.autoHeal?.runNow()">⚡ এখনই Run করুন</button>
+                                        </div>
+                                        <div
+                                            style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+                                            <div class="diag-stat diag-stat-green">
+                                                <label>মোট Check</label>
+                                                <div class="val" id="heal-stats-total-runs">0</div>
+                                            </div>
+                                            <div class="diag-stat diag-stat-blue">
+                                                <label>Auto Fix</label>
+                                                <div class="val" id="heal-stats-total-fixes">0</div>
+                                            </div>
+                                            <div class="diag-stat diag-stat-teal">
+                                                <label>শেষ Check</label>
+                                                <div class="val-sm" id="heal-stats-last-run">—</div>
+                                            </div>
+                                            <div class="diag-stat diag-stat-purple">
+                                                <label>শেষ Fix</label>
+                                                <div class="val-sm" id="heal-stats-last-fix">—</div>
+                                            </div>
+                                        </div>
+                                        <div
+                                            style="color:#7aa0c4;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">
+                                            🔧 Heal Log</div>
+                                        <div id="heal-log-container" class="diag-log-area" style="background:#05090f;">
+                                            <span style="color:#4a6080;">Engine চালু হলে এখানে log দেখাবে...</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- ── ROW 2: Sync Diagnostic ── -->
+                                    <div class="diag-card">
+                                        <div
+                                            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                                            <div class="diag-card-title" style="margin-bottom:0;">📊 Sync & Data
+                                                Check</div>
+                                            <div style="display:flex;gap:8px;">
+                                                <button type="button" class="diag-btn-primary"
+                                                    onclick="runDiagnosticInline()">🔍 পরীক্ষা চালান</button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Overall status -->
+                                        <div id="diag-overall"
+                                            style="display:none;background:rgba(0,200,100,0.08);border:1px solid rgba(0,200,100,0.2);">
+                                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                                <span style="color:#e2f0ff;font-weight:700;"
+                                                    id="diag-overall-label">—</span>
+                                                <span id="diag-overall-badge"
+                                                    style="font-size:0.85rem;font-weight:700;"></span>
+                                            </div>
+                                            <div
+                                                style="height:5px;background:rgba(255,255,255,0.1);border-radius:3px;margin-top:8px;overflow:hidden;">
+                                                <div id="diag-progress"
+                                                    style="height:100%;border-radius:3px;transition:width 0.5s;width:0%;">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Local vs Cloud -->
+                                        <div id="diag-grid" style="display:none;">
+                                            <div
+                                                style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                                                <!-- Local -->
+                                                <div
+                                                    style="background:rgba(0,80,180,0.15);border:1px solid rgba(0,120,255,0.2);border-radius:10px;padding:12px;">
+                                                    <div
+                                                        style="color:#00d4ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                                                        📦 লোকাল ডেটা</div>
+                                                    <div class="diag-row"><span class="lbl">Students</span><span
+                                                            class="rv" id="d-localStudents">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Finance</span><span
+                                                            class="rv" id="d-localFinance">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Cash</span><span class="rv"
+                                                            id="d-localCash">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Version</span><span
+                                                            class="rv" id="d-localVer">—</span></div>
+                                                </div>
+                                                <!-- Cloud -->
+                                                <div
+                                                    style="background:rgba(0,120,80,0.15);border:1px solid rgba(0,200,100,0.2);border-radius:10px;padding:12px;">
+                                                    <div
+                                                        style="color:#00ff88;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                                                        ☁️ Cloud ডেটা</div>
+                                                    <div class="diag-row"><span class="lbl">Students</span><span
+                                                            class="rv" id="d-cloudStudents">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Finance</span><span
+                                                            class="rv" id="d-cloudFinance">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Cash</span><span class="rv"
+                                                            id="d-cloudCash">—</span></div>
+                                                    <div class="diag-row"><span class="lbl">Version</span><span
+                                                            class="rv" id="d-cloudVer">—</span></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Integrity checks -->
+                                            <div
+                                                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:8px;">
+                                                <div
+                                                    style="color:#00d4ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                                                    ✅ Integrity Checks</div>
+                                                <div id="d-checks"></div>
+                                            </div>
+
+                                            <!-- Accounting audit -->
+                                            <div
+                                                style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:12px;margin-bottom:8px;">
+                                                <div
+                                                    style="color:#00d4ff;font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">
+                                                    🧮 Accounting Audit</div>
+                                                <div id="d-accounting"
+                                                    style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Diag log -->
+                                        <div id="diag-log" class="diag-log-area" style="display:none;margin-top:8px;">
+                                        </div>
+                                    </div>
+
+                                    <!-- ── ROW 3: Function Test ── -->
+                                    <div class="diag-card" style="margin-bottom:0;">
+                                        <div
+                                            style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+                                            <div class="diag-card-title" style="margin-bottom:0;">🧪 Auto Function
+                                                Test</div>
+                                            <div style="display:flex;gap:8px;">
+                                                <button type="button" class="diag-btn-green"
+                                                    onclick="runFunctionTests()">▶ Tests চালান</button>
+                                            </div>
+                                        </div>
+                                        <div id="functest-summary"
+                                            style="display:none;gap:8px;margin-bottom:8px;flex-wrap:wrap;"></div>
+                                        <div id="functest-results" style="max-height:220px;overflow-y:auto;"></div>
+                                    </div>
+
+                                </div><!-- /diag-wrap -->
+                            </div><!-- /tab-diagnostic -->
+
+                            <!-- Tab: Keep Record -->
+                            <div class="settings-tab-pane" id="tab-keeprecord" style="display:none; padding:24px;">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                    <div>
+                                        <h6 class="settings-section-title mb-1">📝 Keep Record</h6>
+                                        <small class="text-muted">ব্যক্তিগত নোট ও রেকর্ড — তারিখ অনুযায়ী সেভ
+                                            থাকে</small>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-primary"
+                                        onclick="event.preventDefault(); event.stopPropagation(); openKeepRecordModal()">＋
+                                        নতুন নোট</button>
+                                </div>
+
+                                <!-- Inline Add/Edit Form — default hide, নতুন নোট বা edit এ দেখাবে -->
+                                <div id="krInlineForm"
+                                    style="display:none; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:18px; margin-bottom:18px;">
+                                    <div class="d-flex align-items-center justify-content-between mb-3">
+                                        <h6 class="fw-bold mb-0" id="krModalTitle" style="color:#7dd3fc;">📝 নতুন নোট
+                                        </h6>
+                                        <button type="button"
+                                            style="background:none;border:none;color:#94a3b8;font-size:1.2rem;cursor:pointer;"
+                                            onclick="event.preventDefault(); event.stopPropagation(); closeKeepRecordModal()">✕</button>
+                                    </div>
+                                    <input type="hidden" id="krEditId">
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-6">
+                                            <label class="form-label fw-semibold small">তারিখ</label>
+                                            <input type="date" id="krNoteDate"
+                                                class="form-control premium-input-modern form-control-sm">
+                                        </div>
+                                        <div class="col-6">
+                                            <label class="form-label fw-semibold small">ট্যাগ</label>
+                                            <select id="krNoteTag"
+                                                class="form-select premium-input-modern form-select-sm">
+                                                <option>General</option>
+                                                <option>Finance</option>
+                                                <option>Student</option>
+                                                <option>Important</option>
+                                                <option>Reminder</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="mb-2">
+                                        <label class="form-label fw-semibold small">শিরোনাম</label>
+                                        <input type="text" id="krNoteTitle"
+                                            class="form-control premium-input-modern form-control-sm"
+                                            placeholder="নোটের শিরোনাম...">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-semibold small">বিবরণ / নোট</label>
+                                        <textarea id="krNoteBody" class="form-control premium-input-modern" rows="4"
+                                            placeholder="এখানে আপনার নোট লিখুন..."></textarea>
+                                    </div>
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <button type="button" class="btn btn-outline-secondary btn-sm"
+                                            onclick="event.preventDefault(); event.stopPropagation(); closeKeepRecordModal()">বাতিল</button>
+                                        <button type="button" class="btn btn-primary btn-sm"
+                                            onclick="event.preventDefault(); event.stopPropagation(); saveKeepRecord()">💾
+                                            সেভ করুন</button>
+                                    </div>
+                                </div>
+
+                                <!-- Filter row -->
+                                <div class="d-flex gap-2 mb-3 flex-wrap">
+                                    <input type="date" id="krFilterDate"
+                                        class="form-control form-control-sm premium-input-modern"
+                                        style="max-width:160px;" onchange="renderKeepRecords()">
+                                    <select id="krFilterTag" class="form-select form-select-sm premium-input-modern"
+                                        style="max-width:160px;" onchange="renderKeepRecords()">
+                                        <option value="">সব ট্যাগ</option>
+                                        <option value="General">General</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Student">Student</option>
+                                        <option value="Important">Important</option>
+                                        <option value="Reminder">Reminder</option>
+                                    </select>
+                                    <input type="text" id="krSearch"
+                                        class="form-control form-control-sm premium-input-modern"
+                                        style="max-width:200px;" oninput="renderKeepRecords()"
+                                        placeholder="🔍 সার্চ করুন...">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary ms-auto"
+                                        onclick="event.preventDefault(); document.getElementById('krFilterDate').value='';document.getElementById('krFilterTag').value='';document.getElementById('krSearch').value='';renderKeepRecords();">✕
+                                        ক্লিয়ার</button>
+                                </div>
+                                <div id="krRecordsList"
+                                    style="max-height:380px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;">
+                                    <div class="text-muted text-center py-4" style="font-size:0.9rem;">লোড হচ্ছে...
+                                    </div>
+                                </div>
+                            </div><!-- /tab-keeprecord -->
+
+                        </div><!-- /tab-content -->
+                    </div><!-- /flex-grow-1 content area -->
+            </div><!-- /d-flex row -->
+            </form>
+        </div><!-- /modal-body -->
+    </div><!-- /modal-content -->
+</div><!-- /modal-dialog -->
+</div><!-- /settingsModal -->
+
+<!-- krModalBackdrop alias — পুরানো code এর সাথে compatibility -->
+<div id="krModalBackdrop" style="display:none;"></div>
+
+<!-- Edit Transaction Modal -->
+<div class="modal fade" id="editTransactionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2">âœï¸</span>Edit Transaction
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editTransactionForm" onsubmit="handleEditTransactionSubmit(event)">
+                    <input type="hidden" name="transactionId">
+                    <div class="row">
+                        <div class="col-4 mb-3">
+                            <label class="form-label fw-semibold">Type</label>
+                            <select name="type" class="form-select">
+                                <option value="Income">Income (+)</option>
+                                <option value="Expense">Expense (-)</option>
+                                <option value="Loan Given">Loan Giving (Money Out)</option>
+                                <option value="Loan Received">Loan Receiving (Money In)</option>
+                                <option value="Transfer Out">Transfer Out</option>
+                                <option value="Transfer In">Transfer In</option>
+                            </select>
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label fw-semibold">Method</label>
+                            <select name="method" class="form-select" id="editTransMethodSelect">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-4 mb-3">
+                            <label class="form-label fw-semibold">Date</label>
+                            <input type="date" name="date" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Amount</label>
+                        <input type="number" name="amount" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Category</label>
+                        <input type="text" name="category" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Description</label>
+                        <textarea name="description" class="form-control" rows="2"></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold">Save
+                        Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Details Modal -->
+<div class="modal fade" id="accountDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content custom-modal">
+            <div class="modal-header bg-av-main text-white py-3">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 text-white-50"><i class="bi bi-bar-chart-fill"></i></span> Account Details
+                    (Income & Expense)
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Filters Row -->
+                <div class="row mb-4 align-items-end g-2">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Start Date</label>
+                        <input type="date" id="detStartDate" class="form-control form-control-sm"
+                            onchange="renderAccountDetails()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">End Date</label>
+                        <input type="date" id="detEndDate" class="form-control form-control-sm"
+                            onchange="renderAccountDetails()">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Type</label>
+                        <select id="detTypeFilter" class="form-select form-select-sm" onchange="renderAccountDetails()">
+                            <option value="">All Types</option>
+                            <option value="Income">Income</option>
+                            <option value="Expense">Expense</option>
+                            <option value="Transfer">Transfer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold">Category</label>
+                        <select id="detCategoryFilter" class="form-select form-select-sm"
+                            onchange="renderAccountDetails()">
+                            <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary flex-grow-1"
+                            onclick="resetDetailFilters()">Reset</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle small">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Method</th>
+                                <th>Category</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th class="no-print">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="accountDetailsTableBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                        <tfoot class="table-light">
+                            <tr>
+                                <td colspan="5" class="text-end fw-bold">NET TOTAL:</td>
+                                <td id="detTotalAmount" class="fw-bold fs-5">৳0</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="mt-4 text-end d-flex gap-2 justify-content-end no-print">
+                    <button class="btn btn-av-outline-danger btn-sm rounded-pill px-3 fw-bold flex-grow-0"
+                        style="color: #dc2626; border: 1.5px solid #dc2626;" onclick="printAccountDetails()">
+                        <i class="bi bi-printer-fill me-1"></i> Print Details
+                    </button>
+                    <button class="btn btn-av-outline-success btn-sm rounded-pill px-3 fw-bold flex-grow-0"
+                        style="color: #10b981; border: 1.5px solid #10b981;" onclick="downloadAccountDetailsExcel()">
+                        <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> Export Excel
+                    </button>
+                    <button class="btn btn-av-outline-primary btn-sm rounded-pill px-3 fw-bold flex-grow-0"
+                        style="color: #3b82f6; border: 1.5px solid #3b82f6;" onclick="mailAccountDetailsReport()">
+                        <i class="bi bi-envelope-fill me-1"></i> Email Report
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Batch Report Modal -->
+<div class="modal fade" id="batchReportModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2">📊</span>Batch Wise Profit/Loss Report
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Report Controls -->
+                <div class="d-flex flex-wrap gap-2 align-items-center justify-content-between mb-3 p-2 rounded"
+                    style="background: rgba(255,255,255,0.05);">
+                    <div class="d-flex align-items-center gap-2 flex-grow-1">
+                        <label class="small fw-bold text-muted mb-0">Date Range:</label>
+                        <input type="date" id="batchStartDate" class="form-control form-control-sm" style="width: auto;"
+                            onchange="renderBatchReport()">
+                        <span class="small text-muted">to</span>
+                        <input type="date" id="batchEndDate" class="form-control form-control-sm" style="width: auto;"
+                            onchange="renderBatchReport()">
+
+                        <div class="ms-3 d-flex align-items-center gap-2">
+                            <label class="small fw-bold text-muted mb-0">Batch:</label>
+                            <input type="text" id="batchSearchInput" class="form-control form-control-sm"
+                                placeholder="Search Batch..." onkeyup="renderBatchReport()" style="width: 130px;">
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-primary" onclick="renderBatchReport()"><i
+                            class='bi bi-arrow-clockwise me-1'></i>Refresh
+                        Report</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle modern-table">
+                        <thead>
+                            <tr>
+                                <th>Batch Name</th>
+                                <th>Students (In Period)</th>
+                                <th class="text-end">Total Receivable</th>
+                                <th class="text-end">Collected (Income)</th>
+                                <th class="text-end">Due</th>
+                                <th class="text-end">Collection Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody id="batchReportBody">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                        <tfoot class="table-light fw-bold" style="display:none;">
+                            <!-- Footer handled dynamically now -->
+                        </tfoot>
+                    </table>
+                </div>
+                <div class="mt-4 text-end">
+                    <button class="btn btn-outline-danger" onclick="printBatchReport()">
+                        <i class="bi bi-printer-fill me-1"></i>Print Report
+                    </button>
+                    <button class="btn btn-outline-success" onclick="exportBatchReportExcel()">
+                        📊 Export Excel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Batch Report Modal is defined above -->
+
+<!-- Student Profile Modal -->
+<div class="modal fade" id="studentProfileModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-info-light">👤</span>Student Profile
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4" id="studentProfileContent">
+                <!-- Populated dynamically -->
+            </div>
+            <div class="modal-footer border-0">
+                <button class="btn btn-outline-warning fw-bold rounded-pill px-4" id="btnCertificate"
+                    onclick="goToCertificateFromProfile()">
+                    🎓 Course Certificate
+                </button>
+                <button class="btn btn-outline-info fw-bold rounded-pill px-4" id="btnIdCard"
+                    onclick="goToIdCardFromProfile()">
+                    🪪 ID Card
+                </button>
+                <button type="button" class="btn btn-primary rounded-pill px-4" id="profilePrintBtn"
+                    onclick="printStudentProfile()">
+                    👨ï¸ Print Statement
+                </button>
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden Receipt Template for Printing -->
+<div id="receiptTemplate" class="d-none">
+    <div style="width: 800px; padding: 40px; font-family: sans-serif; background: white;">
+        <div
+            style="display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px;">
+            <h1 id="recAcademyName" style="margin:0;">Wings Fly Aviation Academy</h1>
+            <div style="text-align:right;">
+                <p style="margin:0;">Receipt Date: <span id="recDate"></span></p>
+                <p style="margin:0;">ID: <span id="recID"></span></p>
+            </div>
+        </div>
+        <h3 style="text-align:center;">STUDENT ENROLLMENT RECEIPT</h3>
+        <div style="margin:20px 0;">
+            <p><strong>Student Name:</strong> <span id="recName"></span></p>
+            <p><strong>Course:</strong> <span id="recCourse"></span></p>
+            <p><strong>Batch:</strong> <span id="recBatch"></span></p>
+        </div>
+        <table style="width:100%; border-collapse: collapse; margin: 20px 0;">
+            <tr style="border-bottom: 1px solid #ddd;">
+                <th style="text-align:left; padding:10px;">Description</th>
+                <th style="text-align:right; padding:10px;">Amount</th>
+            </tr>
+            <tr>
+                <td style="padding:10px;">Total Course Fee</td>
+                <td style="text-align:right; padding:10px;">৳<span id="recTotal"></span></td>
+            </tr>
+            <tr style="font-weight:bold; border-top: 1px solid #333;">
+                <td style="padding:10px;">Amount Paid</td>
+                <td style="text-align:right; padding:10px;">৳<span id="recPaid"></span></td>
+            </tr>
+            <tr style="color:red;">
+                <td style="padding:10px;">Outstanding Due</td>
+                <td style="text-align:right; padding:10px;">৳<span id="recDue"></span></td>
+            </tr>
+        </table>
+        <p style="margin-top:20px;"><strong>Payment Method:</strong> <span id="recMethod"></span>
+        </p>
+        <div style="margin-top:50px; display:flex; justify-content: space-between;">
+            <div style="border-top: 1px solid #000; width: 150px; text-align:center;">Student
+                Signature</div>
+            <div style="border-top: 1px solid #000; width: 150px; text-align:center;">Authorized
+                Signature</div>
+        </div>
+    </div>
+</div>
+
+<!-- Monthly Attendance Report Modal -->
+<div class="modal fade" id="attendanceReportModal" tabindex="-1">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content custom-modal" style="border-radius:0;">
+            <div class="modal-header border-0 px-4 pt-4 pb-3"
+                style="background:linear-gradient(135deg,rgba(0,150,255,0.1),rgba(123,47,247,0.08));">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center"
+                        style="width:46px;height:46px;background:linear-gradient(135deg,#7b2ff7,#00b4ff);box-shadow:0 4px 15px rgba(123,47,247,0.4);">
+                        <i class="bi bi-calendar3-range-fill text-white fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0">Monthly Attendance Report</h5>
+                        <div class="small text-muted" id="monthlyAttHeaderInfo">Batch, Year ও Month বেছে নিন</div>
+                    </div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="px-4 py-3 no-print"
+                style="background:rgba(255,255,255,0.03); border-bottom:1px solid rgba(255,255,255,0.08);">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label small fw-bold text-uppercase text-muted mb-1">
+                            <i class="bi bi-people-fill me-1 text-primary"></i>Batch
+                        </label>
+                        <select id="attRepBatchSelect" class="form-select premium-input-modern fw-bold"
+                            onchange="renderAttendanceReport()">
+                            <option value="">Select a batch...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-uppercase text-muted mb-1">
+                            <i class="bi bi-calendar-event me-1 text-info"></i>Year
+                        </label>
+                        <select id="attRepYear" class="form-select premium-input-modern fw-bold"
+                            onchange="renderAttendanceReport()">
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold text-uppercase text-muted mb-1">
+                            <i class="bi bi-calendar2-month me-1 text-warning"></i>Month
+                        </label>
+                        <select id="attRepMonth" class="form-select premium-input-modern fw-bold"
+                            onchange="renderAttendanceReport()">
+                            <option value="0">January</option>
+                            <option value="1">February</option>
+                            <option value="2">March</option>
+                            <option value="3">April</option>
+                            <option value="4">May</option>
+                            <option value="5">June</option>
+                            <option value="6">July</option>
+                            <option value="7">August</option>
+                            <option value="8">September</option>
+                            <option value="9">October</option>
+                            <option value="10">November</option>
+                            <option value="11">December</option>
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <div id="monthlySummaryCards" class="d-none">
+                            <div class="d-flex gap-2">
+                                <div class="flex-fill text-center py-2 rounded-3"
+                                    style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);">
+                                    <div class="fw-bold text-success fs-6" id="mthWorkingDays">—</div>
+                                    <div style="font-size:0.72rem;" class="text-muted">Working Days</div>
+                                </div>
+                                <div class="flex-fill text-center py-2 rounded-3"
+                                    style="background:rgba(0,180,255,0.1);border:1px solid rgba(0,180,255,0.25);">
+                                    <div class="fw-bold text-info fs-6" id="mthTotalStudents">—</div>
+                                    <div style="font-size:0.72rem;" class="text-muted">Students</div>
+                                </div>
+                                <div class="flex-fill text-center py-2 rounded-3"
+                                    style="background:rgba(255,200,0,0.1);border:1px solid rgba(255,200,0,0.25);">
+                                    <div class="fw-bold text-warning fs-6" id="mthAvgRate">—</div>
+                                    <div style="font-size:0.72rem;" class="text-muted">Avg Rate</div>
+                                </div>
+                                <div class="flex-fill text-center py-2 rounded-3"
+                                    style="background:rgba(255,50,80,0.1);border:1px solid rgba(255,50,80,0.25);">
+                                    <div class="fw-bold text-danger fs-6" id="mthBestStudent">—</div>
+                                    <div style="font-size:0.72rem;" class="text-muted">Best Attender</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-body p-0" style="overflow:auto;">
+                <div id="monthlyAttEmptyState" class="text-center py-5 text-muted">
+                    <i class="bi bi-calendar3-range"
+                        style="font-size:3.5rem;opacity:0.2;display:block;margin-bottom:16px;"></i>
+                    <p class="fw-semibold">Batch, Year ও Month বেছে নিলেই Monthly Report দেখাবে</p>
+                    <p class="small">প্রতিটি দিনের P / A এবং মাসের মোট হিসাব এখানে দেখতে পাবেন</p>
+                </div>
+                <div id="attendanceReportContainer" style="min-width:900px; padding:16px;"></div>
+            </div>
+            <div class="modal-footer no-print border-0 px-4 py-3 flex-wrap gap-2"
+                style="background:rgba(255,255,255,0.03); border-top:1px solid rgba(255,255,255,0.08) !important;">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button class="btn btn-outline-info rounded-pill px-3 fw-bold"
+                        onclick="downloadMonthlyAttendanceCsv()">
+                        <i class="bi bi-download me-1"></i>CSV Download
+                    </button>
+                    <button class="btn btn-outline-primary rounded-pill px-3 fw-bold"
+                        onclick="printMonthlyAttendance()">
+                        <i class="bi bi-printer me-1"></i>Print Report
+                    </button>
+                </div>
+                <div class="ms-auto">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Expense Breakdown Modal -->
+<div class="modal fade" id="expenseBreakdownModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">📊 Expense Breakdown</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="breakdownList" class="list-group list-group-flush">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visitor Modal -->
+<div class="modal fade" id="visitorModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="visitorModalTitle">
+                    <span class="me-2 header-icon-circle bg-primary-light">👤</span>Visitor Information
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="visitorForm" onsubmit="handleVisitorSubmit(event)">
+                    <input type="hidden" name="visitorRowIndex" id="visitorRowIndex">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Visitor Name</label>
+                        <input type="text" name="visitorName" class="form-control premium-input-modern"
+                            placeholder="Enter full name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Phone Number</label>
+                        <input type="tel" name="visitorPhone" class="form-control premium-input-modern"
+                            placeholder="e.g., 017xxxxxxxx" required inputmode="numeric" pattern="[0-9+\-\s]+"
+                            oninput="(function(el){var b=el.value;el.value=el.value.replace(/[^0-9+\-\s]/g,'');if(b!==el.value&&window.showPhoneOnlyToast)window.showPhoneOnlyToast();})(this)">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Interested Course</label>
+                        <select name="interestedCourse" id="visitorCourseSelect"
+                            class="form-select premium-input-modern">
+                            <option value="">Select Interested Course...</option>
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Visiting Date</label>
+                        <input type="date" name="visitDate" class="form-control premium-input-modern"
+                            id="visitorDateInput" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Remarks / Follow-up
+                            Details</label>
+                        <textarea name="visitorRemarks" class="form-control premium-input-modern"
+                            placeholder="Any specific notes..." rows="3"></textarea>
+                    </div>
+                    <div class="mt-4">
+                        <button type="submit" class="btn btn-primary w-100 py-3 fw-bold rounded-3 shadow-sm">Save
+                            Visitor Information</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Attendance Modal -->
+<div class="modal fade" id="attendanceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">📋 Student Attendance</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Select Batch</label>
+                        <select id="attendanceBatchSelect" class="form-select" onchange="loadAttendanceList()">
+                            <option value="">Select a batch...</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label small fw-bold">Date</label>
+                        <input type="date" id="attendanceDate" class="form-control" onchange="loadAttendanceList()">
+                    </div>
+                </div>
+                <div id="attendanceListContainer" class="d-none">
+                    <div class="table-responsive rounded border">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendanceTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between flex-wrap gap-2">
+                <div class="d-flex gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-secondary fw-bold rounded-pill px-3"
+                        onclick="printBlankAttendanceSheet()">
+                        Blank Sheet
+                    </button>
+                    <button type="button" class="btn btn-outline-info fw-bold rounded-pill px-3"
+                        onclick="openAttendanceReportModal()">
+                        Monthly Report
+                    </button>
+                </div>
+                <button type="button" class="btn btn-primary px-4 fw-bold rounded-pill" data-bs-dismiss="modal"
+                    onclick="saveAttendance()">
+                    💾 Save Attendance
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Exam Registration Modal -->
+<div class="modal fade" id="examRegistrationModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold text-primary">
+                    <span class="me-2 header-icon-circle bg-primary-light">📝</span>Exam Registration
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="examRegistrationForm" onsubmit="handleExamRegistration(event)">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Student Name</label>
+                            <input type="text" name="studentName" id="examStudentNameInput"
+                                class="form-control premium-input-modern" placeholder="Student name" required
+                                list="studentList" oninput="autoPopulateStudentDetails()">
+                            <datalist id="studentList">
+                                <!-- Populated dynamically -->
+                            </datalist>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Student ID</label>
+                            <input type="text" name="studentId" id="examStudentIdInput"
+                                class="form-control premium-input-modern bg-light" placeholder="Auto-populated"
+                                readonly>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Batch</label>
+                            <input type="text" name="studentBatch" id="examStudentBatchInput"
+                                class="form-control premium-input-modern bg-light" placeholder="Auto" readonly>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Exam Session</label>
+                            <input type="text" name="examSession" class="form-control premium-input-modern"
+                                placeholder="e.g. Feb-Mar 2026">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Subject Name</label>
+                            <input type="text" name="subjectName" class="form-control premium-input-modern"
+                                placeholder="e.g., Aviation Theory, Pilot Training" required list="subjectList">
+                            <datalist id="subjectList">
+                                <!-- Populated dynamically -->
+                            </datalist>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Exam Fee</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark border-end-0">৳</span>
+                                <input type="number" name="examFee"
+                                    class="form-control premium-input-modern border-start-0" placeholder="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Payment Method</label>
+                            <select name="paymentMethod" class="form-select premium-input-modern"
+                                id="examPaymentMethodSelect" required>
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Reg. Date</label>
+                            <input type="date" name="registrationDate" class="form-control premium-input-modern"
+                                id="examRegistrationDate" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Special Comment /
+                            Note</label>
+                        <textarea name="examComment" class="form-control premium-input-modern" rows="2"
+                            placeholder="Any additional notes..."></textarea>
+                    </div>
+
+                    <div class="card border-0 bg-primary-light p-3 rounded-4 mb-4">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="h3 mb-0">💡</div>
+                            <div class="small">
+                                Registration ID will be generated <strong>automatically</strong>.
+                                Payment will be recorded in the <strong class="text-primary">Financial
+                                    Ledger</strong> immediately.
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="">
+                        <button type="submit" class="btn btn-primary btn-premium-action w-100 py-3 shadow-sm rounded-3">
+                            <span class="fw-bold text-uppercase">Complete Exam Registration</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Result Modal -->
+<div class="modal fade" id="addResultModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">🏆 Add Exam Result</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addResultForm" onsubmit="handleAddResult(event)">
+                    <input type="hidden" id="resultRegistrationId" name="registrationId">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Student Name</label>
+                        <input type="text" id="resultStudentName" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Subject</label>
+                        <input type="text" id="resultSubjectName" class="form-control" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Grade/Result</label>
+                        <select name="grade" class="form-select" required>
+                            <option value="">Select Grade...</option>
+                            <option value="A+">A+ (Excellent)</option>
+                            <option value="A">A (Very Good)</option>
+                            <option value="A-">A- (Good)</option>
+                            <option value="B+">B+ (Above Average)</option>
+                            <option value="B">B</option>
+                            <option value="B-">B-</option>
+                            <option value="C">C</option>
+                            <option value="Pass">Pass</option>
+                            <option value="Fail">Fail</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-success w-100 fw-semibold">Save Result</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Comment Modal -->
+<div class="modal fade" id="commentModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold" id="commentModalTitle">Student Notes</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="mb-3">
+                    <label class="form-label fw-bold small text-uppercase text-muted">Personal Remarks / Teacher's
+                        Note</label>
+                    <textarea id="studentCommentArea" class="form-control premium-input-modern"
+                        placeholder="Add your comments here (e.g., Quick learner, Topper, Regular attendance...)"
+                        rows="4"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary px-4 fw-bold"
+                    data-bs-dismiss="modal">Close</button>
+                <button type="button" id="saveCommentBtn" class="btn btn-primary px-4 fw-bold">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student ID Card Modal -->
+<div class="modal fade" id="idCardModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> <!-- Large modal for landscape ID -->
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-primary-light">🪪</span>Student ID Card
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4 bg-light text-center">
+                <!-- ID Card Preview Area -->
+                <div id="idCardPreview"
+                    class="d-inline-block shadow-lg rounded-4 overflow-hidden position-relative bg-transparent text-start">
+                    <!-- Front of ID Card -->
+                    <div class="id-card-front">
+                        <div class="id-card-bg-overlay"></div>
+                        <div class="id-card-bg-shape"></div>
+                        <div class="id-card-bg-pattern"></div>
+                        <div class="id-card-watermark">AUTHENTIC</div>
+                        <div class="id-accent-bar"></div>
+
+                        <!-- Header -->
+                        <div class="d-flex justify-content-between align-items-center mb-3 position-relative px-4 pt-3"
+                            style="z-index: 5;">
+                            <div class="id-logo-circle">
+                                <img src="logo.jpg.jpeg" class="img-fluid rounded-circle" alt="Logo"
+                                    style="width: 32px; height: 32px;"
+                                    onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+                            </div>
+                            <div class="text-end text-white">
+                                <h6 class="fw-bold text-uppercase m-0 small" style="letter-spacing: 1px;">Wings Fly
+                                    Aviation</h6>
+                                <span class="id-card-tagline">Academy Excellence</span>
+                            </div>
+                        </div>
+
+                        <!-- Content Area -->
+                        <div class="d-flex px-4 position-relative" style="z-index: 5; flex-grow: 1;">
+                            <!-- Left: Photo -->
+                            <div class="me-4 text-center">
+                                <div class="id-photo-frame mx-auto mb-2">
+                                    <img id="idCardPhoto" src="" class="id-photo-img"
+                                        onerror="this.src='https://cdn-icons-png.flaticon.com/512/3135/3135715.png'">
+                                </div>
+                                <span
+                                    class="badge rounded-pill bg-light text-primary border border-primary-subtle px-3 py-1 fw-bold"
+                                    style="font-size: 0.6rem; letter-spacing: 1px;">STUDENT</span>
+                            </div>
+
+                            <!-- Right: Info -->
+                            <div class="flex-grow-1">
+                                <h4 class="fw-bold m-0 text-primary mb-3" id="idCardName"
+                                    style="font-size: 1.45rem; letter-spacing: -0.5px; font-weight: 900 !important;">
+                                    STUDENT NAME</h4>
+
+                                <div class="row g-0">
+                                    <div class="col-6 pe-2">
+                                        <div class="id-card-label">ID Number</div>
+                                        <div class="id-card-value" id="idCardStudentId">WF-0000</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="id-card-label id-text-white">Blood Group</div>
+                                        <div class="id-card-value id-text-white" id="idCardBlood">N/A</div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="id-card-label">Course Name</div>
+                                        <div class="id-card-value text-truncate" id="idCardCourse"
+                                            style="max-width: 200px;">Aviation Management</div>
+                                    </div>
+                                    <div class="col-6 pe-2">
+                                        <div class="id-card-label">Batch</div>
+                                        <div class="id-card-value" id="idCardBatch">Batch 00</div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="id-card-label id-text-white">Expiry Date</div>
+                                        <div class="id-card-value id-text-white" id="idCardExpiry">01/01/2027</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Footer Bar -->
+                        <div class="id-footer-bar px-4 py-2 mt-auto">
+                            <div class="text-white opacity-75" style="font-size: 0.6rem;">
+                                <i class="bi bi-telephone-fill me-1"></i> <span id="idCardPhone">+880 1234
+                                    567890</span>
+                            </div>
+                            <div class="text-white fw-bold" style="font-size: 0.65rem; letter-spacing: 0.5px;">
+                                www.winsflyaviation.com
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <button type="button" class="btn btn-outline-secondary px-4 fw-bold rounded-pill"
+                        data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary px-4 fw-bold rounded-pill ms-2"
+                        onclick="printIdCard()">👨ï¸ Print Card</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Employee Modal -->
+<div class="modal fade" id="employeeModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-primary-light">👔</span>Add New Employee
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="employeeForm" onsubmit="handleEmployeeSubmit(event)">
+                    <input type="hidden" name="employeeId" id="employeeId">
+
+                    <h6 class="fw-bold mb-3 text-muted text-uppercase small">Personal Information</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Full Name</label>
+                            <input type="text" name="name" class="form-control premium-input-modern"
+                                placeholder="e.g. John Doe" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Role / Designation</label>
+                            <select name="role" class="form-select premium-input-modern" required>
+                                <option value="Instructor">Instructor</option>
+                                <option value="Admin">Admin</option>
+                                <option value="Staff">Staff</option>
+                                <option value="Manager">Manager</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Email Address</label>
+                            <input type="email" name="email" class="form-control premium-input-modern"
+                                placeholder="e.g. john@example.com">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-muted">Phone Number</label>
+                            <input type="tel" name="phone" class="form-control premium-input-modern"
+                                placeholder="e.g. +88017..." required inputmode="numeric" pattern="[0-9+\-\s]+"
+                                oninput="(function(el){var b=el.value;el.value=el.value.replace(/[^0-9+\-\s]/g,'');if(b!==el.value&&window.showPhoneOnlyToast)window.showPhoneOnlyToast();})(this)">
+                        </div>
+                    </div>
+
+                    <h6 class="fw-bold mb-3 text-muted text-uppercase small">Employment Details</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted">Joining Date</label>
+                            <input type="date" name="joiningDate" class="form-control premium-input-modern" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted">Resign Date</label>
+                            <input type="date" name="resignDate" class="form-control premium-input-modern"
+                                placeholder="Optional">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold small text-muted">Monthly Salary (৳)</label>
+                            <input type="number" name="salary" class="form-control premium-input-modern"
+                                placeholder="0.00" required>
+                        </div>
+                    </div>
+
+
+
+                    <div class="mt-4 d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-light fw-bold rounded-pill px-4"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary fw-bold rounded-pill px-4">Save
+                            Employee</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cash Modal -->
+<div class="modal fade" id="cashModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header border-0" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h5 class="modal-title text-white fw-bold">
+                    <span class="me-2" style="font-size: 1.5rem;">💵</span>Update Cash Balance
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="cashForm" onsubmit="handleCashSubmit(event)">
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Current Cash Balance
+                            *</label>
+                        <div class="input-group input-group-lg">
+                            <span class="input-group-text bg-light border-0" style="font-size: 1.5rem;">৳</span>
+                            <input type="number" name="cashBalance" id="cashBalanceInput"
+                                class="form-control premium-input-modern border-start-0 fs-4 fw-bold" placeholder="0"
+                                step="0.01" required>
+                        </div>
+                        <small class="text-muted">Enter the total physical cash you currently have on hand</small>
+                    </div>
+
+                    <div class="modal-footer border-0 px-0 pb-0 pt-3">
+                        <button type="button" class="btn btn-secondary rounded-pill px-4"
+                            data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn rounded-pill px-4 fw-bold text-white"
+                            style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                            <i class="bi bi-check-lg me-1"></i> Update Cash
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Account Modal -->
+<div class="modal fade" id="accountModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-primary-light">🏦</span>Add New Bank Account
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="accountForm" onsubmit="handleAccountSubmit(event)">
+                    <input type="hidden" name="accountIndex" id="accountIndex">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Account Name</label>
+                        <input type="text" name="name" class="form-control premium-input-modern"
+                            placeholder="e.g., CITY BANK" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Branch</label>
+                            <input type="text" name="branch" class="form-control premium-input-modern"
+                                placeholder="Branch Name">
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Bank Name</label>
+                            <input type="text" name="bankName" class="form-control premium-input-modern"
+                                placeholder="Bank Name" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Account Number</label>
+                        <input type="text" name="accountNo" class="form-control premium-input-modern"
+                            placeholder="Account Number" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Initial Balance / Current
+                            Balance</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-0">৳</span>
+                            <input type="number" name="balance" class="form-control premium-input-modern border-start-0"
+                                placeholder="0" required>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm">
+                        SAVE ACCOUNT
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Balance Transfer Modal -->
+<div class="modal fade" id="transferModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-primary-light">💸</span>Internal Balance Transfer
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form id="transferForm" onsubmit="handleTransferSubmit(event)">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">From Account</label>
+                        <select id="accTransferFrom" name="fromAccount" class="form-select premium-input-modern"
+                            required>
+                            <option value="">Select Source Account</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 text-center py-2">
+                        <i class="bi bi-arrow-down fs-4 text-primary"></i>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-uppercase text-muted">To Account</label>
+                        <select id="accTransferTo" name="toAccount" class="form-select premium-input-modern" required>
+                            <option value="">Select Destination Account</option>
+                        </select>
+                    </div>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Amount</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-0">৳</span>
+                                <input type="number" name="amount"
+                                    class="form-control premium-input-modern border-start-0" placeholder="0" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold small text-uppercase text-muted">Transfer Date</label>
+                            <input type="date" name="date" class="form-control premium-input-modern" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-bold small text-uppercase text-muted">Notes (Optional)</label>
+                        <textarea name="notes" class="form-control premium-input-modern" rows="2"
+                            placeholder="e.g., Transfer for petty cash..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2 rounded-3 shadow-sm">Process
+                        Transfer</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- All Student Reminders Modal (New) -->
+<div class="modal fade" id="allRemindersModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content custom-modal">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title fw-bold">
+                    <span class="me-2 header-icon-circle bg-warning-subtle text-warning">⚠️</span>All Student
+                    Reminders
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div id="allRemindersList" class="table-responsive">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-secondary px-4 fw-bold rounded-pill"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Actions Modal (Fix for Dropdown Issues) -->
+<div class="modal fade" id="actionsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content custom-modal border-0 shadow-lg">
+            <div class="modal-header border-0 pb-0 justify-content-center">
+                <h5 class="modal-title fw-bold">Select Action</h5>
+            </div>
+            <div class="modal-body p-3">
+                <div class="d-grid gap-2" id="actionsModalBody">
+                    <!-- Buttons injected dynamically -->
+                </div>
+                <button type="button" class="btn btn-light w-100 mt-3 rounded-pill fw-bold"
+                    data-bs-dismiss="modal">Close Menu</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bootstrap JS -->

@@ -1,0 +1,336 @@
+                    <div id="dashboardOverview">
+                        <!-- AVIATION PREMIUM TOP ROW -->
+                        <div class="row g-4 mb-4">
+                            <!-- 1. Total Students -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="aviation-metric-card">
+                                    <div class="av-card-header av-bg-blue">
+                                        <h6 class="av-card-title">Total Students</h6>
+                                        <i class="bi bi-people-fill fs-5"></i>
+                                    </div>
+                                    <div class="av-card-body">
+                                        <h3 class="av-card-value" id="dashTotalStudents">0</h3>
+                                        <p class="av-card-subtitle">Active Students</p>
+                                        <div class="av-card-trend av-trend-up">
+                                            <i class="bi bi-arrow-up-short"></i> +12% <span
+                                                class="text-muted opacity-50 fw-normal">from last month</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 2. Total Income -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="aviation-metric-card">
+                                    <div class="av-card-header av-bg-green">
+                                        <h6 class="av-card-title">Total Income</h6>
+                                        <i class="bi bi-wallet2 fs-5"></i>
+                                    </div>
+                                    <div class="av-card-body">
+                                        <h3 class="av-card-value text-success" id="dashTotalIncome">৳0</h3>
+                                        <p class="av-card-subtitle">Revenue Growth</p>
+                                        <div class="av-card-trend av-trend-up">
+                                            <i class="bi bi-arrow-up-short"></i> +8% <span
+                                                class="text-muted opacity-50 fw-normal">from last month</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Total Expense -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="aviation-metric-card">
+                                    <div class="av-card-header av-bg-orange">
+                                        <h6 class="av-card-title">Total Expense</h6>
+                                        <i class="bi bi-graph-down-arrow fs-5"></i>
+                                    </div>
+                                    <div class="av-card-body">
+                                        <h3 class="av-card-value text-danger" id="dashTotalExpense">৳0</h3>
+                                        <p class="av-card-subtitle">Operational Costs</p>
+                                        <div class="av-card-trend av-trend-down">
+                                            <i class="bi bi-arrow-down-short"></i> -3% <span
+                                                class="text-muted opacity-50 fw-normal">vs target</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 4. Net Profit/Loss -->
+                            <div class="col-md-6 col-lg-3">
+                                <div class="aviation-metric-card">
+                                    <div class="av-card-header av-bg-purple">
+                                        <h6 class="av-card-title">Net Profit/Loss</h6>
+                                        <i class="bi bi-calculator fs-5"></i>
+                                    </div>
+                                    <div class="av-card-body">
+                                        <h3 class="av-card-value text-success" id="dashTotalProfit">৳0</h3>
+                                        <p class="av-card-subtitle" id="dashProfitStatus">Business Health</p>
+                                        <div class="av-card-trend text-primary" id="dashProfitTrend">
+                                            <i class="bi bi-check-circle"></i> Healthy performance
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- ANALYTICS SECTION -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h5 class="section-title">Analytics Overview</h5>
+                                <button class="av-btn-pill">
+                                    <i class="bi bi-calendar3"></i> Date - Jan 21 <i class="bi bi-chevron-down"></i>
+                                </button>
+                            </div>
+                            <div class="row g-4">
+                                <!-- Revenue Bar Chart -->
+                                <div class="col-lg-8">
+                                    <p class="fw-bold mb-4 opacity-75" style="font-size: 0.9rem;">Revenue 2024 (in
+                                        Thousands)</p>
+                                    <div style="height: 320px;">
+                                        <canvas id="financeChart"></canvas>
+                                    </div>
+                                </div>
+                                <!-- Course Doughnut Chart -->
+                                <div class="col-lg-4 border-start border-av-border">
+                                    <p class="fw-bold mb-4 opacity-75" style="font-size: 0.9rem;">Course Enrollments
+                                    </p>
+                                    <div style="display:flex;align-items:center;justify-content:center;height:250px;">
+                                        <div class="donut-ring-wrapper">
+                                            <div class="donut-spinning-ring"></div>
+                                            <div class="chart-container-centered donut-inner"
+                                                style="height:230px;width:230px;">
+                                                <canvas id="courseChart"></canvas>
+                                                <div class="chart-center-value">
+                                                    <div class="chart-center-number" id="dashTotalStudentsCenter">0
+                                                    </div>
+                                                    <div class="chart-center-label">Students</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="courseChartLegend" class="mt-4"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RECENT ADMISSIONS SECTION -->
+                        <div class="section-card">
+                            <div class="section-header">
+                                <h5 class="section-title">Recent Admissions</h5>
+                                <div class="d-flex gap-3 align-items-center">
+                                    <div class="search-wrapper position-relative">
+                                        <i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-muted"
+                                            style="font-size: 0.8rem;"></i>
+                                        <input type="text"
+                                            class="form-control form-control-sm rounded-pill ps-5 bg-av-grey border-0"
+                                            placeholder="Search Admissions..." style="width: 200px;"
+                                            onkeyup="filterRecentAdmissions(this.value)">
+                                    </div>
+                                    <button
+                                        class="btn btn-av-dark btn-sm rounded-pill px-4 fw-bold text-white bg-av-dark"
+                                        onclick="switchTab('students')">View All</button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table av-table align-middle" id="recentAdmissionsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Student Name</th>
+                                            <th>Course</th>
+                                            <th>Admission Date</th>
+                                            <th>Batch</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recentAdmissionsBody">
+                                        <!-- Dynamic Content -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- BATCH ANALYSIS TOOL (Secondary Styling) -->
+                        <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-light">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                                <h6 class="fw-bold mb-0 text-av-main">📊 Batch Financial Analysis</h6>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <div class="search-wrapper position-relative">
+                                        <i
+                                            class="bi bi-search position-absolute top-50 translate-middle-y ms-2 text-muted small"></i>
+                                        <input type="text" id="dashBatchSearch"
+                                            class="form-control form-control-sm rounded-pill ps-4 border-0"
+                                            placeholder="Enter Batch Name..." onkeyup="calcBatchProfit()">
+                                    </div>
+                                    <div class="d-flex align-items-center gap-1 bg-transparent px-2 py-1 rounded-pill">
+                                        <input type="date" id="dashBatchStart"
+                                            class="form-control form-control-sm border-0 bg-transparent p-0"
+                                            onchange="calcBatchProfit()" style="width: 110px; font-size: 0.8rem;">
+                                        <span class="text-muted tiny">to</span>
+                                        <input type="date" id="dashBatchEnd"
+                                            class="form-control form-control-sm border-0 bg-transparent p-0"
+                                            onchange="calcBatchProfit()" style="width: 110px; font-size: 0.8rem;">
+                                    </div>
+                                    <button class="btn btn-sm btn-primary rounded-pill px-3 fw-bold"
+                                        onclick="calcBatchProfit()">Calculate</button>
+                                </div>
+                            </div>
+                            <!-- Results here... -->
+                        </div>
+                        <!-- ACTIVITY & INSIGHTS ROW -->
+                        <div class="row g-4 mb-4">
+                            <!-- Loan Summary Widget -->
+                            <div class="col-lg-4">
+                                <div class="card glass-card p-4 h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold m-0"><i class="bi bi-bank text-primary me-2"></i>Loan
+                                            Summary
+                                        </h6>
+                                        <button class="btn btn-sm btn-link text-dim text-decoration-none"
+                                            onclick="switchTab('loans')">View
+                                            All</button>
+                                    </div>
+                                    <div id="dashLoanSummary" class="small">
+                                        <!-- Populated dynamically -->
+                                        <div class="text-center text-muted py-4">No loan records.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Recent Activity (Last 5 Works) -->
+                            <div class="col-lg-4">
+                                <div class="card glass-card p-4 h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold m-0"><i class="bi bi-clock-history text-info me-2"></i>Last
+                                            Five Work Complete</h6>
+                                        <button class="btn btn-sm btn-link text-dim text-decoration-none"
+                                            onclick="switchTab('ledger')">Ledger</button>
+                                    </div>
+                                    <div id="dashRecentWorks" class="small">
+                                        <!-- Populated dynamically -->
+                                        <div class="text-center text-muted py-4">No recent activity.</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Payment Reminders -->
+                            <div class="col-lg-4">
+                                <div class="card glass-card p-4 h-100">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="fw-bold m-0"><i class="bi bi-bell text-warning me-2"></i>Student
+                                            Reminder</h6>
+                                        <button class="btn btn-sm btn-link text-dim text-decoration-none"
+                                            onclick="openAllRemindersModal()">All Student Reminder</button>
+                                    </div>
+                                    <div id="dashReminders" class="small" style="max-height: 200px; overflow-y: auto;">
+                                        <!-- Populated dynamically -->
+                                        <div class="text-center text-muted py-4">No upcoming reminders.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- HIDDEN SECTIONS (For JS compatibility) -->
+                    <div class="d-none">
+                        <div id="accountSummaryRow"></div>
+                        <div id="paymentRemindersWidget"></div>
+                        <div id="recentActionsList"></div>
+                        <div id="recentExamsList"></div>
+                    </div>
+
+                    <!-- MONTHLY TARGET PROGRESS -->
+                    <div class="card border-0 shadow-sm mb-4 glass-card overflow-hidden">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h6 class="fw-bold m-0"><span class="me-2">🎯</span>Target Progress</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="date" id="targetStartDate"
+                                        class="form-control form-control-sm border-0 bg-light rounded-pill px-3"
+                                        style="width: 140px;" onchange="updateTargetProgress()">
+                                    <span class="text-muted small">to</span>
+                                    <input type="date" id="targetEndDate"
+                                        class="form-control form-control-sm border-0 bg-light rounded-pill px-3"
+                                        style="width: 140px;" onchange="updateTargetProgress()">
+                                    <span class="badge bg-primary rounded-pill px-3 ms-2"
+                                        id="targetPercentage">0%</span>
+                                </div>
+                            </div>
+                            <div class="progress mb-2 position-relative"
+                                style="height: 24px; border-radius: 12px; background: rgba(128, 128, 128, 0.1);">
+                                <div id="targetProgressBar"
+                                    class="progress-bar progress-bar-striped progress-bar-animated bg-primary"
+                                    role="progressbar" style="width: 0%; border-radius: 12px;"></div>
+                                <span class="position-absolute w-100 text-center fw-bold"
+                                    style="top: 50%; left: 0; transform: translateY(-50%); color: #000; font-size: 0.85rem; text-shadow: 0 0 3px white;"
+                                    id="targetProgressText">0%</span>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span>Collected: <strong class="text-dark" id="targetCollected">৳0</strong></span>
+                                <span>Target: <strong class="text-dark" id="targetTotal">৳200,000</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- GLOBAL FILTER BOX -->
+                <div id="globalFilterCard" class="card border-0 shadow-sm mb-4">
+                    <div class="card-body">
+
+                        <div class="row g-3 align-items-center">
+                            <div class="col-md-auto text-muted"> <span class="fs-5">🎓</span> </div>
+                            <div class="col-md-3">
+                                <input type="text" id="globalFilterSearchInput"
+                                    class="form-control premium-input-modern" placeholder="Search records..."
+                                    onkeyup="syncSearchInputs(this); filterData()">
+                            </div>
+                            <div class="col-md-auto">
+                                <div class="d-flex gap-2">
+                                    <input type="date" id="mainStartDate" class="form-control premium-input-modern"
+                                        onchange="filterData()">
+                                    <span class="align-self-center text-muted">-</span>
+                                    <input type="date" id="mainEndDate" class="form-control premium-input-modern"
+                                        onchange="filterData()">
+                                </div>
+                            </div>
+                            <div class="col-md text-end">
+                                <button type="button" class="btn btn-primary px-4 rounded-pill fw-bold"
+                                    onclick="filterData()">Apply Filters</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LOADER -->
+                <div id="loader" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-3 text-muted">Loading data...</p>
+                </div>
+
+                <!-- CONTENT SECTIONS -->
+                <div id="content">
+                    <!-- Batch Summary -->
+                    <div id="batchSummaryCard" class="card batch-summary-card d-none mb-4 shadow-sm border-0">
+                        <div class="card-body">
+                            <h5 class="fw-bold mb-3"><span class="me-2">📋</span> Batch <span
+                                    id="summaryBatchName"></span>
+                                Summary</h5>
+                            <div class="row text-center">
+                                <div class="col-3"> <span class="text-muted small">Total</span>
+                                    <h4 class="fw-bold text-primary" id="summaryBatchTotalPayment">0
+                                    </h4>
+                                </div>
+                                <div class="col-3"> <span class="text-muted small">Paid</span>
+                                    <h4 class="fw-bold text-success" id="summaryBatchPaid">0</h4>
+                                </div>
+                                <div class="col-3"> <span class="text-muted small">Due</span>
+                                    <h4 class="fw-bold text-danger" id="summaryBatchDue">0</h4>
+                                </div>
+                                <div class="col-3"> <span class="text-muted small">Students</span>
+                                    <h4 class="fw-bold text-dark" id="summaryBatchCount">0</h4>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- EXAM RESULTS SECTION -->

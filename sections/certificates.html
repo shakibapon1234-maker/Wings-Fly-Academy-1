@@ -1,0 +1,113 @@
+                <div id="certificateSection" class="d-none">
+                    <div class="container-fluid py-3">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <h4 class="mb-1" style="color: #00fff5; font-weight: bold; letter-spacing: 0.5px;">
+                                    <i class="bi bi-award-fill text-warning me-2"></i>Certificate Generator
+                                </h4>
+                                <p class="small mb-0" style="color: #a0a0c0;">স্টুডেন্টদের সার্টিফিকেট তৈরি ও ডাউনলোড করুন</p>
+                            </div>
+                        </div>
+                        <!-- Single Certificate -->
+                        <div class="row g-3">
+                            <div class="col-lg-4 col-md-5">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header border-secondary" style="color: #00fff5 !important;"><i
+                                            class="bi bi-person-badge me-2 text-warning"></i>Single Certificate</div>
+                                    <div class="card-body">
+                                        <label class="form-label small" style="color: #00fff5 !important;">স্টুডেন্ট সিলেক্ট করুন</label>
+                                        <select id="certStudentSelect"
+                                            class="form-select bg-dark border-info mb-2"
+                                            style="color: #00fff5 !important;"
+                                            onchange="previewCertificate()">
+                                            <option value="">-- Select Student --</option>
+                                        </select>
+                                        <div class="row g-2 mt-1">
+                                            <div class="col-7">
+                                                <label class="form-label small" style="color: #00fff5 !important;">Session Start Date</label>
+                                                <input type="date" id="certSessionStart"
+                                                    class="form-control bg-dark border-info"
+                                                    style="color: #00fff5 !important;"
+                                                    onchange="previewCertificate()">
+                                            </div>
+                                            <div class="col-5">
+                                                <label class="form-label small" style="color: #00fff5 !important;">Duration</label>
+                                                <select id="certDuration"
+                                                    class="form-select bg-dark border-info"
+                                                    style="color: #00fff5 !important;"
+                                                    onchange="previewCertificate()">
+                                                    <option value="">-- Select --</option>
+                                                    <option value="3">3 Month</option>
+                                                    <option value="6">6 Month</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div id="certSessionPreview" class="small mt-1 mb-3"
+                                            style="color:#f0c040;min-height:18px;"></div>
+                                        <div id="certStudentInfo" class="d-none mb-3 p-2 rounded"
+                                            style="background: rgba(0, 255, 245, 0.05); border: 1px solid rgba(0, 255, 245, 0.2);">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <img id="certStudentPhoto" src="" width="48" height="48"
+                                                    class="rounded-circle object-fit-cover border border-warning"
+                                                    style="object-fit:cover;"
+                                                    onerror="this.src='https://ui-avatars.com/api/?background=f59e0b0026color=fff0026size=480026name=S'">
+                                                <div>
+                                                    <div class="fw-bold" id="certStudentName" style="color: #00fff5;">-</div>
+                                                    <div class="small" id="certStudentBatch" style="color: #a0a0c0;">-</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-warning fw-bold"
+                                                onclick="downloadSingleCertificate()"><i
+                                                    class="bi bi-download me-2"></i>Download PDF</button>
+                                            <button class="btn btn-outline-light" onclick="printSingleCertificate()"><i
+                                                    class="bi bi-printer me-2"></i>Print Certificate</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <!-- Bulk Section -->
+                                <div class="card bg-dark border-secondary text-white mt-3">
+                                    <div class="card-header border-secondary" style="color: #00fff5 !important;"><i
+                                            class="bi bi-stack me-2 text-info"></i>Bulk Generation</div>
+                                    <div class="card-body">
+                                        <label class="form-label small" style="color: #00fff5 !important;">Filter by Batch</label>
+                                        <input type="text" id="certBatchFilter"
+                                            class="form-control bg-dark border-info mb-2"
+                                            style="color: #00fff5 !important;"
+                                            placeholder="যেমন: Batch-03">
+                                        <label class="form-label small" style="color: #00fff5 !important;">Filter by Course</label>
+                                        <select id="certCourseFilter"
+                                            class="form-select bg-dark border-info mb-3"
+                                            style="color: #00fff5 !important;">
+                                            <option value="">-- All Courses --</option>
+                                        </select>
+                                        <button class="btn btn-info w-100 fw-bold mb-2" onclick="loadBulkStudents()"><i
+                                                class="bi bi-search me-2"></i>Search Students</button>
+                                        <div id="certBulkList" class="small text-white-50 mb-2"></div>
+                                        <button class="btn btn-success w-100 fw-bold d-none" id="certGenerateAllBtn"
+                                            onclick="generateAllCertificates()"><i class="bi bi-files me-2"></i>Generate
+                                            All Certificates</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Preview -->
+                            <div class="col-lg-8 col-md-7">
+                                <div class="card bg-dark border-secondary">
+                                    <div class="card-header border-secondary"><i
+                                            class="bi bi-eye me-2 text-success"></i>Certificate Preview</div>
+                                    <div class="card-body p-2"
+                                        style="min-height:400px; background:#111; border-radius:8px; display:flex; align-items:center; justify-content:center;">
+                                        <div id="certPreviewArea" style="width:100%; text-align:center; color:#666;">
+                                            স্টুডেন্ট সিলেক্ট করুন প্রিভিউ দেখতে</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- END CERTIFICATE SECTION -->
+
+                <!-- =============================================== -->
+                <!-- ID CARD SECTION -->
+                <!-- =============================================== -->
