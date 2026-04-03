@@ -151,25 +151,6 @@ async function migratePasswordIfNeeded(user, plainPassword) {
 async function handleLogin(e) {
   e.preventDefault();
 
-  // TEMP BYPASS: Auto-login as admin (remove after testing)
-  sessionStorage.setItem('isLoggedIn', 'true');
-  sessionStorage.setItem('currentUser', 'admin');
-  sessionStorage.setItem('username', 'admin');
-  sessionStorage.setItem('userRole', 'admin');
-  sessionStorage.setItem('role', 'admin');
-  sessionStorage.setItem('wf_session_role', 'admin');
-  
-  // Initialize globalData if not exists
-  if (!window.globalData) {
-    window.globalData = {
-      students: [], finance: [], employees: [],
-      users: [{ username: 'admin', role: 'admin', name: 'Admin' }]
-    };
-  }
-  
-  showDashboard('Admin');
-  return;
-
   const btn = document.getElementById('loginBtn');
   const err = document.getElementById('loginError');
   const form = document.getElementById('loginForm');
