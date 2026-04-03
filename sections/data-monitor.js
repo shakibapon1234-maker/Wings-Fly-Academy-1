@@ -61,7 +61,7 @@
           background: linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%);
           border: 1px solid #ffc107;
           border-radius: 12px;
-          z-index: 99999;
+          z-index: 999999;
           display: none;
           box-shadow: 0 8px 32px rgba(255, 193, 7, 0.2);
           font-family: 'Segoe UI', monospace;
@@ -163,7 +163,7 @@
         #dmToggleBtn {
           position: fixed;
           top: 20px;
-          right: 20px;
+          right: 80px;
           width: 45px;
           height: 45px;
           border-radius: 10px;
@@ -173,7 +173,7 @@
           font-size: 18px;
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(255, 193, 7, 0.4);
-          z-index: 99998;
+          z-index: 999998;
         }
       `;
       document.head.appendChild(style);

@@ -606,6 +606,21 @@ WINGS FLY AVIATION ACADEMY — Management System
                                         <span>Reset Egress Limit</span>
                                     </button>
                                 </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button class="dropdown-item rounded-2 py-2 d-flex align-items-center gap-2"
+                                        onclick="if(window.cloudVsLocal) window.cloudVsLocal.toggle(); else alert('Monitor not loaded')">
+                                        <i class="bi bi-cloud-check text-success"></i>
+                                        <span>☁️ Cloud vs Local Monitor</span>
+                                    </button>
+                                </li>
+                                <li>
+                                    <button class="dropdown-item rounded-2 py-2 d-flex align-items-center gap-2"
+                                        onclick="if(window.dataMonitor) window.dataMonitor.toggle(); else alert('Monitor not loaded')">
+                                        <i class="bi bi-graph-up text-warning"></i>
+                                        <span>📊 Data Monitor</span>
+                                    </button>
+                                </li>
                             </ul>
                         </div>
 

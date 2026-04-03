@@ -41,14 +41,14 @@
       style.textContent = `
         #cloudVsLocalPanel {
           position: fixed;
-          bottom: 0;
+          bottom: 20px;
           right: 20px;
           width: 500px;
           max-height: 70vh;
           background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
           border: 1px solid #00d4ff;
           border-radius: 12px 12px 0 0;
-          z-index: 99999;
+          z-index: 999999;
           display: none;
           box-shadow: 0 -4px 20px rgba(0, 212, 255, 0.3);
           font-family: monospace;
@@ -129,7 +129,7 @@
           font-size: 20px;
           cursor: pointer;
           box-shadow: 0 4px 15px rgba(0, 212, 255, 0.5);
-          z-index: 99998;
+          z-index: 999998;
         }
       `;
       document.head.appendChild(style);
