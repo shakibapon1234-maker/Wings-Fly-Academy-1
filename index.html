@@ -1950,13 +1950,30 @@ WINGS FLY AVIATION ACADEMY — Management System
     <script src="app.js"></script>
 
     <!-- Fix Scripts -->
+    <script defer src="auto-heal.js"></script>
     <script src="sections/recycle-bin-fix.js"></script>
+    <script src="sections/supabase-sync-patch.js"></script>
     <!-- Phase 3: Data Protection (Validator + Audit Logger + Encryption) -->
     <script src="sections/data-protection.js"></script>
     <!-- Phase 4: Advanced Security (Rate Limiter + Encrypted Backup + XSS/CSRF + Monitor) -->
     <script src="sections/advanced-security.js"></script>
+    <script defer src="sections/batch-profit-report.js"></script>
 
     <script src="exam_management.js"></script>
+
+    <!-- Auto Test Suite -->
+    <script defer src="auto-test.js"></script>
+    <script defer src="tester-pro.js"></script>
+
+    <!-- ✅ Deploy Change Tracker — নতুন কোড লেখার পর কোন feature ভেঙেছে ট্র্যাক করে -->
+    <script defer src="deploy-change-tracker.js"></script>
+
+    <!-- Auto Test Suite -->
+    <script defer src="auto-test.js"></script>
+    <script defer src="tester-pro.js"></script>
+
+    <!-- ✅ Deploy Change Tracker — নতুন কোড লেখার পর কোন feature ভেঙেছে ট্র্যাক করে -->
+    <script defer src="deploy-change-tracker.js"></script>
 
     <!-- ✅ Finance Integrity Guard — accounts method monitor -->
     <script defer src="sections/finance-guard.js"></script>
@@ -1976,7 +1993,9 @@ WINGS FLY AVIATION ACADEMY — Management System
     <script src="sections/section-loader.js"></script>
     <!-- noticeBoardModal is inline — section-loader.js handles it directly -->
     <!-- ✅ Auto-pagination patch for Visitor, Employee, Salary, Exam, Loan tables -->
-    <script src="sections/table-pagination.js"></script>
+    <script src="sections/table-pagination-patch.js"></script>
+    <!-- ✅ Garbled text fix + settings scroll to top -->
+    <script defer src="garbled-text-fix.js"></script>
 
     <!-- ✅ STUDENT MODAL HTML — Inline, no fetch needed -->
      <div id="__studentModalsPlaceholder"></div>
