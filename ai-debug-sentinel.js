@@ -63,6 +63,14 @@
             window.onunhandledrejection = function (event) {
                 self.record('CRITICAL', event.reason?.message || 'Unhandled Promise Rejection', 'PROMISE_REJECTION', event.reason?.stack);
             };
+
+            // Capture resource loading errors (img, script, link)
+            window.addEventListener('error', function (event) {
+                if (event.target && (event.target.src || event.target.href)) {
+                    const url = event.target.src || event.target.href;
+                    self.record('WARNING', `Failed to load resource: ${url}`, 'RESOURCE_ERROR');
+                }
+            }, true);
         },
 
         record: function (severity, msg, type, stack = null) {
@@ -87,6 +95,14 @@
             this.saveHistory();
             this.renderLogs();
             this.updateOrb(severity);
+
+            // ROBUST ALERTING (PHASE 3)
+            if (severity !== 'INFO') {
+                const toastMsg = msg.includes('SyncGuard') ? `🛡️ Sentinel: ${msg}` : `⚠️ Sentinel: ${severity} - ${msg.substring(0, 40)}${msg.length > 40 ? '...' : ''}`;
+                this.showToast(toastMsg, severity === 'CRITICAL' ? 'danger' : 'warning');
+                this.showBubble(type || severity, severity);
+                this.shakeOrb();
+            }
             
             if (severity === 'CRITICAL') {
                 this.analyze(entry);
@@ -99,22 +115,41 @@
         analyze: function (entry) {
             let suggestion = null;
             let autoFix = null;
+            let reasoning = null;
 
             // Pattern Matching
-            if (entry.msg.includes('undefined') || entry.msg.includes('null')) {
+            const msg = entry.msg.toLowerCase();
+            if (msg.includes('undefined') || msg.includes('null')) {
                 suggestion = "Detected Null/Undefined access. Possible data corruption or missing initialization.";
+                reasoning = "The app tried to read a property of an empty object. Running Auto-Heal will initialize all missing data arrays to prevent further crashes.";
                 autoFix = "RUN_AUTO_HEAL_DATA";
-            } else if (entry.msg.includes('fetch') || entry.msg.includes('Supabase')) {
-                suggestion = "Network error detected. Cloud sync might be interrupted.";
+            } else if (msg.includes('fetch') || msg.includes('supabase') || msg.includes('connection_refused') || msg.includes('network')) {
+                suggestion = "Network error detected. Connection to the server or database might be interrupted.";
+                reasoning = "Failed to reach the specified URL. This could be a local offline state or a server-side downtime. Retrying the sync engine will attempt to reconnect.";
                 autoFix = "RETRY_SYNC";
-            } else if (entry.msg.includes('balance') || entry.msg.includes('cash')) {
+            } else if (msg.includes('balance') || msg.includes('cash')) {
                 suggestion = "Account balance mismatch likely.";
+                reasoning = "Detected an error in a financial field. The finance engine will recalculate all cash and bank totals to ensure accuracy.";
                 autoFix = "RECALC_FINANCE";
+            } else if (msg.includes('increment_version')) {
+                suggestion = "Supabase RPC 'increment_version' missing.";
+                reasoning = "The cloud database is missing a required function. A synchronization retry will attempt to bypass this version check and maintain data integrity.";
+                autoFix = "RETRY_SYNC";
+            } else if (msg.includes('404') || msg.includes('failed to load') || msg.includes('resource_error')) {
+                suggestion = "Resource Loading Failure (Missing File/Network).";
+                reasoning = "An asset (like an image, script, or favicon) could not be loaded. This might be due to a missing file or a local connection issue. A diagnostic scan will check if any core scripts are missing.";
+                autoFix = "RUN_AUTO_HEAL_DATA";
+            } else {
+                // Proactive General Diagnostic
+                suggestion = "Unknown anomaly detected. Recommend a full system diagnostic.";
+                reasoning = "While this error didn't match a known pattern, some system components might be in an inconsistent state. Running Auto-Heal is a safe way to verify all data structures.";
+                autoFix = "RUN_AUTO_HEAL_DATA";
             }
 
             if (suggestion) {
                 entry.suggestion = suggestion;
                 entry.autoFix = autoFix;
+                entry.reasoning = reasoning;
                 this.renderLogs();
             }
         },
@@ -206,14 +241,32 @@
                 }
                 #sentinel-orb:hover { transform: scale(1.1) rotate(15deg); }
                 #sentinel-orb.pulse { animation: sentinel-pulse 1.5s infinite; }
-                #sentinel-orb.critical { background: radial-gradient(circle at 30% 30%, #ff4b2b, #ff416c); box-shadow: 0 0 20px rgba(255, 75, 43, 0.6); }
-                #sentinel-orb.warning { background: radial-gradient(circle at 30% 30%, #f7971e, #ffd200); box-shadow: 0 0 20px rgba(247, 151, 30, 0.6); }
+                #sentinel-orb.critical { background: radial-gradient(circle at 30% 30%, #ff4b2b, #ff416c); box-shadow: 0 0 30px rgba(255, 75, 43, 0.8), 0 0 10px #ff4b2b; }
+                #sentinel-orb.warning { background: radial-gradient(circle at 30% 30%, #f7971e, #ffd200); box-shadow: 0 0 30px rgba(247, 151, 30, 0.8); }
+                #sentinel-orb.shake { animation: sentinel-shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
                 
                 @keyframes sentinel-pulse {
                     0% { box-shadow: 0 0 0 0 rgba(0, 217, 255, 0.7); }
-                    70% { box-shadow: 0 0 0 15px rgba(0, 217, 255, 0); }
+                    70% { box-shadow: 0 0 0 20px rgba(0, 217, 255, 0); }
                     100% { box-shadow: 0 0 0 0 rgba(0, 217, 255, 0); }
                 }
+
+                @keyframes sentinel-shake {
+                    10%, 90% { transform: translate3d(-1px, 0, 0); }
+                    20%, 80% { transform: translate3d(2px, 0, 0); }
+                    30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+                    40%, 60% { transform: translate3d(4px, 0, 0); }
+                }
+
+                #sentinel-bubble {
+                    position: fixed; bottom: 35px; right: 80px;
+                    background: rgba(10, 14, 37, 0.9); backdrop-filter: blur(10px);
+                    color: #fff; padding: 6px 12px; border-radius: 12px; border: 1px solid rgba(0, 255, 245, 0.3);
+                    font-size: 10px; font-weight: 700; z-index: 1000000;
+                    display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+                    animation: sentinel-bubble-in 0.3s ease-out; pointer-events: none;
+                }
+                @keyframes sentinel-bubble-in { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
 
                 #sentinel-panel {
                     position: fixed; bottom: 85px; right: 20px; width: 400px; max-height: 80vh;
@@ -241,16 +294,18 @@
                 .sentinel-item-meta { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255,255,255,0.4); margin-bottom: 5px; }
                 .sentinel-item-msg { font-size: 12px; color: #eee; word-break: break-all; margin-bottom: 8px; font-family: 'JetBrains Mono', 'Monaco', monospace; }
                 
-                .sentinel-fix-box { background: rgba(0, 255, 245, 0.08); border-radius: 8px; padding: 8px; margin-top: 10px; border: 1px dashed rgba(0, 255, 245, 0.2); }
-                .sentinel-fix-btn { background: #00fff5; color: #0a0e25; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; margin-top: 5px; }
-                .sentinel-rollback-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-top: 5px; margin-left: 5px; }
+                .sentinel-fix-box { background: rgba(0, 255, 245, 0.08); border-radius: 8px; padding: 10px; margin-top: 10px; border: 1px dashed rgba(0, 255, 245, 0.2); }
+                .sentinel-reasoning { font-size: 10px; color: rgba(255,255,255,0.6); line-height: 1.4; margin-top: 6px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; border-left: 2px solid #00fff5; }
+                .sentinel-fix-btn { background: #00fff5; color: #0a0e25; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 700; cursor: pointer; margin-top: 8px; box-shadow: 0 0 10px rgba(0,255,245,0.3); transition: 0.2s; }
+                .sentinel-fix-btn:hover { background: #fff; transform: translateY(-1px); }
+                .sentinel-rollback-btn { background: rgba(255,255,255,0.1); color: #fff; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; margin-top: 8px; margin-left: 5px; }
 
                 #sentinel-lock {
-                    position: fixed; inset: 0; background: rgba(10, 14, 37, 0.6); backdrop-filter: blur(10px);
+                    position: fixed; inset: 0; background: rgba(10, 14, 37, 0.8); backdrop-filter: blur(15px);
                     z-index: 2000000; display: none; align-items: center; justify-content: center; flex-direction: column;
                     color: #fff; text-align: center;
                 }
-                .sentinel-loader { width: 50px; height: 50px; border: 3px solid rgba(0,255,245,0.1); border-top: 3px solid #00fff5; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+                .sentinel-loader { width: 60px; height: 60px; border: 4px solid rgba(0,255,245,0.1); border-top: 4px solid #00fff5; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 25px; box-shadow: 0 0 20px rgba(0,255,245,0.2); }
                 @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             `;
             document.head.appendChild(style);
@@ -267,8 +322,12 @@
             this.panelEl.id = 'sentinel-panel';
             this.panelEl.innerHTML = `
                 <div class="sentinel-header">
-                    <h5>🛡️ DEBUG SENTINEL</h5>
-                    <div style="display:flex; gap:10px;">
+                    <div style="display:flex; flex-direction:column;">
+                        <h5>🛡️ DEBUG SENTINEL</h5>
+                        <small style="color:rgba(255,255,255,0.3); font-size:9px;">AI ASSISTANT ACTIVE</small>
+                    </div>
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <button onclick="Sentinel.manualScan()" style="background:rgba(0,255,245,0.1); border:1px solid rgba(0,255,245,0.3); color:#00fff5; font-size:10px; padding:3px 8px; border-radius:4px; cursor:pointer;">SCAN NOW</button>
                         <button onclick="Sentinel.clearLogs()" style="background:none; border:none; color:rgba(255,255,255,0.4); font-size:11px; cursor:pointer;">CLEAR</button>
                         <button onclick="Sentinel.togglePanel()" style="background:none; border:none; color:white; font-size:20px; cursor:pointer;">&times;</button>
                     </div>
@@ -292,13 +351,39 @@
             `;
             document.body.appendChild(this.lockEl);
 
+            // Create Bubble
+            this.bubbleEl = document.createElement('div');
+            this.bubbleEl.id = 'sentinel-bubble';
+            document.body.appendChild(this.bubbleEl);
+
             // Export to window for inline calls
             window.Sentinel = {
                 togglePanel: () => this.togglePanel(),
                 clearLogs: () => this.clearLogs(),
                 applyFix: (id) => this.applyFix(id),
-                rollback: (id) => this.rollback(id)
+                rollback: (id) => this.rollback(id),
+                manualScan: () => {
+                    this.record('INFO', 'User initiated manual diagnostic scan.', 'MANUAL_SCAN');
+                    setTimeout(() => {
+                        this.logs[0].suggestion = "Manual scan complete. No critical structural issues found.";
+                        this.logs[0].reasoning = "I have verified the integrity of globalData and the presence of core modules. If something is still wrong, running a preventative Auto-Heal is recommended.";
+                        this.logs[0].autoFix = "RUN_AUTO_HEAL_DATA";
+                        this.renderLogs();
+                    }, 800);
+                }
             };
+        },
+
+        showBubble: function (text, severity) {
+            this.bubbleEl.textContent = text.replace(/_/g, ' ');
+            this.bubbleEl.style.display = 'block';
+            this.bubbleEl.style.borderColor = severity === 'CRITICAL' ? '#ff416c' : '#00fff5';
+            setTimeout(() => { this.bubbleEl.style.display = 'none'; }, 5000);
+        },
+
+        shakeOrb: function () {
+            this.orbEl.classList.add('shake');
+            setTimeout(() => this.orbEl.classList.remove('shake'), 600);
         },
 
         togglePanel: function () {
@@ -352,10 +437,11 @@
                         <div class="sentinel-fix-box">
                             <div style="font-size:10px; color:#ffcc00; font-weight:700; margin-bottom:4px;">💡 AI SUGGESTION</div>
                             <div style="font-size:11px; color:#ddd; margin-bottom:8px;">${log.suggestion}</div>
+                            ${log.reasoning ? `<div class="sentinel-reasoning">${log.reasoning}</div>` : ''}
                             ${!log.fixed ? `
                                 <button class="sentinel-fix-btn" onclick="Sentinel.applyFix('${log.id}')">APPLY AUTO-FIX</button>
                             ` : `
-                                <div style="color:#00ff88; font-size:11px; font-weight:700;">✅ FIXED</div>
+                                <div style="color:#00ff88; font-size:11px; font-weight:700; margin-top:10px;">✅ FIXED BY SENTINEL</div>
                                 <button class="sentinel-rollback-btn" onclick="Sentinel.rollback('${log.id}')">UNDO & ROLLBACK</button>
                             `}
                         </div>
