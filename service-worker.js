@@ -1,112 +1,55 @@
-// ================================================================
-// WINGS FLY AVIATION ACADEMY - PWA SERVICE WORKER
-// Offline support: app files cache করে রাখে
-// Version বাড়ালে নতুন files আবার download হবে
-// ================================================================
+// ============================================================
+// Wings Fly Aviation Academy — Service Worker
+// ============================================================
+const CACHE_NAME = 'wfa-v1';
 
-const CACHE_NAME = 'wingsfly-cache-v8'; // ✅ v8: Hide Person/Counterparty field for Income/Expense by default
-
-// এই files গুলো offline-এও কাজ করবে
-const FILES_TO_CACHE = [
-  './',
-  './index.html',
-  './app.js',
-  './supabase-sync-SMART-V37.js',  // ✅ V37 filename updated
-  './supabase-config.js',
-  './styles.css',
-  './manifest.json',
-  // NOTE: CDN URLs (Bootstrap, Font Awesome, Chart.js etc.) are intentionally
-  // excluded here because they are loaded via <script>/<link> tags in index.html
-  // and caching them via fetch() causes CSP violations on the deployed site.
+const STATIC_ASSETS = [
+  '/',
+  '/Wings-Fly-Academy/',
+  '/Wings-Fly-Academy/index.html',
+  '/Wings-Fly-Academy/css/main.css',
+  '/Wings-Fly-Academy/css/attendance.css',
+  '/Wings-Fly-Academy/css/print.css',
+  '/Wings-Fly-Academy/js/core/supabase-config.js',
+  '/Wings-Fly-Academy/js/core/supabase-sync.js',
+  '/Wings-Fly-Academy/js/core/app.js',
+  '/Wings-Fly-Academy/js/core/utils.js',
+  '/Wings-Fly-Academy/js/ui/dashboard.js',
+  '/Wings-Fly-Academy/js/ui/login.js',
+  '/Wings-Fly-Academy/js/ui/settings.js',
+  '/Wings-Fly-Academy/js/modules/students.js',
+  '/Wings-Fly-Academy/js/modules/finance.js',
+  '/Wings-Fly-Academy/js/modules/accounts.js',
+  '/Wings-Fly-Academy/js/modules/loans.js',
+  '/Wings-Fly-Academy/js/modules/exam.js',
+  '/Wings-Fly-Academy/js/modules/attendance.js',
+  '/Wings-Fly-Academy/js/modules/salary.js',
+  '/Wings-Fly-Academy/js/modules/hr-staff.js',
+  '/Wings-Fly-Academy/js/modules/visitors.js',
+  '/Wings-Fly-Academy/js/modules/id-cards.js',
+  '/Wings-Fly-Academy/js/modules/certificates.js',
+  '/Wings-Fly-Academy/js/modules/notice-board.js',
 ];
 
-// ── Install: সব file cache করো ──
-self.addEventListener('install', function (event) {
-  console.log('[SW] Installing Wings Fly Service Worker...');
-  event.waitUntil(
-    caches.open(CACHE_NAME).then(function (cache) {
-      console.log('[SW] Caching app files...');
-      // প্রতিটা file আলাদাভাবে cache করি, একটা fail করলে বাকিগুলো থাকবে
-      return Promise.allSettled(
-        FILES_TO_CACHE.map(function (url) {
-          return cache.add(url).catch(function (err) {
-            console.warn('[SW] Failed to cache:', url, err);
-          });
-        })
-      );
-    }).then(function () {
-      console.log('[SW] ✅ Installation complete');
-      return self.skipWaiting(); // নতুন SW সাথে সাথে active হবে
-    })
+self.addEventListener('install', (e) => {
+  e.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {}))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (e) => {
+  e.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (e) => {
+  // Network first, fallback to cache
+  e.respondWith(
+    fetch(e.request).catch(() => caches.match(e.request))
   );
 });
-
-// ── Activate: পুরনো cache মুছো ──
-self.addEventListener('activate', function (event) {
-  console.log('[SW] Activating new Service Worker...');
-  event.waitUntil(
-    caches.keys().then(function (keyList) {
-      return Promise.all(
-        keyList.map(function (key) {
-          if (key !== CACHE_NAME) {
-            console.log('[SW] Removing old cache:', key);
-            return caches.delete(key);
-          }
-        })
-      );
-    }).then(function () {
-      console.log('[SW] ✅ Activation complete');
-      return self.clients.claim();
-    })
-  );
-});
-
-// ── Fetch: Network first, Cache fallback ──
-// Internet থাকলে নতুন version নাও, না থাকলে cache থেকে দাও
-self.addEventListener('fetch', function (event) {
-  // POST request cache করা যায় না
-  if (event.request.method !== 'GET') return;
-
-  // Supabase API calls cache করব না (real-time data)
-  const url = event.request.url;
-  if (url.includes('supabase.co') || url.includes('supabase.io')) {
-    return; // Supabase সরাসরি network থেকে নাও
-  }
-
-  event.respondWith(
-    fetch(event.request)
-      .then(function (networkResponse) {
-        // Network থেকে পেলে cache-ও update করো
-        if (networkResponse && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(function (cache) {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return networkResponse;
-      })
-      .catch(function () {
-        // Network নেই — cache থেকে দাও
-        return caches.match(event.request).then(function (cachedResponse) {
-          if (cachedResponse) {
-            console.log('[SW] Serving from cache (offline):', event.request.url);
-            return cachedResponse;
-          }
-          // Cache-ও নেই — offline page দেখাও
-          if (event.request.destination === 'document') {
-            return caches.match('./index.html');
-          }
-        });
-      })
-  );
-});
-
-// ── Background Sync: Internet আসলে Supabase sync করো ──
-self.addEventListener('sync', function (event) {
-  if (event.tag === 'wingsfly-sync') {
-    console.log('[SW] Background sync triggered');
-    // app.js-এর pushToCloud() call হবে যখন net আসবে
-  }
-});
-
-console.log('[SW] Wings Fly Service Worker loaded ✅');
