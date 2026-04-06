@@ -1,36 +1,30 @@
-// ============================================================
-// Wings Fly Aviation Academy — Supabase Configuration
-// ============================================================
-// ⚠️ এখানে আপনার নতুন Supabase account-এর URL ও Key দিন
+/* ════════════════════════════════════════════════
+   Wings Fly Aviation Academy
+   js/core/supabase-config.js
+   Supabase connection — এখানে শুধু URL ও Key বসাবেন
+════════════════════════════════════════════════ */
 
-const SUPABASE_URL = 'https://YOUR_PROJECT_ID.supabase.co';
-const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY_HERE';
+const SUPABASE_URL      = 'https://cwwyhtarnkozukekebvq.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3d3lodGFybmtvenVrZWtlYnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTE5NzUsImV4cCI6MjA4OTQyNzk3NX0.XCJe9A5_ymXQQqK5KVQHJqswUXCuopUi_NYv7T-WWn8';
 
-// Supabase client initialize
-const { createClient } = supabase;
-const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* Supabase client তৈরি */
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ============================================================
-// Table Names
-// ============================================================
-const TABLES = {
-  STUDENTS:    'students',
-  FINANCE:     'finance_ledger',
-  ACCOUNTS:    'accounts',
-  LOANS:       'loans',
-  EXAMS:       'exams',
-  ATTENDANCE:  'attendance',
-  STAFF:       'staff',
-  SALARY:      'salary',
-  VISITORS:    'visitors',
-  NOTICES:     'notices',
-  SETTINGS:    'settings',
+/* ── Table Names (একবার এখানে ঠিক করলেই সব জায়গায় ঠিক হবে) ── */
+const DB = {
+  students:    'students',
+  finance:     'finance_ledger',
+  accounts:    'accounts',
+  loans:       'loans',
+  exam:        'exam_registrations',
+  attendance:  'attendance',
+  staff:       'staff',
+  salary:      'salary_records',
+  visitors:    'visitors',
+  notices:     'notices',
+  settings:    'settings',
 };
 
-// ============================================================
-// Export
-// ============================================================
-window.SUPABASE_CONFIG = {
-  client: supabaseClient,
-  TABLES,
-};
+/* ── Academy Settings Key ── */
+const SETTINGS_KEY = 'wings_fly_settings';
+const ADMIN_KEY    = 'wings_fly_admin';

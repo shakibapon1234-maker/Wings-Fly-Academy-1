@@ -1,242 +1,457 @@
 <!DOCTYPE html>
-<html lang="bn" data-theme="light">
+<html lang="bn">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wings Fly Aviation Academy</title>
+  <meta name="theme-color" content="#0a1628" />
   <meta name="description" content="Wings Fly Aviation Academy — Management System" />
+  <title>Wings Fly Aviation Academy</title>
 
   <!-- PWA -->
   <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0D1B3E" />
   <link rel="icon" href="favicon.ico" />
 
-  <!-- Stylesheets -->
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- SheetJS (Excel export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Supabase JS v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- CSS -->
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/attendance.css" />
-
-  <!-- Supabase CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="css/print.css" media="print" />
 </head>
 <body>
 
-<!-- ════════════════════════════════════════════════════════
-     LOGIN SCREEN
-═════════════════════════════════════════════════════════ -->
-<div id="login-screen">
-  <div class="login-box">
-    <img src="assets/wings_logo_premium.png" alt="Wings Fly" onerror="this.style.display='none'" />
-    <h1>Wings Fly Aviation Academy</h1>
-    <p class="font-bn">ম্যানেজমেন্ট সিস্টেমে প্রবেশ করুন</p>
-
-    <form id="login-form">
-      <div class="form-group">
-        <label for="login-password">পাসওয়ার্ড</label>
-        <input type="password" id="login-password" placeholder="আপনার পাসওয়ার্ড দিন" autocomplete="current-password" />
+  <!-- ════════════════════════════════════════
+       LOGIN OVERLAY
+  ════════════════════════════════════════ -->
+  <div id="login-overlay" class="login-overlay active">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="assets/wings_logo_premium.png" alt="Wings Fly Aviation Academy" onerror="this.style.display='none'" />
+        <h1>Wings Fly</h1>
+        <p>Aviation Academy</p>
       </div>
-      <button type="submit" class="btn btn-primary btn-lg">
-        🔓 প্রবেশ করুন
-      </button>
-    </form>
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label><i class="fa fa-user"></i> ইউজারনেম</label>
+          <input type="text" id="login-username" placeholder="admin" autocomplete="username" />
+        </div>
+        <div class="form-group">
+          <label><i class="fa fa-lock"></i> পাসওয়ার্ড</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div id="login-error" class="login-error hidden"></div>
+        <button type="submit" class="btn-login">
+          <i class="fa fa-sign-in-alt"></i> লগইন করুন
+        </button>
+      </form>
+      <div class="login-footer">Wings Fly Aviation Academy © 2026</div>
+    </div>
   </div>
-</div>
 
+  <!-- ════════════════════════════════════════
+       MAIN APP SHELL
+  ════════════════════════════════════════ -->
+  <div id="app-shell" class="app-shell hidden">
 
-<!-- ════════════════════════════════════════════════════════
-     APP WRAPPER (shown after login)
-═════════════════════════════════════════════════════════ -->
-<div id="app-wrapper" style="display:none">
-
-  <!-- ── SIDEBAR ───────────────────────────────────────── -->
-  <aside id="sidebar">
-    <div class="sidebar-logo">
-      <img src="assets/wings_logo_premium.png" alt="Wings Fly" onerror="this.style.display='none'" />
-      <div class="academy-name">Wings Fly Aviation Academy</div>
-    </div>
-
-    <!-- Main -->
-    <div class="nav-group-title">Main</div>
-    <div class="nav-item active" data-section="dashboard">
-      <span class="nav-icon">📊</span> Dashboard
-    </div>
-
-    <!-- Academic -->
-    <div class="nav-group-title">Academic</div>
-    <div class="nav-item" data-section="students">
-      <span class="nav-icon">👩‍🎓</span> Students
-    </div>
-    <div class="nav-item" data-section="exam">
-      <span class="nav-icon">📝</span> Exam
-    </div>
-    <div class="nav-item" data-section="attendance">
-      <span class="nav-icon">📋</span> Attendance
-    </div>
-    <div class="nav-item" data-section="certificates">
-      <span class="nav-icon">🏆</span> Certificates
-    </div>
-
-    <!-- Finance -->
-    <div class="nav-group-title">Finance</div>
-    <div class="nav-item" data-section="finance">
-      <span class="nav-icon">💰</span> Finance Ledger
-    </div>
-    <div class="nav-item" data-section="accounts">
-      <span class="nav-icon">🏦</span> Accounts
-    </div>
-    <div class="nav-item" data-section="loans">
-      <span class="nav-icon">💳</span> Loans
-    </div>
-
-    <!-- HR -->
-    <div class="nav-group-title">HR</div>
-    <div class="nav-item" data-section="hr-staff">
-      <span class="nav-icon">👥</span> HR & Staff
-    </div>
-    <div class="nav-item" data-section="salary">
-      <span class="nav-icon">💵</span> Salary Hub
-    </div>
-
-    <!-- Other -->
-    <div class="nav-group-title">Other</div>
-    <div class="nav-item" data-section="visitors">
-      <span class="nav-icon">🚶</span> Visitors
-    </div>
-    <div class="nav-item" data-section="id-cards">
-      <span class="nav-icon">🪪</span> ID Cards
-    </div>
-    <div class="nav-item" data-section="notice-board">
-      <span class="nav-icon">📢</span> Notice Board
-    </div>
-    <div class="nav-item" data-section="settings">
-      <span class="nav-icon">⚙️</span> Settings
-    </div>
-
-    <!-- Footer -->
-    <div class="sidebar-footer">
-      <div id="sync-status" class="sync-badge synced">☁️ Synced</div>
-      <div style="margin-top:10px;display:flex;gap:6px;">
-        <button id="btn-sync-now" class="btn btn-ghost btn-sm" title="Pull from Cloud">⬇ Pull</button>
-        <button id="btn-sync-push" class="btn btn-ghost btn-sm" title="Push to Cloud">⬆ Push</button>
+    <!-- ── TOP NAVBAR ── -->
+    <header class="top-navbar">
+      <div class="navbar-left">
+        <button id="sidebar-toggle" class="icon-btn" title="মেনু"><i class="fa fa-bars"></i></button>
+        <div class="brand">
+          <img src="assets/wings_logo_premium.png" alt="logo" class="brand-logo" onerror="this.style.display='none'" />
+          <span class="brand-name">Wings Fly <span>Academy</span></span>
+        </div>
       </div>
-    </div>
-  </aside>
-
-  <!-- ── MAIN CONTENT ───────────────────────────────────── -->
-  <div id="main-content">
-
-    <!-- Topbar -->
-    <header id="topbar">
-      <button id="btn-hamburger">☰</button>
-      <span id="page-title">📊 Dashboard</span>
-      <div class="topbar-actions">
-        <button id="btn-theme-toggle" class="btn btn-ghost btn-sm" title="Toggle Dark Mode">🌙</button>
-        <button id="btn-logout" class="btn btn-ghost btn-sm">🚪 Logout</button>
+      <div class="navbar-right">
+        <!-- Sync Status -->
+        <div id="sync-indicator" class="sync-indicator" title="Sync Status">
+          <i class="fa fa-cloud"></i>
+          <span id="sync-text">Synced</span>
+        </div>
+        <!-- Notification Bell -->
+        <button id="notif-btn" class="icon-btn notif-btn" title="নোটিফিকেশন">
+          <i class="fa fa-bell"></i>
+          <span id="notif-count" class="notif-badge hidden">0</span>
+        </button>
+        <!-- Quick Add -->
+        <div class="quick-add-wrapper">
+          <button id="quick-add-btn" class="icon-btn" title="দ্রুত যোগ করুন">
+            <i class="fa fa-plus"></i>
+          </button>
+          <div id="quick-add-menu" class="quick-add-menu hidden">
+            <button onclick="App.quickAction('student')"><i class="fa fa-user-graduate"></i> শিক্ষার্থী</button>
+            <button onclick="App.quickAction('transaction')"><i class="fa fa-money-bill"></i> লেনদেন</button>
+            <button onclick="App.quickAction('exam')"><i class="fa fa-clipboard-list"></i> পরীক্ষা</button>
+            <button onclick="App.quickAction('visitor')"><i class="fa fa-person"></i> ভিজিটর</button>
+          </div>
+        </div>
+        <!-- Admin Info -->
+        <div class="admin-info">
+          <i class="fa fa-user-circle"></i>
+          <span id="admin-name-display">Admin</span>
+        </div>
+        <!-- Logout -->
+        <button id="logout-btn" class="icon-btn logout-btn" title="লগআউট">
+          <i class="fa fa-sign-out-alt"></i>
+        </button>
       </div>
     </header>
 
-    <!-- ════════════════════════════════════════
-         SECTIONS (each module goes here)
-    ═════════════════════════════════════════ -->
+    <!-- ── SIDEBAR ── -->
+    <aside id="sidebar" class="sidebar">
+      <nav class="sidebar-nav">
 
-    <!-- DASHBOARD -->
-    <div id="section-dashboard" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">প্রধান</div>
+        <button class="nav-item active" data-tab="dashboard">
+          <i class="fa fa-gauge-high"></i><span>ড্যাশবোর্ড</span>
+        </button>
 
-    <!-- STUDENTS -->
-    <div id="section-students" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">শিক্ষার্থী</div>
+        <button class="nav-item" data-tab="students">
+          <i class="fa fa-user-graduate"></i><span>শিক্ষার্থী</span>
+        </button>
+        <button class="nav-item" data-tab="exam">
+          <i class="fa fa-clipboard-list"></i><span>পরীক্ষা</span>
+        </button>
+        <button class="nav-item" data-tab="attendance">
+          <i class="fa fa-calendar-check"></i><span>উপস্থিতি</span>
+        </button>
 
-    <!-- FINANCE -->
-    <div id="section-finance" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">অর্থ ব্যবস্থাপনা</div>
+        <button class="nav-item" data-tab="finance">
+          <i class="fa fa-book-open"></i><span>আর্থিক লেজার</span>
+        </button>
+        <button class="nav-item" data-tab="accounts">
+          <i class="fa fa-wallet"></i><span>একাউন্ট</span>
+        </button>
+        <button class="nav-item" data-tab="loans">
+          <i class="fa fa-hand-holding-dollar"></i><span>লোন</span>
+        </button>
 
-    <!-- ACCOUNTS -->
-    <div id="section-accounts" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">কর্মী</div>
+        <button class="nav-item" data-tab="hr-staff">
+          <i class="fa fa-users"></i><span>কর্মী</span>
+        </button>
+        <button class="nav-item" data-tab="salary">
+          <i class="fa fa-sack-dollar"></i><span>বেতন হাব</span>
+        </button>
 
-    <!-- LOANS -->
-    <div id="section-loans" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">অন্যান্য</div>
+        <button class="nav-item" data-tab="visitors">
+          <i class="fa fa-person-walking-arrow-right"></i><span>ভিজিটর</span>
+        </button>
+        <button class="nav-item" data-tab="id-cards">
+          <i class="fa fa-id-card"></i><span>আইডি কার্ড</span>
+        </button>
+        <button class="nav-item" data-tab="certificates">
+          <i class="fa fa-certificate"></i><span>সার্টিফিকেট</span>
+        </button>
+        <button class="nav-item" data-tab="notice-board">
+          <i class="fa fa-bullhorn"></i><span>নোটিস বোর্ড</span>
+        </button>
 
-    <!-- EXAM -->
-    <div id="section-exam" class="page-section" style="display:none"></div>
+        <div class="nav-section-label">সিস্টেম</div>
+        <button class="nav-item" data-tab="settings">
+          <i class="fa fa-gear"></i><span>সেটিংস</span>
+        </button>
 
-    <!-- ATTENDANCE -->
-    <div id="section-attendance" class="page-section" style="display:none"></div>
+      </nav>
 
-    <!-- SALARY -->
-    <div id="section-salary" class="page-section" style="display:none"></div>
+      <!-- Sidebar Bottom: Sync Controls -->
+      <div class="sidebar-bottom">
+        <div class="sync-controls">
+          <button id="btn-sync-now" class="sync-btn" title="Sync Now">
+            <i class="fa fa-rotate"></i> Sync Now
+          </button>
+          <button id="btn-pull" class="sync-btn" title="Pull from Cloud">
+            <i class="fa fa-cloud-arrow-down"></i> Pull
+          </button>
+          <button id="btn-push" class="sync-btn" title="Push to Cloud">
+            <i class="fa fa-cloud-arrow-up"></i> Push
+          </button>
+        </div>
+      </div>
+    </aside>
 
-    <!-- HR & STAFF -->
-    <div id="section-hr-staff" class="page-section" style="display:none"></div>
+    <!-- ── MAIN CONTENT AREA ── -->
+    <main id="main-content" class="main-content">
 
-    <!-- VISITORS -->
-    <div id="section-visitors" class="page-section" style="display:none"></div>
+      <!-- Each section is loaded dynamically via fetch() from sections/ folder -->
+      <!-- Fallback inline sections below (used if fetch fails) -->
 
-    <!-- ID CARDS -->
-    <div id="section-id-cards" class="page-section" style="display:none"></div>
+      <!-- ▸ DASHBOARD -->
+      <section id="tab-dashboard" class="tab-section active">
+        <div class="section-header">
+          <h2><i class="fa fa-gauge-high"></i> ড্যাশবোর্ড</h2>
+          <div class="section-actions">
+            <span class="today-date" id="today-date-display"></span>
+          </div>
+        </div>
+        <div id="dashboard-content">
+          <!-- Populated by dashboard.js -->
+          <div class="loading-placeholder">
+            <i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...
+          </div>
+        </div>
+      </section>
 
-    <!-- CERTIFICATES -->
-    <div id="section-certificates" class="page-section" style="display:none"></div>
+      <!-- ▸ STUDENTS -->
+      <section id="tab-students" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-user-graduate"></i> শিক্ষার্থী</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="Students.openAddModal()">
+              <i class="fa fa-plus"></i> নতুন শিক্ষার্থী
+            </button>
+          </div>
+        </div>
+        <div id="students-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-    <!-- NOTICE BOARD -->
-    <div id="section-notice-board" class="page-section" style="display:none"></div>
+      <!-- ▸ FINANCE -->
+      <section id="tab-finance" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-book-open"></i> আর্থিক লেজার</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="Finance.openAddModal()">
+              <i class="fa fa-plus"></i> লেনদেন যোগ করুন
+            </button>
+          </div>
+        </div>
+        <div id="finance-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-    <!-- SETTINGS -->
-    <div id="section-settings" class="page-section" style="display:none"></div>
+      <!-- ▸ ACCOUNTS -->
+      <section id="tab-accounts" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-wallet"></i> একাউন্ট ব্যালেন্স</h2>
+        </div>
+        <div id="accounts-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-  </div><!-- /#main-content -->
-</div><!-- /#app-wrapper -->
+      <!-- ▸ LOANS -->
+      <section id="tab-loans" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-hand-holding-dollar"></i> লোন ব্যবস্থাপনা</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="Loans.openAddModal()">
+              <i class="fa fa-plus"></i> নতুন লোন
+            </button>
+          </div>
+        </div>
+        <div id="loans-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
+      <!-- ▸ EXAM -->
+      <section id="tab-exam" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-clipboard-list"></i> পরীক্ষা</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="Exam.openRegModal()">
+              <i class="fa fa-plus"></i> পরীক্ষার নিবন্ধন
+            </button>
+          </div>
+        </div>
+        <div id="exam-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- ════════════════════════════════════════════════════════
-     SCRIPTS (order matters!)
-═════════════════════════════════════════════════════════ -->
+      <!-- ▸ ATTENDANCE -->
+      <section id="tab-attendance" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-calendar-check"></i> উপস্থিতি</h2>
+        </div>
+        <div id="attendance-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- Core -->
-<script src="js/core/supabase-config.js"></script>
-<script src="js/core/supabase-sync.js"></script>
-<script src="js/core/utils.js"></script>
-<script src="js/core/app.js"></script>
+      <!-- ▸ HR STAFF -->
+      <section id="tab-hr-staff" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-users"></i> কর্মী ব্যবস্থাপনা</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="HRStaff.openAddModal()">
+              <i class="fa fa-plus"></i> নতুন কর্মী
+            </button>
+          </div>
+        </div>
+        <div id="hr-staff-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- UI -->
-<script src="js/ui/login.js"></script>
-<script src="js/ui/dashboard.js"></script>
-<script src="js/ui/settings.js"></script>
+      <!-- ▸ SALARY -->
+      <section id="tab-salary" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-sack-dollar"></i> বেতন হাব</h2>
+        </div>
+        <div id="salary-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- Modules -->
-<script src="js/modules/students.js"></script>
-<script src="js/modules/finance.js"></script>
-<script src="js/modules/accounts.js"></script>
-<script src="js/modules/loans.js"></script>
-<script src="js/modules/exam.js"></script>
-<script src="js/modules/attendance.js"></script>
-<script src="js/modules/salary.js"></script>
-<script src="js/modules/hr-staff.js"></script>
-<script src="js/modules/visitors.js"></script>
-<script src="js/modules/id-cards.js"></script>
-<script src="js/modules/certificates.js"></script>
-<script src="js/modules/notice-board.js"></script>
+      <!-- ▸ VISITORS -->
+      <section id="tab-visitors" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-person-walking-arrow-right"></i> ভিজিটর</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="Visitors.openAddModal()">
+              <i class="fa fa-plus"></i> নতুন ভিজিটর
+            </button>
+          </div>
+        </div>
+        <div id="visitors-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- Theme toggle -->
-<script>
-  const themeBtn = document.getElementById('btn-theme-toggle');
-  if (themeBtn) {
-    const saved = localStorage.getItem('wfa_theme') || 'light';
-    document.documentElement.setAttribute('data-theme', saved);
-    themeBtn.textContent = saved === 'dark' ? '☀️' : '🌙';
+      <!-- ▸ ID CARDS -->
+      <section id="tab-id-cards" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-id-card"></i> আইডি কার্ড জেনারেটর</h2>
+        </div>
+        <div id="id-cards-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-    themeBtn.addEventListener('click', () => {
-      const current = document.documentElement.getAttribute('data-theme');
-      const next = current === 'dark' ? 'light' : 'dark';
-      document.documentElement.setAttribute('data-theme', next);
-      localStorage.setItem('wfa_theme', next);
-      themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
-    });
-  }
-</script>
+      <!-- ▸ CERTIFICATES -->
+      <section id="tab-certificates" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-certificate"></i> সার্টিফিকেট জেনারেটর</h2>
+        </div>
+        <div id="certificates-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
 
-<!-- Service Worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('service-worker.js').catch(() => {});
-  }
-</script>
+      <!-- ▸ NOTICE BOARD -->
+      <section id="tab-notice-board" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-bullhorn"></i> নোটিস বোর্ড</h2>
+          <div class="section-actions">
+            <button class="btn-primary" onclick="NoticeBoard.openAddModal()">
+              <i class="fa fa-plus"></i> নতুন নোটিস
+            </button>
+          </div>
+        </div>
+        <div id="notice-board-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
+
+      <!-- ▸ SETTINGS -->
+      <section id="tab-settings" class="tab-section hidden">
+        <div class="section-header">
+          <h2><i class="fa fa-gear"></i> সেটিংস</h2>
+        </div>
+        <div id="settings-content">
+          <div class="loading-placeholder"><i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...</div>
+        </div>
+      </section>
+
+    </main><!-- /main-content -->
+
+  </div><!-- /app-shell -->
+
+  <!-- ════════════════════════════════════════
+       GLOBAL MODAL CONTAINER
+  ════════════════════════════════════════ -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div id="modal-box" class="modal-box">
+      <div class="modal-header">
+        <h3 id="modal-title">মডাল</h3>
+        <button class="modal-close" id="modal-close-btn"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div id="modal-body" class="modal-body">
+        <!-- Dynamic content injected by modules -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       TOAST NOTIFICATIONS
+  ════════════════════════════════════════ -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ════════════════════════════════════════
+       CONFIRM DIALOG
+  ════════════════════════════════════════ -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal-box confirm-box">
+      <div class="modal-header">
+        <h3 id="confirm-title">নিশ্চিত করুন</h3>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message">আপনি কি নিশ্চিত?</p>
+        <div class="confirm-actions">
+          <button id="confirm-yes" class="btn-danger">হ্যাঁ, করুন</button>
+          <button id="confirm-no" class="btn-secondary">বাতিল</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       JS — CORE (load order matters)
+  ════════════════════════════════════════ -->
+  <script src="js/core/supabase-config.js"></script>
+  <script src="js/core/supabase-sync.js"></script>
+  <script src="js/core/utils.js"></script>
+  <script src="js/core/app.js"></script>
+
+  <!-- UI -->
+  <script src="js/ui/login.js"></script>
+  <script src="js/ui/dashboard.js"></script>
+  <script src="js/ui/settings.js"></script>
+
+  <!-- Modules -->
+  <script src="js/modules/students.js"></script>
+  <script src="js/modules/finance.js"></script>
+  <script src="js/modules/accounts.js"></script>
+  <script src="js/modules/loans.js"></script>
+  <script src="js/modules/exam.js"></script>
+  <script src="js/modules/attendance.js"></script>
+  <script src="js/modules/salary.js"></script>
+  <script src="js/modules/hr-staff.js"></script>
+  <script src="js/modules/visitors.js"></script>
+  <script src="js/modules/id-cards.js"></script>
+  <script src="js/modules/certificates.js"></script>
+  <script src="js/modules/notice-board.js"></script>
+
+  <!-- PWA -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      });
+    }
+  </script>
 
 </body>
 </html>
