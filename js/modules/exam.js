@@ -1,0 +1,468 @@
+/* ════════════════════════════════════════════════
+   Wings Fly Aviation Academy
+   js/modules/exam.js
+   Exam Module — Registration, Results, Grades
+════════════════════════════════════════════════ */
+
+const Exam = (() => {
+
+  let searchQuery = '';
+  let filterBatch = '';
+  let filterStatus = '';
+  let editingId = null;
+
+  /* ══════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════ */
+  function render() {
+    const container = document.getElementById('exam-content');
+    if (!container) return;
+
+    const exams    = Utils.sortBy(SupabaseSync.getAll(DB.exams), 'exam_date', 'desc');
+    const filtered = applyFilters(exams);
+    const batches  = [...new Set(exams.map(e => e.batch).filter(Boolean))].sort();
+
+    const totalReg  = filtered.length;
+    const passed    = filtered.filter(e => e.status === 'Passed').length;
+    const failed    = filtered.filter(e => e.status === 'Failed').length;
+    const totalFee  = filtered.reduce((s, e) => s + Utils.safeNum(e.exam_fee), 0);
+
+    container.innerHTML = `
+      <!-- Summary -->
+      <div class="dashboard-grid" style="margin-bottom:16px">
+        ${sCard('fa-clipboard-list','blue','মোট নিবন্ধন', totalReg)}
+        ${sCard('fa-check-circle','green','উত্তীর্ণ', passed)}
+        ${sCard('fa-times-circle','red','অনুত্তীর্ণ', failed)}
+        ${sCard('fa-money-bill','amber','পরীক্ষা ফি', Utils.takaEn(totalFee))}
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="search-input-wrapper">
+          <i class="fa fa-search"></i>
+          <input id="exam-search" class="form-control" placeholder="নাম / Reg ID খুঁজুন…" value="${searchQuery}" oninput="Exam.onSearch(this.value)" />
+        </div>
+        <select class="form-control" onchange="Exam.onFilter('batch',this.value)">
+          <option value="">সব ব্যাচ</option>
+          ${batches.map(b => `<option value="${b}" ${filterBatch===b?'selected':''}>${b}</option>`).join('')}
+        </select>
+        <select class="form-control" onchange="Exam.onFilter('status',this.value)">
+          <option value="">সব স্ট্যাটাস</option>
+          <option value="Registered" ${filterStatus==='Registered'?'selected':''}>নিবন্ধিত</option>
+          <option value="Appeared"   ${filterStatus==='Appeared'?'selected':''}>উপস্থিত</option>
+          <option value="Passed"     ${filterStatus==='Passed'?'selected':''}>উত্তীর্ণ</option>
+          <option value="Failed"     ${filterStatus==='Failed'?'selected':''}>অনুত্তীর্ণ</option>
+        </select>
+        <button class="btn-secondary btn-sm" onclick="Exam.resetFilters()"><i class="fa fa-rotate-left"></i> রিসেট</button>
+        <button class="btn-success btn-sm"   onclick="Exam.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
+        <button class="btn-secondary btn-sm" onclick="Utils.printArea('exam-print-area')"><i class="fa fa-print"></i> Print</button>
+      </div>
+
+      <!-- Table -->
+      <div id="exam-print-area">
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Reg ID</th>
+                <th>শিক্ষার্থী</th>
+                <th>ব্যাচ</th>
+                <th>বিষয়</th>
+                <th>তারিখ</th>
+                <th>ফি</th>
+                <th>গ্রেড</th>
+                <th>স্ট্যাটাস</th>
+                <th class="no-print">কাজ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${renderRows(filtered)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderRows(rows) {
+    if (!rows.length) return Utils.noDataRow(10, 'কোনো পরীক্ষার নিবন্ধন পাওয়া যায়নি');
+    return rows.map((e, i) => `<tr>
+      <td style="color:var(--text-muted);font-size:0.8rem">${i + 1}</td>
+      <td>${Utils.badge(e.reg_id || '—', 'primary')}</td>
+      <td>
+        <div style="font-weight:600">${e.student_name || '—'}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">${e.student_id || ''}</div>
+      </td>
+      <td>${e.batch || '—'}</td>
+      <td>${e.subject || '—'}</td>
+      <td style="font-size:0.82rem">${Utils.formatDate(e.exam_date)}</td>
+      <td style="font-family:var(--font-ui)">${Utils.takaEn(e.exam_fee)}</td>
+      <td><strong>${e.grade || '—'}</strong></td>
+      <td>${Utils.statusBadge(e.status || 'Registered')}</td>
+      <td class="no-print">
+        <div class="table-actions">
+          <button class="btn-outline btn-xs" onclick="Exam.openGradeModal('${e.id}')" title="গ্রেড দিন"><i class="fa fa-star"></i></button>
+          <button class="btn-outline btn-xs" onclick="Exam.openEditModal('${e.id}')" title="সম্পাদনা"><i class="fa fa-pen"></i></button>
+          <button class="btn-danger btn-xs"  onclick="Exam.deleteEntry('${e.id}')" title="মুছুন"><i class="fa fa-trash"></i></button>
+        </div>
+      </td>
+    </tr>`).join('');
+  }
+
+  function sCard(icon, color, label, value) {
+    return `<div class="stat-card">
+      <div class="stat-icon ${color}"><i class="fa ${icon}"></i></div>
+      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>
+    </div>`;
+  }
+
+  /* ══════════════════════════════════════════
+     FILTERS
+  ══════════════════════════════════════════ */
+  function applyFilters(rows) {
+    let r = rows;
+    if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['student_name','student_id','reg_id','subject']);
+    if (filterBatch)  r = r.filter(e => e.batch === filterBatch);
+    if (filterStatus) r = r.filter(e => e.status === filterStatus);
+    return r;
+  }
+
+  const debouncedRender = Utils.debounce(() => render(), 250);
+  function onSearch(val) { searchQuery = val; debouncedRender(); }
+  function onFilter(key, val) {
+    if (key === 'batch')  filterBatch = val;
+    if (key === 'status') filterStatus = val;
+    render();
+  }
+  function resetFilters() { searchQuery = filterBatch = filterStatus = ''; render(); }
+
+  /* ══════════════════════════════════════════
+     REGISTRATION MODAL
+  ══════════════════════════════════════════ */
+  function openRegModal() {
+    editingId = null;
+    const exams = SupabaseSync.getAll(DB.exams);
+    const newRegId = generateRegId(exams);
+    const students = SupabaseSync.getAll(DB.students);
+
+    Utils.openModal('<i class="fa fa-clipboard-list"></i> পরীক্ষার নিবন্ধন', `
+      <div class="form-row">
+        <div class="form-group">
+          <label>Reg ID <span class="req">*</span></label>
+          <input id="ef-reg-id" class="form-control" value="${newRegId}" />
+        </div>
+        <div class="form-group">
+          <label>পরীক্ষার তারিখ <span class="req">*</span></label>
+          <input id="ef-date" type="date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>শিক্ষার্থী <span class="req">*</span></label>
+          <select id="ef-student" class="form-control" onchange="Exam.onStudentSelect()">
+            <option value="">-- শিক্ষার্থী নির্বাচন করুন --</option>
+            ${students.map(s => `<option value="${s.id}" data-name="${s.name}" data-sid="${s.student_id}" data-batch="${s.batch}" data-session="${s.session}">${s.name} (${s.student_id || ''})</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Student ID</label>
+          <input id="ef-student-id" class="form-control" readonly style="background:var(--bg-base)" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ব্যাচ</label>
+          <input id="ef-batch" class="form-control" placeholder="ব্যাচ" />
+        </div>
+        <div class="form-group">
+          <label>সেশন</label>
+          <input id="ef-session" class="form-control" placeholder="সেশন" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>বিষয় <span class="req">*</span></label>
+          <input id="ef-subject" class="form-control" list="exam-subject-list" placeholder="বিষয়ের নাম" />
+          <datalist id="exam-subject-list">
+            <option value="Aviation English"><option value="Air Navigation">
+            <option value="Meteorology"><option value="Aircraft Technical">
+            <option value="Air Regulation"><option value="Radio Telephony">
+            <option value="Flight Planning"><option value="Human Factors">
+          </datalist>
+        </div>
+        <div class="form-group">
+          <label>পরীক্ষা ফি (৳)</label>
+          <input id="ef-fee" type="number" class="form-control" placeholder="0" value="0" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>নোট</label>
+        <textarea id="ef-note" class="form-control" rows="2" placeholder="ঐচ্ছিক"></textarea>
+      </div>
+      <div id="ef-error" class="form-error hidden"></div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
+        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> নিবন্ধন করুন</button>
+      </div>
+    `);
+  }
+
+  function onStudentSelect() {
+    const sel = document.getElementById('ef-student');
+    if (!sel) return;
+    const opt = sel.selectedOptions[0];
+    if (opt) {
+      Utils.formSet('ef-student-id', opt.dataset.sid || '');
+      Utils.formSet('ef-batch', opt.dataset.batch || '');
+      Utils.formSet('ef-session', opt.dataset.session || '');
+    }
+  }
+
+  /* ══════════════════════════════════════════
+     EDIT MODAL
+  ══════════════════════════════════════════ */
+  function openEditModal(id) {
+    const e = SupabaseSync.getById(DB.exams, id);
+    if (!e) return;
+    editingId = id;
+
+    Utils.openModal('<i class="fa fa-pen"></i> পরীক্ষা সম্পাদনা', `
+      <div class="form-row">
+        <div class="form-group">
+          <label>Reg ID</label>
+          <input id="ef-reg-id" class="form-control" value="${e.reg_id||''}" readonly style="background:var(--bg-base)" />
+        </div>
+        <div class="form-group">
+          <label>পরীক্ষার তারিখ</label>
+          <input id="ef-date" type="date" class="form-control" value="${(e.exam_date||'').split('T')[0]}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>শিক্ষার্থীর নাম</label>
+          <input id="ef-student-name" class="form-control" value="${e.student_name||''}" />
+        </div>
+        <div class="form-group">
+          <label>Student ID</label>
+          <input id="ef-student-id" class="form-control" value="${e.student_id||''}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>ব্যাচ</label>
+          <input id="ef-batch" class="form-control" value="${e.batch||''}" />
+        </div>
+        <div class="form-group">
+          <label>সেশন</label>
+          <input id="ef-session" class="form-control" value="${e.session||''}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>বিষয়</label>
+          <input id="ef-subject" class="form-control" value="${e.subject||''}" />
+        </div>
+        <div class="form-group">
+          <label>পরীক্ষা ফি (৳)</label>
+          <input id="ef-fee" type="number" class="form-control" value="${e.exam_fee||0}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>গ্রেড</label>
+          <select id="ef-grade" class="form-control">
+            <option value="">—</option>
+            ${['A+','A','A-','B+','B','B-','C+','C','D','F'].map(g => `<option value="${g}" ${e.grade===g?'selected':''}>${g}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>নম্বর</label>
+          <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" />
+        </div>
+        <div class="form-group">
+          <label>স্ট্যাটাস</label>
+          <select id="ef-status" class="form-control">
+            <option value="Registered" ${e.status==='Registered'?'selected':''}>নিবন্ধিত</option>
+            <option value="Appeared"   ${e.status==='Appeared'?'selected':''}>উপস্থিত</option>
+            <option value="Passed"     ${e.status==='Passed'?'selected':''}>উত্তীর্ণ</option>
+            <option value="Failed"     ${e.status==='Failed'?'selected':''}>অনুত্তীর্ণ</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>নোট</label>
+        <textarea id="ef-note" class="form-control" rows="2">${e.note||''}</textarea>
+      </div>
+      <div id="ef-error" class="form-error hidden"></div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
+        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> আপডেট</button>
+      </div>
+    `);
+  }
+
+  /* ══════════════════════════════════════════
+     GRADE MODAL (Quick)
+  ══════════════════════════════════════════ */
+  function openGradeModal(id) {
+    const e = SupabaseSync.getById(DB.exams, id);
+    if (!e) return;
+
+    Utils.openModal('<i class="fa fa-star"></i> গ্রেড প্রদান', `
+      <div style="background:var(--bg-base);padding:12px;border-radius:var(--radius-sm);margin-bottom:16px">
+        <div style="font-weight:700">${e.student_name||'—'} (${e.student_id||''})</div>
+        <div style="font-size:.85rem;color:var(--text-secondary)">${e.subject||''} • ${e.batch||''}</div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>গ্রেড <span class="req">*</span></label>
+          <select id="gf-grade" class="form-control">
+            <option value="">—</option>
+            ${['A+','A','A-','B+','B','B-','C+','C','D','F'].map(g => `<option value="${g}" ${e.grade===g?'selected':''}>${g}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>নম্বর (0-100)</label>
+          <input id="gf-marks" type="number" class="form-control" value="${e.marks||''}" min="0" max="100" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>স্ট্যাটাস</label>
+        <select id="gf-status" class="form-control">
+          <option value="Passed">উত্তীর্ণ</option>
+          <option value="Failed">অনুত্তীর্ণ</option>
+        </select>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
+        <button class="btn-success" onclick="Exam.saveGrade('${id}')"><i class="fa fa-check"></i> গ্রেড সংরক্ষণ</button>
+      </div>
+    `, 'modal-sm');
+  }
+
+  function saveGrade(id) {
+    const grade  = Utils.formVal('gf-grade');
+    const marks  = Utils.safeNum(Utils.formVal('gf-marks'));
+    const status = Utils.formVal('gf-status');
+    if (!grade) { Utils.toast('গ্রেড নির্বাচন করুন', 'error'); return; }
+    SupabaseSync.update(DB.exams, id, { grade, marks, status });
+    Utils.toast('গ্রেড সংরক্ষিত হয়েছে ✓', 'success');
+    Utils.closeModal();
+    render();
+  }
+
+  /* ══════════════════════════════════════════
+     SAVE
+  ══════════════════════════════════════════ */
+  function saveEntry() {
+    const errEl = document.getElementById('ef-error');
+    const regId = Utils.formVal('ef-reg-id');
+    const date  = Utils.formVal('ef-date');
+    const subject = Utils.formVal('ef-subject');
+
+    if (!regId) { errEl.textContent = 'Reg ID আবশ্যক'; errEl.classList.remove('hidden'); return; }
+    if (!subject) { errEl.textContent = 'বিষয় আবশ্যক'; errEl.classList.remove('hidden'); return; }
+
+    let studentName, studentId;
+    if (editingId) {
+      studentName = Utils.formVal('ef-student-name');
+      studentId   = Utils.formVal('ef-student-id');
+    } else {
+      const sel = document.getElementById('ef-student');
+      const opt = sel?.selectedOptions[0];
+      studentName = opt?.dataset?.name || '';
+      studentId   = opt?.dataset?.sid || '';
+      if (!studentName) { errEl.textContent = 'শিক্ষার্থী নির্বাচন করুন'; errEl.classList.remove('hidden'); return; }
+    }
+
+    const record = {
+      reg_id:       regId,
+      student_id:   studentId,
+      student_name: studentName,
+      batch:        Utils.formVal('ef-batch'),
+      session:      Utils.formVal('ef-session'),
+      subject:      subject,
+      exam_date:    date || Utils.today(),
+      exam_fee:     Utils.safeNum(Utils.formVal('ef-fee')),
+      fee_paid:     Utils.safeNum(Utils.formVal('ef-fee')) > 0,
+      grade:        Utils.formVal('ef-grade') || '',
+      marks:        Utils.safeNum(Utils.formVal('ef-marks')) || null,
+      status:       Utils.formVal('ef-status') || 'Registered',
+      note:         Utils.formVal('ef-note'),
+    };
+
+    if (editingId) {
+      SupabaseSync.update(DB.exams, editingId, record);
+      Utils.toast('পরীক্ষার তথ্য আপডেট হয়েছে ✓', 'success');
+    } else {
+      SupabaseSync.insert(DB.exams, record);
+      Utils.toast('পরীক্ষার নিবন্ধন সম্পন্ন ✓', 'success');
+
+      // Finance entry for exam fee
+      if (record.exam_fee > 0) {
+        SupabaseSync.insert(DB.finance, {
+          type: 'Income', category: 'Exam Fee',
+          description: `${studentName} (${studentId}) — পরীক্ষা ফি (${subject})`,
+          amount: record.exam_fee, method: 'Cash', date: record.exam_date,
+        });
+      }
+    }
+
+    Utils.closeModal();
+    render();
+  }
+
+  /* ══════════════════════════════════════════
+     DELETE
+  ══════════════════════════════════════════ */
+  async function deleteEntry(id) {
+    const ok = await Utils.confirm('এই পরীক্ষার নিবন্ধন মুছে ফেলবেন?', 'পরীক্ষা মুছুন');
+    if (!ok) return;
+    SupabaseSync.remove(DB.exams, id);
+    Utils.toast('মুছে ফেলা হয়েছে', 'info');
+    render();
+  }
+
+  /* ══════════════════════════════════════════
+     EXPORT
+  ══════════════════════════════════════════ */
+  function exportExcel() {
+    const all = SupabaseSync.getAll(DB.exams);
+    const filtered = applyFilters(all);
+    const rows = filtered.map(e => ({
+      'Reg ID':    e.reg_id||'',
+      'Student ID': e.student_id||'',
+      'নাম':       e.student_name||'',
+      'ব্যাচ':     e.batch||'',
+      'সেশন':     e.session||'',
+      'বিষয়':     e.subject||'',
+      'তারিখ':    e.exam_date||'',
+      'ফি':        e.exam_fee||0,
+      'গ্রেড':     e.grade||'',
+      'নম্বর':     e.marks||'',
+      'স্ট্যাটাস': e.status||'',
+    }));
+    Utils.exportExcel(rows, 'exams', 'পরীক্ষা');
+  }
+
+  /* ══════════════════════════════════════════
+     HELPERS
+  ══════════════════════════════════════════ */
+  function generateRegId(exams) {
+    const prefix = 'EX-';
+    let num = 1001;
+    if (exams.length) {
+      const numbers = exams.map(e => parseInt((e.reg_id || '').replace(/\D/g, '')) || 0);
+      num = Math.max(...numbers, 1000) + 1;
+    }
+    return prefix + num;
+  }
+
+  return {
+    render, onSearch, onFilter, resetFilters,
+    openRegModal, openEditModal, openGradeModal,
+    onStudentSelect, saveEntry, saveGrade, deleteEntry, exportExcel,
+  };
+
+})();

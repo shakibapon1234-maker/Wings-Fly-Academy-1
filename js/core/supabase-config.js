@@ -1,30 +1,29 @@
 // ============================================================
 // Wings Fly Aviation Academy — Supabase Configuration
 // ============================================================
-// ⚠️ এখানে আপনার নতুন Supabase account-এর URL ও Key দিন
 
-const SUPABASE_URL = 'https://cwwyhtarnkozukekebvq.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3d3lodGFybmtvenVrZWtlYnZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4NTE5NzUsImV4cCI6MjA4OTQyNzk3NX0.XCJe9A5_ymXQQqK5KVQHJqswUXCuopUi_NYv7T-WWn8';
+const SUPABASE_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
-// Supabase client initialize
+// Supabase client
 const { createClient } = supabase;
 const supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ============================================================
-// Table Names
+// Table Names (DB constants used by all modules)
 // ============================================================
-const TABLES = {
-  STUDENTS:    'students',
-  FINANCE:     'finance_ledger',
-  ACCOUNTS:    'accounts',
-  LOANS:       'loans',
-  EXAMS:       'exams',
-  ATTENDANCE:  'attendance',
-  STAFF:       'staff',
-  SALARY:      'salary',
-  VISITORS:    'visitors',
-  NOTICES:     'notices',
-  SETTINGS:    'settings',
+const DB = {
+  students:    'students',
+  finance:     'finance_ledger',
+  accounts:    'accounts',
+  loans:       'loans',
+  exams:       'exams',
+  attendance:  'attendance',
+  staff:       'staff',
+  salary:      'salary',
+  visitors:    'visitors',
+  notices:     'notices',
+  settings:    'settings',
 };
 
 // ============================================================
@@ -32,5 +31,6 @@ const TABLES = {
 // ============================================================
 window.SUPABASE_CONFIG = {
   client: supabaseClient,
-  TABLES,
+  TABLES: DB,
 };
+window.DB = DB;

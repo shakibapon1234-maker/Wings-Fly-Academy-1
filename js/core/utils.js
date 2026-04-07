@@ -4,45 +4,46 @@
 
 const Utils = (() => {
 
-  // ── Date Formatting ───────────────────────────────────────
-  function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('bn-BD', { year: 'numeric', month: 'short', day: 'numeric' });
-  }
-
-  function formatDateEN(dateStr) {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-  }
-
-  function todayISO() {
+  // ── Date Helpers ───────────────────────────────────────────
+  function today() {
     return new Date().toISOString().split('T')[0];
   }
+
+  function todayISO() { return today(); }
 
   function nowISO() {
     return new Date().toISOString();
   }
 
-  // ── Number Formatting ─────────────────────────────────────
-  function formatMoney(amount) {
-    const n = parseFloat(amount) || 0;
-    return '৳' + n.toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  function formatDate(dateStr) {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  function formatDateEN(dateStr) { return formatDate(dateStr); }
+
+  // ── Number Helpers ─────────────────────────────────────────
+  function safeNum(val) {
+    const n = parseFloat(val);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function takaEn(amount) {
+    const n = safeNum(amount);
+    return '৳' + n.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+
+  function formatMoney(amount) { return takaEn(amount); }
   function formatMoneyPlain(amount) {
-    return (parseFloat(amount) || 0).toLocaleString('en-BD', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+    return safeNum(amount).toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   }
 
-  // ── String Helpers ────────────────────────────────────────
+  // ── String Helpers ─────────────────────────────────────────
   function truncate(str, len = 30) {
     if (!str) return '';
     return str.length > len ? str.slice(0, len) + '…' : str;
-  }
-
-  function slugify(str) {
-    return (str || '').toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
   }
 
   function capitalize(str) {
@@ -50,18 +51,23 @@ const Utils = (() => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   }
 
+  // ── Form Helpers ──────────────────────────────────────────
+  function formVal(id) {
+    const el = document.getElementById(id);
+    return el ? el.value.trim() : '';
+  }
+
+  function formSet(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+
   // ── DOM Helpers ───────────────────────────────────────────
   function el(id) { return document.getElementById(id); }
-  function qs(sel, parent = document) { return parent.querySelector(sel); }
-  function qsa(sel, parent = document) { return [...parent.querySelectorAll(sel)]; }
-
-  function show(id) { const e = el(id); if (e) e.style.display = ''; }
-  function hide(id) { const e = el(id); if (e) e.style.display = 'none'; }
-  function toggle(id) { const e = el(id); if (e) e.style.display = e.style.display === 'none' ? '' : 'none'; }
 
   // ── Toast Notifications ───────────────────────────────────
   function toast(msg, type = 'info', duration = 3000) {
-    let container = el('toast-container');
+    let container = document.getElementById('toast-container');
     if (!container) {
       container = document.createElement('div');
       container.id = 'toast-container';
@@ -75,23 +81,161 @@ const Utils = (() => {
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, duration);
   }
 
-  // ── Modal Helpers ─────────────────────────────────────────
-  function openModal(id) {
-    const m = el(id);
-    if (m) { m.style.display = 'flex'; requestAnimationFrame(() => m.classList.add('open')); }
+  // ── Modal ─────────────────────────────────────────────────
+  function openModal(title, bodyHTML, sizeClass) {
+    const backdrop = document.getElementById('modal-backdrop');
+    const titleEl = document.getElementById('modal-title');
+    const bodyEl = document.getElementById('modal-body');
+    const box = backdrop?.querySelector('.modal-box');
+    if (!backdrop || !titleEl || !bodyEl) return;
+
+    titleEl.innerHTML = title;
+    bodyEl.innerHTML = bodyHTML;
+
+    if (box) {
+      box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '760px' : '560px';
+    }
+
+    backdrop.classList.add('open');
   }
 
-  function closeModal(id) {
-    const m = el(id);
-    if (m) { m.classList.remove('open'); setTimeout(() => m.style.display = 'none', 250); }
+  function closeModal() {
+    const backdrop = document.getElementById('modal-backdrop');
+    if (backdrop) backdrop.classList.remove('open');
   }
 
   // ── Confirm Dialog ────────────────────────────────────────
-  function confirm(msg) {
-    return window.confirm(msg);
+  function confirm(msg, title) {
+    return new Promise((resolve) => {
+      const backdrop = document.getElementById('confirm-backdrop');
+      const titleEl = document.getElementById('confirm-title');
+      const msgEl = document.getElementById('confirm-message');
+      const yesBtn = document.getElementById('confirm-yes');
+      const noBtn = document.getElementById('confirm-no');
+
+      if (!backdrop) { resolve(window.confirm(msg)); return; }
+
+      if (titleEl) titleEl.textContent = title || 'নিশ্চিত করুন';
+      if (msgEl) msgEl.textContent = msg;
+
+      backdrop.classList.add('open');
+
+      function cleanup() {
+        backdrop.classList.remove('open');
+        yesBtn.removeEventListener('click', onYes);
+        noBtn.removeEventListener('click', onNo);
+      }
+      function onYes() { cleanup(); resolve(true); }
+      function onNo() { cleanup(); resolve(false); }
+
+      yesBtn.addEventListener('click', onYes);
+      noBtn.addEventListener('click', onNo);
+    });
   }
 
-  // ── Export helpers ────────────────────────────────────────
+  // ── Badge Helpers ─────────────────────────────────────────
+  function badge(label, type) {
+    const classMap = {
+      success: 'badge-success', danger: 'badge-error', error: 'badge-error',
+      warning: 'badge-warning', info: 'badge-info', primary: 'badge-info',
+      muted: 'badge-muted',
+    };
+    return `<span class="badge ${classMap[type] || 'badge-info'}">${label}</span>`;
+  }
+
+  function statusBadge(status) {
+    const map = {
+      'Active': ['সক্রিয়', 'success'], 'Inactive': ['নিষ্ক্রিয়', 'muted'],
+      'Paid': ['পরিশোধিত', 'success'], 'Outstanding': ['বকেয়া', 'warning'],
+      'Registered': ['নিবন্ধিত', 'info'], 'Appeared': ['উপস্থিত', 'primary'],
+      'Passed': ['উত্তীর্ণ', 'success'], 'Failed': ['অনুত্তীর্ণ', 'danger'],
+      'Present': ['উপস্থিত', 'success'], 'Absent': ['অনুপস্থিত', 'danger'],
+      'Late': ['বিলম্বে', 'warning'], 'Leave': ['ছুটি', 'muted'],
+    };
+    const [label, type] = map[status] || [status, 'info'];
+    return badge(label, type);
+  }
+
+  function methodBadge(method) {
+    const map = {
+      'Cash': ['💵 নগদ', 'success'], 'Bank': ['🏦 ব্যাংক', 'info'],
+      'Mobile Banking': ['📱 মোবাইল', 'warning'],
+    };
+    const [label, type] = map[method] || [method, 'muted'];
+    return badge(label, type);
+  }
+
+  // ── Table Helpers ─────────────────────────────────────────
+  function noDataRow(colspan, msg) {
+    return `<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--text-muted);font-family:var(--font-bn)">
+      <i class="fa fa-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.4"></i>${msg || 'কোনো ডেটা নেই'}
+    </td></tr>`;
+  }
+
+  // ── Sort & Filter ─────────────────────────────────────────
+  function sortBy(arr, field, direction = 'asc') {
+    return [...arr].sort((a, b) => {
+      const va = a[field] || '';
+      const vb = b[field] || '';
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return direction === 'desc' ? -cmp : cmp;
+    });
+  }
+
+  function searchFilter(arr, term, fields) {
+    if (!term) return arr;
+    const t = term.toLowerCase();
+    return arr.filter(row => fields.some(f => (row[f] || '').toString().toLowerCase().includes(t)));
+  }
+
+  function dateRangeFilter(arr, field, from, to) {
+    return arr.filter(r => {
+      const d = r[field];
+      if (!d) return false;
+      if (from && d < from) return false;
+      if (to && d > to) return false;
+      return true;
+    });
+  }
+
+  // ── Student ID Generator ──────────────────────────────────
+  function generateStudentId(existingIds) {
+    const prefix = 'WFA-';
+    let num = 1001;
+    if (existingIds && existingIds.length) {
+      const numbers = existingIds.map(id => parseInt((id || '').replace(/\D/g, '')) || 0);
+      num = Math.max(...numbers, 1000) + 1;
+    }
+    return prefix + num;
+  }
+
+  // ── Print ─────────────────────────────────────────────────
+  function printArea(elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html><head><title>Print</title>
+      <link rel="stylesheet" href="css/main.css" />
+      <link rel="stylesheet" href="css/print.css" />
+      <style>body{padding:20px;background:#fff;color:#000}table{width:100%}.no-print{display:none!important}</style>
+      </head><body>${el.innerHTML}</body></html>`);
+    printWindow.document.close();
+    printWindow.onload = () => { printWindow.print(); printWindow.close(); };
+  }
+
+  // ── Excel Export (SheetJS) ────────────────────────────────
+  function exportExcel(rows, filename, sheetName) {
+    if (!rows || !rows.length) { toast('কোনো ডেটা নেই', 'warn'); return; }
+    if (typeof XLSX === 'undefined') { toast('Excel library লোড হয়নি', 'error'); return; }
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
+    XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
+    toast('Excel ডাউনলোড হয়েছে ✓', 'success');
+  }
+
+  // ── CSV Export ────────────────────────────────────────────
   function downloadCSV(filename, rows) {
     if (!rows || rows.length === 0) { toast('কোনো ডেটা নেই', 'warn'); return; }
     const headers = Object.keys(rows[0]);
@@ -103,32 +247,45 @@ const Utils = (() => {
     URL.revokeObjectURL(url);
   }
 
-  // ── Pagination ────────────────────────────────────────────
-  function paginate(arr, page, pageSize) {
-    const start = (page - 1) * pageSize;
-    return { items: arr.slice(start, start + pageSize), total: arr.length, pages: Math.ceil(arr.length / pageSize) };
-  }
-
-  // ── Search/Filter ─────────────────────────────────────────
-  function searchFilter(arr, term, fields) {
-    if (!term) return arr;
-    const t = term.toLowerCase();
-    return arr.filter(row => fields.some(f => (row[f] || '').toString().toLowerCase().includes(t)));
-  }
-
   // ── Debounce ──────────────────────────────────────────────
   function debounce(fn, ms = 300) {
     let timer;
     return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), ms); };
   }
 
+  // ── Pagination ────────────────────────────────────────────
+  function paginate(arr, page, pageSize) {
+    const start = (page - 1) * pageSize;
+    return { items: arr.slice(start, start + pageSize), total: arr.length, pages: Math.ceil(arr.length / pageSize) };
+  }
+
   return {
-    formatDate, formatDateEN, todayISO, nowISO,
-    formatMoney, formatMoneyPlain,
-    truncate, slugify, capitalize,
-    el, qs, qsa, show, hide, toggle,
-    toast, openModal, closeModal, confirm,
-    downloadCSV, paginate, searchFilter, debounce,
+    // Date
+    today, todayISO, nowISO, formatDate, formatDateEN,
+    // Number
+    safeNum, takaEn, formatMoney, formatMoneyPlain,
+    // String
+    truncate, capitalize,
+    // Form
+    formVal, formSet,
+    // DOM
+    el,
+    // Toast
+    toast,
+    // Modal
+    openModal, closeModal, confirm,
+    // Badges
+    badge, statusBadge, methodBadge,
+    // Table
+    noDataRow,
+    // Sort & Filter
+    sortBy, searchFilter, dateRangeFilter,
+    // Student ID
+    generateStudentId,
+    // Print & Export
+    printArea, exportExcel, downloadCSV,
+    // Misc
+    debounce, paginate,
   };
 })();
 

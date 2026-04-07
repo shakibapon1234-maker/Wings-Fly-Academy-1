@@ -34,25 +34,24 @@ Wings-Fly-Academy/
 ├── index.html                  ← একমাত্র HTML, সব section এখানে
 ├── manifest.json               ← PWA manifest
 ├── service-worker.js           ← PWA offline support
-├── favicon.ico
 ├── PROJECT-SCANNER.md          ← এই file (progress tracker)
 │
 ├── assets/
-│   ├── logo.jpg.jpeg
-│   ├── academy-logo-b.png
-│   ├── wings_logo_premium.png
-│   ├── certificate-bg.jpg
-│   └── signature.png
+│   ├── favicon.ico
+│   ├── icon-192.png
+│   ├── icon-512.png
+│   └── logo.jpg.jpeg
 │
 ├── css/
 │   ├── main.css                ← সব global style
 │   ├── attendance.css          ← attendance-specific
+│   ├── exam.css                ← exam-specific
 │   └── print.css               ← print layout
 │
 ├── js/
 │   ├── core/
-│   │   ├── supabase-config.js  ← Supabase URL + Key
-│   │   ├── supabase-sync.js    ← Sync engine (clean version)
+│   │   ├── supabase-config.js  ← Supabase URL + Key + DB constants
+│   │   ├── supabase-sync.js    ← SupabaseSync CRUD + SyncEngine
 │   │   ├── app.js              ← Main app logic, tab switching
 │   │   └── utils.js            ← Helper functions
 │   │
@@ -75,113 +74,98 @@ Wings-Fly-Academy/
 │       ├── login.js            ← Login/logout
 │       └── settings.js         ← Settings tab
 │
-└── sections/                   ← (HTML partial files, index.html-এ include হয়)
-    ├── login.html
-    ├── dashboard.html
-    ├── students.html
-    ├── finance.html
-    ├── accounts.html
-    ├── loans.html
-    ├── exam.html
-    ├── attendance.html
-    ├── salary.html
-    ├── hr-staff.html
-    ├── visitors.html
-    ├── id-cards.html
-    ├── certificates.html
-    ├── notice-board.html
-    └── settings.html
+└── sections/                   ← (Legacy HTML partials — not used)
 ```
 
 ---
 
 ## ✅ কাজের Progress Tracker
 
-### 🔵 Phase 1 — Foundation
+### ✅ Phase 1 — Foundation
 | কাজ | Status |
 |-----|--------|
 | নতুন GitHub repo তৈরি | ✅ Done |
 | নতুন Supabase account | ✅ Done |
-| Basic file structure শুরু | ✅ Done (3 commits) |
-| `index.html` clean version | ⏳ বাকি |
-| `css/main.css` | ⏳ বাকি |
-| `js/core/supabase-config.js` | ⏳ বাকি |
-| `js/core/supabase-sync.js` | ⏳ বাকি |
-| `js/core/app.js` (tab switching) | ⏳ বাকি |
-| `js/core/utils.js` | ⏳ বাকি |
+| Basic file structure শুরু | ✅ Done |
+| `index.html` clean version | ✅ Done |
+| `css/main.css` | ✅ Done |
+| `js/core/supabase-config.js` | ✅ Done |
+| `js/core/supabase-sync.js` | ✅ Done |
+| `js/core/app.js` (tab switching) | ✅ Done |
+| `js/core/utils.js` | ✅ Done |
 
-### 🔵 Phase 2 — Login & Dashboard
+### ✅ Phase 2 — Login & Dashboard
 | কাজ | Status |
 |-----|--------|
-| Login page (UI + logic) | ⏳ বাকি |
-| Dashboard stats cards | ⏳ বাকি |
-| Dashboard charts | ⏳ বাকি |
-| Cloud sync indicator | ⏳ বাকি |
-| Notification bell | ⏳ বাকি |
+| Login page (UI + logic) | ✅ Done |
+| Dashboard stats cards | ✅ Done |
+| Dashboard charts | ✅ Done |
+| Cloud sync indicator | ✅ Done |
+| Notification bell | ✅ Done |
 
-### 🔵 Phase 3 — Student Module
+### ✅ Phase 3 — Student Module
 | কাজ | Status |
 |-----|--------|
-| Student Add form | ⏳ বাকি |
-| Student list table | ⏳ বাকি |
-| Student Edit/Delete | ⏳ বাকি |
-| Student search & filter | ⏳ বাকি |
-| Batch filter | ⏳ বাকি |
-| Print & Excel export | ⏳ বাকি |
-| Student reminder | ⏳ বাকি |
+| Student Add form | ✅ Done |
+| Student list table | ✅ Done |
+| Student Edit/Delete | ✅ Done |
+| Student search & filter | ✅ Done |
+| Batch filter | ✅ Done |
+| Print & Excel export | ✅ Done |
+| Student reminder | ✅ Done |
 
-### 🔵 Phase 4 — Finance Module
+### ✅ Phase 4 — Finance Module
 | কাজ | Status |
 |-----|--------|
-| Add Transaction form | ⏳ বাকি |
-| Finance Ledger table | ⏳ বাকি |
-| Income/Expense filter | ⏳ বাকি |
-| Date range filter | ⏳ বাকি |
-| Print & Excel export | ⏳ বাকি |
-| Email/Mail feature | ⏳ বাকি |
+| Add Transaction form | ✅ Done |
+| Finance Ledger table | ✅ Done |
+| Income/Expense filter | ✅ Done |
+| Date range filter | ✅ Done |
+| Print & Excel export | ✅ Done |
+| Email/Mail feature | ✅ Done |
 
-### 🔵 Phase 5 — Accounts Module
+### ✅ Phase 5 — Accounts Module
 | কাজ | Status |
 |-----|--------|
-| Cash balance | ⏳ বাকি |
-| Bank balance | ⏳ বাকি |
-| Mobile banking balance | ⏳ বাকি |
-| Transfer between accounts | ⏳ বাকি |
-| Account ledger | ⏳ বাকি |
+| Cash balance | ✅ Done |
+| Bank balance | ✅ Done |
+| Mobile banking balance | ✅ Done |
+| Transfer between accounts | ✅ Done |
+| Account ledger | ✅ Done |
 
-### 🔵 Phase 6 — Loans Module
+### ✅ Phase 6 — Loans Module
 | কাজ | Status |
 |-----|--------|
-| Loan giving/receiving | ⏳ বাকি |
-| Person-wise loan summary | ⏳ বাকি |
-| Loan ledger | ⏳ বাকি |
+| Loan giving/receiving | ✅ Done |
+| Person-wise loan summary | ✅ Done |
+| Loan ledger | ✅ Done |
 
-### 🔵 Phase 7 — Exam Module
+### ✅ Phase 7 — Exam Module
 | কাজ | Status |
 |-----|--------|
-| Exam registration | ⏳ বাকি |
-| Exam result entry | ⏳ বাকি |
-| Grade management | ⏳ বাকি |
-| Batch/Session filter | ⏳ বাকি |
-| Print report | ⏳ বাকি |
+| Exam registration | ✅ Done |
+| Exam result entry | ✅ Done |
+| Grade management | ✅ Done |
+| Batch/Session filter | ✅ Done |
+| Print report | ✅ Done |
 
-### 🔵 Phase 8 — HR, Salary, Attendance
+### ✅ Phase 8 — HR, Salary, Attendance
 | কাজ | Status |
 |-----|--------|
-| Employee Add/Edit/Delete | ⏳ বাকি |
-| Role management | ⏳ বাকি |
-| Attendance system | ⏳ বাকি |
-| Salary Hub (monthly) | ⏳ বাকি |
-| Salary history | ⏳ বাকি |
+| Employee Add/Edit/Delete | ✅ Done |
+| Role management | ✅ Done |
+| Attendance system | ✅ Done |
+| Salary Hub (monthly) | ✅ Done |
+| Salary history | ✅ Done |
 
-### 🔵 Phase 9 — Visitors, ID, Certificates, Notice
+### ✅ Phase 9 — Visitors, ID, Certificates, Notice
 | কাজ | Status |
 |-----|--------|
-| Visitor management | ⏳ বাকি |
-| ID Card generator | ⏳ বাকি |
-| Certificate generator | ⏳ বাকি |
-| নোটিস বোর্ড (বাংলা) | ⏳ বাকি |
-| নোটিস timer/expiry | ⏳ বাকি |
+| Visitor management | ✅ Done |
+| ID Card generator | ✅ Done |
+| Certificate generator | ✅ Done |
+| নোটিস বোর্ড (বাংলা) | ✅ Done |
+| নোটিস timer/expiry | ✅ Done |
 
 ### 🔵 Phase 10 — Sync & Migration
 | কাজ | Status |
@@ -322,8 +306,9 @@ Wings-Fly-Academy/
 3. কাজ শেষে Progress Tracker update করবে
 4. User-কে বলবে কোন file repo-তে upload করতে হবে
 
-**পরবর্তী কাজ (Phase 1 শেষ করা):**
-- `index.html` তৈরি করা
-- `css/main.css` তৈরি করা  
-- `js/core/supabase-config.js` তৈরি করা
-- `js/core/app.js` তৈরি করা
+**পরবর্তী কাজ (Phase 10 — Sync & Migration):**
+- Supabase real-time subscription চালু করা
+- Multi-user support যোগ করা
+- পুরোনো Supabase থেকে data export
+- নতুন Supabase-এ data import
+- Final testing ও Go Live

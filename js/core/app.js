@@ -4,22 +4,38 @@
 
 const App = (() => {
 
-  // ── All Sections / Tabs ───────────────────────────────────
   const SECTIONS = [
-    'login', 'dashboard', 'students', 'finance', 'accounts',
-    'loans', 'exam', 'attendance', 'salary', 'hr-staff',
+    'dashboard', 'students', 'finance', 'accounts', 'loans',
+    'exam', 'attendance', 'salary', 'hr-staff',
     'visitors', 'id-cards', 'certificates', 'notice-board', 'settings'
   ];
 
+  const TITLES = {
+    dashboard:      '📊 ড্যাশবোর্ড',
+    students:       '👩‍🎓 শিক্ষার্থী',
+    finance:        '💰 আর্থিক লেজার',
+    accounts:       '🏦 একাউন্ট',
+    loans:          '💳 লোন',
+    exam:           '📝 পরীক্ষা',
+    attendance:     '📋 উপস্থিতি',
+    salary:         '💵 বেতন হাব',
+    'hr-staff':     '👥 কর্মী',
+    visitors:       '🚶 ভিজিটর',
+    'id-cards':     '🪪 আইডি কার্ড',
+    certificates:   '🏆 সার্টিফিকেট',
+    'notice-board': '📢 নোটিস বোর্ড',
+    settings:       '⚙️ সেটিংস',
+  };
+
   let currentSection = 'dashboard';
 
-  // ── Auth State ────────────────────────────────────────────
+  // ── Auth ───────────────────────────────────────────────────
   function isLoggedIn() {
     return localStorage.getItem('wfa_logged_in') === 'true';
   }
 
   function login(password) {
-    const settings = SyncEngine.getLocal('settings')[0] || {};
+    const settings = SupabaseSync.getAll(DB.settings)[0] || {};
     const correct = settings.admin_password || 'admin123';
     if (password === correct) {
       localStorage.setItem('wfa_logged_in', 'true');
@@ -35,30 +51,35 @@ const App = (() => {
     SyncEngine.stopAutoSync();
   }
 
-  // ── Section Rendering ─────────────────────────────────────
+  // ── Show/Hide ─────────────────────────────────────────────
   function showLogin() {
-    document.getElementById('app-wrapper').style.display = 'none';
-    document.getElementById('login-screen').style.display = 'flex';
+    const loginEl = document.getElementById('login-screen');
+    const appEl = document.getElementById('app-wrapper');
+    if (loginEl) loginEl.style.display = 'flex';
+    if (appEl) appEl.style.display = 'none';
   }
 
   function showApp() {
-    document.getElementById('login-screen').style.display = 'none';
-    document.getElementById('app-wrapper').style.display = 'flex';
+    const loginEl = document.getElementById('login-screen');
+    const appEl = document.getElementById('app-wrapper');
+    if (loginEl) loginEl.style.display = 'none';
+    if (appEl) appEl.style.display = 'flex';
     navigateTo('dashboard');
     SyncEngine.startAutoSync();
   }
 
+  // ── Navigation ────────────────────────────────────────────
   function navigateTo(section) {
     if (!SECTIONS.includes(section)) return;
     currentSection = section;
 
-    // hide all sections
+    // Hide all sections
     SECTIONS.forEach(s => {
       const el = document.getElementById(`section-${s}`);
       if (el) el.style.display = 'none';
     });
 
-    // show target section
+    // Show target
     const target = document.getElementById(`section-${section}`);
     if (target) {
       target.style.display = 'block';
@@ -66,38 +87,80 @@ const App = (() => {
       setTimeout(() => target.classList.remove('section-enter'), 400);
     }
 
-    // update nav active state
+    // Update nav
     document.querySelectorAll('.nav-item').forEach(item => {
       item.classList.toggle('active', item.dataset.section === section);
     });
 
-    // update page title
-    const titles = {
-      dashboard: '📊 Dashboard',
-      students: '👩‍🎓 Students',
-      finance: '💰 Finance Ledger',
-      accounts: '🏦 Accounts',
-      loans: '💳 Loans',
-      exam: '📝 Exam',
-      attendance: '📋 Attendance',
-      salary: '💵 Salary Hub',
-      'hr-staff': '👥 HR & Staff',
-      visitors: '🚶 Visitors',
-      'id-cards': '🪪 ID Cards',
-      certificates: '🏆 Certificates',
-      'notice-board': '📢 Notice Board',
-      settings: '⚙️ Settings',
-    };
+    // Update title
     const titleEl = document.getElementById('page-title');
-    if (titleEl) titleEl.textContent = titles[section] || section;
+    if (titleEl) titleEl.textContent = TITLES[section] || section;
 
-    // trigger module refresh
+    // Close sidebar on mobile
+    if (window.innerWidth < 768) {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) sidebar.classList.remove('open');
+    }
+
+    // Trigger module render
+    renderModule(section);
     window.dispatchEvent(new CustomEvent('wfa:navigate', { detail: { section } }));
   }
 
-  // ── Sidebar toggle (mobile) ───────────────────────────────
+  // ── Module Rendering ──────────────────────────────────────
+  function renderModule(section) {
+    try {
+      switch (section) {
+        case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
+        case 'students':      if (typeof Students !== 'undefined')           Students.render(); break;
+        case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
+        case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
+        case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;
+        case 'exam':          if (typeof Exam !== 'undefined')               Exam.render(); break;
+        case 'attendance':    if (typeof Attendance !== 'undefined')         Attendance.render(); break;
+        case 'salary':        if (typeof Salary !== 'undefined')             Salary.render(); break;
+        case 'hr-staff':      if (typeof HRStaff !== 'undefined')            HRStaff.render(); break;
+        case 'visitors':      if (typeof VisitorsModule !== 'undefined')     VisitorsModule.render(); break;
+        case 'id-cards':      if (typeof IDCardsModule !== 'undefined')      IDCardsModule.render(); break;
+        case 'certificates':  if (typeof CertificatesModule !== 'undefined') CertificatesModule.render(); break;
+        case 'notice-board':  if (typeof NoticeBoardModule !== 'undefined')  NoticeBoardModule.render(); break;
+        case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
+      }
+    } catch (e) {
+      console.warn(`[App] Error rendering ${section}:`, e);
+    }
+  }
+
+  // ── Quick Actions ─────────────────────────────────────────
+  function quickAction(type) {
+    switch (type) {
+      case 'student':     navigateTo('students');  setTimeout(() => { if (typeof Students !== 'undefined') Students.openAddModal(); }, 200); break;
+      case 'transaction': navigateTo('finance');   setTimeout(() => { if (typeof Finance !== 'undefined') Finance.openAddModal(); }, 200); break;
+      case 'exam':        navigateTo('exam');      setTimeout(() => { if (typeof Exam !== 'undefined') Exam.openRegModal(); }, 200); break;
+      case 'visitor':     navigateTo('visitors');  setTimeout(() => { if (typeof VisitorsModule !== 'undefined') VisitorsModule.openAddModal(); }, 200); break;
+    }
+    // Close quick-add menu
+    const menu = document.getElementById('quick-add-menu');
+    if (menu) menu.style.display = 'none';
+  }
+
+  // ── Notification Count ────────────────────────────────────
+  function updateNotifCount() {
+    try {
+      const students = SupabaseSync.getAll(DB.students);
+      const dueCount = students.filter(s => (Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid)) > 0).length;
+      const countEl = document.getElementById('notif-count');
+      if (countEl) {
+        countEl.textContent = dueCount;
+        countEl.style.display = dueCount > 0 ? 'inline-flex' : 'none';
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  // ── Sidebar Toggle ────────────────────────────────────────
   function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.toggle('open');
   }
 
   // ── Event Bindings ────────────────────────────────────────
@@ -106,25 +169,23 @@ const App = (() => {
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
         navigateTo(item.dataset.section);
-        // close sidebar on mobile
-        if (window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
       });
     });
 
-    // Logout button
-    const logoutBtn = document.getElementById('btn-logout');
-    if (logoutBtn) logoutBtn.addEventListener('click', logout);
-
-    // Hamburger (mobile)
+    // Hamburger
     const hamburger = document.getElementById('btn-hamburger');
     if (hamburger) hamburger.addEventListener('click', toggleSidebar);
 
-    // Sync buttons
-    const syncNow = document.getElementById('btn-sync-now');
-    if (syncNow) syncNow.addEventListener('click', () => SyncEngine.pull());
+    // Logout
+    const logoutBtn = document.getElementById('btn-logout');
+    if (logoutBtn) logoutBtn.addEventListener('click', logout);
 
-    const syncPush = document.getElementById('btn-sync-push');
-    if (syncPush) syncPush.addEventListener('click', () => SyncEngine.push());
+    // Sync buttons
+    const syncBtn = document.getElementById('btn-sync-now');
+    if (syncBtn) syncBtn.addEventListener('click', () => SyncEngine.pull());
+
+    const pushBtn = document.getElementById('btn-sync-push');
+    if (pushBtn) pushBtn.addEventListener('click', () => SyncEngine.push());
 
     // Login form
     const loginForm = document.getElementById('login-form');
@@ -132,32 +193,76 @@ const App = (() => {
       loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
         const pw = document.getElementById('login-password')?.value;
+        const errEl = document.getElementById('login-error');
         const ok = login(pw);
-        if (!ok) Utils.toast('পাসওয়ার্ড ভুল হয়েছে!', 'error');
+        if (!ok) {
+          if (errEl) {
+            errEl.textContent = 'পাসওয়ার্ড ভুল হয়েছে!';
+            errEl.classList.remove('hidden');
+          }
+          Utils.toast('পাসওয়ার্ড ভুল হয়েছে!', 'error');
+        }
       });
     }
 
-    // Close modals on backdrop click
+    // Quick Add toggle
+    const quickAddBtn = document.getElementById('btn-quick-add');
+    const quickAddMenu = document.getElementById('quick-add-menu');
+    if (quickAddBtn && quickAddMenu) {
+      quickAddBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        quickAddMenu.style.display = quickAddMenu.style.display === 'none' ? 'block' : 'none';
+      });
+      document.addEventListener('click', () => { quickAddMenu.style.display = 'none'; });
+    }
+
+    // Theme toggle
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('wfa_theme', next);
+        themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+      });
+    }
+
+    // Close modal on backdrop click
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('modal-backdrop')) {
-        e.target.style.display = 'none';
+        e.target.classList.remove('open');
       }
+    });
+
+    // On sync, refresh current module
+    window.addEventListener('wfa:synced', () => {
+      renderModule(currentSection);
+      updateNotifCount();
     });
   }
 
   // ── Init ──────────────────────────────────────────────────
   function init() {
+    // Apply saved theme
+    const savedTheme = localStorage.getItem('wfa_theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+
     bindEvents();
+
     if (isLoggedIn()) {
       showApp();
     } else {
       showLogin();
     }
+
+    updateNotifCount();
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar };
+  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount };
 })();
 
-// Start app when DOM ready
 document.addEventListener('DOMContentLoaded', App.init);
 window.App = App;
