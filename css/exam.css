@@ -1,0 +1,87 @@
+/* ============================================================
+   EXAM MODULE CSS — Wings Fly Aviation Academy
+   Phase 7
+   ============================================================ */
+
+/* ── Exam Registration Cards ── */
+.exam-reg-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  transition: var(--transition);
+}
+.exam-reg-card:hover {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 12px var(--accent-blue-glow);
+}
+.exam-reg-id {
+  font-family: 'Courier New', monospace;
+  font-size: .75rem;
+  color: var(--accent-blue);
+  background: var(--accent-blue-glow);
+  padding: .15rem .5rem;
+  border-radius: var(--radius-sm);
+  display: inline-block;
+  margin-bottom: .5rem;
+}
+
+/* ── Grade Badges ── */
+.grade-A\+ { background: #00c853; color: #fff; }
+.grade-A   { background: #4caf50; color: #fff; }
+.grade-B   { background: #2196f3; color: #fff; }
+.grade-C   { background: #ff9800; color: #fff; }
+.grade-D   { background: #ff5722; color: #fff; }
+.grade-F   { background: #f44336; color: #fff; }
+.grade-badge {
+  padding: .2rem .6rem;
+  border-radius: var(--radius-sm);
+  font-size: .75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* ── Exam Fee Status ── */
+.fee-paid   { color: var(--accent-green); font-weight: 600; }
+.fee-unpaid { color: var(--accent-red);   font-weight: 600; }
+
+/* ── Result Entry Form ── */
+.result-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: .75rem;
+  margin-top: 1rem;
+}
+.result-subject-card {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: .75rem;
+}
+.result-subject-card label {
+  font-size: .75rem;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: .3rem;
+}
+.result-subject-card input {
+  width: 100%;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  padding: .35rem .5rem;
+  font-size: .9rem;
+}
+
+/* ── Print: Exam Report ── */
+@media print {
+  .exam-print-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  .exam-print-header h2 {
+    font-size: 1.4rem;
+    margin: 0;
+  }
+}

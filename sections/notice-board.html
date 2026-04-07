@@ -1,0 +1,242 @@
+<!-- ============================================================
+     notice-board.html — বাংলা Notice Board Section
+     Wings Fly Aviation Academy
+     ============================================================ -->
+
+<div class="section-header">
+  <div>
+    <h2 class="section-title">📋 নোটিস বোর্ড</h2>
+    <p class="section-subtitle">বাংলায় নোটিস পরিচালনা করুন — স্বয়ংক্রিয় মেয়াদ শেষ</p>
+  </div>
+  <div class="section-actions">
+    <button class="btn btn-primary" onclick="NoticeBoardUI.openAddModal()">
+      ➕ নতুন নোটিস
+    </button>
+  </div>
+</div>
+
+<!-- Type Filter Tabs -->
+<div class="notice-filter-tabs">
+  <button class="notice-tab active" data-type="" onclick="NoticeBoardUI.filterType('', this)">🗂️ সব নোটিস</button>
+  <button class="notice-tab" data-type="urgent" onclick="NoticeBoardUI.filterType('urgent', this)" style="color:#ef4444">🚨 জরুরি</button>
+  <button class="notice-tab" data-type="warning" onclick="NoticeBoardUI.filterType('warning', this)" style="color:#f59e0b">⚠️ সতর্কতা</button>
+  <button class="notice-tab" data-type="info" onclick="NoticeBoardUI.filterType('info', this)" style="color:#3b82f6">ℹ️ তথ্য</button>
+  <button class="notice-tab" data-type="success" onclick="NoticeBoardUI.filterType('success', this)" style="color:#22c55e">✅ সফলতা</button>
+</div>
+
+<!-- Notice Cards Container -->
+<div id="notice-board-container" class="notice-board-grid">
+  <div class="notice-empty">লোড হচ্ছে...</div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay hidden" id="notice-modal">
+  <div class="modal-box modal-md">
+    <div class="modal-header">
+      <h3 id="notice-modal-title">নতুন নোটিস</h3>
+      <button class="modal-close" onclick="UI.closeModal('notice-modal')">✕</button>
+    </div>
+    <form class="modal-body" onsubmit="NoticeBoardUI.handleSubmit(event)">
+      <input type="hidden" id="notice-edit-id">
+
+      <div class="form-group">
+        <label class="form-label">নোটিসের ধরন *</label>
+        <div class="notice-type-picker">
+          <label class="notice-type-option warning">
+            <input type="radio" name="notice-type" value="warning" id="nt-warning">
+            <span>⚠️ সতর্কতা</span>
+          </label>
+          <label class="notice-type-option info">
+            <input type="radio" name="notice-type" value="info" id="nt-info" checked>
+            <span>ℹ️ তথ্য</span>
+          </label>
+          <label class="notice-type-option urgent">
+            <input type="radio" name="notice-type" value="urgent" id="nt-urgent">
+            <span>🚨 জরুরি</span>
+          </label>
+          <label class="notice-type-option success">
+            <input type="radio" name="notice-type" value="success" id="nt-success">
+            <span>✅ সফলতা</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">শিরোনাম (ঐচ্ছিক)</label>
+        <input type="text" id="notice-title" class="form-input" placeholder="নোটিসের শিরোনাম...">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">নোটিসের বিষয়বস্তু *</label>
+        <textarea id="notice-body" class="form-input form-textarea" rows="5"
+          placeholder="এখানে বাংলায় নোটিস লিখুন..." required></textarea>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">মেয়াদ</label>
+          <select id="notice-duration" class="form-select">
+            <option value="30m">৩০ মিনিট</option>
+            <option value="1h">১ ঘন্টা</option>
+            <option value="3h">৩ ঘন্টা</option>
+            <option value="6h">৬ ঘন্টা</option>
+            <option value="12h">১২ ঘন্টা</option>
+            <option value="1d" selected>১ দিন</option>
+            <option value="3d">৩ দিন</option>
+            <option value="1w">১ সপ্তাহ</option>
+            <option value="never">মেয়াদ নেই</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">পিন করুন</label>
+          <label class="toggle-label">
+            <input type="checkbox" id="notice-pinned" class="toggle-input">
+            <span class="toggle-switch"></span>
+            <span>শীর্ষে রাখুন</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="UI.closeModal('notice-modal')">বাতিল</button>
+        <button type="submit" class="btn btn-primary">📢 নোটিস প্রকাশ করুন</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+/* Notice Board Styles */
+.notice-filter-tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.notice-tab { padding: 6px 16px; border: 1px solid var(--border); border-radius: 20px; background: var(--surface); cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: inherit; }
+.notice-tab.active { background: var(--primary); color: white; border-color: var(--primary); }
+.notice-tab:hover:not(.active) { background: var(--hover); }
+
+.notice-board-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+.notice-empty { grid-column: 1/-1; text-align: center; padding: 60px; color: var(--text-muted); font-size: 16px; }
+
+.notice-card { border-radius: 10px; padding: 16px; transition: box-shadow 0.2s; }
+.notice-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+.notice-card.pinned { box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
+
+.notice-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.notice-type-badge { font-size: 12px; font-weight: 600; }
+.notice-pin-badge { font-size: 11px; background: rgba(0,0,0,0.08); padding: 2px 8px; border-radius: 10px; }
+.notice-time-remaining { margin-left: auto; font-size: 11px; font-weight: 600; opacity: 0.85; }
+
+.notice-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.notice-body { font-size: 14px; color: var(--text); line-height: 1.7; white-space: pre-wrap; margin-bottom: 10px; }
+.notice-card-footer { display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(0,0,0,0.08); padding-top: 8px; }
+.notice-meta { font-size: 11px; color: var(--text-muted); }
+.notice-actions { display: flex; gap: 4px; }
+
+/* Type Picker */
+.notice-type-picker { display: flex; gap: 8px; flex-wrap: wrap; }
+.notice-type-option { cursor: pointer; padding: 8px 14px; border: 2px solid transparent; border-radius: 8px; font-size: 13px; font-weight: 600; transition: all 0.2s; user-select: none; }
+.notice-type-option input { display: none; }
+.notice-type-option.warning { background: #fffbeb; color: #d97706; }
+.notice-type-option.info { background: #eff6ff; color: #3b82f6; }
+.notice-type-option.urgent { background: #fef2f2; color: #ef4444; }
+.notice-type-option.success { background: #f0fdf4; color: #22c55e; }
+.notice-type-option:has(input:checked) { border-color: currentColor; box-shadow: 0 0 0 2px currentColor inset; }
+</style>
+
+<script>
+const NoticeBoardUI = (() => {
+  let currentFilterType = '';
+
+  function init() {
+    NoticeBoardModule.load();
+    render();
+  }
+
+  function render() {
+    let list = NoticeBoardModule.getActive();
+    if (currentFilterType) list = list.filter(n => n.type === currentFilterType);
+    const container = document.getElementById('notice-board-container');
+    if (!list.length) {
+      container.innerHTML = `<div class="notice-empty">কোনো ${currentFilterType ? NoticeBoardModule.TYPES[currentFilterType]?.label + ' ' : ''}নোটিস নেই</div>`;
+      return;
+    }
+    const t = NoticeBoardModule.TYPES;
+    container.innerHTML = list.map(n => {
+      const info = t[n.type] || t.info;
+      return `
+<div class="notice-card ${n.type} ${n.pinned ? 'pinned' : ''}" style="border-left:4px solid ${info.border}; background:${info.bg}">
+  <div class="notice-card-header">
+    <span class="notice-type-badge" style="color:${info.color}">${info.icon} ${info.label}</span>
+    ${n.pinned ? '<span class="notice-pin-badge">📌 পিন করা</span>' : ''}
+    <span class="notice-time-remaining" style="color:${info.color}">${NoticeBoardModule.timeRemaining(n)}</span>
+  </div>
+  ${n.title ? `<div class="notice-title">${Utils.escapeHtml(n.title)}</div>` : ''}
+  <div class="notice-body">${Utils.escapeHtml(n.body).replace(/\n/g, '<br>')}</div>
+  <div class="notice-card-footer">
+    <span class="notice-meta">— ${n.createdBy} | ${Utils.formatDate(n.createdAt)}</span>
+    <div class="notice-actions">
+      <button class="btn-icon" onclick="NoticeBoardUI.togglePin('${n.id}')" title="পিন/আনপিন">📌</button>
+      <button class="btn-icon" onclick="NoticeBoardUI.openEdit('${n.id}')" title="সম্পাদনা">✏️</button>
+      <button class="btn-icon danger" onclick="NoticeBoardUI.remove('${n.id}')" title="মুছুন">🗑️</button>
+    </div>
+  </div>
+</div>`;
+    }).join('');
+  }
+
+  function openAddModal() {
+    document.getElementById('notice-edit-id').value = '';
+    document.getElementById('notice-title').value = '';
+    document.getElementById('notice-body').value = '';
+    document.getElementById('notice-duration').value = '1d';
+    document.getElementById('notice-pinned').checked = false;
+    document.getElementById('nt-info').checked = true;
+    document.getElementById('notice-modal-title').textContent = 'নতুন নোটিস';
+    UI.openModal('notice-modal');
+  }
+
+  function openEdit(id) {
+    NoticeBoardModule.openEdit(id);
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('notice-edit-id').value;
+    const typeEl = document.querySelector('input[name="notice-type"]:checked');
+    const data = {
+      title: document.getElementById('notice-title').value,
+      body: document.getElementById('notice-body').value,
+      type: typeEl ? typeEl.value : 'info',
+      duration: document.getElementById('notice-duration').value,
+      pinned: document.getElementById('notice-pinned').checked,
+      createdBy: 'Admin',
+    };
+    if (id) { NoticeBoardModule.update(id, data); }
+    else { NoticeBoardModule.add(data); }
+    UI.closeModal('notice-modal');
+    render();
+    UI.toast('নোটিস প্রকাশিত হয়েছে 📢');
+  }
+
+  function togglePin(id) {
+    NoticeBoardModule.togglePin(id);
+    render();
+  }
+
+  function remove(id) {
+    if (!confirm('এই নোটিস মুছে ফেলবেন?')) return;
+    NoticeBoardModule.remove(id);
+    render();
+    UI.toast('নোটিস মুছে ফেলা হয়েছে');
+  }
+
+  function filterType(type, btn) {
+    currentFilterType = type;
+    document.querySelectorAll('.notice-tab').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    render();
+  }
+
+  return { init, render, openAddModal, openEdit, handleSubmit, togglePin, remove, filterType };
+})();
+
+document.addEventListener('DOMContentLoaded', NoticeBoardUI.init);
+</script>

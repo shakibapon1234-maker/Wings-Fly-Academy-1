@@ -1,74 +1,283 @@
-                <div id="visitorSection" class="d-none">
-                    <div class="d-flex justify-content-between align-items-center mb-4">
-                        <h4 class="fw-bold m-0"><span class="me-2">👤</span> Visitor Management</h4>
-                        <div class="d-flex gap-2">
-                            <button class="btn btn-primary fw-bold px-4 rounded-3" onclick="
-                                document.getElementById('visitorRowIndex') && (document.getElementById('visitorRowIndex').value = '');
-                                const _vm = document.getElementById('visitorModal');
-                                if (_vm) {
-                                  const _f = document.getElementById('visitorForm');
-                                  if (_f) _f.reset();
-                                  bootstrap.Modal.getOrCreateInstance(_vm).show();
-                                } else if (typeof openVisitorModal === 'function') {
-                                  openVisitorModal();
-                                }
-                              ">
-                                <i class="bi bi-person-plus-fill me-2"></i>Add New Visitor
-                            </button>
-                        </div>
-                    </div>
+<!-- ============================================================
+     visitors.html — Visitor Tracking Section
+     Wings Fly Aviation Academy
+     ============================================================ -->
 
-                    <!-- Visitor Filters -->
-                    <div class="card border-0 shadow-sm mb-4">
-                        <div class="card-body">
-                            <div class="row g-3">
-                                <div class="col-md-4">
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-dark border-end-0 text-muted"><i
-                                                class="bi bi-search"></i></span>
-                                        <input type="text" id="visitorSearchInput"
-                                            class="form-control premium-input-modern border-start-0"
-                                            placeholder="Search by name or phone..." onkeyup="searchVisitors()">
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="date" id="visitorStartDate" class="form-control premium-input-modern"
-                                        onchange="searchVisitors()">
-                                </div>
-                                <div class="col-md-3">
-                                    <input type="date" id="visitorEndDate" class="form-control premium-input-modern"
-                                        onchange="searchVisitors()">
-                                </div>
-                                <div class="col-md-2">
-                                    <button class="btn btn-outline-secondary w-100 fw-bold"
-                                        onclick="clearVisitorFilters()">Reset</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+<div class="section-header">
+  <div>
+    <h2 class="section-title">👥 দর্শনার্থী ব্যবস্থাপনা</h2>
+    <p class="section-subtitle">Visitor Tracking & Follow-up</p>
+  </div>
+  <div class="section-actions">
+    <button class="btn btn-primary" onclick="UI.openModal('visitor-modal'); document.getElementById('visitor-form').reset(); document.getElementById('visitor-edit-id').value='';">
+      ➕ নতুন দর্শনার্থী
+    </button>
+  </div>
+</div>
 
-                    <!-- Visitor Table -->
-                    <div class="card premium-table-card shadow-sm mb-0">
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle modern-table mb-0">
-                                <thead class="bg-light">
-                                    <tr>
-                                        <th>Date</th>
-                                        <th>Name</th>
-                                        <th>Phone</th>
-                                        <th>Interested Course</th>
-                                        <th>Remarks</th>
-                                        <th class="text-end">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="visitorTableBody"></tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <!-- No Visitors Message -->
-                    <div id="noVisitorsMessage" class="text-center text-muted py-5 d-none">
-                        <p class="mb-0">No visitors found matching your search.</p>
-                    </div>
-                </div>
+<!-- Stats Cards -->
+<div class="stats-row" id="visitor-stats-row">
+  <div class="stat-card blue">
+    <div class="stat-icon">👥</div>
+    <div class="stat-info">
+      <div class="stat-label">মোট দর্শনার্থী</div>
+      <div class="stat-value" id="vis-total">0</div>
+    </div>
+  </div>
+  <div class="stat-card green">
+    <div class="stat-icon">✅</div>
+    <div class="stat-info">
+      <div class="stat-label">ভর্তি হয়েছেন</div>
+      <div class="stat-value" id="vis-enrolled">0</div>
+    </div>
+  </div>
+  <div class="stat-card yellow">
+    <div class="stat-icon">🔔</div>
+    <div class="stat-info">
+      <div class="stat-label">আগ্রহী</div>
+      <div class="stat-value" id="vis-interested">0</div>
+    </div>
+  </div>
+  <div class="stat-card orange">
+    <div class="stat-icon">📅</div>
+    <div class="stat-info">
+      <div class="stat-label">ফলো-আপ পেন্ডিং</div>
+      <div class="stat-value" id="vis-followup">0</div>
+    </div>
+  </div>
+  <div class="stat-card purple">
+    <div class="stat-icon">🗓️</div>
+    <div class="stat-info">
+      <div class="stat-label">আজকের ভিজিট</div>
+      <div class="stat-value" id="vis-today">0</div>
+    </div>
+  </div>
+</div>
 
-                <!-- Employee Management Section -->
+<!-- Filters -->
+<div class="filter-bar card">
+  <input type="text" id="vis-search" class="form-input" placeholder="🔍 নাম বা ফোন দিয়ে খুঁজুন..." oninput="VisitorsUI.applyFilter()">
+  <select id="vis-filter-status" class="form-select" onchange="VisitorsUI.applyFilter()">
+    <option value="">সব Status</option>
+    <option value="Interested">আগ্রহী</option>
+    <option value="Enrolled">ভর্তি হয়েছেন</option>
+    <option value="Follow-up">ফলো-আপ</option>
+    <option value="Not Interested">আগ্রহী নন</option>
+  </select>
+  <input type="date" id="vis-filter-from" class="form-input" onchange="VisitorsUI.applyFilter()">
+  <input type="date" id="vis-filter-to" class="form-input" onchange="VisitorsUI.applyFilter()">
+  <button class="btn btn-outline" onclick="VisitorsUI.resetFilter()">🔄 রিসেট</button>
+  <button class="btn btn-outline" onclick="VisitorsModule.exportExcel()">📊 Excel Export</button>
+</div>
+
+<!-- Table -->
+<div class="card table-card">
+  <div class="table-responsive">
+    <table class="data-table" id="visitors-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Visitor ID</th>
+          <th>নাম</th>
+          <th>ফোন</th>
+          <th>আগ্রহী কোর্স</th>
+          <th>উদ্দেশ্য</th>
+          <th>Status</th>
+          <th>ভিজিট তারিখ</th>
+          <th>ফলো-আপ</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="visitors-tbody">
+        <tr><td colspan="10" class="table-empty">লোড হচ্ছে...</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-footer">
+    <span id="vis-count-label">মোট: 0 জন</span>
+  </div>
+</div>
+
+<!-- Add/Edit Modal -->
+<div class="modal-overlay hidden" id="visitor-modal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3 id="visitor-modal-title">নতুন দর্শনার্থী</h3>
+      <button class="modal-close" onclick="UI.closeModal('visitor-modal')">✕</button>
+    </div>
+    <form id="visitor-form" class="modal-body" onsubmit="VisitorsUI.handleSubmit(event)">
+      <input type="hidden" id="visitor-edit-id">
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label">নাম *</label>
+          <input type="text" id="vis-name" class="form-input" required placeholder="দর্শনার্থীর নাম">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ফোন নম্বর *</label>
+          <input type="tel" id="vis-phone" class="form-input" required placeholder="01XXXXXXXXX">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ইমেইল</label>
+          <input type="email" id="vis-email" class="form-input" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">আগ্রহী কোর্স</label>
+          <input type="text" id="vis-course" class="form-input" placeholder="কোর্সের নাম">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ভিজিটের উদ্দেশ্য</label>
+          <input type="text" id="vis-purpose" class="form-input" placeholder="কেন এসেছেন?">
+        </div>
+        <div class="form-group">
+          <label class="form-label">রেফার করেছেন</label>
+          <input type="text" id="vis-referred" class="form-input" placeholder="কে রেফার করেছেন?">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status *</label>
+          <select id="vis-status" class="form-select" required>
+            <option value="Interested">আগ্রহী</option>
+            <option value="Follow-up">ফলো-আপ</option>
+            <option value="Enrolled">ভর্তি হয়েছেন</option>
+            <option value="Not Interested">আগ্রহী নন</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ফলো-আপ তারিখ</label>
+          <input type="date" id="vis-followup-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ভিজিট তারিখ *</label>
+          <input type="date" id="vis-visit-date" class="form-input" required>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">মন্তব্য</label>
+        <textarea id="vis-remarks" class="form-input form-textarea" rows="3" placeholder="অতিরিক্ত তথ্য..."></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="UI.closeModal('visitor-modal')">বাতিল</button>
+        <button type="submit" class="btn btn-primary">💾 সংরক্ষণ করুন</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+const VisitorsUI = (() => {
+  function init() {
+    VisitorsModule.load();
+    document.getElementById('vis-visit-date').value = Utils.today();
+    renderTable(VisitorsModule.getAll());
+    renderStats();
+  }
+
+  function renderStats() {
+    const s = VisitorsModule.stats();
+    document.getElementById('vis-total').textContent = s.total;
+    document.getElementById('vis-enrolled').textContent = s.byStatus['Enrolled'];
+    document.getElementById('vis-interested').textContent = s.byStatus['Interested'];
+    document.getElementById('vis-followup').textContent = s.byStatus['Follow-up'];
+    document.getElementById('vis-today').textContent = s.today;
+  }
+
+  function renderTable(rows) {
+    const tbody = document.getElementById('visitors-tbody');
+    document.getElementById('vis-count-label').textContent = `মোট: ${rows.length} জন`;
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="10" class="table-empty">কোনো রেকর্ড নেই</td></tr>';
+      return;
+    }
+    const statusColors = { Interested: 'yellow', Enrolled: 'green', 'Follow-up': 'orange', 'Not Interested': 'red' };
+    tbody.innerHTML = rows.map((v, i) => `
+<tr>
+  <td>${i + 1}</td>
+  <td class="mono">${v.id}</td>
+  <td><strong>${v.name}</strong></td>
+  <td>${v.phone}</td>
+  <td>${v.interestedCourse || '—'}</td>
+  <td>${v.purposeOfVisit || '—'}</td>
+  <td><span class="badge badge-${statusColors[v.status] || 'blue'}">${v.status}</span></td>
+  <td>${v.visitDate}</td>
+  <td>${v.followUpDate || '—'}</td>
+  <td class="action-cell">
+    <button class="btn-icon" onclick="VisitorsUI.openEdit('${v.id}')" title="সম্পাদনা">✏️</button>
+    <button class="btn-icon danger" onclick="VisitorsUI.remove('${v.id}')" title="মুছুন">🗑️</button>
+  </td>
+</tr>`).join('');
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    const id = document.getElementById('visitor-edit-id').value;
+    const data = {
+      name: document.getElementById('vis-name').value,
+      phone: document.getElementById('vis-phone').value,
+      email: document.getElementById('vis-email').value,
+      interestedCourse: document.getElementById('vis-course').value,
+      purposeOfVisit: document.getElementById('vis-purpose').value,
+      referredBy: document.getElementById('vis-referred').value,
+      status: document.getElementById('vis-status').value,
+      followUpDate: document.getElementById('vis-followup-date').value,
+      visitDate: document.getElementById('vis-visit-date').value,
+      remarks: document.getElementById('vis-remarks').value,
+    };
+    if (id) { VisitorsModule.update(id, data); }
+    else { VisitorsModule.add(data); }
+    UI.closeModal('visitor-modal');
+    renderTable(VisitorsModule.getAll());
+    renderStats();
+    UI.toast('দর্শনার্থী সংরক্ষণ হয়েছে ✓');
+  }
+
+  function openEdit(id) {
+    const v = VisitorsModule.getById(id);
+    if (!v) return;
+    document.getElementById('visitor-edit-id').value = v.id;
+    document.getElementById('vis-name').value = v.name;
+    document.getElementById('vis-phone').value = v.phone;
+    document.getElementById('vis-email').value = v.email;
+    document.getElementById('vis-course').value = v.interestedCourse;
+    document.getElementById('vis-purpose').value = v.purposeOfVisit;
+    document.getElementById('vis-referred').value = v.referredBy;
+    document.getElementById('vis-status').value = v.status;
+    document.getElementById('vis-followup-date').value = v.followUpDate;
+    document.getElementById('vis-visit-date').value = v.visitDate;
+    document.getElementById('vis-remarks').value = v.remarks;
+    document.getElementById('visitor-modal-title').textContent = 'দর্শনার্থী সম্পাদনা';
+    UI.openModal('visitor-modal');
+  }
+
+  function remove(id) {
+    if (!confirm('এই রেকর্ড মুছে ফেলবেন?')) return;
+    VisitorsModule.remove(id);
+    renderTable(VisitorsModule.getAll());
+    renderStats();
+    UI.toast('মুছে ফেলা হয়েছে');
+  }
+
+  function applyFilter() {
+    const rows = VisitorsModule.filter({
+      search: document.getElementById('vis-search').value,
+      status: document.getElementById('vis-filter-status').value,
+      dateFrom: document.getElementById('vis-filter-from').value,
+      dateTo: document.getElementById('vis-filter-to').value,
+    });
+    renderTable(rows);
+  }
+
+  function resetFilter() {
+    document.getElementById('vis-search').value = '';
+    document.getElementById('vis-filter-status').value = '';
+    document.getElementById('vis-filter-from').value = '';
+    document.getElementById('vis-filter-to').value = '';
+    renderTable(VisitorsModule.getAll());
+  }
+
+  return { init, renderTable, handleSubmit, openEdit, remove, applyFilter, resetFilter };
+})();
+
+document.addEventListener('DOMContentLoaded', VisitorsUI.init);
+</script>
