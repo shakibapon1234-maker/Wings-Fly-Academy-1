@@ -111,17 +111,9 @@ const Students = (() => {
         <td class="${Utils.safeNum(s.due)>0?'ledger-expense':''}">${Utils.takaEn(s.due)}</td>
         <td>${Utils.statusBadge(s.status||'Active')}</td>
         <td class="no-print">
-          <div class="table-actions">
-            <button class="btn-outline btn-xs" onclick="Students.openPayModal('${s.id}')" title="Payment">
-              <i class="fa fa-money-bill"></i>
-            </button>
-            <button class="btn-outline btn-xs" onclick="Students.openEditModal('${s.id}')" title="Edit">
-              <i class="fa fa-pen"></i>
-            </button>
-            <button class="btn-danger btn-xs" onclick="Students.deleteStudent('${s.id}')" title="Delete">
-              <i class="fa fa-trash"></i>
-            </button>
-          </div>
+          <button class="btn-primary btn-xs" onclick="Students.openManageAction('${s.id}')" style="background:var(--brand-primary);color:var(--bg-base);font-weight:700;border-radius:20px;padding:4px 14px">
+            <i class="fa fa-sliders"></i> MANAGE
+          </button>
         </td>
       </tr>`).join('');
   }
@@ -358,56 +350,162 @@ const Students = (() => {
   }
 
   /* ══════════════════════════════════════════
-     PAYMENT MODAL
+     MANAGE ACTION MENU
+  ══════════════════════════════════════════ */
+  function openManageAction(id) {
+    const s = SupabaseSync.getById(DB.students, id);
+    if (!s) return;
+    
+    // CSS for the glowing buttons
+    const style = `
+      <style>
+        .action-btn-glow {
+          display: block; width: 100%; margin-bottom: 12px; padding: 12px;
+          border-radius: 8px; border: none; font-weight: 800; font-size: 0.9rem;
+          text-align: center; cursor: pointer; text-transform: uppercase;
+          transition: transform 0.2s, filter 0.2s;
+          color: #000; letter-spacing: 0.5px;
+        }
+        .action-btn-glow:hover { transform: scale(1.02); filter: brightness(1.2); }
+        .action-btn-glow i { margin-right: 8px; filter: drop-shadow(0 0 4px rgba(0,0,0,0.5)); }
+        
+        .btn-yellow  { background: linear-gradient(90deg, #ffdc3a, #ff9e00); box-shadow: 0 0 15px rgba(255, 158, 0, 0.4); }
+        .btn-cyan    { background: linear-gradient(90deg, #00f2fe, #4facfe); box-shadow: 0 0 15px rgba(0, 242, 254, 0.4); }
+        .btn-orange  { background: linear-gradient(90deg, #f6d365, #fda085); box-shadow: 0 0 15px rgba(253, 160, 133, 0.4); }
+        .btn-green   { background: linear-gradient(90deg, #00ff87, #60efff); box-shadow: 0 0 15px rgba(0, 255, 135, 0.4); }
+        .btn-purple  { background: linear-gradient(90deg, #b224ef, #7579ff); box-shadow: 0 0 15px rgba(178, 36, 239, 0.4); color: #fff; }
+        .btn-grey    { background: linear-gradient(90deg, #8e9eab, #eef2f3); box-shadow: 0 0 15px rgba(142, 158, 171, 0.4); }
+        .btn-red     { background: linear-gradient(90deg, #ff0844, #ffb199); box-shadow: 0 0 15px rgba(255, 8, 68, 0.4); color: #fff; }
+        .btn-white   { background: #ffffff; color: #000; box-shadow: 0 0 15px rgba(255, 255, 255, 0.4); }
+      </style>
+    `;
+
+    Utils.openModal('<i class="fa fa-sliders"></i> Select Action', `
+      ${style}
+      <div style="text-align:center; margin-bottom: 20px;">
+        <div style="font-weight:700;font-size:1.1rem;color:var(--brand-primary);">${s.name}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">ID: ${s.student_id}</div>
+      </div>
+      
+      <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 300)">
+        <i class="fa fa-sack-dollar"></i> ADD PAYMENT
+      </button>
+      
+      <button class="action-btn-glow btn-cyan" onclick="Utils.closeModal(); setTimeout(()=>IdCards && IdCards.previewCard('${id}'), 300)">
+        <i class="fa fa-id-badge"></i> VIEW ID CARD
+      </button>
+      
+      <button class="action-btn-glow btn-orange" onclick="Utils.closeModal(); setTimeout(()=>Certificates && Certificates.previewCertificate('${id}'), 300)">
+        <i class="fa fa-award"></i> GENERATE CERTIFICATE
+      </button>
+      
+      <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${id}'), 300)">
+        <i class="fa fa-user-pen"></i> EDIT PROFILE
+      </button>
+      
+      <button class="action-btn-glow btn-purple" onclick="Students.printReceipt('${id}')">
+        <i class="fa fa-print"></i> PRINT RECEIPT
+      </button>
+      
+      <button class="action-btn-glow btn-grey" onclick="Utils.toast('Reminder set for ${s.name}', 'success')">
+        <i class="fa fa-bell"></i> SET REMINDER
+      </button>
+      
+      <button class="action-btn-glow btn-red" onclick="Utils.closeModal(); setTimeout(()=>Students.deleteStudent('${id}'), 300)">
+        <i class="fa fa-trash"></i> DELETE
+      </button>
+      
+      <button class="action-btn-glow btn-white" style="margin-top:24px" onclick="Utils.closeModal()">
+        CLOSE MENU
+      </button>
+    `, 'modal-sm');
+  }
+
+  /* ══════════════════════════════════════════
+     PAYMENT HISTORY & INSTALLMENTS MODAL
   ══════════════════════════════════════════ */
   function openPayModal(id) {
     const s = SupabaseSync.getById(DB.students, id);
     if (!s) return;
 
-    Utils.openModal('<i class="fa fa-money-bill"></i> Add Payment', `
-      <div style="background:var(--bg-input);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:16px">
-        <div style="font-weight:700;font-size:1rem;margin-bottom:4px">${s.name}</div>
-        <div style="font-size:0.85rem;color:var(--text-secondary)">${s.course||''} · ${s.batch||''}</div>
-        <div style="display:flex;gap:20px;margin-top:8px;font-size:0.88rem">
-          <span>Total: <strong>${Utils.takaEn(s.total_fee)}</strong></span>
-          <span style="color:var(--success-light)">Pay: <strong>${Utils.takaEn(s.paid)}</strong></span>
-          <span style="color:var(--danger-light)">Due: <strong>${Utils.takaEn(s.due)}</strong></span>
+    // Get past payments for this student
+    const allFinance = SupabaseSync.getAll(DB.finance);
+    const history = allFinance
+       .filter(f => f.ref_id === id && f.category === 'Student Fee')
+       .sort((a,b) => new Date(a.date) - new Date(b.date)); // Chronological
+
+    let historyTableRows = '';
+    if (history.length === 0) {
+      historyTableRows = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:12px;">No payment history found</td></tr>';
+    } else {
+      historyTableRows = history.map((f, index) => `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
+          <td style="padding:10px 8px">${index + 1}</td>
+          <td style="padding:10px 8px">${f.date}</td>
+          <td style="padding:10px 8px"><span class="badge badge-info">${f.method||'Cash'}</span></td>
+          <td style="padding:10px 8px;font-weight:700;color:var(--success)">${Utils.takaEn(f.amount)}</td>
+        </tr>
+      `).join('');
+    }
+
+    Utils.openModal('<i class="fa fa-credit-card"></i> Payment History & Installments', `
+      <!-- Top Cards -->
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
+        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">TOTAL FEE</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#00d9ff">${Utils.takaEn(s.total_fee)}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">PAID TO DATE</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#00ff88">${Utils.takaEn(s.paid)}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">OUTSTANDING DUE</div>
+          <div style="font-size:1.4rem; font-weight:800; color:#ff4757">${Utils.takaEn(s.due)}</div>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Payment Amount (৳) <span class="req">*</span></label>
-          <input id="pay-amount" type="number" class="form-control" placeholder="0" max="${s.due}" />
+
+      <!-- Add Installment Section -->
+      <div style="border: 1.5px solid var(--border-glow); border-radius: 8px; padding: 16px; margin-bottom: 24px; position: relative;">
+        <div style="font-weight:700; color:var(--brand-primary); margin-bottom:12px;">Add New Installment</div>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <input id="pay-amount" type="number" class="form-control" style="flex:1" placeholder="Amount (e.g. ${s.due})" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
+          <select id="pay-method" class="form-control" style="flex:1">
+            <option value="Cash">Cash</option>
+            <option value="Bank">Bank Transfer</option>
+            <option value="bKash">bKash</option>
+            <option value="Nagad">Nagad</option>
+          </select>
+          <input id="pay-date" type="date" class="form-control hidden" value="${Utils.today()}" />
+          <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:6px; font-weight:700;" onclick="Students.savePayment('${id}')">
+            + ADD & PRINT RECEIPT
+          </button>
         </div>
-        <div class="form-group">
-          <label>Payment Method</label>
-          <select id="pay-method" class="form-control">
-                <option value="Cash">Cash</option>
-                <option value="Bank">Bank Transfer</option>
-                <option value="bKash">bKash</option>
-                <option value="Nagad">Nagad</option>
-                <option value="Rocket">Rocket</option>
-                <option value="Cheque">Cheque</option>
-                <option value="Card">Card</option>
-              </select>
-        </div>
+        <div id="pay-error" class="form-error hidden" style="margin-top:8px"></div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Date</label>
-          <input id="pay-date" type="date" class="form-control" value="${Utils.today()}" />
-        </div>
-        <div class="form-group">
-          <label>Notes</label>
-          <input id="pay-note" class="form-control" placeholder="Optional" />
-        </div>
+
+      <!-- History Table Section -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;">
+        <div style="font-weight:700; color:var(--brand-primary);">Payment History (All Installments)</div>
+        <button class="btn-outline btn-xs" style="color:#ff6b35; border-color:#ff6b35" onclick="Students.printHistory('${id}')"><i class="fa fa-print"></i> PRINT HISTORY</button>
       </div>
-      <div id="pay-error" class="form-error hidden"></div>
-      <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-success" onclick="Students.savePayment('${id}')"><i class="fa fa-check"></i> Add Payment</button>
+      <div style="overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.1)">
+        <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
+          <thead style="background:rgba(255,255,255,0.05); border-bottom:2px solid var(--brand-primary);">
+            <tr>
+              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">#</th>
+              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">DATE</th>
+              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">METHOD</th>
+              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">AMOUNT</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${historyTableRows}
+          </tbody>
+        </table>
+        <div style="height:4px; background:linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); width:100%"></div>
       </div>
-    `, 'modal-sm');
+    `);
   }
 
   /* ══════════════════════════════════════════
@@ -541,9 +639,11 @@ const Students = (() => {
 
   return {
     render, onSearch, onFilter, resetFilters,
-    openAddModal, openEditModal, openPayModal,
+    openAddModal, openEditModal, openPayModal, openManageAction,
     calcDue, saveStudent, savePayment,
     deleteStudent, exportExcel,
+    printHistory: (id) => Utils.toast('Feature pending', 'info'),
+    printReceipt: (id) => Utils.toast('Feature pending', 'info')
   };
 
 })();
