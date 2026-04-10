@@ -1,97 +1,404 @@
 /* ============================================================
-   ATTENDANCE SHEET CSS — Phase 8 additions
+   ATTENDANCE CENTRE CSS — Nebula & Aurora Modal Design
    Wings Fly Aviation Academy
    ============================================================ */
 
-/* ── Attendance Status Buttons ── */
-.att-status-btns {
+/* ── Modal Overlay ─── */
+.att-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 600;
+  justify-content: center;
+  align-items: center;
+  padding: 24px;
+  overflow-y: auto;
+}
+.att-modal-overlay.open {
   display: flex;
-  gap: .35rem;
-  flex-wrap: wrap;
 }
-.att-btn {
-  padding: .25rem .6rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-color);
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: .72rem;
-  cursor: pointer;
-  transition: var(--transition);
-  white-space: nowrap;
-}
-.att-btn:hover { border-color: var(--accent-blue); color: var(--text-primary); }
-.att-btn-present.active { background: #1b5e20; border-color: var(--accent-green); color: #a5d6a7; }
-.att-btn-absent.active  { background: #7f1d1d; border-color: var(--accent-red);   color: #fca5a5; }
-.att-btn-late.active    { background: #78350f; border-color: var(--accent-gold);  color: #fcd34d; }
-.att-btn-leave.active   { background: #1e3a5f; border-color: var(--accent-blue);  color: #93c5fd; }
 
-/* ── Attendance Note Input ── */
-.att-note-input {
+/* ── Modal Container ─── */
+.att-modal-container {
+  background: linear-gradient(135deg, #0a0e1a 0%, #111827 100%);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 20px;
   width: 100%;
-  min-width: 100px;
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
-  color: var(--text-primary);
-  padding: .3rem .5rem;
-  font-size: .8rem;
+  max-width: 980px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow:
+    0 0 40px rgba(0, 212, 255, 0.08),
+    0 0 80px rgba(0, 0, 0, 0.5);
+  animation: attModalIn 0.3s ease;
+  overflow: hidden;
 }
 
-/* ── Progress Bar ── */
-.progress-bar-wrap {
+@keyframes attModalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(-10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Header ─── */
+.att-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 28px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.att-header-left {
   display: flex;
   align-items: center;
-  gap: .5rem;
-  min-width: 100px;
-}
-.progress-bar-wrap > div {
-  height: 6px;
-  border-radius: 3px;
-  flex: 1;
-  background: var(--accent-green);
-  transition: width .3s ease;
-}
-.progress-bar-wrap span {
-  font-size: .75rem;
-  color: var(--text-secondary);
-  min-width: 32px;
-  text-align: right;
+  gap: 14px;
 }
 
-/* ── Tab Switcher ── */
-.tab-switcher {
+.att-header-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(124, 58, 237, 0.15));
+  border: 1px solid rgba(0, 212, 255, 0.25);
   display: flex;
-  gap: .5rem;
-  border-bottom: 2px solid var(--border-color);
-  padding-bottom: .5rem;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  color: #00d4ff;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.1);
 }
-.tab-switch-btn {
-  padding: .5rem 1.2rem;
-  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+
+.att-header-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #00d4ff;
+  letter-spacing: 0.06em;
+  text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+}
+
+.att-header-sub {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+}
+
+.att-modal-close {
+  background: none;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.att-modal-close:hover {
+  color: #ff4757;
+  border-color: rgba(255, 71, 87, 0.3);
+  background: rgba(255, 71, 87, 0.1);
+}
+
+/* ── Tab Bar ─── */
+.att-tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 12px 28px 0;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.08);
+  overflow-x: auto;
+}
+
+.att-tab-btn {
+  padding: 10px 18px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   cursor: pointer;
-  font-size: .9rem;
-  transition: var(--transition);
+  white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
 }
-.tab-switch-btn:hover { color: var(--text-primary); background: var(--bg-tertiary); }
-.tab-switch-btn.active {
-  color: var(--accent-blue);
-  border-bottom: 2px solid var(--accent-blue);
-  margin-bottom: -2px;
-  background: var(--bg-tertiary);
+
+.att-tab-btn:hover {
+  color: var(--text-primary);
+  background: rgba(0, 212, 255, 0.04);
+}
+
+.att-tab-btn.active {
+  color: #00d4ff;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(124, 58, 237, 0.1));
+  border-bottom-color: #00d4ff;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+}
+
+.att-tab-btn i {
+  font-size: 0.85rem;
+}
+
+/* ── Tab Content ─── */
+.att-tab-content {
+  flex: 1;
+  padding: 20px 28px;
+  overflow-y: auto;
+  max-height: calc(90vh - 200px);
+}
+
+/* ── Filter Section ─── */
+.att-filter-section {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  background: rgba(17, 24, 39, 0.7);
+  border: 1px solid rgba(0, 212, 255, 0.1);
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+
+.att-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.att-filter-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #00d4ff;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.att-filter-label i { font-size: 0.75rem; }
+
+.att-filter-select,
+.att-filter-input {
+  padding: 9px 14px;
+  background: rgba(10, 14, 26, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: var(--font-ui);
+  min-width: 160px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.att-filter-select:focus,
+.att-filter-input:focus {
+  border-color: rgba(0, 212, 255, 0.5);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+  outline: none;
+}
+
+/* ── Count Badge ─── */
+.att-count-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #00d4ff;
+  letter-spacing: 0.04em;
+}
+.att-count-badge .count-num {
+  background: rgba(0, 212, 255, 0.2);
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+/* ── Action Button ─── */
+.att-action-btn {
+  padding: 9px 20px;
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.15), rgba(124, 58, 237, 0.15));
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: 8px;
+  color: #00d4ff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.att-action-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.25), rgba(124, 58, 237, 0.25));
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+
+/* ── Sheet Area ─── */
+.att-sheet-area {
+  min-height: 200px;
+}
+
+/* ── Empty State ─── */
+.att-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: var(--text-muted);
+}
+.att-empty-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+/* ── Attendance Sheet Table ─── */
+.att-sheet-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: rgba(17, 24, 39, 0.6);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+.att-sheet-table thead th {
+  background: rgba(0, 212, 255, 0.06) !important;
+  color: #00d4ff !important;
+  font-size: 0.7rem !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 12px 14px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.12);
+}
+
+.att-sheet-table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background 0.1s;
+}
+.att-sheet-table tbody tr:hover {
+  background: rgba(0, 212, 255, 0.03);
+}
+.att-sheet-table tbody td {
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+/* ── Status Buttons ─── */
+.att-status-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.att-status-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-muted);
+  font-size: 0.72rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.att-status-btn:hover {
+  border-color: rgba(0, 212, 255, 0.3);
+  color: var(--text-primary);
 }
 
-/* ── Salary Sheet tfoot ── */
-.data-table tfoot td {
-  background: var(--bg-tertiary);
-  border-top: 2px solid var(--border-color);
+/* Active States */
+.att-st-present.active {
+  background: rgba(0, 255, 136, 0.15);
+  border-color: rgba(0, 255, 136, 0.4);
+  color: #00ff88;
+  box-shadow: 0 0 8px rgba(0, 255, 136, 0.15);
+}
+.att-st-absent.active {
+  background: rgba(255, 71, 87, 0.15);
+  border-color: rgba(255, 71, 87, 0.4);
+  color: #ff4757;
+  box-shadow: 0 0 8px rgba(255, 71, 87, 0.15);
+}
+.att-st-late.active {
+  background: rgba(255, 215, 0, 0.15);
+  border-color: rgba(255, 215, 0, 0.4);
+  color: #ffd700;
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.15);
+}
+.att-st-leave.active {
+  background: rgba(0, 212, 255, 0.15);
+  border-color: rgba(0, 212, 255, 0.4);
+  color: #00d4ff;
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.15);
 }
 
-/* ── Text Color Helpers ── */
-.text-green  { color: var(--accent-green); }
-.text-red    { color: var(--accent-red);   }
-.text-yellow { color: var(--accent-gold);  }
+/* ── Footer ─── */
+.att-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 28px;
+  border-top: 1px solid rgba(0, 212, 255, 0.08);
+  background: rgba(10, 14, 26, 0.5);
+}
+
+.att-save-btn {
+  padding: 10px 28px;
+  background: linear-gradient(90deg, #00d4ff, #00ff88);
+  border: none;
+  border-radius: 8px;
+  color: #0a0e1a;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+}
+.att-save-btn:hover {
+  box-shadow: 0 0 25px rgba(0, 212, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ── Responsive ─── */
+@media (max-width: 768px) {
+  .att-modal-container {
+    max-height: 95vh;
+    border-radius: 12px;
+  }
+  .att-modal-overlay { padding: 12px; }
+  .att-tab-bar { padding: 8px 16px 0; }
+  .att-tab-btn { padding: 8px 12px; font-size: 0.7rem; }
+  .att-tab-content { padding: 16px; }
+  .att-filter-section { padding: 12px; gap: 10px; }
+  .att-modal-footer { padding: 12px 16px; }
+  .att-status-group { gap: 3px; }
+  .att-status-btn { padding: 3px 6px; font-size: 0.68rem; }
+}

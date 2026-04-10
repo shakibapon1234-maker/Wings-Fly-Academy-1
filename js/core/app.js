@@ -78,6 +78,12 @@ const App = (() => {
       return;
     }
 
+    // Attendance opens as a modal overlay
+    if (section === 'attendance') {
+      if (typeof Attendance !== 'undefined') Attendance.openModal();
+      return;
+    }
+
     currentSection = section;
 
     // Hide all sections
