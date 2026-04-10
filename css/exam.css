@@ -1,49 +1,53 @@
 /* ============================================================
    EXAM MODULE CSS — Wings Fly Aviation Academy
-   Phase 7
+   Deep Space Navy / Cyberpunk Dark Theme
    ============================================================ */
 
 /* ── Exam Registration Cards ── */
 .exam-reg-card {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
-  transition: var(--transition);
+  background: linear-gradient(135deg, rgba(17,24,39,0.95), rgba(30,41,59,0.95));
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 12px;
+  padding: 18px 20px;
+  transition: transform .15s, box-shadow .15s, border-color .2s;
 }
 .exam-reg-card:hover {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 12px var(--accent-blue-glow);
+  border-color: rgba(0, 212, 255, 0.35);
+  box-shadow: 0 0 18px rgba(0, 212, 255, 0.1);
+  transform: translateY(-2px);
 }
 .exam-reg-id {
   font-family: 'Courier New', monospace;
   font-size: .75rem;
-  color: var(--accent-blue);
-  background: var(--accent-blue-glow);
-  padding: .15rem .5rem;
-  border-radius: var(--radius-sm);
+  color: #00d4ff;
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  padding: .15rem .6rem;
+  border-radius: 6px;
   display: inline-block;
   margin-bottom: .5rem;
+  letter-spacing: 0.04em;
 }
 
 /* ── Grade Badges ── */
-.grade-A\+ { background: #00c853; color: #fff; }
-.grade-A   { background: #4caf50; color: #fff; }
-.grade-B   { background: #2196f3; color: #fff; }
-.grade-C   { background: #ff9800; color: #fff; }
-.grade-D   { background: #ff5722; color: #fff; }
-.grade-F   { background: #f44336; color: #fff; }
+.grade-A\+ { background: rgba(0, 200, 83, 0.2);  color: #00c853; border: 1px solid rgba(0,200,83,0.3); }
+.grade-A   { background: rgba(76, 175, 80, 0.2); color: #4caf50; border: 1px solid rgba(76,175,80,0.3); }
+.grade-B   { background: rgba(0, 212, 255, 0.15);color: #00d4ff; border: 1px solid rgba(0,212,255,0.3); }
+.grade-C   { background: rgba(255,152,0,0.15);   color: #ff9800; border: 1px solid rgba(255,152,0,0.3); }
+.grade-D   { background: rgba(255,87,34,0.15);   color: #ff5722; border: 1px solid rgba(255,87,34,0.3); }
+.grade-F   { background: rgba(255,71,87,0.15);   color: #ff4757; border: 1px solid rgba(255,71,87,0.3); }
 .grade-badge {
-  padding: .2rem .6rem;
-  border-radius: var(--radius-sm);
-  font-size: .75rem;
+  padding: .2rem .7rem;
+  border-radius: 8px;
+  font-size: .72rem;
   font-weight: 700;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 /* ── Exam Fee Status ── */
-.fee-paid   { color: var(--accent-green); font-weight: 600; }
-.fee-unpaid { color: var(--accent-red);   font-weight: 600; }
+.fee-paid   { color: #00ff88; font-weight: 700; text-shadow: 0 0 8px rgba(0,255,136,0.3); }
+.fee-unpaid { color: #ff4757; font-weight: 700; text-shadow: 0 0 8px rgba(255,71,87,0.3); }
 
 /* ── Result Entry Form ── */
 .result-entry-grid {
@@ -53,26 +57,78 @@
   margin-top: 1rem;
 }
 .result-subject-card {
-  background: var(--bg-tertiary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background: rgba(10, 14, 26, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.15);
+  border-radius: 8px;
   padding: .75rem;
+  transition: border-color .2s;
+}
+.result-subject-card:hover {
+  border-color: rgba(0, 212, 255, 0.3);
 }
 .result-subject-card label {
-  font-size: .75rem;
-  color: var(--text-secondary);
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   display: block;
-  margin-bottom: .3rem;
+  margin-bottom: .4rem;
 }
 .result-subject-card input {
   width: 100%;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-sm);
+  background: rgba(17, 24, 39, 0.8);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 6px;
   color: var(--text-primary);
-  padding: .35rem .5rem;
+  padding: .4rem .6rem;
   font-size: .9rem;
+  transition: border-color .15s, box-shadow .15s;
+  font-family: var(--font-ui);
 }
+.result-subject-card input:focus {
+  border-color: rgba(0, 212, 255, 0.5);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.1);
+  outline: none;
+}
+
+/* ── Exam Section Header ── */
+.exam-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--brand-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 24px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+}
+
+/* ── Exam Stats Summary Bar ── */
+.exam-stats-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.exam-stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  background: rgba(0, 212, 255, 0.08);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  color: #00d4ff;
+}
+.exam-stat-pill.passed { background: rgba(0,255,136,0.08); border-color: rgba(0,255,136,0.2); color: #00ff88; }
+.exam-stat-pill.failed { background: rgba(255,71,87,0.08);  border-color: rgba(255,71,87,0.2);  color: #ff4757; }
+.exam-stat-pill.pending{ background: rgba(255,152,0,0.08);  border-color: rgba(255,152,0,0.2);  color: #ff9800; }
 
 /* ── Print: Exam Report ── */
 @media print {

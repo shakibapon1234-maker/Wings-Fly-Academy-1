@@ -75,23 +75,12 @@
       </div>
 
       <nav>
-        <div class="nav-group-title bn">MAIN</div>
         <button class="nav-item active" data-section="dashboard">
           <i class="fa fa-gauge-high nav-icon"></i><span class="bn">Dashboard</span>
         </button>
-
-        <div class="nav-group-title bn">STUDENT</div>
         <button class="nav-item" data-section="students">
           <i class="fa fa-user-graduate nav-icon"></i><span class="bn">Students</span>
         </button>
-        <button class="nav-item" data-section="exam">
-          <i class="fa fa-clipboard-list nav-icon"></i><span class="bn">Exams</span>
-        </button>
-        <button class="nav-item" data-section="attendance">
-          <i class="fa fa-calendar-check nav-icon"></i><span class="bn">Attendance</span>
-        </button>
-
-        <div class="nav-group-title bn">FINANCE</div>
         <button class="nav-item" data-section="finance">
           <i class="fa fa-book-open nav-icon"></i><span class="bn">Finance</span>
         </button>
@@ -101,18 +90,20 @@
         <button class="nav-item" data-section="loans">
           <i class="fa fa-hand-holding-dollar nav-icon"></i><span class="bn">Loans</span>
         </button>
-
-        <div class="nav-group-title bn">HR/STAFF</div>
+        <button class="nav-item" data-section="visitors">
+          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span class="bn">Visitors</span>
+        </button>
         <button class="nav-item" data-section="hr-staff">
           <i class="fa fa-users nav-icon"></i><span class="bn">HR/Staff</span>
+        </button>
+        <button class="nav-item" data-section="exam">
+          <i class="fa fa-clipboard-list nav-icon"></i><span class="bn">Exams</span>
         </button>
         <button class="nav-item" data-section="salary">
           <i class="fa fa-sack-dollar nav-icon"></i><span class="bn">Salary Hub</span>
         </button>
-
-        <div class="nav-group-title bn">OTHERS</div>
-        <button class="nav-item" data-section="visitors">
-          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span class="bn">Visitors</span>
+        <button class="nav-item" data-section="attendance">
+          <i class="fa fa-calendar-check nav-icon"></i><span class="bn">Attendance</span>
         </button>
         <button class="nav-item" data-section="id-cards">
           <i class="fa fa-id-card nav-icon"></i><span class="bn">ID Cards</span>
@@ -120,11 +111,10 @@
         <button class="nav-item" data-section="certificates">
           <i class="fa fa-certificate nav-icon"></i><span class="bn">Certificates</span>
         </button>
-        <button class="nav-item" data-section="notice-board">
-          <i class="fa fa-bullhorn nav-icon"></i><span class="bn">Notice Board</span>
+        <button class="nav-item" data-section="notice-board" id="nav-notice">
+          <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
+          <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;"></span>
         </button>
-
-        <div class="nav-group-title bn">SYSTEM</div>
         <button class="nav-item" data-section="settings">
           <i class="fa fa-gear nav-icon"></i><span class="bn">Settings</span>
         </button>
@@ -155,7 +145,7 @@
       <!-- TOPBAR -->
       <div id="topbar">
         <button id="btn-hamburger"><i class="fa fa-bars"></i></button>
-        <div id="page-title" class="bn" style="font-size:1.4rem; font-weight:700; color:var(--accent-cyan); letter-spacing:0.02em;">Welcome back, Admin!</div>
+        <div id="page-title" class="bn" style="font-size:1.4rem; font-weight:700; color:var(--brand-primary); letter-spacing:0.02em; text-shadow: 0 0 15px rgba(0,212,255,0.5);">Welcome back, Admin!</div>
         <div class="topbar-search">
           <i class="fa fa-search"></i>
           <input type="text" id="global-search" placeholder="Search students, transactions, courses..." />

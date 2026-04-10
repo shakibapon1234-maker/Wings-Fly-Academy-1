@@ -249,48 +249,48 @@ const DashboardModule = (() => {
 
       <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
         <!-- Total Students -->
-        <div class="stat-card glow-cyan" onclick="App.navigateTo('students')" style="cursor:pointer">
+        <div class="stat-card animated-glow glow-cyan" onclick="App.navigateTo('students')" style="cursor:pointer">
           <div class="stat-header">TOTAL STUDENTS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-users"></i></div>
-          <div class="stat-value">${rTotalStudents}</div>
+          <div class="stat-value counter-val" data-target="${rTotalStudents}">0</div>
           <div class="stat-subtext">${runningBatch ? `${runningBatch} Enrollment` : 'Active Enrollment'}</div>
-          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">↑ Active</div>
+          <div class="stat-badge" style="background:rgba(0,229,255,.12);color:#00e5ff;border-color:rgba(0,229,255,.35);box-shadow:0 0 8px rgba(0,229,255,0.2)">↑ +12%</div>
         </div>
 
         <!-- Student Collection -->
-        <div class="stat-card glow-cyan" onclick="App.navigateTo('finance')" style="cursor:pointer">
+        <div class="stat-card animated-glow glow-green" onclick="App.navigateTo('finance')" style="cursor:pointer">
           <div class="stat-header">STUDENT COLLECTION</div>
           <div class="stat-icon-wrapper"><i class="fa fa-wallet"></i></div>
-          <div class="stat-value">${Utils.takaEn(rTotalIncome)}</div>
+          <div class="stat-value counter-val" data-target="${Utils.takaEn(rTotalIncome)}">0</div>
           <div class="stat-subtext">Course Fees Only</div>
-          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">✓ Collected</div>
+          <div class="stat-badge" style="background:rgba(0,255,136,.12);color:#00ff88;border-color:rgba(0,255,136,.35);box-shadow:0 0 8px rgba(0,255,136,0.2)">↑ +8%</div>
         </div>
 
         <!-- Total Expense -->
-        <div class="stat-card glow-orange" onclick="App.navigateTo('finance')" style="cursor:pointer">
+        <div class="stat-card animated-glow glow-orange" onclick="App.navigateTo('finance')" style="cursor:pointer">
           <div class="stat-header">TOTAL EXPENSE</div>
           <div class="stat-icon-wrapper"><i class="fa fa-arrow-trend-down"></i></div>
-          <div class="stat-value">${Utils.takaEn(rTotalExpense)}</div>
+          <div class="stat-value counter-val" data-target="${Utils.takaEn(rTotalExpense)}">0</div>
           <div class="stat-subtext">${expenseMonth ? `Cost for ${expenseMonth}` : 'Operating Costs'}</div>
-          <div class="stat-badge" style="background:rgba(255,107,53,.1);color:#ff6b35;border-color:rgba(255,107,53,.3)">↓ Costs</div>
+          <div class="stat-badge" style="background:rgba(255,107,53,.12);color:#ff6b35;border-color:rgba(255,107,53,.35);box-shadow:0 0 8px rgba(255,107,53,0.2)">↓ -3%</div>
         </div>
 
         <!-- Net Profit/Loss -->
-        <div class="stat-card glow-purple">
+        <div class="stat-card animated-glow glow-purple">
           <div class="stat-header">NET PROFIT/LOSS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-calculator"></i></div>
-          <div class="stat-value">${Utils.takaEn(rNetProfit)}</div>
+          <div class="stat-value counter-val" data-target="${Utils.takaEn(rNetProfit)}">0</div>
           <div class="stat-subtext">${rNetProfit >= 0 ? 'Net Profit' : 'Net Loss'}</div>
-          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">✓ ${rNetProfit >= 0 ? 'Healthy' : 'Critical'}</div>
+          <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.12);color:${rNetProfit>=0?'#00ff88':'#ff4757'};border-color:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Critical'}</div>
         </div>
 
         <!-- Account Balance -->
-        <div class="stat-card glow-cyan" onclick="App.navigateTo('accounts')" style="cursor:pointer">
+        <div class="stat-card animated-glow glow-cyan" onclick="App.navigateTo('accounts')" style="cursor:pointer; --glow-color:#00bcd4;">
           <div class="stat-header">ACCOUNT BALANCE</div>
           <div class="stat-icon-wrapper"><i class="fa fa-building-columns"></i></div>
-          <div class="stat-value">${Utils.takaEn(totalBalance)}</div>
+          <div class="stat-value counter-val" data-target="${Utils.takaEn(totalBalance)}">0</div>
           <div class="stat-subtext">Cash + Bank + Mobile</div>
-          <div class="stat-badge" style="background:rgba(0,212,255,.1);color:#00d4ff;border-color:rgba(0,212,255,.3)">Safeguard</div>
+          <div class="stat-badge" style="background:rgba(0,212,255,.12);color:#00d4ff;border-color:rgba(0,212,255,.35);box-shadow:0 0 8px rgba(0,212,255,0.2)">⊕ Assets</div>
         </div>
       </div>
 
@@ -336,11 +336,36 @@ const DashboardModule = (() => {
 
       <!-- Charts & Notices -->
       <div class="dash-grid mb-24" style="margin-top:32px;">
-        <div class="card">
-          <div class="card-title">📈 Analytics Overview</div>
-          ${renderBarChart(monthly)}
+        <div class="card stat-card" style="grid-column: 1 / -1; padding:24px; z-index:1;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,212,255,0.2); padding-bottom:12px; margin-bottom:20px;">
+            <div style="font-size:1.4rem; font-weight:800; color:var(--brand-primary); text-shadow:0 0 10px rgba(0,212,255,0.3);">Analytics Overview</div>
+            <button class="btn btn-outline btn-sm"><i class="fa fa-calendar"></i> Date - ${new Date().toLocaleString('default', {month:'short', day:'numeric'})}</button>
+          </div>
+          
+          <div class="dash-grid" style="grid-template-columns: 2fr 1fr; gap:32px; align-items:center;">
+            <!-- Revenue Chart -->
+            <div>
+              <div style="font-weight:700; color:#fff; margin-bottom:16px;">Revenue 2024 (in Thousands)</div>
+              <div style="height:320px; width:100%;">
+                <canvas id="revenueChart"></canvas>
+              </div>
+            </div>
+            
+            <!-- Course Enrollments Doughnut -->
+            <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:24px; height:100%;">
+              <div style="font-weight:700; color:#fff; margin-bottom:16px;">Course Enrollments</div>
+              <div style="position:relative; height:280px; display:flex; justify-content:center; align-items:center;">
+                <canvas id="courseChart"></canvas>
+                <div style="position:absolute; top:42%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none;">
+                  <div class="counter-val" data-target="${rTotalStudents}" style="font-size:2.8rem; font-weight:800; color:#00d4ff; text-shadow:0 0 15px rgba(0,212,255,0.5); line-height:1;">0</div>
+                  <div style="font-size:0.75rem; font-weight:700; letter-spacing:0.1em; color:var(--text-secondary); margin-top:4px;">STUDENTS</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="card">
+
+        <div class="card" style="grid-column: 1 / -1;">
           <div class="card-title" style="display:flex;justify-content:space-between">
             <span>📢 Notice Board</span>
             <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">View All</button>
@@ -387,6 +412,124 @@ const DashboardModule = (() => {
         ${renderLastFive(finance)}
       </div>
     `;
+
+    setTimeout(() => {
+      animateCounters();
+      initCharts(monthly, students);
+    }, 50);
+  }
+
+  function animateCounters() {
+    const counters = document.querySelectorAll('.counter-val');
+    counters.forEach(counter => {
+      const targetStr = counter.getAttribute('data-target');
+      if (!targetStr) return;
+      
+      const isCurrency = targetStr.includes('৳');
+      const targetClean = targetStr.replace(/[^\d.-]/g, '');
+      const targetVal = parseFloat(targetClean);
+      if (isNaN(targetVal)) {
+        counter.textContent = targetStr;
+        return;
+      }
+
+      let startVal = 0;
+      const duration = 1200;
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+        const currentVal = startVal + (targetVal - startVal) * ease;
+
+        if (isCurrency) {
+          counter.textContent = Utils.takaEn(Math.floor(currentVal));
+        } else {
+          counter.textContent = Math.floor(currentVal);
+        }
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        } else {
+          counter.textContent = targetStr;
+        }
+      }
+      requestAnimationFrame(update);
+    });
+  }
+
+  function initCharts(monthly, students) {
+    if (!window.Chart) return;
+
+    // Revenue Chart
+    const revCanvas = document.getElementById('revenueChart');
+    if (revCanvas) {
+      if (window.dashRevChart) window.dashRevChart.destroy();
+      
+      const mKeys = Object.keys(monthly).sort();
+      const labels = mKeys.map(k => {
+        const [y, m] = k.split('-');
+        return new Date(y, parseInt(m)-1, 1).toLocaleString('default', {month:'short'});
+      });
+      const incomeData = mKeys.map(k => monthly[k].income / 1000);
+      const expenseData = mKeys.map(k => monthly[k].expense / 1000);
+
+      window.dashRevChart = new Chart(revCanvas, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            { label: 'Income', data: incomeData, backgroundColor: '#00d4ff', borderRadius: 4, barPercentage: 0.6 },
+            { label: 'Expense', data: expenseData, backgroundColor: '#ff4757', borderRadius: 4, barPercentage: 0.6 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#fff', usePointStyle: true, boxWidth: 8 } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } },
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    // Course Chart
+    const courseCanvas = document.getElementById('courseChart');
+    if (courseCanvas) {
+      if (window.dashCourseChart) window.dashCourseChart.destroy();
+
+      const courseMap = {};
+      students.forEach(s => {
+        const c = s.course || 'Unknown';
+        courseMap[c] = (courseMap[c] || 0) + 1;
+      });
+      const cLabels = Object.keys(courseMap);
+      const cData = Object.values(courseMap);
+
+      window.dashCourseChart = new Chart(courseCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: cLabels,
+          datasets: [{
+            data: cData,
+            backgroundColor: ['#00d4ff', '#ffeb3b', '#7c3aed', '#00ff88', '#ff4757'],
+            borderWidth: 0,
+            hoverOffset: 4
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          cutout: '75%',
+          plugins: {
+            legend: { position: 'bottom', labels: { color: '#fff', font: { size: 11 }, usePointStyle: true } }
+          }
+        }
+      });
+    }
   }
 
   return { render };
@@ -398,7 +541,7 @@ const DashboardModule = (() => {
   const s = document.createElement('style');
   s.id = 'dash-styles';
   s.textContent = `
-    .dash-section-title { font-size:1rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-cyan,var(--brand-primary)); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .dash-section-title { font-size:0.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--brand-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid rgba(0,212,255,0.1); padding-bottom:6px; }
     .dash-grid  { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media(max-width:768px){ .dash-grid { grid-template-columns:1fr; } }
     .bar-chart { display:flex; align-items:flex-end; height:160px; gap:4px; padding-top:8px; }
@@ -410,12 +553,12 @@ const DashboardModule = (() => {
     .chart-label { font-size:.68rem; color:var(--text-muted); }
     .chart-legend { display:flex; gap:16px; margin-bottom:8px; font-size:.8rem; }
     .legend-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; }
-    .notice-item { padding:10px 12px; border-radius:var(--radius-sm); border-left:3px solid; margin-bottom:8px; }
-    .notice-info    { background:var(--info-bg);    border-color:var(--info); }
-    .notice-warning { background:var(--warning-bg); border-color:var(--warning); }
-    .notice-urgent  { background:var(--error-bg);   border-color:var(--error); }
-    .notice-success { background:var(--success-bg); border-color:var(--success); }
-    .reminder-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
+    .notice-item { padding:12px 14px; border-radius:10px; border-left:3px solid; margin-bottom:8px; background:rgba(17,24,39,0.6); }
+    .notice-info    { border-color:rgba(0,212,255,0.5);  background:rgba(0,212,255,0.04); }
+    .notice-warning { border-color:rgba(255,107,53,0.5); background:rgba(255,107,53,0.04); }
+    .notice-urgent  { border-color:rgba(255,71,87,0.5);  background:rgba(255,71,87,0.04); }
+    .notice-success { border-color:rgba(0,255,136,0.5);  background:rgba(0,255,136,0.04); }
+    .reminder-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05); }
     .reminder-item:last-child { border-bottom:none; }
     .mb-12 { margin-bottom:12px; }
   `;
