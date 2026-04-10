@@ -301,11 +301,11 @@ const SyncEngine = (() => {
 
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
-      Utils.toast('Cloud-এ Push সম্পন্ন ✅', 'success');
+      Utils.toast('Push to Cloud completed ✅', 'success');
     } catch (e) {
       console.error('[Sync] Push failed:', e);
       setStatus('error');
-      Utils.toast('Push ব্যর্থ হয়েছে', 'error');
+      Utils.toast('Push failed', 'error');
     } finally {
       _isSyncing = false;
     }

@@ -1,5 +1,5 @@
 // ============================================================
-// notice-board.js — বাংলা Notice Board Module
+// notice-board.js — Bengali Notice Board Module
 // Wings Fly Aviation Academy
 // ============================================================
 
@@ -8,10 +8,10 @@ const NoticeBoardModule = (() => {
   let timerInterval = null;
 
   const TYPES = {
-    warning:  { label: 'সতর্কতা',  icon: '⚠️', color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d' },
-    info:     { label: 'তথ্য',     icon: 'ℹ️', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-    urgent:   { label: 'জরুরি',   icon: '🚨', color: '#ef4444', bg: '#fef2f2', border: '#fca5a5' },
-    success:  { label: 'সফলতা',   icon: '✅', color: '#22c55e', bg: '#f0fdf4', border: '#86efac' },
+    warning:  { label: 'Warning',  icon: '⚠️', color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d' },
+    info:     { label: 'Info',     icon: 'ℹ️', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
+    urgent:   { label: 'Danger',   icon: '🚨', color: '#ef4444', bg: '#fef2f2', border: '#fca5a5' },
+    success:  { label: 'Success',   icon: '✅', color: '#22c55e', bg: '#f0fdf4', border: '#86efac' },
   };
 
   // Preset durations (ms)
@@ -28,9 +28,9 @@ const NoticeBoardModule = (() => {
   };
 
   const DURATION_LABELS = {
-    '30m': '৩০ মিনিট', '1h': '১ ঘন্টা', '3h': '৩ ঘন্টা',
-    '6h': '৬ ঘন্টা', '12h': '১২ ঘন্টা', '1d': '১ দিন',
-    '3d': '৩ দিন', '1w': '১ সপ্তাহ', 'never': 'মেয়াদ নেই',
+    '30m': '30 Minutes', '1h': '1 Hour', '3h': '3 Hours',
+    '6h': '6 Hours', '12h': '12 Hours', '1d': '1 Day',
+    '3d': '3 Days', '1w': '1 Week', 'never': 'No expiry',
   };
 
   // ── Load / Save ───────────────────────────────────────────
@@ -115,15 +115,15 @@ const NoticeBoardModule = (() => {
   }
 
   function timeRemaining(n) {
-    if (!n.expiresAt) return 'মেয়াদ নেই';
+    if (!n.expiresAt) return 'No expiry';
     const ms = new Date(n.expiresAt) - Date.now();
-    if (ms <= 0) return 'মেয়াদ শেষ';
+    if (ms <= 0) return 'Expired';
     const mins = Math.floor(ms / 60000);
     const hours = Math.floor(mins / 60);
     const days = Math.floor(hours / 24);
-    if (days > 0) return `${days} দিন বাকি`;
-    if (hours > 0) return `${hours} ঘন্টা বাকি`;
-    return `${mins} মিনিট বাকি`;
+    if (days > 0) return `${days} Day Due`;
+    if (hours > 0) return `${hours} Hour Due`;
+    return `${mins} Minute Due`;
   }
 
   // ── Timer (auto-purge & UI refresh) ──────────────────────
@@ -146,7 +146,7 @@ const NoticeBoardModule = (() => {
     const list = getActive();
 
     if (list.length === 0) {
-      container.innerHTML = `<div class="notice-empty">কোনো সক্রিয় নোটিস নেই</div>`;
+      container.innerHTML = `<div class="notice-empty">No Active NotesNotice absent</div>`;
       return;
     }
 
@@ -157,7 +157,7 @@ const NoticeBoardModule = (() => {
   style="border-left:4px solid ${t.border}; background:${t.bg}">
   <div class="notice-card-header">
     <span class="notice-type-badge" style="color:${t.color}">${t.icon} ${t.label}</span>
-    ${n.pinned ? '<span class="notice-pin-badge">📌 পিন করা</span>' : ''}
+    ${n.pinned ? '<span class="notice-pin-badge">📌 Pinned</span>' : ''}
     <span class="notice-time-remaining" style="color:${t.color}">${timeRemaining(n)}</span>
   </div>
   ${n.title ? `<div class="notice-title">${n.title}</div>` : ''}
@@ -165,9 +165,9 @@ const NoticeBoardModule = (() => {
   <div class="notice-card-footer">
     <span class="notice-meta">— ${n.createdBy} | ${Utils.formatDate(n.createdAt)}</span>
     <div class="notice-actions">
-      <button class="btn-icon" onclick="NoticeBoardModule.togglePin('${n.id}');NoticeBoardModule.renderNoticeBoard()" title="পিন/আনপিন">📌</button>
-      <button class="btn-icon" onclick="NoticeBoardModule.openEdit('${n.id}')" title="সম্পাদনা">✏️</button>
-      <button class="btn-icon danger" onclick="NoticeBoardModule.confirmDelete('${n.id}')" title="মুছুন">🗑️</button>
+      <button class="btn-icon" onclick="NoticeBoardModule.togglePin('${n.id}');NoticeBoardModule.renderNoticeBoard()" title="Pin/Unpin">📌</button>
+      <button class="btn-icon" onclick="NoticeBoardModule.openEdit('${n.id}')" title="Edit">✏️</button>
+      <button class="btn-icon danger" onclick="NoticeBoardModule.confirmDelete('${n.id}')" title="Delete">🗑️</button>
     </div>
   </div>
 </div>`;
@@ -184,12 +184,12 @@ const NoticeBoardModule = (() => {
     document.getElementById('notice-body').value = n.body;
     document.getElementById('notice-duration').value = n.duration;
     document.getElementById('notice-pinned').checked = n.pinned;
-    document.getElementById('notice-modal-title').textContent = 'নোটিস সম্পাদনা';
+    document.getElementById('notice-modal-title').textContent = 'Edit Notice';
     Utils.openModal('notice-modal');
   }
 
   function confirmDelete(id) {
-    if (confirm('এই নোটিস মুছে ফেলবেন?')) {
+    if (confirm('Delete this notice?')) {
       remove(id);
       renderNoticeBoard();
     }

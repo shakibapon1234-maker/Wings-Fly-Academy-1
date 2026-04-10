@@ -4,17 +4,43 @@
 
 const DashboardModule = (() => {
 
+  function getSettings() {
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    return {
+      runningBatch:  cfg.running_batch  || '',
+      expenseMonth:  cfg.expense_month  || '',
+      monthlyTarget: Utils.safeNum(cfg.monthly_target),
+    };
+  }
+
   function getStats() {
     const students  = SupabaseSync.getAll(DB.students);
     const finance   = SupabaseSync.getAll(DB.finance);
     const accounts  = SupabaseSync.getAll(DB.accounts);
     const loans     = SupabaseSync.getAll(DB.loans);
     const notices   = SupabaseSync.getAll(DB.notices);
+    const settings  = getSettings();
 
     const totalStudents = students.length;
     const totalIncome   = finance.filter(f => f.type === 'Income').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
     const totalExpense  = finance.filter(f => f.type === 'Expense').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
     const netProfit     = totalIncome - totalExpense;
+
+    // Running Batch filtered stats
+    const rStudents     = settings.runningBatch
+      ? students.filter(s => s.batch === settings.runningBatch)
+      : students;
+    const rTotalStudents = rStudents.length;
+    const rStudentIds    = new Set(rStudents.map(s => s.student_id));
+    const rTotalIncome   = settings.runningBatch
+      ? finance.filter(f => f.type === 'Income' && f.category === 'Student Fee' && rStudentIds.has(f.ref_id)).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
+      : totalIncome;
+
+    // Expense Month filtered
+    const rTotalExpense = settings.expenseMonth
+      ? finance.filter(f => f.type === 'Expense' && f.date && f.date.startsWith(settings.expenseMonth)).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
+      : totalExpense;
+    const rNetProfit = rTotalIncome - rTotalExpense;
 
     // Account balances
     const balances = { Cash: 0, Bank: 0, 'Mobile Banking': 0 };
@@ -25,8 +51,11 @@ const DashboardModule = (() => {
     const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
     const loanIn   = loans.filter(l => l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
-    return { totalStudents, totalIncome, totalExpense, netProfit, totalBalance, totalDue, loanOut, loanIn,
-             students, finance, balances, notices };
+    return {
+      totalStudents, totalIncome, totalExpense, netProfit, totalBalance, totalDue, loanOut, loanIn,
+      rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
+      students, finance, balances, notices, loans, settings
+    };
   }
 
   function getMonthlyRevenue(finance) {
@@ -49,14 +78,14 @@ const DashboardModule = (() => {
 
   function renderLastFive(finance) {
     const rows = Utils.sortBy(finance, 'date', 'desc').slice(0, 5);
-    if (!rows.length) return `<p class="text-muted bn" style="padding:16px">কোনো লেনদেন নেই</p>`;
+    if (!rows.length) return `<p class="text-muted" style="padding:16px">No transactions found</p>`;
     return `<div class="table-wrapper"><table><thead><tr>
-      <th>তারিখ</th><th>বিবরণ</th><th>ধরন</th><th>পদ্ধতি</th><th class="text-right">পরিমাণ</th>
+      <th>Date</th><th>Description</th><th>Type</th><th>Method</th><th class="text-right">Amount</th>
     </tr></thead><tbody>
     ${rows.map(r => `<tr>
       <td style="font-size:.82rem">${Utils.formatDate(r.date)}</td>
       <td>${Utils.truncate(r.description||'—',28)}</td>
-      <td>${r.type==='Income' ? Utils.badge('আয়','success') : Utils.badge('ব্যয়','danger')}</td>
+      <td>${r.type==='Income' ? Utils.badge('Income','success') : Utils.badge('Expense','danger')}</td>
       <td>${Utils.methodBadge(r.method||'Cash')}</td>
       <td class="text-right font-bold ${r.type==='Income'?'text-success':'text-error'}" style="font-family:var(--font-ui)">${Utils.takaEn(r.amount)}</td>
     </tr>`).join('')}
@@ -65,9 +94,9 @@ const DashboardModule = (() => {
 
   function renderRecentAdmissions(students) {
     const rows = Utils.sortBy(students, 'admission_date', 'desc').slice(0, 5);
-    if (!rows.length) return `<p class="text-muted bn" style="padding:16px">কোনো ছাত্র নেই</p>`;
+    if (!rows.length) return `<p class="text-muted" style="padding:16px">No students found</p>`;
     return `<div class="table-wrapper"><table><thead><tr>
-      <th>আইডি</th><th>নাম</th><th>কোর্স</th><th>ব্যাচ</th><th class="text-right">বকেয়া</th>
+      <th>ID</th><th>Name</th><th>Course</th><th>Batch</th><th class="text-right">Due</th>
     </tr></thead><tbody>
     ${rows.map(r => {
       const due = Math.max(0, Utils.safeNum(r.total_fee) - Utils.safeNum(r.paid));
@@ -85,14 +114,14 @@ const DashboardModule = (() => {
   function renderNotices(notices) {
     const now = Date.now();
     const active = notices.filter(n => !n.expires_at || new Date(n.expires_at).getTime() > now);
-    if (!active.length) return `<p class="text-muted bn" style="padding:12px 0">কোনো নোটিস নেই</p>`;
+    if (!active.length) return `<p class="text-muted" style="padding:12px 0">No active notices</p>`;
     const typeMap = { warning:'badge-warning', info:'badge-info', urgent:'badge-error', success:'badge-success' };
-    const labelMap = { warning:'⚠️ সতর্কতা', info:'ℹ️ তথ্য', urgent:'🚨 জরুরি', success:'✅ সফলতা' };
+    const labelMap = { warning:'⚠️ Warning', info:'ℹ️ Info', urgent:'🚨 Urgent', success:'✅ Success' };
     return active.slice(0,5).map(n => `
       <div class="notice-item notice-${n.type||'info'}">
-        <span class="badge ${typeMap[n.type]||'badge-info'}">${labelMap[n.type]||'তথ্য'}</span>
-        <p class="bn" style="margin-top:6px;font-size:.9rem">${n.text||''}</p>
-        ${n.expires_at ? `<small class="text-muted">মেয়াদ: ${Utils.formatDate(n.expires_at)}</small>` : ''}
+        <span class="badge ${typeMap[n.type]||'badge-info'}">${labelMap[n.type]||'Info'}</span>
+        <p style="margin-top:6px;font-size:.9rem">${n.text||''}</p>
+        ${n.expires_at ? `<small class="text-muted">Expires: ${Utils.formatDate(n.expires_at)}</small>` : ''}
       </div>`).join('');
   }
 
@@ -106,14 +135,14 @@ const DashboardModule = (() => {
       const label = key.slice(5);
       return `<div class="chart-col" style="width:${w}%">
         <div class="chart-bars">
-          <div class="bar bar-income" style="height:${ih}px" title="আয়: ${Utils.takaEn(val.income)}"></div>
-          <div class="bar bar-expense" style="height:${eh}px" title="ব্যয়: ${Utils.takaEn(val.expense)}"></div>
+          <div class="bar bar-income" style="height:${ih}px" title="Income: ${Utils.takaEn(val.income)}"></div>
+          <div class="bar bar-expense" style="height:${eh}px" title="Expense: ${Utils.takaEn(val.expense)}"></div>
         </div>
         <div class="chart-label">${label}</div>
       </div>`;
     }).join('');
-    return `<div class="chart-legend"><span><span class="legend-dot" style="background:var(--success)"></span>আয়</span>
-      <span><span class="legend-dot" style="background:var(--error)"></span>ব্যয়</span></div>
+    return `<div class="chart-legend"><span><span class="legend-dot" style="background:var(--success)"></span>Income</span>
+      <span><span class="legend-dot" style="background:var(--error)"></span>Expense</span></div>
       <div class="bar-chart">${bars}</div>`;
   }
 
@@ -121,11 +150,11 @@ const DashboardModule = (() => {
     const dues = students.filter(s => (Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid)) > 0)
       .sort((a,b) => (Utils.safeNum(b.total_fee)-Utils.safeNum(b.paid)) - (Utils.safeNum(a.total_fee)-Utils.safeNum(a.paid)))
       .slice(0,5);
-    if (!dues.length) return `<p class="text-muted bn" style="padding:12px 0">সকল বকেয়া পরিষ্কার ✅</p>`;
+    if (!dues.length) return `<p class="text-muted" style="padding:12px 0">All dues clear ✅</p>`;
     return dues.map(s => {
       const due = Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid);
       return `<div class="reminder-item">
-        <div><div class="font-bold bn">${s.name||'—'}</div><small class="text-muted">${s.student_id||''} • ${s.batch||''}</small></div>
+        <div><div class="font-bold">${s.name||'—'}</div><small class="text-muted">${s.student_id||''} • ${s.batch||''}</small></div>
         ${Utils.badge(Utils.takaEn(due),'danger')}
       </div>`;
     }).join('');
@@ -142,10 +171,10 @@ const DashboardModule = (() => {
       batches[b].due   += Math.max(0, Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid));
     });
     const rows = Object.entries(batches);
-    if (!rows.length) return `<p class="text-muted bn" style="padding:16px">কোনো ব্যাচ নেই</p>`;
+    if (!rows.length) return `<p class="text-muted" style="padding:16px">No batches found</p>`;
     return `<div class="table-wrapper"><table><thead><tr>
-      <th>ব্যাচ</th><th class="text-right">ছাত্র</th>
-      <th class="text-right">মোট ফি</th><th class="text-right">পরিশোধিত</th><th class="text-right">বকেয়া</th>
+      <th>Batch</th><th class="text-right">Students</th>
+      <th class="text-right">Total Fee</th><th class="text-right">Paid</th><th class="text-right">Due</th>
     </tr></thead><tbody>
     ${rows.map(([b,v]) => `<tr>
       <td class="font-bold">${b}</td><td class="text-right">${v.count}</td>
@@ -156,6 +185,48 @@ const DashboardModule = (() => {
     </tbody></table></div>`;
   }
 
+  function renderTargetProgress(settings, rTotalIncome) {
+    if (!settings.monthlyTarget) return '';
+    const pct = Math.min(100, Math.round((rTotalIncome / settings.monthlyTarget) * 100));
+    const barColor = pct >= 100 ? 'var(--success)' : pct >= 60 ? 'var(--warning)' : 'var(--error)';
+    return `
+      <div class="card mb-24">
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>🎯 Target Progress</span>
+          <span style="font-size:.8rem;color:var(--text-muted)">Goal: ${Utils.takaEn(settings.monthlyTarget)}</span>
+        </div>
+        <div style="background:rgba(255,255,255,.05);border-radius:12px;height:24px;overflow:hidden;margin-bottom:8px">
+          <div style="width:${pct}%;height:100%;background:${barColor};border-radius:12px;transition:width .6s ease;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#fff;min-width:40px">${pct}%</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;color:var(--text-secondary)">
+          <span>Collected: ${Utils.takaEn(rTotalIncome)}</span>
+          <span>Remaining: ${Utils.takaEn(Math.max(0, settings.monthlyTarget - rTotalIncome))}</span>
+        </div>
+      </div>`;
+  }
+
+  function renderLoanSummary(loanOut, loanIn) {
+    const netLoan = loanOut - loanIn;
+    return `
+      <div class="card">
+        <div class="card-title">💳 Loan Summary</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+          <div>
+            <div style="font-size:.78rem;color:var(--text-muted)">Given</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--error);font-family:var(--font-ui)">${Utils.takaEn(loanOut)}</div>
+          </div>
+          <div>
+            <div style="font-size:.78rem;color:var(--text-muted)">Received</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--success);font-family:var(--font-ui)">${Utils.takaEn(loanIn)}</div>
+          </div>
+          <div>
+            <div style="font-size:.78rem;color:var(--text-muted)">Net Outstanding</div>
+            <div style="font-size:1.2rem;font-weight:700;color:var(--info);font-family:var(--font-ui)">${Utils.takaEn(Math.abs(netLoan))}</div>
+          </div>
+        </div>
+      </div>`;
+  }
+
   // ── MAIN RENDER ─────────────────────────────────────────
   function render() {
     const container = document.getElementById('dashboard-content');
@@ -163,125 +234,157 @@ const DashboardModule = (() => {
 
     const { totalStudents, totalIncome, totalExpense, netProfit,
             totalBalance, totalDue, loanOut, loanIn,
-            students, finance, balances, notices } = getStats();
+            rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
+            students, finance, balances, notices, loans, settings } = getStats();
 
+    const { runningBatch, expenseMonth } = settings;
     const monthly = getMonthlyRevenue(finance);
 
     container.innerHTML = `
-      <!-- Quick Add -->
-      <div class="page-header">
-        <h2 class="bn">📊 ড্যাশবোর্ড</h2>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="App.quickAction('student')">➕ Student</button>
-          <button class="btn btn-accent btn-sm" onclick="App.quickAction('transaction')">💸 Transaction</button>
-          <button class="btn btn-success btn-sm" onclick="App.quickAction('exam')">📝 Exam</button>
-          <button class="btn btn-outline btn-sm" onclick="App.quickAction('visitor')">🚶 Visitor</button>
-        </div>
+      <!-- Running Batch Overview -->
+      <div class="dash-section-title">
+        <i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW
+        ${runningBatch ? `<span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}
       </div>
 
-      <!-- Stat Cards -->
-      <div class="stat-grid">
-        <div class="stat-card" onclick="App.navigateTo('students')" style="cursor:pointer">
-          <div class="stat-icon">👩‍🎓</div>
-          <div class="stat-value">${totalStudents}</div>
-          <div class="stat-label bn">মোট ছাত্র</div>
+      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+        <!-- Total Students -->
+        <div class="stat-card glow-cyan" onclick="App.navigateTo('students')" style="cursor:pointer">
+          <div class="stat-header">TOTAL STUDENTS</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-users"></i></div>
+          <div class="stat-value">${rTotalStudents}</div>
+          <div class="stat-subtext">${runningBatch ? `${runningBatch} Enrollment` : 'Active Enrollment'}</div>
+          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">↑ Active</div>
         </div>
-        <div class="stat-card" onclick="App.navigateTo('finance')" style="cursor:pointer">
-          <div class="stat-icon">💰</div>
-          <div class="stat-value" style="color:var(--success)">${Utils.takaEn(totalIncome)}</div>
-          <div class="stat-label bn">মোট আয়</div>
+
+        <!-- Student Collection -->
+        <div class="stat-card glow-cyan" onclick="App.navigateTo('finance')" style="cursor:pointer">
+          <div class="stat-header">STUDENT COLLECTION</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-wallet"></i></div>
+          <div class="stat-value">${Utils.takaEn(rTotalIncome)}</div>
+          <div class="stat-subtext">Course Fees Only</div>
+          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">✓ Collected</div>
         </div>
-        <div class="stat-card" onclick="App.navigateTo('finance')" style="cursor:pointer">
-          <div class="stat-icon">📤</div>
-          <div class="stat-value" style="color:var(--error)">${Utils.takaEn(totalExpense)}</div>
-          <div class="stat-label bn">মোট ব্যয়</div>
+
+        <!-- Total Expense -->
+        <div class="stat-card glow-orange" onclick="App.navigateTo('finance')" style="cursor:pointer">
+          <div class="stat-header">TOTAL EXPENSE</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-arrow-trend-down"></i></div>
+          <div class="stat-value">${Utils.takaEn(rTotalExpense)}</div>
+          <div class="stat-subtext">${expenseMonth ? `Cost for ${expenseMonth}` : 'Operating Costs'}</div>
+          <div class="stat-badge" style="background:rgba(255,107,53,.1);color:#ff6b35;border-color:rgba(255,107,53,.3)">↓ Costs</div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon">${netProfit >= 0 ? '📈' : '📉'}</div>
-          <div class="stat-value" style="color:${netProfit>=0?'var(--success)':'var(--error)'}">${Utils.takaEn(netProfit)}</div>
-          <div class="stat-label bn">নেট লাভ/ক্ষতি</div>
+
+        <!-- Net Profit/Loss -->
+        <div class="stat-card glow-purple">
+          <div class="stat-header">NET PROFIT/LOSS</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-calculator"></i></div>
+          <div class="stat-value">${Utils.takaEn(rNetProfit)}</div>
+          <div class="stat-subtext">${rNetProfit >= 0 ? 'Net Profit' : 'Net Loss'}</div>
+          <div class="stat-badge" style="background:rgba(0,255,136,.1);color:#00ff88;border-color:rgba(0,255,136,.3)">✓ ${rNetProfit >= 0 ? 'Healthy' : 'Critical'}</div>
         </div>
-        <div class="stat-card" onclick="App.navigateTo('accounts')" style="cursor:pointer">
-          <div class="stat-icon">🏦</div>
+
+        <!-- Account Balance -->
+        <div class="stat-card glow-cyan" onclick="App.navigateTo('accounts')" style="cursor:pointer">
+          <div class="stat-header">ACCOUNT BALANCE</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-building-columns"></i></div>
           <div class="stat-value">${Utils.takaEn(totalBalance)}</div>
-          <div class="stat-label bn">মোট ব্যালেন্স</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">⚠️</div>
-          <div class="stat-value" style="color:var(--warning)">${Utils.takaEn(totalDue)}</div>
-          <div class="stat-label bn">মোট বকেয়া</div>
-        </div>
-        <div class="stat-card" onclick="App.navigateTo('loans')" style="cursor:pointer">
-          <div class="stat-icon">💳</div>
-          <div class="stat-value" style="color:var(--error)">${Utils.takaEn(loanOut)}</div>
-          <div class="stat-label bn">ঋণ দেওয়া</div>
-        </div>
-        <div class="stat-card" onclick="App.navigateTo('loans')" style="cursor:pointer">
-          <div class="stat-icon">📥</div>
-          <div class="stat-value" style="color:var(--success)">${Utils.takaEn(loanIn)}</div>
-          <div class="stat-label bn">ঋণ নেওয়া</div>
+          <div class="stat-subtext">Cash + Bank + Mobile</div>
+          <div class="stat-badge" style="background:rgba(0,212,255,.1);color:#00d4ff;border-color:rgba(0,212,255,.3)">Safeguard</div>
         </div>
       </div>
 
-      <!-- Account Balances -->
-      <div class="card mb-24">
-        <div class="card-title bn">🏦 Account Balance</div>
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div style="padding:10px 18px;border-radius:var(--radius);background:var(--info-bg);color:var(--info);display:inline-flex;gap:6px;align-items:center">
-            💵 Cash: <strong>${Utils.takaEn(balances.Cash||0)}</strong>
-          </div>
-          <div style="padding:10px 18px;border-radius:var(--radius);background:var(--success-bg);color:var(--success);display:inline-flex;gap:6px;align-items:center">
-            🏦 Bank: <strong>${Utils.takaEn(balances.Bank||0)}</strong>
-          </div>
-          <div style="padding:10px 18px;border-radius:var(--radius);background:var(--warning-bg);color:var(--warning);display:inline-flex;gap:6px;align-items:center">
-            📱 Mobile: <strong>${Utils.takaEn(balances['Mobile Banking']||0)}</strong>
-          </div>
+      <!-- Target Progress -->
+      ${renderTargetProgress(settings, rTotalIncome)}
+
+      <!-- All-Time Lifetime Overview -->
+      <div class="dash-section-title" style="margin-top:40px;">
+        <i class="fa fa-chart-bar"></i> ALL-TIME LIFETIME OVERVIEW
+      </div>
+
+      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">All Students</div>
+          <div class="stat-value" style="font-size:1.4rem">${totalStudents}</div>
+          <div class="stat-subtext" style="margin-bottom:0;">Total Enrolled</div>
+        </div>
+
+        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">All Collection</div>
+          <div class="stat-value" style="font-size:1.4rem; color:var(--success)">${Utils.takaEn(totalIncome)}</div>
+          <div class="stat-subtext" style="margin-bottom:0;">Student Fees</div>
+        </div>
+
+        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Total Expense</div>
+          <div class="stat-value" style="font-size:1.4rem; color:var(--error)">${Utils.takaEn(totalExpense)}</div>
+          <div class="stat-subtext" style="margin-bottom:0;">All Time Costs</div>
+        </div>
+
+        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Net Profit/Loss</div>
+          <div class="stat-value" style="font-size:1.4rem; color:${netProfit>=0?'var(--success)':'var(--error)'}">${Utils.takaEn(netProfit)}</div>
+          <div class="stat-subtext" style="margin-bottom:0;">${netProfit>=0?'Net Profit':'Net Loss'}</div>
+        </div>
+
+        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Account Balance</div>
+          <div class="stat-value" style="font-size:1.4rem; color:var(--info)">${Utils.takaEn(totalBalance)}</div>
+          <div class="stat-subtext" style="margin-bottom:0;">Cash + Bank + Mobile</div>
         </div>
       </div>
 
       <!-- Charts & Notices -->
-      <div class="dash-grid mb-24">
+      <div class="dash-grid mb-24" style="margin-top:32px;">
         <div class="card">
-          <div class="card-title bn">📈 মাসিক Revenue (শেষ ৬ মাস)</div>
+          <div class="card-title">📈 Analytics Overview</div>
           ${renderBarChart(monthly)}
         </div>
         <div class="card">
           <div class="card-title" style="display:flex;justify-content:space-between">
-            <span class="bn">📢 নোটিস বোর্ড</span>
-            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">সব দেখুন</button>
+            <span>📢 Notice Board</span>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">View All</button>
           </div>
           ${renderNotices(notices)}
         </div>
       </div>
 
-      <!-- Recent Admissions -->
-      <div class="card mb-24">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-          <span class="bn">🆕 সাম্প্রতিক ভর্তি</span>
-          <button class="btn btn-outline btn-sm" onclick="App.navigateTo('students')">সব দেখুন</button>
+      <!-- Loan Summary & Student Reminders -->
+      <div class="dash-grid mb-24">
+        ${renderLoanSummary(loanOut, loanIn)}
+        <div class="card">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>🔔 Student Reminders (Due)</span>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('students')">View All</button>
+          </div>
+          ${renderReminders(students)}
         </div>
-        ${renderRecentAdmissions(students)}
+      </div>
+
+      <!-- Batch Summary & Recent Admissions -->
+      <div class="dash-grid mb-24">
+        <div class="card">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>📊 Batch Financial Summary</span>
+          </div>
+          ${renderBatchSummary(students)}
+        </div>
+        <div class="card">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>🆕 Recent Admissions</span>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('students')">View All</button>
+          </div>
+          ${renderRecentAdmissions(students)}
+        </div>
       </div>
 
       <!-- Last 5 Transactions -->
       <div class="card mb-24">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-          <span class="bn">💸 শেষ ৫টি লেনদেন</span>
-          <button class="btn btn-outline btn-sm" onclick="App.navigateTo('finance')">সব দেখুন</button>
+          <span>💸 Last 5 Transactions</span>
+          <button class="btn btn-outline btn-sm" onclick="App.navigateTo('finance')">View All</button>
         </div>
         ${renderLastFive(finance)}
-      </div>
-
-      <!-- Batch Summary + Reminders -->
-      <div class="dash-grid mb-24">
-        <div class="card">
-          <div class="card-title bn">📦 ব্যাচ সারসংক্ষেপ</div>
-          ${renderBatchSummary(students)}
-        </div>
-        <div class="card">
-          <div class="card-title bn">🔔 বকেয়া রিমাইন্ডার</div>
-          ${renderReminders(students)}
-        </div>
       </div>
     `;
   }
@@ -295,6 +398,7 @@ const DashboardModule = (() => {
   const s = document.createElement('style');
   s.id = 'dash-styles';
   s.textContent = `
+    .dash-section-title { font-size:1rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--accent-cyan,var(--brand-primary)); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
     .dash-grid  { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
     @media(max-width:768px){ .dash-grid { grid-template-columns:1fr; } }
     .bar-chart { display:flex; align-items:flex-end; height:160px; gap:4px; padding-top:8px; }
@@ -313,6 +417,7 @@ const DashboardModule = (() => {
     .notice-success { background:var(--success-bg); border-color:var(--success); }
     .reminder-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border); }
     .reminder-item:last-child { border-bottom:none; }
+    .mb-12 { margin-bottom:12px; }
   `;
   document.head.appendChild(s);
 })();

@@ -34,8 +34,8 @@ const Salary = (() => {
   function monthLabel(ym) {
     if (!ym) return '—';
     const [y, m] = ym.split('-');
-    const months = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন',
-                    'জুলাই','আগস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর'];
+    const months = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
     return `${months[parseInt(m) - 1]} ${y}`;
   }
 
@@ -58,28 +58,28 @@ const Salary = (() => {
           <div class="stat-icon" style="background:var(--accent-blue-glow)"><i class="fa fa-calendar"></i></div>
           <div class="stat-info">
             <div class="stat-value">${monthLabel(cm)}</div>
-            <div class="stat-label">চলতি মাস</div>
+            <div class="stat-label">Current Month</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-gold-glow)"><i class="fa fa-sack-dollar"></i></div>
           <div class="stat-info">
             <div class="stat-value">৳${Utils.formatNumber(totalBudget)}</div>
-            <div class="stat-label">মোট বাজেট</div>
+            <div class="stat-label">Total Budget</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-green-glow)"><i class="fa fa-circle-check"></i></div>
           <div class="stat-info">
             <div class="stat-value">৳${Utils.formatNumber(totalPaid)}</div>
-            <div class="stat-label">পরিশোধিত (${paidCount} জন)</div>
+            <div class="stat-label">Paid (${paidCount} staff)</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-red-glow)"><i class="fa fa-clock"></i></div>
           <div class="stat-info">
             <div class="stat-value">৳${Utils.formatNumber(totalDue)}</div>
-            <div class="stat-label">বাকি</div>
+            <div class="stat-label">Due</div>
           </div>
         </div>
       </div>
@@ -87,14 +87,14 @@ const Salary = (() => {
       <!-- Controls -->
       <div class="filter-bar">
         <div class="filter-group">
-          <label>মাস নির্বাচন</label>
+          <label>Select Month</label>
           <input type="month" id="salary-month-picker" value="${cm}" onchange="Salary.renderContent()" />
         </div>
         <button class="btn-primary" onclick="Salary.generateMonthlySheet()">
-          <i class="fa fa-magic"></i> মাসিক শীট তৈরি করুন
+          <i class="fa fa-magic"></i> Generate Monthly Sheet
         </button>
         <button class="btn-secondary" onclick="Salary.openAddModal()">
-          <i class="fa fa-plus"></i> ম্যানুয়াল এন্ট্রি
+          <i class="fa fa-plus"></i> Manual Entry
         </button>
         <button class="btn-secondary" onclick="Salary.exportExcel()">
           <i class="fa fa-file-excel"></i> Excel
@@ -112,7 +112,7 @@ const Salary = (() => {
       <!-- History Summary -->
       <div style="margin-top:2rem;">
         <h3 style="color:var(--text-secondary);margin-bottom:1rem;">
-          <i class="fa fa-history"></i> বেতন ইতিহাস (সর্বশেষ ৬ মাস)
+          <i class="fa fa-history"></i> Salary History (Last 6 Months)
         </h3>
         ${renderHistory()}
       </div>
@@ -130,9 +130,9 @@ const Salary = (() => {
     if (!data.length) return `
       <div class="empty-state">
         <i class="fa fa-file-invoice-dollar" style="font-size:3rem;opacity:.3"></i>
-        <p>${monthLabel(month)}-এর জন্য কোনো বেতন রেকর্ড নেই।</p>
+        <p>No salary records found for ${monthLabel(month)}.</p>
         <button class="btn-primary" onclick="Salary.generateMonthlySheet()" style="margin-top:1rem;">
-          <i class="fa fa-magic"></i> স্বয়ংক্রিয় শীট তৈরি করুন
+          <i class="fa fa-magic"></i> Auto Generate Sheet
         </button>
       </div>`;
 
@@ -140,16 +140,16 @@ const Salary = (() => {
       <table class="data-table" id="salary-print-table">
         <thead>
           <tr>
-            <th>কর্মী আইডি</th>
-            <th>নাম</th>
-            <th>পদ</th>
-            <th>মূল বেতন</th>
-            <th>বোনাস</th>
-            <th>কর্তন</th>
-            <th>নেট বেতন</th>
-            <th>পদ্ধতি</th>
-            <th>স্ট্যাটাস</th>
-            <th>অ্যাকশন</th>
+            <th>Staff ID</th>
+            <th>Name</th>
+            <th>Role</th>
+            <th>Basic Salary</th>
+            <th>Bonus</th>
+            <th>Deduction</th>
+            <th>Net Salary</th>
+            <th>Method</th>
+            <th>Status</th>
+            <th>Action</th>
           </tr>
         </thead>
         <tbody>
@@ -167,18 +167,18 @@ const Salary = (() => {
               <td>${r.method || '—'}</td>
               <td>
                 <span class="badge ${r.paid ? 'badge-green' : 'badge-yellow'}">
-                  ${r.paid ? '✓ পরিশোধিত' : '⏳ বাকি'}
+                  ${r.paid ? '✓ Paid' : '⏳ Due'}
                 </span>
               </td>
               <td class="action-btns">
                 ${!r.paid ? `
-                  <button class="btn-icon btn-edit" onclick="Salary.markPaid('${r.id}')" title="পরিশোধ করুন">
+                  <button class="btn-icon btn-edit" onclick="Salary.markPaid('${r.id}')" title="Pay">
                     <i class="fa fa-check"></i>
                   </button>` : ''}
-                <button class="btn-icon btn-edit" onclick="Salary.openEditModal('${r.id}')" title="সম্পাদনা">
+                <button class="btn-icon btn-edit" onclick="Salary.openEditModal('${r.id}')" title="Edit">
                   <i class="fa fa-pen"></i>
                 </button>
-                <button class="btn-icon btn-delete" onclick="Salary.deleteRecord('${r.id}')" title="মুছুন">
+                <button class="btn-icon btn-delete" onclick="Salary.deleteRecord('${r.id}')" title="Delete">
                   <i class="fa fa-trash"></i>
                 </button>
               </td>
@@ -187,7 +187,7 @@ const Salary = (() => {
         </tbody>
         <tfoot>
           <tr style="font-weight:700;background:var(--bg-tertiary)">
-            <td colspan="3">মোট</td>
+            <td colspan="3">Total</td>
             <td>৳${Utils.formatNumber(data.reduce((s,r) => s+(r.baseSalary||0),0))}</td>
             <td class="text-green">+৳${Utils.formatNumber(data.reduce((s,r) => s+(r.bonus||0),0))}</td>
             <td class="text-red">-৳${Utils.formatNumber(data.reduce((s,r) => s+(r.deduction||0),0))}</td>
@@ -208,11 +208,11 @@ const Salary = (() => {
       if (r.paid) monthMap[r.month].paid += net;
     });
     const sorted = Object.keys(monthMap).sort().reverse().slice(0, 6);
-    if (!sorted.length) return `<p style="color:var(--text-muted)">কোনো ইতিহাস নেই।</p>`;
+    if (!sorted.length) return `<p style="color:var(--text-muted)">No history found.</p>`;
 
     return `
       <table class="data-table">
-        <thead><tr><th>মাস</th><th>মোট বাজেট</th><th>পরিশোধিত</th><th>বাকি</th></tr></thead>
+        <thead><tr><th>Month</th><th>Total Budget</th><th>Paid</th><th>Due</th></tr></thead>
         <tbody>
           ${sorted.map(m => `
             <tr>
@@ -234,7 +234,7 @@ const Salary = (() => {
     const activeStaff = allStaff.filter(s => s.status === 'Active' && !existing.includes(s.staffId));
 
     if (!activeStaff.length) {
-      Utils.toast(existing.length ? 'সব কর্মীর শীট তৈরি আছে ✓' : 'কোনো সক্রিয় কর্মী নেই', 'info');
+      Utils.toast(existing.length ? 'All staff sheets already created ✓' : 'No active staff found', 'info');
       return;
     }
 
@@ -258,7 +258,7 @@ const Salary = (() => {
 
     save();
     renderContent();
-    Utils.toast(`${activeStaff.length} জন কর্মীর বেতন শীট তৈরি হয়েছে ✓`, 'success');
+    Utils.toast(`${activeStaff.length} staff salary sheets created ✓`, 'success');
   }
 
   /* ─── Mark Paid ─── */
@@ -269,7 +269,7 @@ const Salary = (() => {
     r.paidDate = new Date().toISOString().split('T')[0];
     save();
     renderContent();
-    Utils.toast(`${r.staffName}-এর বেতন পরিশোধ হয়েছে ✓`, 'success');
+    Utils.toast(`${r.staffName}-Salary has been paid ✓`, 'success');
 
     // Log to Finance ledger if available
     if (typeof Finance !== 'undefined') {
@@ -277,7 +277,7 @@ const Salary = (() => {
       Finance.addExternalTransaction({
         type: 'Expense', category: 'Salary',
         amount: net, method: r.method || 'Cash',
-        description: `বেতন: ${r.staffName} (${monthLabel(r.month)})`,
+        description: `Salary: ${r.staffName} (${monthLabel(r.month)})`,
         date: r.paidDate,
       });
     }
@@ -285,14 +285,14 @@ const Salary = (() => {
 
   /* ─── Modal: Add ─── */
   function openAddModal(prefillStaffId) {
-    Utils.openModal('বেতন এন্ট্রি', formHTML(null, prefillStaffId));
+    Utils.openModal('Salary Entry', formHTML(null, prefillStaffId));
   }
 
   /* ─── Modal: Edit ─── */
   function openEditModal(id) {
     const r = records.find(x => x.id === id);
     if (!r) return;
-    Utils.openModal('বেতন সম্পাদনা', formHTML(r));
+    Utils.openModal('Edit Salary', formHTML(r));
   }
 
   function formHTML(r, prefillStaffId) {
@@ -300,9 +300,9 @@ const Salary = (() => {
     return `
       <div class="form-grid">
         <div class="form-group">
-          <label>কর্মী নির্বাচন <span class="required">*</span></label>
+          <label>Select Staff <span class="required">*</span></label>
           <select id="sal-staff" onchange="Salary.onStaffSelect(this.value)">
-            <option value="">— কর্মী বেছে নিন —</option>
+            <option value="">-- Select Staff --</option>
             ${allStaff.map(s => `
               <option value="${s.staffId}" ${(r?.staffId || prefillStaffId) === s.staffId ? 'selected' : ''}
                 data-name="${s.name}" data-role="${s.role}" data-salary="${s.salary || 0}">
@@ -311,48 +311,48 @@ const Salary = (() => {
           </select>
         </div>
         <div class="form-group">
-          <label>মাস <span class="required">*</span></label>
+          <label>Month <span class="required">*</span></label>
           <input type="month" id="sal-month" value="${r?.month || getSelectedMonth()}" />
         </div>
         <div class="form-group">
-          <label>মূল বেতন (৳)</label>
+          <label>Basic Salary (৳)</label>
           <input type="number" id="sal-base" min="0" value="${r?.baseSalary || ''}" placeholder="0" />
         </div>
         <div class="form-group">
-          <label>বোনাস (৳)</label>
+          <label>Bonus (৳)</label>
           <input type="number" id="sal-bonus" min="0" value="${r?.bonus || 0}" />
         </div>
         <div class="form-group">
-          <label>কর্তন (৳)</label>
+          <label>Deduction (৳)</label>
           <input type="number" id="sal-deduction" min="0" value="${r?.deduction || 0}" />
         </div>
         <div class="form-group">
-          <label>পদ্ধতি</label>
+          <label>Method</label>
           <select id="sal-method">
             ${['Cash','Bank','Mobile Banking'].map(m =>
               `<option value="${m}" ${r?.method === m ? 'selected' : ''}>${m}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label>পরিশোধ স্ট্যাটাস</label>
+          <label>Pay Status</label>
           <select id="sal-paid">
-            <option value="0" ${!r?.paid ? 'selected' : ''}>বাকি</option>
-            <option value="1" ${r?.paid  ? 'selected' : ''}>পরিশোধিত</option>
+            <option value="0" ${!r?.paid ? 'selected' : ''}>Due</option>
+            <option value="1" ${r?.paid  ? 'selected' : ''}>Paid</option>
           </select>
         </div>
         <div class="form-group">
-          <label>পরিশোধের তারিখ</label>
+          <label>Payment Date</label>
           <input type="date" id="sal-paiddate" value="${r?.paidDate || ''}" />
         </div>
         <div class="form-group full-width">
-          <label>নোট</label>
+          <label>Notes</label>
           <textarea id="sal-note" rows="2">${r?.note || ''}</textarea>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
         <button class="btn-primary" onclick="Salary.saveRecord('${r?.id || ''}')">
-          <i class="fa fa-save"></i> সংরক্ষণ
+          <i class="fa fa-save"></i> Save
         </button>
       </div>`;
   }
@@ -369,7 +369,7 @@ const Salary = (() => {
     const staffSel  = document.getElementById('sal-staff');
     const staffId   = staffSel?.value;
     const staffOpt  = staffSel?.options[staffSel.selectedIndex];
-    if (!staffId) { Utils.toast('কর্মী নির্বাচন করুন', 'error'); return; }
+    if (!staffId) { Utils.toast('Please select a staff member', 'error'); return; }
 
     const entry = {
       id:          editId || Utils.generateId(),
@@ -397,16 +397,16 @@ const Salary = (() => {
 
     save();
     Utils.closeModal();
-    Utils.toast(editId ? 'বেতন রেকর্ড আপডেট হয়েছে ✓' : 'বেতন রেকর্ড যোগ হয়েছে ✓', 'success');
+    Utils.toast(editId ? 'Salary record updated ✓' : 'Salary record added ✓', 'success');
     renderContent();
   }
 
   function deleteRecord(id) {
-    Utils.confirm('এই বেতন রেকর্ড মুছে ফেলবেন?', () => {
+    Utils.confirm('Delete this salary record??', () => {
       records = records.filter(r => r.id !== id);
       save();
       renderContent();
-      Utils.toast('রেকর্ড মুছে ফেলা হয়েছে', 'warning');
+      Utils.toast('Record deleted', 'warning');
     });
   }
 
@@ -414,13 +414,13 @@ const Salary = (() => {
   function exportExcel() {
     const month = getSelectedMonth();
     const data  = records.filter(r => r.month === month);
-    if (!data.length) { Utils.toast('কোনো ডেটা নেই', 'error'); return; }
+    if (!data.length) { Utils.toast('No data available', 'error'); return; }
     const rows = data.map(r => ({
-      'স্টাফ আইডি': r.staffId, 'নাম': r.staffName, 'পদ': r.role,
-      'মাস': r.month, 'মূল বেতন': r.baseSalary, 'বোনাস': r.bonus,
-      'কর্তন': r.deduction,
-      'নেট': (r.baseSalary||0)+(r.bonus||0)-(r.deduction||0),
-      'স্ট্যাটাস': r.paid ? 'পরিশোধিত' : 'বাকি',
+      'Staff ID': r.staffId, 'Name': r.staffName, 'Role': r.role,
+      'Month': r.month, 'Basic Salary': r.baseSalary, 'Bonus': r.bonus,
+      'Deduction': r.deduction,
+      'Net': (r.baseSalary||0)+(r.bonus||0)-(r.deduction||0),
+      'Status': r.paid ? 'Paid' : 'Due',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();

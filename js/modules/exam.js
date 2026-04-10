@@ -30,30 +30,30 @@ const Exam = (() => {
     container.innerHTML = `
       <!-- Summary -->
       <div class="dashboard-grid" style="margin-bottom:16px">
-        ${sCard('fa-clipboard-list','blue','মোট নিবন্ধন', totalReg)}
-        ${sCard('fa-check-circle','green','উত্তীর্ণ', passed)}
-        ${sCard('fa-times-circle','red','অনুত্তীর্ণ', failed)}
-        ${sCard('fa-money-bill','amber','পরীক্ষা ফি', Utils.takaEn(totalFee))}
+        ${sCard('fa-clipboard-list','blue','Registered', totalReg)}
+        ${sCard('fa-check-circle','green','Passed', passed)}
+        ${sCard('fa-times-circle','red','Failed', failed)}
+        ${sCard('fa-money-bill','amber','Exam Fee', Utils.takaEn(totalFee))}
       </div>
 
       <!-- Filter Bar -->
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="exam-search" class="form-control" placeholder="নাম / Reg ID খুঁজুন…" value="${searchQuery}" oninput="Exam.onSearch(this.value)" />
+          <input id="exam-search" class="form-control" placeholder="Name / Reg ID Search…" value="${searchQuery}" oninput="Exam.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Exam.onFilter('batch',this.value)">
-          <option value="">সব ব্যাচ</option>
+          <option value="">All Batches</option>
           ${batches.map(b => `<option value="${b}" ${filterBatch===b?'selected':''}>${b}</option>`).join('')}
         </select>
         <select class="form-control" onchange="Exam.onFilter('status',this.value)">
-          <option value="">সব স্ট্যাটাস</option>
-          <option value="Registered" ${filterStatus==='Registered'?'selected':''}>নিবন্ধিত</option>
-          <option value="Appeared"   ${filterStatus==='Appeared'?'selected':''}>উপস্থিত</option>
-          <option value="Passed"     ${filterStatus==='Passed'?'selected':''}>উত্তীর্ণ</option>
-          <option value="Failed"     ${filterStatus==='Failed'?'selected':''}>অনুত্তীর্ণ</option>
+          <option value="">All Status</option>
+          <option value="Registered" ${filterStatus==='Registered'?'selected':''}>Registered</option>
+          <option value="Appeared"   ${filterStatus==='Appeared'?'selected':''}>Present</option>
+          <option value="Passed"     ${filterStatus==='Passed'?'selected':''}>Passed</option>
+          <option value="Failed"     ${filterStatus==='Failed'?'selected':''}>Failed</option>
         </select>
-        <button class="btn-secondary btn-sm" onclick="Exam.resetFilters()"><i class="fa fa-rotate-left"></i> রিসেট</button>
+        <button class="btn-secondary btn-sm" onclick="Exam.resetFilters()"><i class="fa fa-rotate-left"></i> Reset</button>
         <button class="btn-success btn-sm"   onclick="Exam.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('exam-print-area')"><i class="fa fa-print"></i> Print</button>
       </div>
@@ -66,14 +66,14 @@ const Exam = (() => {
               <tr>
                 <th>#</th>
                 <th>Reg ID</th>
-                <th>শিক্ষার্থী</th>
-                <th>ব্যাচ</th>
-                <th>বিষয়</th>
-                <th>তারিখ</th>
-                <th>ফি</th>
-                <th>গ্রেড</th>
-                <th>স্ট্যাটাস</th>
-                <th class="no-print">কাজ</th>
+                <th>Student</th>
+                <th>Batch</th>
+                <th>Subject</th>
+                <th>Date</th>
+                <th>Fee</th>
+                <th>Grade</th>
+                <th>Status</th>
+                <th class="no-print">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -86,7 +86,7 @@ const Exam = (() => {
   }
 
   function renderRows(rows) {
-    if (!rows.length) return Utils.noDataRow(10, 'কোনো পরীক্ষার নিবন্ধন পাওয়া যায়নি');
+    if (!rows.length) return Utils.noDataRow(10, 'No exam registrations found');
     return rows.map((e, i) => `<tr>
       <td style="color:var(--text-muted);font-size:0.8rem">${i + 1}</td>
       <td>${Utils.badge(e.reg_id || '—', 'primary')}</td>
@@ -102,9 +102,9 @@ const Exam = (() => {
       <td>${Utils.statusBadge(e.status || 'Registered')}</td>
       <td class="no-print">
         <div class="table-actions">
-          <button class="btn-outline btn-xs" onclick="Exam.openGradeModal('${e.id}')" title="গ্রেড দিন"><i class="fa fa-star"></i></button>
-          <button class="btn-outline btn-xs" onclick="Exam.openEditModal('${e.id}')" title="সম্পাদনা"><i class="fa fa-pen"></i></button>
-          <button class="btn-danger btn-xs"  onclick="Exam.deleteEntry('${e.id}')" title="মুছুন"><i class="fa fa-trash"></i></button>
+          <button class="btn-outline btn-xs" onclick="Exam.openGradeModal('${e.id}')" title="Grade"><i class="fa fa-star"></i></button>
+          <button class="btn-outline btn-xs" onclick="Exam.openEditModal('${e.id}')" title="Edit"><i class="fa fa-pen"></i></button>
+          <button class="btn-danger btn-xs"  onclick="Exam.deleteEntry('${e.id}')" title="Delete"><i class="fa fa-trash"></i></button>
         </div>
       </td>
     </tr>`).join('');
@@ -146,22 +146,22 @@ const Exam = (() => {
     const newRegId = generateRegId(exams);
     const students = SupabaseSync.getAll(DB.students);
 
-    Utils.openModal('<i class="fa fa-clipboard-list"></i> পরীক্ষার নিবন্ধন', `
+    Utils.openModal('<i class="fa fa-clipboard-list"></i> Exam Registration', `
       <div class="form-row">
         <div class="form-group">
           <label>Reg ID <span class="req">*</span></label>
           <input id="ef-reg-id" class="form-control" value="${newRegId}" />
         </div>
         <div class="form-group">
-          <label>পরীক্ষার তারিখ <span class="req">*</span></label>
+          <label>Exam Date <span class="req">*</span></label>
           <input id="ef-date" type="date" class="form-control" value="${Utils.today()}" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>শিক্ষার্থী <span class="req">*</span></label>
+          <label>Student <span class="req">*</span></label>
           <select id="ef-student" class="form-control" onchange="Exam.onStudentSelect()">
-            <option value="">-- শিক্ষার্থী নির্বাচন করুন --</option>
+            <option value="">-- Select Student --</option>
             ${students.map(s => `<option value="${s.id}" data-name="${s.name}" data-sid="${s.student_id}" data-batch="${s.batch}" data-session="${s.session}">${s.name} (${s.student_id || ''})</option>`).join('')}
           </select>
         </div>
@@ -172,18 +172,18 @@ const Exam = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>ব্যাচ</label>
-          <input id="ef-batch" class="form-control" placeholder="ব্যাচ" />
+          <label>Batch</label>
+          <input id="ef-batch" class="form-control" placeholder="Batch" />
         </div>
         <div class="form-group">
-          <label>সেশন</label>
-          <input id="ef-session" class="form-control" placeholder="সেশন" />
+          <label>Session</label>
+          <input id="ef-session" class="form-control" placeholder="Session" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>বিষয় <span class="req">*</span></label>
-          <input id="ef-subject" class="form-control" list="exam-subject-list" placeholder="বিষয়ের নাম" />
+          <label>Subject <span class="req">*</span></label>
+          <input id="ef-subject" class="form-control" list="exam-subject-list" placeholder="Subject Name" />
           <datalist id="exam-subject-list">
             <option value="Aviation English"><option value="Air Navigation">
             <option value="Meteorology"><option value="Aircraft Technical">
@@ -192,18 +192,18 @@ const Exam = (() => {
           </datalist>
         </div>
         <div class="form-group">
-          <label>পরীক্ষা ফি (৳)</label>
+          <label>Exam Fee (৳)</label>
           <input id="ef-fee" type="number" class="form-control" placeholder="0" value="0" />
         </div>
       </div>
       <div class="form-group">
-        <label>নোট</label>
-        <textarea id="ef-note" class="form-control" rows="2" placeholder="ঐচ্ছিক"></textarea>
+        <label>Notes</label>
+        <textarea id="ef-note" class="form-control" rows="2" placeholder="Optional"></textarea>
       </div>
       <div id="ef-error" class="form-error hidden"></div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
-        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> নিবন্ধন করুন</button>
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> Register</button>
       </div>
     `);
   }
@@ -227,20 +227,20 @@ const Exam = (() => {
     if (!e) return;
     editingId = id;
 
-    Utils.openModal('<i class="fa fa-pen"></i> পরীক্ষা সম্পাদনা', `
+    Utils.openModal('<i class="fa fa-pen"></i> Edit Exam', `
       <div class="form-row">
         <div class="form-group">
           <label>Reg ID</label>
           <input id="ef-reg-id" class="form-control" value="${e.reg_id||''}" readonly style="background:var(--bg-base)" />
         </div>
         <div class="form-group">
-          <label>পরীক্ষার তারিখ</label>
+          <label>Exam Date</label>
           <input id="ef-date" type="date" class="form-control" value="${(e.exam_date||'').split('T')[0]}" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>শিক্ষার্থীর নাম</label>
+          <label>Student Name</label>
           <input id="ef-student-name" class="form-control" value="${e.student_name||''}" />
         </div>
         <div class="form-group">
@@ -250,54 +250,54 @@ const Exam = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>ব্যাচ</label>
+          <label>Batch</label>
           <input id="ef-batch" class="form-control" value="${e.batch||''}" />
         </div>
         <div class="form-group">
-          <label>সেশন</label>
+          <label>Session</label>
           <input id="ef-session" class="form-control" value="${e.session||''}" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>বিষয়</label>
+          <label>Subject</label>
           <input id="ef-subject" class="form-control" value="${e.subject||''}" />
         </div>
         <div class="form-group">
-          <label>পরীক্ষা ফি (৳)</label>
+          <label>Exam Fee (৳)</label>
           <input id="ef-fee" type="number" class="form-control" value="${e.exam_fee||0}" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>গ্রেড</label>
+          <label>Grade</label>
           <select id="ef-grade" class="form-control">
             <option value="">—</option>
             ${['A+','A','A-','B+','B','B-','C+','C','D','F'].map(g => `<option value="${g}" ${e.grade===g?'selected':''}>${g}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label>নম্বর</label>
+          <label>Number</label>
           <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" />
         </div>
         <div class="form-group">
-          <label>স্ট্যাটাস</label>
+          <label>Status</label>
           <select id="ef-status" class="form-control">
-            <option value="Registered" ${e.status==='Registered'?'selected':''}>নিবন্ধিত</option>
-            <option value="Appeared"   ${e.status==='Appeared'?'selected':''}>উপস্থিত</option>
-            <option value="Passed"     ${e.status==='Passed'?'selected':''}>উত্তীর্ণ</option>
-            <option value="Failed"     ${e.status==='Failed'?'selected':''}>অনুত্তীর্ণ</option>
+            <option value="Registered" ${e.status==='Registered'?'selected':''}>Registered</option>
+            <option value="Appeared"   ${e.status==='Appeared'?'selected':''}>Present</option>
+            <option value="Passed"     ${e.status==='Passed'?'selected':''}>Passed</option>
+            <option value="Failed"     ${e.status==='Failed'?'selected':''}>Failed</option>
           </select>
         </div>
       </div>
       <div class="form-group">
-        <label>নোট</label>
+        <label>Notes</label>
         <textarea id="ef-note" class="form-control" rows="2">${e.note||''}</textarea>
       </div>
       <div id="ef-error" class="form-error hidden"></div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
-        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> আপডেট</button>
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Exam.saveEntry()"><i class="fa fa-floppy-disk"></i> Update</button>
       </div>
     `);
   }
@@ -309,34 +309,34 @@ const Exam = (() => {
     const e = SupabaseSync.getById(DB.exams, id);
     if (!e) return;
 
-    Utils.openModal('<i class="fa fa-star"></i> গ্রেড প্রদান', `
+    Utils.openModal('<i class="fa fa-star"></i> Assign Grade', `
       <div style="background:var(--bg-base);padding:12px;border-radius:var(--radius-sm);margin-bottom:16px">
         <div style="font-weight:700">${e.student_name||'—'} (${e.student_id||''})</div>
         <div style="font-size:.85rem;color:var(--text-secondary)">${e.subject||''} • ${e.batch||''}</div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>গ্রেড <span class="req">*</span></label>
+          <label>Grade <span class="req">*</span></label>
           <select id="gf-grade" class="form-control">
             <option value="">—</option>
             ${['A+','A','A-','B+','B','B-','C+','C','D','F'].map(g => `<option value="${g}" ${e.grade===g?'selected':''}>${g}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
-          <label>নম্বর (0-100)</label>
+          <label>Number (0-100)</label>
           <input id="gf-marks" type="number" class="form-control" value="${e.marks||''}" min="0" max="100" />
         </div>
       </div>
       <div class="form-group">
-        <label>স্ট্যাটাস</label>
+        <label>Status</label>
         <select id="gf-status" class="form-control">
-          <option value="Passed">উত্তীর্ণ</option>
-          <option value="Failed">অনুত্তীর্ণ</option>
+          <option value="Passed">Passed</option>
+          <option value="Failed">Failed</option>
         </select>
       </div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
-        <button class="btn-success" onclick="Exam.saveGrade('${id}')"><i class="fa fa-check"></i> গ্রেড সংরক্ষণ</button>
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-success" onclick="Exam.saveGrade('${id}')"><i class="fa fa-check"></i> Save Grade</button>
       </div>
     `, 'modal-sm');
   }
@@ -345,9 +345,9 @@ const Exam = (() => {
     const grade  = Utils.formVal('gf-grade');
     const marks  = Utils.safeNum(Utils.formVal('gf-marks'));
     const status = Utils.formVal('gf-status');
-    if (!grade) { Utils.toast('গ্রেড নির্বাচন করুন', 'error'); return; }
+    if (!grade) { Utils.toast('Please select a grade', 'error'); return; }
     SupabaseSync.update(DB.exams, id, { grade, marks, status });
-    Utils.toast('গ্রেড সংরক্ষিত হয়েছে ✓', 'success');
+    Utils.toast('Grade Saved ✓', 'success');
     Utils.closeModal();
     render();
   }
@@ -361,8 +361,8 @@ const Exam = (() => {
     const date  = Utils.formVal('ef-date');
     const subject = Utils.formVal('ef-subject');
 
-    if (!regId) { errEl.textContent = 'Reg ID আবশ্যক'; errEl.classList.remove('hidden'); return; }
-    if (!subject) { errEl.textContent = 'বিষয় আবশ্যক'; errEl.classList.remove('hidden'); return; }
+    if (!regId) { errEl.textContent = 'Reg ID Required'; errEl.classList.remove('hidden'); return; }
+    if (!subject) { errEl.textContent = 'Subject Required'; errEl.classList.remove('hidden'); return; }
 
     let studentName, studentId;
     if (editingId) {
@@ -373,7 +373,7 @@ const Exam = (() => {
       const opt = sel?.selectedOptions[0];
       studentName = opt?.dataset?.name || '';
       studentId   = opt?.dataset?.sid || '';
-      if (!studentName) { errEl.textContent = 'শিক্ষার্থী নির্বাচন করুন'; errEl.classList.remove('hidden'); return; }
+      if (!studentName) { errEl.textContent = 'Please select a student'; errEl.classList.remove('hidden'); return; }
     }
 
     const record = {
@@ -394,16 +394,16 @@ const Exam = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.exams, editingId, record);
-      Utils.toast('পরীক্ষার তথ্য আপডেট হয়েছে ✓', 'success');
+      Utils.toast('Exam info updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.exams, record);
-      Utils.toast('পরীক্ষার নিবন্ধন সম্পন্ন ✓', 'success');
+      Utils.toast('Exam Registration Completed ✓', 'success');
 
       // Finance entry for exam fee
       if (record.exam_fee > 0) {
         SupabaseSync.insert(DB.finance, {
           type: 'Income', category: 'Exam Fee',
-          description: `${studentName} (${studentId}) — পরীক্ষা ফি (${subject})`,
+          description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
           amount: record.exam_fee, method: 'Cash', date: record.exam_date,
         });
       }
@@ -417,10 +417,10 @@ const Exam = (() => {
      DELETE
   ══════════════════════════════════════════ */
   async function deleteEntry(id) {
-    const ok = await Utils.confirm('এই পরীক্ষার নিবন্ধন মুছে ফেলবেন?', 'পরীক্ষা মুছুন');
+    const ok = await Utils.confirm('Delete this exam registration?', 'Delete Exam');
     if (!ok) return;
     SupabaseSync.remove(DB.exams, id);
-    Utils.toast('মুছে ফেলা হয়েছে', 'info');
+    Utils.toast('Exam registration deleted', 'info');
     render();
   }
 
@@ -433,17 +433,17 @@ const Exam = (() => {
     const rows = filtered.map(e => ({
       'Reg ID':    e.reg_id||'',
       'Student ID': e.student_id||'',
-      'নাম':       e.student_name||'',
-      'ব্যাচ':     e.batch||'',
-      'সেশন':     e.session||'',
-      'বিষয়':     e.subject||'',
-      'তারিখ':    e.exam_date||'',
-      'ফি':        e.exam_fee||0,
-      'গ্রেড':     e.grade||'',
-      'নম্বর':     e.marks||'',
-      'স্ট্যাটাস': e.status||'',
+      'Name':       e.student_name||'',
+      'Batch':     e.batch||'',
+      'Session':     e.session||'',
+      'Subject':     e.subject||'',
+      'Date':    e.exam_date||'',
+      'Fee':        e.exam_fee||0,
+      'Grade':     e.grade||'',
+      'Number':     e.marks||'',
+      'Status': e.status||'',
     }));
-    Utils.exportExcel(rows, 'exams', 'পরীক্ষা');
+    Utils.exportExcel(rows, 'exams', 'Exams');
   }
 
   /* ══════════════════════════════════════════

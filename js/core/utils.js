@@ -115,7 +115,7 @@ const Utils = (() => {
 
       if (!backdrop) { resolve(window.confirm(msg)); return; }
 
-      if (titleEl) titleEl.textContent = title || 'নিশ্চিত করুন';
+      if (titleEl) titleEl.textContent = title || 'Confirm';
       if (msgEl) msgEl.textContent = msg;
 
       backdrop.classList.add('open');
@@ -145,12 +145,12 @@ const Utils = (() => {
 
   function statusBadge(status) {
     const map = {
-      'Active': ['সক্রিয়', 'success'], 'Inactive': ['নিষ্ক্রিয়', 'muted'],
-      'Paid': ['পরিশোধিত', 'success'], 'Outstanding': ['বকেয়া', 'warning'],
-      'Registered': ['নিবন্ধিত', 'info'], 'Appeared': ['উপস্থিত', 'primary'],
-      'Passed': ['উত্তীর্ণ', 'success'], 'Failed': ['অনুত্তীর্ণ', 'danger'],
-      'Present': ['উপস্থিত', 'success'], 'Absent': ['অনুপস্থিত', 'danger'],
-      'Late': ['বিলম্বে', 'warning'], 'Leave': ['ছুটি', 'muted'],
+      'Active': ['Active', 'success'], 'Inactive': ['Inactive', 'muted'],
+      'Paid': ['Paid', 'success'], 'Outstanding': ['Due', 'warning'],
+      'Registered': ['Registered', 'info'], 'Appeared': ['Present', 'primary'],
+      'Passed': ['Passed', 'success'], 'Failed': ['Failed', 'danger'],
+      'Present': ['Present', 'success'], 'Absent': ['Absent', 'danger'],
+      'Late': ['Late', 'warning'], 'Leave': ['Leave', 'muted'],
     };
     const [label, type] = map[status] || [status, 'info'];
     return badge(label, type);
@@ -158,8 +158,8 @@ const Utils = (() => {
 
   function methodBadge(method) {
     const map = {
-      'Cash': ['💵 নগদ', 'success'], 'Bank': ['🏦 ব্যাংক', 'info'],
-      'Mobile Banking': ['📱 মোবাইল', 'warning'],
+      'Cash': ['💵 Cash', 'success'], 'Bank': ['🏦 Bank', 'info'],
+      'Mobile Banking': ['📱 Mobile', 'warning'],
     };
     const [label, type] = map[method] || [method, 'muted'];
     return badge(label, type);
@@ -168,7 +168,7 @@ const Utils = (() => {
   // ── Table Helpers ─────────────────────────────────────────
   function noDataRow(colspan, msg) {
     return `<tr><td colspan="${colspan}" style="text-align:center;padding:30px;color:var(--text-muted);font-family:var(--font-bn)">
-      <i class="fa fa-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.4"></i>${msg || 'কোনো ডেটা নেই'}
+      <i class="fa fa-inbox" style="font-size:2rem;display:block;margin-bottom:8px;opacity:.4"></i>${msg || 'No data available'}
     </td></tr>`;
   }
 
@@ -226,18 +226,18 @@ const Utils = (() => {
 
   // ── Excel Export (SheetJS) ────────────────────────────────
   function exportExcel(rows, filename, sheetName) {
-    if (!rows || !rows.length) { toast('কোনো ডেটা নেই', 'warn'); return; }
-    if (typeof XLSX === 'undefined') { toast('Excel library লোড হয়নি', 'error'); return; }
+    if (!rows || !rows.length) { toast('No data available', 'warn'); return; }
+    if (typeof XLSX === 'undefined') { toast('Excel library Not loaded', 'error'); return; }
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
     XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
-    toast('Excel ডাউনলোড হয়েছে ✓', 'success');
+    toast('Excel Downloaded ✓', 'success');
   }
 
   // ── CSV Export ────────────────────────────────────────────
   function downloadCSV(filename, rows) {
-    if (!rows || rows.length === 0) { toast('কোনো ডেটা নেই', 'warn'); return; }
+    if (!rows || rows.length === 0) { toast('No data available', 'warn'); return; }
     const headers = Object.keys(rows[0]);
     const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });

@@ -57,28 +57,28 @@ const Attendance = (() => {
           <div class="stat-icon" style="background:var(--accent-blue-glow)"><i class="fa fa-calendar-day"></i></div>
           <div class="stat-info">
             <div class="stat-value">${Utils.formatDate(todayDate)}</div>
-            <div class="stat-label">আজকের তারিখ</div>
+            <div class="stat-label">Today Date</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-green-glow)"><i class="fa fa-circle-check"></i></div>
           <div class="stat-info">
             <div class="stat-value">${presentCnt}</div>
-            <div class="stat-label">উপস্থিত</div>
+            <div class="stat-label">Present</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-red-glow)"><i class="fa fa-circle-xmark"></i></div>
           <div class="stat-info">
             <div class="stat-value">${absentCnt}</div>
-            <div class="stat-label">অনুপস্থিত</div>
+            <div class="stat-label">Absent</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-gold-glow)"><i class="fa fa-clock"></i></div>
           <div class="stat-info">
             <div class="stat-value">${lateCnt + leaveCnt}</div>
-            <div class="stat-label">দেরি / ছুটি</div>
+            <div class="stat-label">Late / Leave</div>
           </div>
         </div>
       </div>
@@ -86,10 +86,10 @@ const Attendance = (() => {
       <!-- Tabs: Take Attendance / View Records -->
       <div class="tab-switcher" style="margin-bottom:1.5rem;">
         <button id="att-tab-take"   class="tab-switch-btn active" onclick="Attendance.switchView('take')">
-          <i class="fa fa-pen-to-square"></i> উপস্থিতি নিন
+          <i class="fa fa-pen-to-square"></i> Attendance take
         </button>
         <button id="att-tab-report" class="tab-switch-btn" onclick="Attendance.switchView('report')">
-          <i class="fa fa-chart-bar"></i> রিপোর্ট
+          <i class="fa fa-chart-bar"></i> Report
         </button>
       </div>
 
@@ -97,28 +97,28 @@ const Attendance = (() => {
       <div id="att-panel-take">
         <div class="filter-bar">
           <div class="filter-group">
-            <label>তারিখ</label>
+            <label>Date</label>
             <input type="date" id="att-date" value="${todayDate}" onchange="Attendance.loadAttendanceSheet()" />
           </div>
           <div class="filter-group">
-            <label>ধরন</label>
+            <label>Type</label>
             <select id="att-type" onchange="Attendance.loadAttendanceSheet()">
-              <option value="student">শিক্ষার্থী</option>
-              <option value="staff">কর্মী</option>
+              <option value="student">Student</option>
+              <option value="staff">Staff</option>
             </select>
           </div>
           <div class="filter-group" id="att-batch-wrapper">
-            <label>ব্যাচ</label>
+            <label>Batch</label>
             <select id="att-batch" onchange="Attendance.loadAttendanceSheet()">
-              <option value="">সব ব্যাচ</option>
+              <option value="">All Batches</option>
               ${getBatchOptions()}
             </select>
           </div>
           <button class="btn-primary" onclick="Attendance.saveAllAttendance()">
-            <i class="fa fa-save"></i> সংরক্ষণ করুন
+            <i class="fa fa-save"></i> Save
           </button>
           <button class="btn-secondary" onclick="Attendance.markAllPresent()">
-            <i class="fa fa-check-double"></i> সবাই উপস্থিত
+            <i class="fa fa-check-double"></i> Mark All Present
           </button>
         </div>
 
@@ -131,22 +131,22 @@ const Attendance = (() => {
       <div id="att-panel-report" class="hidden">
         <div class="filter-bar">
           <div class="filter-group">
-            <label>শুরুর তারিখ</label>
+            <label>Start Date</label>
             <input type="date" id="att-from" value="${todayDate}" />
           </div>
           <div class="filter-group">
-            <label>শেষ তারিখ</label>
+            <label>End Date</label>
             <input type="date" id="att-to" value="${todayDate}" />
           </div>
           <div class="filter-group">
-            <label>ধরন</label>
+            <label>Type</label>
             <select id="att-rep-type">
-              <option value="student">শিক্ষার্থী</option>
-              <option value="staff">কর্মী</option>
+              <option value="student">Student</option>
+              <option value="staff">Staff</option>
             </select>
           </div>
           <button class="btn-primary" onclick="Attendance.loadReport()">
-            <i class="fa fa-search"></i> রিপোর্ট দেখুন
+            <i class="fa fa-search"></i> View Report
           </button>
           <button class="btn-secondary" onclick="Attendance.exportExcel()">
             <i class="fa fa-file-excel"></i> Excel
@@ -199,7 +199,7 @@ const Attendance = (() => {
     if (!wrapper) return;
 
     if (!entities.length) {
-      wrapper.innerHTML = `<div class="empty-state"><p>কোনো ${type === 'student' ? 'শিক্ষার্থী' : 'কর্মী'} নেই।</p></div>`;
+      wrapper.innerHTML = `<div class="empty-state"><p>No ${type === 'student' ? 'Student' : 'Staff'} not found।</p></div>`;
       return;
     }
 
@@ -208,11 +208,11 @@ const Attendance = (() => {
         <thead>
           <tr>
             <th>#</th>
-            <th>আইডি</th>
-            <th>নাম</th>
-            ${type === 'student' ? '<th>ব্যাচ</th>' : '<th>পদ</th>'}
-            <th>উপস্থিতি</th>
-            <th>নোট</th>
+            <th>ID</th>
+            <th>Name</th>
+            ${type === 'student' ? '<th>Batch</th>' : '<th>Role</th>'}
+            <th>Attendance</th>
+            <th>Notes</th>
           </tr>
         </thead>
         <tbody>
@@ -232,11 +232,11 @@ const Attendance = (() => {
                     ${['Present','Absent','Late','Leave'].map(s => `
                       <button class="att-btn ${status === s ? 'att-btn-' + s.toLowerCase() + ' active' : ''}"
                         onclick="Attendance.setStatus(this,'${s}')">
-                        ${s === 'Present' ? '✓ উপস্থিত' : s === 'Absent' ? '✗ অনুপস্থিত' : s === 'Late' ? '⏰ দেরি' : '📋 ছুটি'}
+                        ${s === 'Present' ? '✓ Present' : s === 'Absent' ? '✗ Absent' : s === 'Late' ? '⏰ Late' : '📋 Leave'}
                       </button>`).join('')}
                   </div>
                 </td>
-                <td><input type="text" class="att-note-input" value="${note}" placeholder="নোট..." /></td>
+                <td><input type="text" class="att-note-input" value="${note}" placeholder="Notes..." /></td>
               </tr>`;
           }).join('')}
         </tbody>
@@ -287,7 +287,7 @@ const Attendance = (() => {
     });
 
     save();
-    Utils.toast(`${count} জনের উপস্থিতি সংরক্ষণ হয়েছে ✓`, 'success');
+    Utils.toast(`${count} people Attendance Save done/happened ✓`, 'success');
     renderContent();
   }
 
@@ -302,7 +302,7 @@ const Attendance = (() => {
     if (!wrapper) return;
 
     if (!filtered.length) {
-      wrapper.innerHTML = `<div class="empty-state"><p>নির্বাচিত সময়ে কোনো রেকর্ড নেই।</p></div>`;
+      wrapper.innerHTML = `<div class="empty-state"><p>No record found in selected time।</p></div>`;
       return;
     }
 
@@ -319,13 +319,13 @@ const Attendance = (() => {
       <table class="data-table" id="att-report-table">
         <thead>
           <tr>
-            <th>আইডি</th><th>নাম</th>
-            <th class="text-green">উপস্থিত</th>
-            <th class="text-red">অনুপস্থিত</th>
-            <th class="text-yellow">দেরি</th>
-            <th>ছুটি</th>
-            <th>মোট</th>
-            <th>হাজিরার %</th>
+            <th>ID</th><th>Name</th>
+            <th class="text-green">Present</th>
+            <th class="text-red">Absent</th>
+            <th class="text-yellow">Late</th>
+            <th>Leave</th>
+            <th>Total</th>
+            <th>Attendance %</th>
           </tr>
         </thead>
         <tbody>
@@ -360,12 +360,12 @@ const Attendance = (() => {
     const type = document.getElementById('att-rep-type')?.value || 'student';
 
     const data = records.filter(r => r.type === type && r.date >= from && r.date <= to);
-    if (!data.length) { Utils.toast('কোনো ডেটা নেই', 'error'); return; }
+    if (!data.length) { Utils.toast('No data available', 'error'); return; }
 
     const rows = data.map(r => ({
-      'তারিখ': r.date, 'আইডি': r.entityId, 'নাম': r.entityName,
-      'ধরন': r.type, 'ব্যাচ/পদ': r.batch || r.role,
-      'স্ট্যাটাস': r.status, 'নোট': r.note,
+      'Date': r.date, 'ID': r.entityId, 'Name': r.entityName,
+      'Type': r.type, 'Batch/Role': r.batch || r.role,
+      'Status': r.status, 'Notes': r.note,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();

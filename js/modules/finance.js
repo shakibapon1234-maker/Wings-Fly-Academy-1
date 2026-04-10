@@ -43,35 +43,35 @@ const Finance = (() => {
     container.innerHTML = `
       <!-- Summary -->
       <div class="dashboard-grid" style="margin-bottom:16px">
-        ${sCard('fa-arrow-trend-up','green','মোট আয়',Utils.takaEn(income))}
-        ${sCard('fa-arrow-trend-down','red','মোট ব্যয়',Utils.takaEn(expense))}
-        ${sCard('fa-scale-balanced',net>=0?'green':'red','নিট',Utils.takaEn(net))}
-        ${sCard('fa-hand-holding-dollar','amber','লোন (দেওয়া)',Utils.takaEn(loanGiv))}
+        ${sCard('fa-arrow-trend-up','green','Total Income',Utils.takaEn(income))}
+        ${sCard('fa-arrow-trend-down','red','Total Expense',Utils.takaEn(expense))}
+        ${sCard('fa-scale-balanced',net>=0?'green':'red','Net',Utils.takaEn(net))}
+        ${sCard('fa-hand-holding-dollar','amber','Loan (Given)',Utils.takaEn(loanGiv))}
       </div>
 
       <!-- Filter Bar -->
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="fin-search" class="form-control" placeholder="বিবরণ খুঁজুন…" value="${searchQuery}" oninput="Finance.onSearch(this.value)" />
+          <input id="fin-search" class="form-control" placeholder="Description Search…" value="${searchQuery}" oninput="Finance.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Finance.onFilter('type',this.value)">
-          <option value="">সব ধরন</option>
-          <option value="Income"         ${filterType==='Income'?'selected':''}>আয়</option>
-          <option value="Expense"        ${filterType==='Expense'?'selected':''}>ব্যয়</option>
-          <option value="Loan Giving"    ${filterType==='Loan Giving'?'selected':''}>লোন দেওয়া</option>
-          <option value="Loan Receiving" ${filterType==='Loan Receiving'?'selected':''}>লোন নেওয়া</option>
+          <option value="">All Types</option>
+          <option value="Income"         ${filterType==='Income'?'selected':''}>Income</option>
+          <option value="Expense"        ${filterType==='Expense'?'selected':''}>Expense</option>
+          <option value="Loan Giving"    ${filterType==='Loan Giving'?'selected':''}>Loan Given</option>
+          <option value="Loan Receiving" ${filterType==='Loan Receiving'?'selected':''}>Loan Taken</option>
           <option value="Transfer In"    ${filterType==='Transfer In'?'selected':''}>Transfer In</option>
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
         </select>
         <select class="form-control" onchange="Finance.onFilter('method',this.value)">
-          <option value="">সব পদ্ধতি</option>
-          <option value="Cash"           ${filterMethod==='Cash'?'selected':''}>নগদ</option>
-          <option value="Bank"           ${filterMethod==='Bank'?'selected':''}>ব্যাংক</option>
-          <option value="Mobile Banking" ${filterMethod==='Mobile Banking'?'selected':''}>মোবাইল ব্যাংকিং</option>
+          <option value="">All Methods</option>
+          <option value="Cash"           ${filterMethod==='Cash'?'selected':''}>Cash</option>
+          <option value="Bank"           ${filterMethod==='Bank'?'selected':''}>Bank</option>
+          <option value="Mobile Banking" ${filterMethod==='Mobile Banking'?'selected':''}>Mobile Banking</option>
         </select>
-        <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="শুরুর তারিখ" />
-        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)"   title="শেষ তারিখ" />
+        <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
+        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)"   title="End Date" />
         <button class="btn-secondary btn-sm" onclick="Finance.resetFilters()"><i class="fa fa-rotate-left"></i></button>
         <button class="btn-success btn-sm"   onclick="Finance.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('finance-print-area')"><i class="fa fa-print"></i></button>
@@ -84,14 +84,14 @@ const Finance = (() => {
             <thead>
               <tr>
                 <th>#</th>
-                <th>তারিখ</th>
-                <th>ধরন</th>
-                <th>বিভাগ</th>
-                <th>বিবরণ</th>
-                <th>পদ্ধতি</th>
-                <th>পরিমাণ</th>
-                <th>ব্যালেন্স</th>
-                <th class="no-print">কাজ</th>
+                <th>Date</th>
+                <th>Type</th>
+                <th>Department</th>
+                <th>Description</th>
+                <th>Method</th>
+                <th>Amount</th>
+                <th>Balance</th>
+                <th class="no-print">Action</th>
               </tr>
             </thead>
             <tbody>
@@ -104,7 +104,7 @@ const Finance = (() => {
   }
 
   function renderRows(rows) {
-    if (!rows.length) return Utils.noDataRow(9,'কোনো লেনদেন পাওয়া যায়নি');
+    if (!rows.length) return Utils.noDataRow(9,'No Transaction not found');
     return rows.map((f,i) => {
       const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
       return `<tr>
@@ -130,10 +130,10 @@ const Finance = (() => {
 
   function typeBadge(type) {
     const map = {
-      'Income':         ['আয়',           'success'],
-      'Expense':        ['ব্যয়',          'danger'],
-      'Loan Giving':    ['লোন দেওয়া',    'warning'],
-      'Loan Receiving': ['লোন নেওয়া',    'info'],
+      'Income':         ['Income',           'success'],
+      'Expense':        ['Expense',          'danger'],
+      'Loan Giving':    ['Loan Given',    'warning'],
+      'Loan Receiving': ['Loan Taken',    'info'],
       'Transfer In':    ['Transfer In',   'primary'],
       'Transfer Out':   ['Transfer Out',  'muted'],
     };
@@ -179,43 +179,43 @@ const Finance = (() => {
   ══════════════════════════════════════════ */
   function openAddModal(prefill={}) {
     editingId = null;
-    Utils.openModal('<i class="fa fa-plus"></i> নতুন লেনদেন', formHTML(prefill));
+    Utils.openModal('<i class="fa fa-plus"></i> New Transaction', formHTML(prefill));
   }
 
   function openEditModal(id) {
     const f = SupabaseSync.getById(DB.finance, id);
     if (!f) return;
     editingId = id;
-    Utils.openModal('<i class="fa fa-pen"></i> লেনদেন সম্পাদনা', formHTML(f));
+    Utils.openModal('<i class="fa fa-pen"></i> Transaction Edit', formHTML(f));
   }
 
   function formHTML(d={}) {
     return `
       <div class="form-row">
         <div class="form-group">
-          <label>ধরন <span class="req">*</span></label>
+          <label>Type <span class="req">*</span></label>
           <select id="ff-type" class="form-control">
-            <option value="Income"         ${d.type==='Income'?'selected':''}>আয়</option>
-            <option value="Expense"        ${d.type==='Expense'?'selected':''}>ব্যয়</option>
-            <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>লোন দেওয়া</option>
-            <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>লোন নেওয়া</option>
+            <option value="Income"         ${d.type==='Income'?'selected':''}>Income</option>
+            <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense</option>
+            <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
+            <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>Loan Taken</option>
             <option value="Transfer In"    ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
             <option value="Transfer Out"   ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
           </select>
         </div>
         <div class="form-group">
-          <label>পদ্ধতি <span class="req">*</span></label>
+          <label>Method <span class="req">*</span></label>
           <select id="ff-method" class="form-control">
-            <option value="Cash"           ${(d.method||'Cash')==='Cash'?'selected':''}>নগদ</option>
-            <option value="Bank"           ${d.method==='Bank'?'selected':''}>ব্যাংক</option>
-            <option value="Mobile Banking" ${d.method==='Mobile Banking'?'selected':''}>মোবাইল ব্যাংকিং</option>
+            <option value="Cash"           ${(d.method||'Cash')==='Cash'?'selected':''}>Cash</option>
+            <option value="Bank"           ${d.method==='Bank'?'selected':''}>Bank</option>
+            <option value="Mobile Banking" ${d.method==='Mobile Banking'?'selected':''}>Mobile Banking</option>
           </select>
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>বিভাগ</label>
-          <input id="ff-category" class="form-control" list="fin-cat-list" value="${d.category||''}" placeholder="যেমন: Student Fee, Rent…" />
+          <label>Department</label>
+          <input id="ff-category" class="form-control" list="fin-cat-list" value="${d.category||''}" placeholder="e.g.: Student Fee, Rent…" />
           <datalist id="fin-cat-list">
             <option value="Student Fee"><option value="Exam Fee"><option value="Salary">
             <option value="Rent"><option value="Utilities"><option value="Equipment">
@@ -223,28 +223,28 @@ const Finance = (() => {
           </datalist>
         </div>
         <div class="form-group">
-          <label>তারিখ <span class="req">*</span></label>
+          <label>Date <span class="req">*</span></label>
           <input id="ff-date" type="date" class="form-control" value="${(d.date||Utils.today()).split('T')[0]}" />
         </div>
       </div>
       <div class="form-group">
-        <label>বিবরণ</label>
-        <input id="ff-description" class="form-control" value="${d.description||''}" placeholder="লেনদেনের বিস্তারিত বিবরণ" />
+        <label>Description</label>
+        <input id="ff-description" class="form-control" value="${d.description||''}" placeholder="Transaction details" />
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>পরিমাণ (৳) <span class="req">*</span></label>
+          <label>Amount (৳) <span class="req">*</span></label>
           <input id="ff-amount" type="number" class="form-control" value="${d.amount||''}" placeholder="0" />
         </div>
         <div class="form-group">
-          <label>নোট</label>
-          <input id="ff-note" class="form-control" value="${d.note||''}" placeholder="ঐচ্ছিক" />
+          <label>Notes</label>
+          <input id="ff-note" class="form-control" value="${d.note||''}" placeholder="Optional" />
         </div>
       </div>
       <div id="ff-error" class="form-error hidden"></div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
-        <button class="btn-primary" onclick="Finance.saveEntry()"><i class="fa fa-floppy-disk"></i> সংরক্ষণ</button>
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Finance.saveEntry()"><i class="fa fa-floppy-disk"></i> Save</button>
       </div>
     `;
   }
@@ -258,8 +258,8 @@ const Finance = (() => {
     const date   = Utils.formVal('ff-date');
     const errEl  = document.getElementById('ff-error');
 
-    if (!amount || amount<=0) { errEl.textContent='পরিমাণ আবশ্যক'; errEl.classList.remove('hidden'); return; }
-    if (!date)                { errEl.textContent='তারিখ আবশ্যক';  errEl.classList.remove('hidden'); return; }
+    if (!amount || amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
+    if (!date)                { errEl.textContent='Date Required';  errEl.classList.remove('hidden'); return; }
 
     const record = {
       type,
@@ -271,11 +271,11 @@ const Finance = (() => {
       note:        Utils.formVal('ff-note'),
     };
 
-    /* Loan Giving/Receiving → loans table-এও entry */
+    /* Loan Giving/Receiving → also create loans table entry */
     if (type==='Loan Giving'||type==='Loan Receiving') {
       SupabaseSync.insert(DB.loans, {
         direction:   type==='Loan Giving'?'given':'received',
-        person:      record.description||'অজানা',
+        person:      record.description||'Unknown',
         amount,
         date,
         note:        record.note,
@@ -285,10 +285,10 @@ const Finance = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.finance, editingId, record);
-      Utils.toast('লেনদেন আপডেট হয়েছে ✓','success');
+      Utils.toast('Transaction updated ✓','success');
     } else {
       SupabaseSync.insert(DB.finance, record);
-      Utils.toast('লেনদেন যোগ হয়েছে ✓','success');
+      Utils.toast('Transaction added ✓','success');
     }
 
     Utils.closeModal();
@@ -299,10 +299,10 @@ const Finance = (() => {
      DELETE
   ══════════════════════════════════════════ */
   async function deleteEntry(id) {
-    const ok = await Utils.confirm('এই লেনদেন মুছে ফেলবেন?','লেনদেন মুছুন');
+    const ok = await Utils.confirm('Delete this transaction?','Delete Transaction');
     if (!ok) return;
     SupabaseSync.remove(DB.finance, id);
-    Utils.toast('মুছে ফেলা হয়েছে','info');
+    Utils.toast('Transaction deleted','info');
     render();
   }
 
@@ -313,15 +313,15 @@ const Finance = (() => {
     const all      = SupabaseSync.getAll(DB.finance);
     const filtered = applyFilters(all);
     const rows     = filtered.map(f=>({
-      'তারিখ':    f.date||'',
-      'ধরন':      f.type||'',
-      'বিভাগ':    f.category||'',
-      'বিবরণ':    f.description||'',
-      'পদ্ধতি':   f.method||'',
-      'পরিমাণ':   f.amount||0,
-      'নোট':      f.note||'',
+      'Date':    f.date||'',
+      'Type':      f.type||'',
+      'Department':    f.category||'',
+      'Description':    f.description||'',
+      'Method':   f.method||'',
+      'Amount':   f.amount||0,
+      'Notes':      f.note||'',
     }));
-    Utils.exportExcel(rows,'finance_ledger','আর্থিক লেজার');
+    Utils.exportExcel(rows,'finance_ledger','Finance Ledger');
   }
 
   return {

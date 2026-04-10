@@ -11,20 +11,20 @@ const App = (() => {
   ];
 
   const TITLES = {
-    dashboard:      '📊 ড্যাশবোর্ড',
-    students:       '👩‍🎓 শিক্ষার্থী',
-    finance:        '💰 আর্থিক লেজার',
-    accounts:       '🏦 একাউন্ট',
-    loans:          '💳 লোন',
-    exam:           '📝 পরীক্ষা',
-    attendance:     '📋 উপস্থিতি',
-    salary:         '💵 বেতন হাব',
-    'hr-staff':     '👥 কর্মী',
-    visitors:       '🚶 ভিজিটর',
-    'id-cards':     '🪪 আইডি কার্ড',
-    certificates:   '🏆 সার্টিফিকেট',
-    'notice-board': '📢 নোটিস বোর্ড',
-    settings:       '⚙️ সেটিংস',
+    dashboard:      'Welcome back, Admin!',
+    students:       '👩‍🎓 Students',
+    finance:        '💰 Finance Ledger',
+    accounts:       '🏦 Accounts',
+    loans:          '💳 Loans',
+    exam:           '📝 Exams',
+    attendance:     '📋 Attendance',
+    salary:         '💵 Salary Hub',
+    'hr-staff':     '👥 HR / Staff',
+    visitors:       '🚶 Visitors',
+    'id-cards':     '🪪 ID Cards',
+    certificates:   '🏆 Certificates',
+    'notice-board': '📢 Notice Board',
+    settings:       '⚙️ Settings',
   };
 
   let currentSection = 'dashboard';
@@ -197,10 +197,10 @@ const App = (() => {
         const ok = login(pw);
         if (!ok) {
           if (errEl) {
-            errEl.textContent = 'পাসওয়ার্ড ভুল হয়েছে!';
+            errEl.textContent = 'Password Has been wrong!';
             errEl.classList.remove('hidden');
           }
-          Utils.toast('পাসওয়ার্ড ভুল হয়েছে!', 'error');
+          Utils.toast('Password Has been wrong!', 'error');
         }
       });
     }
@@ -245,7 +245,7 @@ const App = (() => {
   // ── Init ──────────────────────────────────────────────────
   function init() {
     // Apply saved theme
-    const savedTheme = localStorage.getItem('wfa_theme') || 'light';
+    const savedTheme = localStorage.getItem('wfa_theme') || 'dark';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeBtn = document.getElementById('btn-theme-toggle');
     if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';

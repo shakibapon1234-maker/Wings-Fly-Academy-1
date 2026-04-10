@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -43,19 +43,19 @@
     <div class="login-box">
       <img src="assets/logo.jpg.jpeg" alt="Wings Fly" onerror="this.style.display='none'" />
       <h1>Wings Fly Aviation Academy</h1>
-      <p class="bn">ম্যানেজমেন্ট সিস্টেমে লগইন করুন</p>
+      <p class="bn">Login to Management System</p>
       <form id="login-form">
         <div class="form-group">
-          <label class="bn"><i class="fa fa-user"></i> ইউজারনেম</label>
+          <label class="bn"><i class="fa fa-user"></i> Username</label>
           <input type="text" id="login-username" placeholder="admin" autocomplete="username" />
         </div>
         <div class="form-group" style="margin-bottom:16px">
-          <label class="bn"><i class="fa fa-lock"></i> পাসওয়ার্ড</label>
+          <label class="bn"><i class="fa fa-lock"></i> Password</label>
           <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
         </div>
         <div id="login-error" class="hidden" style="color:var(--error);font-size:.85rem;margin-bottom:12px;text-align:center"></div>
         <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:1rem">
-          <i class="fa fa-sign-in-alt"></i> লগইন করুন
+          <i class="fa fa-sign-in-alt"></i> Login
         </button>
       </form>
       <div style="margin-top:20px;font-size:.75rem;color:var(--text-muted)">Wings Fly Aviation Academy © 2026</div>
@@ -75,58 +75,58 @@
       </div>
 
       <nav>
-        <div class="nav-group-title">প্রধান</div>
+        <div class="nav-group-title bn">MAIN</div>
         <button class="nav-item active" data-section="dashboard">
-          <i class="fa fa-gauge-high nav-icon"></i><span class="bn">ড্যাশবোর্ড</span>
+          <i class="fa fa-gauge-high nav-icon"></i><span class="bn">Dashboard</span>
         </button>
 
-        <div class="nav-group-title">শিক্ষার্থী</div>
+        <div class="nav-group-title bn">STUDENT</div>
         <button class="nav-item" data-section="students">
-          <i class="fa fa-user-graduate nav-icon"></i><span class="bn">শিক্ষার্থী</span>
+          <i class="fa fa-user-graduate nav-icon"></i><span class="bn">Students</span>
         </button>
         <button class="nav-item" data-section="exam">
-          <i class="fa fa-clipboard-list nav-icon"></i><span class="bn">পরীক্ষা</span>
+          <i class="fa fa-clipboard-list nav-icon"></i><span class="bn">Exams</span>
         </button>
         <button class="nav-item" data-section="attendance">
-          <i class="fa fa-calendar-check nav-icon"></i><span class="bn">উপস্থিতি</span>
+          <i class="fa fa-calendar-check nav-icon"></i><span class="bn">Attendance</span>
         </button>
 
-        <div class="nav-group-title">অর্থ ব্যবস্থাপনা</div>
+        <div class="nav-group-title bn">FINANCE</div>
         <button class="nav-item" data-section="finance">
-          <i class="fa fa-book-open nav-icon"></i><span class="bn">আর্থিক লেজার</span>
+          <i class="fa fa-book-open nav-icon"></i><span class="bn">Finance</span>
         </button>
         <button class="nav-item" data-section="accounts">
-          <i class="fa fa-wallet nav-icon"></i><span class="bn">একাউন্ট</span>
+          <i class="fa fa-wallet nav-icon"></i><span class="bn">Accounts</span>
         </button>
         <button class="nav-item" data-section="loans">
-          <i class="fa fa-hand-holding-dollar nav-icon"></i><span class="bn">লোন</span>
+          <i class="fa fa-hand-holding-dollar nav-icon"></i><span class="bn">Loans</span>
         </button>
 
-        <div class="nav-group-title">কর্মী</div>
+        <div class="nav-group-title bn">HR/STAFF</div>
         <button class="nav-item" data-section="hr-staff">
-          <i class="fa fa-users nav-icon"></i><span class="bn">কর্মী</span>
+          <i class="fa fa-users nav-icon"></i><span class="bn">HR/Staff</span>
         </button>
         <button class="nav-item" data-section="salary">
-          <i class="fa fa-sack-dollar nav-icon"></i><span class="bn">বেতন হাব</span>
+          <i class="fa fa-sack-dollar nav-icon"></i><span class="bn">Salary Hub</span>
         </button>
 
-        <div class="nav-group-title">অন্যান্য</div>
+        <div class="nav-group-title bn">OTHERS</div>
         <button class="nav-item" data-section="visitors">
-          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span class="bn">ভিজিটর</span>
+          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span class="bn">Visitors</span>
         </button>
         <button class="nav-item" data-section="id-cards">
-          <i class="fa fa-id-card nav-icon"></i><span class="bn">আইডি কার্ড</span>
+          <i class="fa fa-id-card nav-icon"></i><span class="bn">ID Cards</span>
         </button>
         <button class="nav-item" data-section="certificates">
-          <i class="fa fa-certificate nav-icon"></i><span class="bn">সার্টিফিকেট</span>
+          <i class="fa fa-certificate nav-icon"></i><span class="bn">Certificates</span>
         </button>
         <button class="nav-item" data-section="notice-board">
-          <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
+          <i class="fa fa-bullhorn nav-icon"></i><span class="bn">Notice Board</span>
         </button>
 
-        <div class="nav-group-title">সিস্টেম</div>
+        <div class="nav-group-title bn">SYSTEM</div>
         <button class="nav-item" data-section="settings">
-          <i class="fa fa-gear nav-icon"></i><span class="bn">সেটিংস</span>
+          <i class="fa fa-gear nav-icon"></i><span class="bn">Settings</span>
         </button>
       </nav>
 
@@ -149,24 +149,29 @@
       <!-- TOPBAR -->
       <div id="topbar">
         <button id="btn-hamburger"><i class="fa fa-bars"></i></button>
-        <div id="page-title" class="bn">📊 ড্যাশবোর্ড</div>
+        <div id="page-title" class="bn" style="font-size:1.4rem; font-weight:700; color:var(--accent-cyan); letter-spacing:0.02em;">Welcome back, Admin!</div>
         <div class="topbar-actions">
-          <button class="btn btn-sm btn-outline" id="btn-quick-add" title="দ্রুত যোগ"><i class="fa fa-plus"></i></button>
-          <button class="btn btn-sm btn-ghost" id="btn-notif" title="নোটিফিকেশন" onclick="App.navigateTo('students')">
+          <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
+          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Notifications" onclick="App.navigateTo('students')">
             <i class="fa fa-bell"></i>
             <span id="notif-count" class="badge badge-error" style="font-size:.6rem;padding:1px 5px;display:none;position:relative;top:-6px;left:-4px">0</span>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-theme-toggle" title="থিম পরিবর্তন">🌙</button>
-          <button class="btn btn-sm btn-danger" id="btn-logout" title="লগআউট"><i class="fa fa-sign-out-alt"></i></button>
+          <button class="btn btn-sm btn-ghost" style="display:flex; align-items:center; gap:8px;" title="Profile">
+            <div style="background:rgba(0,212,255,0.2); color:#00d4ff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; border:1px solid rgba(0,212,255,0.3);">A</div>
+            <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.2;">
+              <span style="font-size:0.8rem; font-weight:700; color:#fff;">Admin</span>
+              <span style="font-size:0.65rem; color:var(--text-muted);">User <i class="fa fa-chevron-down" style="font-size:0.6rem; margin-left:4px;"></i></span>
+            </div>
+          </button>
         </div>
       </div>
 
       <!-- Quick Add Dropdown -->
       <div id="quick-add-menu" style="display:none;position:absolute;right:24px;top:56px;z-index:300;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px 0;min-width:200px">
-        <button onclick="App.quickAction('student')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-user-graduate" style="width:20px;color:var(--brand-primary)"></i> শিক্ষার্থী যোগ</button>
-        <button onclick="App.quickAction('transaction')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-money-bill" style="width:20px;color:var(--success)"></i> লেনদেন যোগ</button>
-        <button onclick="App.quickAction('exam')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-clipboard-list" style="width:20px;color:var(--warning)"></i> পরীক্ষা যোগ</button>
-        <button onclick="App.quickAction('visitor')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-person" style="width:20px;color:var(--info)"></i> ভিজিটর যোগ</button>
+        <button onclick="App.quickAction('student')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-user-graduate" style="width:20px;color:var(--brand-primary)"></i> Add Student</button>
+        <button onclick="App.quickAction('transaction')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-money-bill" style="width:20px;color:var(--success)"></i> Add Transaction</button>
+        <button onclick="App.quickAction('exam')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-clipboard-list" style="width:20px;color:var(--warning)"></i> Add Exam</button>
+        <button onclick="App.quickAction('visitor')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-person" style="width:20px;color:var(--info)"></i> Add Visitor</button>
       </div>
 
       <!-- ════════ ALL PAGE SECTIONS ════════ -->
@@ -175,16 +180,16 @@
         <!-- ▸ DASHBOARD -->
         <div id="section-dashboard" class="page-section">
           <div id="dashboard-content">
-            <div style="text-align:center;padding:60px 0;color:var(--text-muted)"><i class="fa fa-spinner fa-spin" style="font-size:2rem"></i><p class="bn" style="margin-top:12px">লোড হচ্ছে...</p></div>
+            <div style="text-align:center;padding:60px 0;color:var(--text-muted)"><i class="fa fa-spinner fa-spin" style="font-size:2rem"></i><p style="margin-top:12px">Loading...</p></div>
           </div>
         </div>
 
         <!-- ▸ STUDENTS -->
         <div id="section-students" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-user-graduate"></i> শিক্ষার্থী</h2>
+            <h2><i class="fa fa-user-graduate"></i> Students</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="Students.openAddModal()"><i class="fa fa-plus"></i> নতুন শিক্ষার্থী</button>
+              <button class="btn btn-primary" onclick="Students.openAddModal()"><i class="fa fa-plus"></i> Add Student</button>
             </div>
           </div>
           <div id="students-content"></div>
@@ -193,9 +198,9 @@
         <!-- ▸ FINANCE -->
         <div id="section-finance" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-book-open"></i> আর্থিক লেজার</h2>
+            <h2><i class="fa fa-book-open"></i> Finance Ledger</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="Finance.openAddModal()"><i class="fa fa-plus"></i> লেনদেন যোগ</button>
+              <button class="btn btn-primary" onclick="Finance.openAddModal()"><i class="fa fa-plus"></i> Add Transaction</button>
             </div>
           </div>
           <div id="finance-content"></div>
@@ -209,9 +214,9 @@
         <!-- ▸ LOANS -->
         <div id="section-loans" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-hand-holding-dollar"></i> লোন ব্যবস্থাপনা</h2>
+            <h2><i class="fa fa-hand-holding-dollar"></i> Loan Management</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="Loans.openAddModal()"><i class="fa fa-plus"></i> নতুন লোন</button>
+              <button class="btn btn-primary" onclick="Loans.openAddModal()"><i class="fa fa-plus"></i> New Loan</button>
             </div>
           </div>
           <div id="loans-content"></div>
@@ -220,9 +225,9 @@
         <!-- ▸ EXAM -->
         <div id="section-exam" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-clipboard-list"></i> পরীক্ষা</h2>
+            <h2><i class="fa fa-clipboard-list"></i> Exams</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="Exam.openRegModal()"><i class="fa fa-plus"></i> পরীক্ষার নিবন্ধন</button>
+              <button class="btn btn-primary" onclick="Exam.openRegModal()"><i class="fa fa-plus"></i> Exam Registration</button>
             </div>
           </div>
           <div id="exam-content"></div>
@@ -236,9 +241,9 @@
         <!-- ▸ HR STAFF -->
         <div id="section-hr-staff" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-users"></i> কর্মী ব্যবস্থাপনা</h2>
+            <h2><i class="fa fa-users"></i> HR / Staff Management</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="HRStaff.openAddModal()"><i class="fa fa-plus"></i> নতুন কর্মী</button>
+              <button class="btn btn-primary" onclick="HRStaff.openAddModal()"><i class="fa fa-plus"></i> Add Employee</button>
             </div>
           </div>
           <div id="hr-staff-content"></div>
@@ -252,9 +257,9 @@
         <!-- ▸ VISITORS -->
         <div id="section-visitors" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-person-walking-arrow-right"></i> ভিজিটর</h2>
+            <h2><i class="fa fa-person-walking-arrow-right"></i> Visitors</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="VisitorsModule.openAddModal()"><i class="fa fa-plus"></i> নতুন ভিজিটর</button>
+              <button class="btn btn-primary" onclick="VisitorsModule.openAddModal()"><i class="fa fa-plus"></i> Add Visitor</button>
             </div>
           </div>
           <div id="visitors-content"></div>
@@ -273,9 +278,9 @@
         <!-- ▸ NOTICE BOARD -->
         <div id="section-notice-board" class="page-section" style="display:none">
           <div class="page-header">
-            <h2 class="bn"><i class="fa fa-bullhorn"></i> নোটিস বোর্ড</h2>
+            <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="NoticeBoardModule.openAddModal()"><i class="fa fa-plus"></i> নতুন নোটিস</button>
+              <button class="btn btn-primary" onclick="NoticeBoardModule.openAddModal()"><i class="fa fa-plus"></i> New Notice</button>
             </div>
           </div>
           <div id="notice-board-content"></div>
@@ -309,13 +314,13 @@
   <div id="confirm-backdrop" class="modal-backdrop">
     <div class="modal-box" style="max-width:420px">
       <div class="modal-header">
-        <span id="confirm-title" class="modal-title bn">নিশ্চিত করুন</span>
+        <span id="confirm-title" class="modal-title">Confirm</span>
       </div>
       <div>
-        <p id="confirm-message" class="bn" style="margin-bottom:20px;font-size:.95rem">আপনি কি নিশ্চিত?</p>
+        <p id="confirm-message" style="margin-bottom:20px;font-size:.95rem">Are you sure?</p>
         <div style="display:flex;gap:10px;justify-content:flex-end">
-          <button id="confirm-no" class="btn btn-ghost">বাতিল</button>
-          <button id="confirm-yes" class="btn btn-danger">হ্যাঁ, করুন</button>
+          <button id="confirm-no" class="btn btn-ghost">Cancel</button>
+          <button id="confirm-yes" class="btn btn-danger">Yes, Proceed</button>
         </div>
       </div>
     </div>
