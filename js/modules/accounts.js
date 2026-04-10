@@ -6,7 +6,13 @@
 
 const Accounts = (() => {
 
-  const TYPES = ['Cash', 'Bank', 'bKash', 'Nagad', 'Rocket', 'Cheque', 'Card'];
+  const CATEGORIES = ['Cash', 'Bank', 'Mobile Banking'];
+
+  let searchResMethod = '';
+  let searchResFrom = '';
+  let searchResTo = '';
+  let histResFrom = '';
+  let histResTo = '';
 
   function render() {
     const container = document.getElementById('accounts-content');
@@ -15,178 +21,305 @@ const Accounts = (() => {
     const finance  = SupabaseSync.getAll(DB.finance);
     const accounts = SupabaseSync.getAll(DB.accounts);
 
-    /* Compute balances */
-    const balances = { Cash:0, Bank:0, bKash:0, Nagad:0, Rocket:0, Cheque:0, Card:0 };
+    // Filter accounts by class
+    const cashAcc = accounts.find(a => a.type === 'Cash') || { id: '', type: 'Cash', balance: 0 };
+    const bankDetails = accounts.filter(a => a.type === 'Bank_Detail');
+    const mobileDetails = accounts.filter(a => a.type === 'Mobile_Detail');
 
-    /* Initial balances from accounts table */
-    accounts.forEach(a => {
-      if (balances[a.type] !== undefined) balances[a.type] += Utils.safeNum(a.balance);
-    });
+    // Calculate initial sums
+    const bankInitialSum = bankDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
+    const mobileInitialSum = mobileDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
 
-    /* Adjust with finance movements */
+    // Calculate dynamic totals
+    let cashBal = Utils.safeNum(cashAcc.balance);
+    let bankBal = bankInitialSum;
+    let mobileBal = mobileInitialSum;
+
     finance.forEach(f => {
-      const amt = Utils.safeNum(f.amount);
-      const m   = f.method;
-      if (!balances.hasOwnProperty(m)) return;
-      const isIn = ['Income','Loan Receiving','Transfer In'].includes(f.type);
-      balances[m] += isIn ? amt : -amt;
+      const isPos = ['Income','Loan Receiving','Transfer In'].includes(f.type);
+      const amt = Utils.safeNum(f.amount) * (isPos ? 1 : -1);
+      if (f.method === 'Cash') cashBal += amt;
+      else if (f.method === 'Bank') bankBal += amt;
+      else if (f.method === 'Mobile Banking') mobileBal += amt;
     });
 
-    const total = Object.values(balances).reduce((s,v)=>s+v,0);
-    const cashBal = balances['Cash'];
-    const cashAccount = accounts.find(a => a.type === 'Cash');
+    const totalAll = cashBal + bankBal + mobileBal;
 
     container.innerHTML = `
       <!-- Cash Hero Section -->
-      <div class="account-hero">
-        <div>
-          <div style="display:flex;align-items:center;gap:12px">
-            <span class="hero-icon">💵</span>
-            <div>
-              <div class="hero-label">CASH</div>
-              <div class="hero-desc">Physical cash on hand</div>
-            </div>
+      <div style="background:var(--bg-surface); border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; box-shadow:inset 0 0 40px rgba(0,212,255,0.05); position:relative; overflow:hidden;">
+        <div style="position:absolute; top:0; left:0; width:100%; height:100%; background-image:linear-gradient(rgba(0,212,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.05) 1px, transparent 1px); background-size:20px 20px; z-index:0;"></div>
+        <div style="display:flex; align-items:center; gap:16px; position:relative; z-index:1;">
+          <div style="background:rgba(0,212,255,0.1); width:60px; height:60px; display:flex; align-items:center; justify-content:center; border-radius:8px; font-size:2rem; border:1px solid rgba(0,212,255,0.3);">💵</div>
+          <div>
+            <div style="color:#ffd700; font-size:1.6rem; font-weight:800; letter-spacing:1px; line-height:1;">CASH</div>
+            <div style="color:var(--text-muted); font-size:0.9rem; font-weight:600; margin-top:4px;">Physical cash on hand</div>
           </div>
-          <div class="hero-actions">
-            <button class="btn-edit" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAccount?.balance||0)}','${cashAccount?.id||''}')">
-              <i class="fa fa-pen"></i> UPDATE CASH
+        </div>
+        <div style="text-align:right; position:relative; z-index:1;">
+          <div style="color:#ffd700; font-size:2.8rem; font-weight:800; font-family:var(--font-en); text-shadow:0 0 15px rgba(255,215,0,0.4); margin-bottom:10px; line-height:1;">${Utils.takaEn(cashBal)}</div>
+          <div style="display:flex; gap:10px; justify-content:flex-end;">
+            <button class="btn btn-outline btn-sm" style="background:#fff; color:#0e1628; border:none; font-weight:700; padding:6px 16px; border-radius:20px;" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAcc?.balance||0)}','${cashAcc?.id||''}')">
+              <i class="fa fa-pen" style="font-size:0.8rem;"></i> UPDATE CASH
             </button>
-            <button class="btn-outline btn-sm" style="color:var(--text-secondary)" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull()">
+            <button class="btn btn-outline btn-sm" style="color:var(--text-muted); border-color:rgba(255,255,255,0.2); font-weight:600; border-radius:20px;" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull()">
               <i class="fa fa-rotate"></i> SYNC
             </button>
           </div>
         </div>
-        <div class="hero-amount">${Utils.takaEn(cashBal)}</div>
       </div>
 
       <!-- Search All Accounts -->
-      <div class="search-accounts-bar">
-        <div class="bar-title"><i class="fa fa-search"></i> Search All Accounts (💵 Cash + 🏦 Bank + 📱 Mobile Banking)</div>
+      <div style="background:var(--bg-surface); padding:16px; border-radius:8px; border:1px solid rgba(0,212,255,0.15); margin-bottom:20px;">
+        <div style="color:var(--brand-primary); font-weight:700; margin-bottom:12px; font-size:0.95rem;">
+          <i class="fa fa-search"></i> Search All Accounts (💵 Cash + 🏦 Bank + 📱 Mobile Banking)
+        </div>
         <div class="form-row" style="margin-bottom:0">
           <div class="form-group">
-            <label class="filter-label">Select Account</label>
-            <select id="acc-search-type" class="form-control" style="border-color:rgba(0,212,255,0.2)">
+            <label class="filter-label" style="color:#00d4ff">Select Account</label>
+            <select id="acc-search-type" class="form-control" style="border-color:rgba(0,212,255,0.3)">
               <option value="">-- Select an Account --</option>
-              ${TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+              ${CATEGORIES.map(t=>`<option value="${t}" ${searchResMethod===t?'selected':''}>${t}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
-            <label class="filter-label">From Date</label>
-            <input type="date" class="form-control" id="acc-search-from" style="border-color:rgba(0,212,255,0.2)" />
+            <label class="filter-label" style="color:#00ff88">From Date</label>
+            <input type="date" class="form-control" id="acc-search-from" value="${searchResFrom}" style="border-color:rgba(0,255,136,0.3)" />
           </div>
           <div class="form-group">
-            <label class="filter-label">To Date</label>
-            <input type="date" class="form-control" id="acc-search-to" value="${Utils.today()}" style="border-color:rgba(0,212,255,0.2)" />
+            <label class="filter-label" style="color:#00d4ff">To Date</label>
+            <input type="date" class="form-control" id="acc-search-to" value="${searchResTo||Utils.today()}" style="border-color:rgba(0,212,255,0.3)" />
           </div>
-          <div class="form-group" style="flex:0 0 auto;display:flex;gap:6px;align-items:flex-end">
-            <button class="btn-outline btn-sm" onclick="Accounts.searchLedger()"><i class="fa fa-search"></i></button>
-            <button class="btn-ghost btn-sm" onclick="Accounts.clearSearch()"><i class="fa fa-times"></i></button>
+          <div class="form-group" style="flex:0 0 auto; display:flex; gap:10px; align-items:flex-end;">
+            <button class="btn btn-outline" style="border-color:rgba(0,212,255,0.4); color:#00d4ff" onclick="Accounts.doSearch()"><i class="fa fa-search"></i></button>
+            <button class="btn btn-ghost" style="border:1px solid rgba(255,71,87,0.3); color:#ff4757" onclick="Accounts.clearSearch()"><i class="fa fa-times"></i></button>
           </div>
         </div>
       </div>
-
-      <!-- Balance Cards -->
-      <div class="grid-3" style="margin-bottom:20px">
-        ${Object.entries(balances).map(([type,bal]) => `
-          <div class="account-balance-card">
-            <div class="icon">${type==='Cash'?'💵':type==='Bank'?'🏦':type==='bKash'?'👛':type==='Nagad'?'📱':type==='Rocket'?'🚀':type==='Card'?'💳':'🧾'}</div>
-            <div class="label">${type}</div>
-            <div class="amount" style="color:${bal>=0?'var(--text-primary)':'var(--danger-light)'}">${Utils.takaEn(bal)}</div>
-            <div style="margin-top:12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-              <button class="btn-edit" onclick="Accounts.openSetModal('${type}','${Utils.safeNum(accounts.find(a=>a.type===type)?.balance||0)}','${accounts.find(a=>a.type===type)?.id||''}')">
-                <i class="fa fa-pen"></i> Set Balance
-              </button>
-            </div>
-          </div>`).join('')}
-      </div>
-
-      <!-- Total Balance -->
-      <div class="card" style="text-align:center;margin-bottom:20px;border-color:rgba(0,212,255,0.15)">
-        <div class="card-title" style="color:var(--brand-primary)">Total Balance (All Accounts)</div>
-        <div style="font-family:var(--font-ui);font-size:2.4rem;font-weight:800;color:${total>=0?'#00ff88':'#ff4757'};margin-top:8px;text-shadow:0 0 15px ${total>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(total)}</div>
+      <div id="acc-search-results-area" style="margin-bottom:20px;">
+        ${renderSearchResults(finance)}
       </div>
 
       <!-- Internal Balance Transfer -->
-      <div class="transfer-section">
-        <div class="transfer-title">
-          <i class="fa fa-arrow-right-arrow-left"></i> INTERNAL BALANCE TRANSFER
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="color:#00d4ff; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin:0;"><i class="fa fa-money-bill-transfer"></i> INTERNAL BALANCE TRANSFER</h3>
+          <span style="color:#cc7700; font-size:0.85rem; font-weight:600;">Move funds between Cash, Bank & Mobile accounts Instantly</span>
         </div>
-        <div class="transfer-desc">Move funds between Cash, Bank & Mobile accounts instantly.</div>
-        <div class="form-row">
-          <div class="form-group">
-            <label class="filter-label">From</label>
-            <select id="tr-from" class="form-control" style="border-color:rgba(0,255,136,0.2)">
-              ${TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="filter-label">To</label>
-            <select id="tr-to" class="form-control" style="border-color:rgba(0,255,136,0.2)">
-              ${TYPES.map((t,i)=>`<option value="${t}" ${i===1?'selected':''}>${t}</option>`).join('')}
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="filter-label">Amount (৳)</label>
-            <input id="tr-amount" type="number" class="form-control" placeholder="0" style="border-color:rgba(0,255,136,0.2)" />
-          </div>
-          <div class="form-group">
-            <label class="filter-label">Date</label>
-            <input id="tr-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(0,255,136,0.2)" />
-          </div>
-        </div>
-        <div id="tr-error" class="form-error hidden"></div>
-        <button class="btn-primary" style="width:100%;border-radius:10px;padding:12px;margin-top:8px;background:linear-gradient(90deg,#00d4ff,#00ff88);color:#0a0e1a;font-weight:800" onclick="Accounts.doTransfer()">
+        <button class="btn btn-warning" onclick="Accounts.openTransferModal()" style="font-weight:800; color:#000; padding:10px 20px;">
           <i class="fa fa-arrow-right-arrow-left"></i> TRANSFER NOW
         </button>
       </div>
-
-      <!-- Per-account Ledger -->
-      <div class="card" style="border-color:rgba(0,212,255,0.12)">
-        <div class="card-title" style="margin-bottom:14px;color:var(--brand-primary)"><i class="fa fa-list" style="color:var(--brand-primary)"></i> Account Based Ledger</div>
-        <div class="sub-tabs" id="acc-tabs">
-          ${TYPES.map((t,i)=>`<button class="sub-tab-btn ${i===0?'active':''}" onclick="Accounts.showLedger('${t}',this)">${t}</button>`).join('')}
+      <div style="background:var(--bg-surface); padding:16px; border-radius:12px; border:1px solid rgba(0,212,255,0.15); margin-bottom:30px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+          <h4 style="margin:0; color:#fff; display:flex; align-items:center; gap:8px;"><i class="fa fa-clock-rotate-left" style="color:#ffd700"></i> Transfer History</h4>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span style="color:var(--text-muted); font-size:0.8rem;">From:</span>
+            <input type="date" id="hist-from" class="form-control" style="padding:4px 8px; font-size:0.85rem; max-width:130px; border-color:rgba(255,255,255,0.1)" value="${histResFrom}" />
+            <span style="color:var(--text-muted); font-size:0.8rem;">To:</span>
+            <input type="date" id="hist-to" class="form-control" style="padding:4px 8px; font-size:0.85rem; max-width:130px; border-color:rgba(255,255,255,0.1)" value="${histResTo}" />
+            <button class="btn btn-warning btn-sm" onclick="Accounts.filterHistory()" style="color:#000; font-weight:800;"><i class="fa fa-filter"></i> FILTER</button>
+            <button class="btn btn-ghost btn-sm" onclick="Accounts.clearHistoryFilter()"><i class="fa fa-times"></i> CLEAR</button>
+          </div>
         </div>
-        <div id="acc-ledger-body">${renderLedger('Cash',finance)}</div>
+        ${renderTransferHistory(finance)}
+      </div>
+
+      <!-- Bank Details -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="color:#00d4ff; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin:0;"><i class="fa fa-folder" style="color:#00d4ff"></i> BANK DETAILS</h3>
+        <button class="btn btn-primary" onclick="Accounts.openBankModal()" style="font-weight:700;"><i class="fa fa-plus"></i> ADD NEW BANK ACCOUNT</button>
+      </div>
+      <div style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2);">
+        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:var(--bg-surface);">
+          <thead style="background:rgba(0,212,255,0.05); border-bottom:1px solid rgba(0,212,255,0.2);">
+            <tr>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">SL.</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">NAME</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">BRANCH</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">BANK NAME</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">ACCOUNT NO.</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:right;">BALANCE</th>
+              <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:center;">ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${bankDetails.length === 0 ? `<tr><td colspan="7" style="padding:20px; text-align:center; color:var(--text-muted);">No bank accounts added yet.</td></tr>` : 
+              bankDetails.map((b, i) => `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:12px;">${i+1}</td>
+                <td style="padding:12px; font-weight:700;">${b.name||'—'}</td>
+                <td style="padding:12px; color:var(--text-secondary);">${b.branch||'—'}</td>
+                <td style="padding:12px;"> <span style="background:rgba(0,212,255,0.1); color:#00d4ff; padding:4px 10px; border-radius:20px; font-size:0.75rem; border:1px solid rgba(0,212,255,0.2);">${b.bankName||'—'}</span> </td>
+                <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${b.accountNo||'—'}</td>
+                <td style="padding:12px; text-align:right; color:#00ff88; font-weight:700; font-family:var(--font-en); text-shadow:0 0 5px rgba(0,255,136,0.3);">${Utils.takaEn(b.balance)}</td>
+                <td style="padding:12px; text-align:center;">
+                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openBankModal('${b.id}')"><i class="fa fa-edit"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteBank('${b.id}')"><i class="fa fa-trash"></i></button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Banking -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="color:#00ff88; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin:0;"><i class="fa fa-mobile-screen" style="color:#00ff88"></i> MOBILE BANKING</h3>
+        <button class="btn btn-success" onclick="Accounts.openMobileModal()" style="font-weight:700;"><i class="fa fa-plus"></i> ADD MOBILE ACCOUNT</button>
+      </div>
+      <div style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,255,136,0.2);">
+        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:var(--bg-surface);">
+          <thead style="background:rgba(0,255,136,0.05); border-bottom:1px solid rgba(0,255,136,0.2);">
+            <tr>
+              <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">SL.</th>
+              <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">ACCOUNT NAME</th>
+              <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">ACCOUNT NO.</th>
+              <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:right;">BALANCE</th>
+              <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:center;">ACTION</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${mobileDetails.length === 0 ? `<tr><td colspan="5" style="padding:20px; text-align:center; color:var(--text-muted);">No mobile accounts added yet.</td></tr>` : 
+              mobileDetails.map((m, i) => `
+              <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+                <td style="padding:12px;">${i+1}</td>
+                <td style="padding:12px; font-weight:700;">${m.name||'—'}</td>
+                <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${m.accountNo||'—'}</td>
+                <td style="padding:12px; text-align:right; color:#00ff88; font-weight:700; font-family:var(--font-en); text-shadow:0 0 5px rgba(0,255,136,0.3);">${Utils.takaEn(m.balance)}</td>
+                <td style="padding:12px; text-align:center;">
+                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openMobileModal('${m.id}')"><i class="fa fa-edit"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteMobile('${m.id}')"><i class="fa fa-trash"></i></button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot style="background:rgba(0,255,136,0.1); border-top:1px solid rgba(0,255,136,0.3);">
+            <tr>
+              <td colspan="3" style="padding:16px 12px; font-weight:800; color:#00ff88; font-size:1.1rem;">Total Mobile Balance</td>
+              <td colspan="2" style="padding:16px 12px; font-weight:800; color:#00ff88; text-align:left; font-size:1.3rem; text-shadow:0 0 10px rgba(0,255,136,0.4); font-family:var(--font-en);">${Utils.takaEn(mobileInitialSum)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Total Balance Overview -->
+      <div style="border:1px solid rgba(0,212,255,0.1); border-radius:12px; padding:24px; background:var(--bg-surface);">
+        <div style="text-align:center; margin-bottom:24px;">
+          <h3 style="color:#a8b2c1; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; margin:0; text-transform:uppercase; letter-spacing:1px;">
+            <i class="fa fa-sack-dollar" style="color:#ffd700"></i> TOTAL BALANCE OVERVIEW
+          </h3>
+          <div style="color:var(--text-secondary); font-size:0.85rem; margin-top:4px;">Cash • Bank • Mobile Banking Combined</div>
+        </div>
+        <div style="display:flex; flex-wrap:wrap; gap:16px; justify-content:center;">
+          <div style="flex:1; min-width:220px; max-width:320px; background:linear-gradient(135deg, rgba(255,20,100,0.15) 0%, rgba(255,20,100,0.02) 100%); border:1px solid rgba(255,20,100,0.3); border-radius:16px; padding:24px; text-align:center; box-shadow:0 8px 32px rgba(255,20,100,0.05);">
+             <div style="color:#ff4757; font-size:2rem; margin-bottom:12px;"><i class="fa fa-money-bill"></i></div>
+             <div style="color:#fff; font-weight:800; font-size:0.95rem; letter-spacing:2px; margin-bottom:8px;">CASH</div>
+             <div style="color:#ff4757; font-size:2.2rem; font-weight:900; text-shadow:0 0 15px rgba(255,71,87,0.4); font-family:var(--font-en);">${Utils.takaEn(cashBal)}</div>
+          </div>
+          <div style="flex:1; min-width:220px; max-width:320px; background:linear-gradient(135deg, rgba(0,212,255,0.15) 0%, rgba(0,212,255,0.02) 100%); border:1px solid rgba(0,212,255,0.3); border-radius:16px; padding:24px; text-align:center; box-shadow:0 8px 32px rgba(0,212,255,0.05);">
+             <div style="color:#00d4ff; font-size:2rem; margin-bottom:12px;"><i class="fa fa-building-columns"></i></div>
+             <div style="color:#fff; font-weight:800; font-size:0.95rem; letter-spacing:2px; margin-bottom:8px;">BANK</div>
+             <div style="color:#00d4ff; font-size:2.2rem; font-weight:900; text-shadow:0 0 15px rgba(0,212,255,0.4); font-family:var(--font-en);">${Utils.takaEn(bankBal)}</div>
+          </div>
+          <div style="flex:1; min-width:220px; max-width:320px; background:linear-gradient(135deg, rgba(0,255,136,0.15) 0%, rgba(0,255,136,0.02) 100%); border:1px solid rgba(0,255,136,0.3); border-radius:16px; padding:24px; text-align:center; box-shadow:0 8px 32px rgba(0,255,136,0.05);">
+             <div style="color:#00ff88; font-size:2rem; margin-bottom:12px;"><i class="fa fa-mobile-button"></i></div>
+             <div style="color:#fff; font-weight:800; font-size:0.95rem; letter-spacing:2px; margin-bottom:8px;">MOBILE BANKING</div>
+             <div style="color:#00ff88; font-size:2.2rem; font-weight:900; text-shadow:0 0 15px rgba(0,255,136,0.4); font-family:var(--font-en);">${Utils.takaEn(mobileBal)}</div>
+          </div>
+        </div>
       </div>
     `;
   }
 
-  function renderLedger(type, finance) {
-    const rows = Utils.sortBy(
-      finance.filter(f=>f.method===type),
-      'date','desc'
-    );
-    if (!rows.length) return `<div class="no-data"><i class="fa fa-inbox"></i>No transactions found</div>`;
-    return `<div class="table-wrapper"><table>
-      <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Amount</th></tr></thead>
-      <tbody>${rows.map(f=>{
-        const isIn = ['Income','Loan Receiving','Transfer In'].includes(f.type);
-        return `<tr>
-          <td style="font-size:0.82rem">${Utils.formatDate(f.date)}</td>
-          <td>${Finance.typeBadge?Finance.typeBadge(f.type):Utils.badge(f.type,'primary')}</td>
-          <td style="font-size:0.85rem">${Utils.truncate(f.description||f.category||'—',30)}</td>
-          <td class="${isIn?'ledger-income':'ledger-expense'}" style="font-family:var(--font-en);font-weight:600">
-            ${isIn?'+':'-'}${Utils.takaEn(f.amount)}
-          </td>
-        </tr>`;
-      }).join('')}</tbody>
-    </table></div>`;
+  function renderSearchResults(finance) {
+    if (!searchResMethod && !searchResFrom && !searchResTo) return '';
+    let filtered = finance.filter(f => f.method === searchResMethod);
+    if (!searchResMethod) filtered = finance;
+    if (searchResFrom) filtered = filtered.filter(f => f.date >= searchResFrom);
+    if (searchResTo)   filtered = filtered.filter(f => f.date <= searchResTo);
+    filtered = Utils.sortBy(filtered, 'date', 'desc');
+
+    if (filtered.length === 0) return `<div style="text-align:center; padding:20px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed rgba(255,255,255,0.1);">No transactions found for this search.</div>`;
+
+    let html = `<div style="background:var(--bg-surface); border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2); margin-bottom:20px;">
+      <table class="table" style="margin:0; width:100%; border-collapse:collapse;">
+        <thead style="background:rgba(0,212,255,0.05); border-bottom:1px solid rgba(0,212,255,0.2);">
+          <tr>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Date</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Type</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Account</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Description</th>
+             <th style="padding:10px;text-align:right;color:#00d4ff;font-size:0.8rem;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>`;
+    html += filtered.map(f => {
+      const isPos = ['Income','Loan Receiving','Transfer In'].includes(f.type);
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+        <td style="padding:10px;font-size:0.85rem;">${Utils.formatDate(f.date)}</td>
+        <td style="padding:10px;">${f.type}</td>
+        <td style="padding:10px;">${Utils.methodBadge(f.method||'Cash')}</td>
+        <td style="padding:10px;font-size:0.85rem;color:var(--text-secondary);">${Utils.truncate(f.description||f.category||'—', 35)}</td>
+        <td style="padding:10px;text-align:right;font-family:var(--font-en);font-weight:700;color:${isPos?'#00ff88':'#ff4757'}">${isPos?'+':'-'}${Utils.takaEn(f.amount)}</td>
+      </tr>`;
+    }).join('');
+    html += `</tbody></table></div>`;
+    return html;
   }
 
-  function showLedger(type, btn) {
-    document.querySelectorAll('#acc-tabs .sub-tab-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const finance = SupabaseSync.getAll(DB.finance);
-    document.getElementById('acc-ledger-body').innerHTML = renderLedger(type, finance);
+  function renderTransferHistory(finance) {
+    let transfers = finance.filter(f => f.type === 'Transfer Out' && f.category === 'Transfer');
+    if (histResFrom) transfers = transfers.filter(f => f.date >= histResFrom);
+    if (histResTo)   transfers = transfers.filter(f => f.date <= histResTo);
+    transfers = Utils.sortBy(transfers, 'date', 'desc');
+
+    if (transfers.length === 0) {
+      return `<div style="text-align:center; padding:40px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px;">
+        <i class="fa fa-clock-rotate-left" style="font-size:2rem; margin-bottom:10px; opacity:0.3; display:block;"></i>
+        No transfers found. Use "Transfer Now" to move funds.
+      </div>`;
+    }
+
+    return `<div style="overflow-x:auto;">
+      <table class="table" style="width:100%; border-collapse:collapse; margin:0;">
+        <thead style="border-bottom:2px solid rgba(0,212,255,0.3);">
+          <tr>
+            <th style="text-align:left; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">#</th>
+            <th style="text-align:left; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">DATE</th>
+            <th style="text-align:left; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">FROM</th>
+            <th style="text-align:left; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">TO</th>
+            <th style="text-align:right; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">AMOUNT</th>
+            <th style="text-align:left; padding:12px; font-weight:800; font-size:0.85rem; color:#fff;">NOTES</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${transfers.map((t, i) => {
+            const from = t.method;
+            const toDesc = (t.description||'').split(' → ');
+            const to = toDesc.length > 1 ? toDesc[1] : '?';
+            return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:12px; color:var(--text-muted);">${i+1}</td>
+              <td style="padding:12px; font-size:0.85rem;">${Utils.formatDate(t.date)}</td>
+              <td style="padding:12px; font-weight:700;">${from}</td>
+              <td style="padding:12px; font-weight:700;">${to}</td>
+              <td style="padding:12px; text-align:right; font-weight:700; font-family:var(--font-en); color:#ffd700;">${Utils.takaEn(t.amount)}</td>
+              <td style="padding:12px; color:var(--text-secondary); font-size:0.85rem;">${t.note||'—'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
   }
 
-  /* ── Set/Update initial balance ── */
+  /* ── Modals & Logic ── */
+
   function openSetModal(type, currentBal, existingId) {
-    Utils.openModal(`<i class="fa fa-wallet"></i> Set Balance — ${type}`, `
+    Utils.openModal(`<i class="fa fa-wallet"></i> Set Initial Balance — ${type}`, `
       <div class="form-group">
         <label>Initial Balance (৳)</label>
         <input id="acc-bal" type="number" class="form-control" value="${currentBal}" placeholder="0" />
-        <div class="form-hint">This is the account's initial balance — the amount before any transactions.</div>
+        <div class="form-hint">This affects the base balance of ${type}. Transactions will heavily alter this.</div>
       </div>
       <div class="form-actions">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
@@ -207,57 +340,234 @@ const Accounts = (() => {
     render();
   }
 
-  /* ── Transfer ── */
+  /* Bank Details Modal */
+  function openBankModal(id = null) {
+    const isEdit = !!id;
+    let b = {};
+    if (id) {
+      b = SupabaseSync.getAll(DB.accounts).find(a => a.id === id) || {};
+    }
+    Utils.openModal(`<i class="fa fa-building-columns"></i> ${isEdit ? 'Edit Bank Account' : 'Add New Bank Account'}`, `
+      <div class="form-group">
+        <label>Account Name <span class="req">*</span></label>
+        <input type="text" id="bm-name" class="form-control" placeholder="e.g. CITY BANK" value="${b.name||''}" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+           <label>Bank Name</label>
+           <input type="text" id="bm-bank" class="form-control" placeholder="City Bank Ltd." value="${b.bankName||''}" />
+        </div>
+        <div class="form-group">
+           <label>Branch</label>
+           <input type="text" id="bm-branch" class="form-control" placeholder="Bonosree" value="${b.branch||''}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+           <label>Account No</label>
+           <input type="text" id="bm-acno" class="form-control" placeholder="1493xxxxxxx" value="${b.accountNo||''}" />
+        </div>
+        <div class="form-group">
+           <label>Initial Balance (৳)</label>
+           <input type="number" id="bm-bal" class="form-control" placeholder="0" value="${b.balance||''}" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Accounts.saveBank('${id||''}')"><i class="fa fa-save"></i> Save</button>
+      </div>
+    `);
+  }
+
+  function saveBank(id) {
+    const name = Utils.formVal('bm-name');
+    if (!name) { Utils.toast('Account Name required','error'); return; }
+    
+    const record = {
+      type: 'Bank_Detail',
+      name,
+      bankName: Utils.formVal('bm-bank'),
+      branch: Utils.formVal('bm-branch'),
+      accountNo: Utils.formVal('bm-acno'),
+      balance: Utils.safeNum(Utils.formVal('bm-bal'))
+    };
+
+    if (id) {
+       SupabaseSync.update(DB.accounts, id, record);
+       Utils.toast('Bank account updated','success');
+    } else {
+       SupabaseSync.insert(DB.accounts, record);
+       Utils.toast('Bank account added','success');
+    }
+    Utils.closeModal();
+    render();
+  }
+
+  async function deleteBank(id) {
+    if (await Utils.confirm('Are you sure you want to delete this bank account?')) {
+      SupabaseSync.remove(DB.accounts, id);
+      Utils.toast('Account deleted', 'info');
+      render();
+    }
+  }
+
+  /* Mobile Banking Modal */
+  function openMobileModal(id = null) {
+    const isEdit = !!id;
+    let m = {};
+    if (id) {
+      m = SupabaseSync.getAll(DB.accounts).find(a => a.id === id) || {};
+    }
+    Utils.openModal(`<i class="fa fa-mobile-screen"></i> ${isEdit ? 'Edit Mobile Account' : 'Add Mobile Account'}`, `
+      <div class="form-group">
+        <label>Account Name <span class="req">*</span></label>
+        <input type="text" id="mm-name" class="form-control" placeholder="e.g. Bikash, Nagad" value="${m.name||''}" />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+           <label>Account No.</label>
+           <input type="text" id="mm-acno" class="form-control" placeholder="e.g. 017xxxxxxxx" value="${m.accountNo||''}" />
+        </div>
+        <div class="form-group">
+           <label>Initial Balance (৳)</label>
+           <input type="number" id="mm-bal" class="form-control" placeholder="0" value="${m.balance||''}" />
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Accounts.saveMobile('${id||''}')"><i class="fa fa-save"></i> Save</button>
+      </div>
+    `);
+  }
+
+  function saveMobile(id) {
+    const name = Utils.formVal('mm-name');
+    if (!name) { Utils.toast('Account Name required','error'); return; }
+    
+    const record = {
+      type: 'Mobile_Detail',
+      name,
+      accountNo: Utils.formVal('mm-acno'),
+      balance: Utils.safeNum(Utils.formVal('mm-bal'))
+    };
+
+    if (id) {
+       SupabaseSync.update(DB.accounts, id, record);
+       Utils.toast('Mobile account updated','success');
+    } else {
+       SupabaseSync.insert(DB.accounts, record);
+       Utils.toast('Mobile account added','success');
+    }
+    Utils.closeModal();
+    render();
+  }
+
+  async function deleteMobile(id) {
+    if (await Utils.confirm('Are you sure you want to delete this mobile account?')) {
+      SupabaseSync.remove(DB.accounts, id);
+      Utils.toast('Account deleted', 'info');
+      render();
+    }
+  }
+
+  /* Internal Transfer */
+  function openTransferModal() {
+    Utils.openModal(`<i class="fa fa-arrow-right-arrow-left"></i> Internal Balance Transfer`, `
+      <div class="form-row">
+        <div class="form-group">
+          <label>From <span class="req">*</span></label>
+          <select id="tr-from" class="form-control">
+            <option value="">-- From Account --</option>
+            ${CATEGORIES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>To <span class="req">*</span></label>
+          <select id="tr-to" class="form-control">
+            <option value="">-- To Account --</option>
+            ${CATEGORIES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Amount (৳) <span class="req">*</span></label>
+          <input type="number" id="tr-amount" class="form-control" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label>Date <span class="req">*</span></label>
+          <input type="date" id="tr-date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="tr-notes" class="form-control" placeholder="Optional notes about transfer" />
+      </div>
+      <div id="tr-error" class="form-error hidden"></div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-warning" style="font-weight:bold;color:#000;" onclick="Accounts.doTransfer()"><i class="fa fa-check"></i> TRANSFER NOW</button>
+      </div>
+    `);
+  }
+
   function doTransfer() {
-    const from   = document.getElementById('tr-from')?.value;
-    const to     = document.getElementById('tr-to')?.value;
-    const amount = Utils.safeNum(document.getElementById('tr-amount')?.value);
-    const date   = document.getElementById('tr-date')?.value;
+    const from   = Utils.formVal('tr-from');
+    const to     = Utils.formVal('tr-to');
+    const amount = Utils.safeNum(Utils.formVal('tr-amount'));
+    const date   = Utils.formVal('tr-date');
+    const notes  = Utils.formVal('tr-notes');
     const errEl  = document.getElementById('tr-error');
 
+    if (!from || !to) { errEl.textContent='Please select both accounts'; errEl.classList.remove('hidden'); return; }
     if (from===to) { errEl.textContent='Cannot transfer to the same account'; errEl.classList.remove('hidden'); return; }
     if (!amount||amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
     errEl.classList.add('hidden');
 
-    const fromLabel = from==='Cash'?'Cash':from==='Bank'?'Bank':'Mobile Banking';
-    const toLabel   = to==='Cash'?'Cash':to==='Bank'?'Bank':'Mobile Banking';
-
     SupabaseSync.insert(DB.finance, {
       type:'Transfer Out', method:from, category:'Transfer',
-      description:`${fromLabel} → ${toLabel}`, amount, date,
+      description:`${from} → ${to}`, amount, date, note: notes
     });
     SupabaseSync.insert(DB.finance, {
       type:'Transfer In', method:to, category:'Transfer',
-      description:`${fromLabel} from ${toLabel}`, amount, date,
+      description:`${from} → ${to}`, amount, date, note: notes
     });
 
     Utils.toast(`Transfer completed ✓`,'success');
-    document.getElementById('tr-amount').value = '';
+    Utils.closeModal();
     render();
   }
 
-  /* ── Search Ledger by Account/Date ── */
-  function searchLedger() {
-    const type = document.getElementById('acc-search-type')?.value;
-    const from = document.getElementById('acc-search-from')?.value;
-    const to   = document.getElementById('acc-search-to')?.value;
-    if (!type) { Utils.toast('Select an account first','warn'); return; }
-    let finance = SupabaseSync.getAll(DB.finance).filter(f => f.method === type);
-    if (from) finance = finance.filter(f => f.date >= from);
-    if (to)   finance = finance.filter(f => f.date <= to);
-    // Switch the sub-tab to this type
-    document.querySelectorAll('#acc-tabs .sub-tab-btn').forEach(b => {
-      b.classList.toggle('active', b.textContent.trim() === type);
-    });
-    document.getElementById('acc-ledger-body').innerHTML = renderLedger(type, finance);
+  /* Filters */
+  function doSearch() {
+    searchResMethod = Utils.formVal('acc-search-type');
+    searchResFrom = Utils.formVal('acc-search-from');
+    searchResTo = Utils.formVal('acc-search-to');
+    if (!searchResMethod) { Utils.toast('Select an account to search', 'warn'); return; }
+    render();
   }
-
   function clearSearch() {
-    if(document.getElementById('acc-search-type')) document.getElementById('acc-search-type').value = '';
-    if(document.getElementById('acc-search-from')) document.getElementById('acc-search-from').value = '';
+    searchResMethod = ''; searchResFrom = ''; searchResTo = '';
+    render();
+  }
+  function filterHistory() {
+    histResFrom = Utils.formVal('hist-from');
+    histResTo = Utils.formVal('hist-to');
+    render();
+  }
+  function clearHistoryFilter() {
+    histResFrom = ''; histResTo = '';
     render();
   }
 
-  return { render, showLedger, openSetModal, saveBalance, doTransfer, searchLedger, clearSearch };
+  return {
+    render, 
+    openSetModal, saveBalance, 
+    openBankModal, saveBank, deleteBank,
+    openMobileModal, saveMobile, deleteMobile,
+    openTransferModal, doTransfer,
+    doSearch, clearSearch, filterHistory, clearHistoryFilter
+  };
 
 })();
+
