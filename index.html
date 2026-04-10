@@ -130,6 +130,12 @@
         </button>
       </nav>
 
+      <div class="sidebar-helpline">
+        <div class="helpline-title">📞 HELPLINE</div>
+        <div class="helpline-name">SHAKIB IBNA MUSTAFA</div>
+        <div class="helpline-phone"><i class="fa fa-phone"></i> 01757-208244</div>
+      </div>
+
       <div class="sidebar-footer">
         <div id="sync-status" class="sync-badge synced">☁️ Synced</div>
         <div style="display:flex;gap:6px;margin-top:8px">
@@ -150,6 +156,13 @@
       <div id="topbar">
         <button id="btn-hamburger"><i class="fa fa-bars"></i></button>
         <div id="page-title" class="bn" style="font-size:1.4rem; font-weight:700; color:var(--accent-cyan); letter-spacing:0.02em;">Welcome back, Admin!</div>
+        <div class="topbar-search">
+          <i class="fa fa-search"></i>
+          <input type="text" id="global-search" placeholder="Search students, transactions, courses..." />
+        </div>
+        <div class="topbar-synced" id="topbar-sync-indicator">
+          <span class="dot"></span> Synced
+        </div>
         <div class="topbar-actions">
           <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
           <button class="btn btn-sm btn-ghost" id="btn-notif" title="Notifications" onclick="App.navigateTo('students')">

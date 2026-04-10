@@ -28,75 +28,88 @@ const Loans = (() => {
     const netOwed       = totalGiven - totalReceived; /* positive = others owe us */
 
     container.innerHTML = `
-      <!-- Summary -->
-      <div class="grid-3" style="margin-bottom:20px">
-        <div class="stat-card">
-          <div class="stat-icon red"><i class="fa fa-arrow-up-right-from-square"></i></div>
-          <div class="stat-info"><div class="stat-label">Total Given Loan</div><div class="stat-value">${Utils.takaEn(totalGiven)}</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon green"><i class="fa fa-arrow-down-left-from-circle"></i></div>
-          <div class="stat-info"><div class="stat-label">Total Taken Loan</div><div class="stat-value">${Utils.takaEn(totalReceived)}</div></div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon ${netOwed>=0?'amber':'red'}"><i class="fa fa-scale-balanced"></i></div>
-          <div class="stat-info">
-            <div class="stat-label">${netOwed>=0?'Others will give us':'We will give'}</div>
-            <div class="stat-value">${Utils.takaEn(Math.abs(netOwed))}</div>
+      <!-- Section Header -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="search-input-wrapper" style="min-width:220px">
+            <i class="fa fa-search"></i>
+            <input type="text" id="loan-search" placeholder="Search Person..." oninput="Loans.filterCards()" style="border-color:rgba(0,212,255,0.2)" />
           </div>
+        </div>
+        <label class="toggle-switch">
+          <span>Show Settled</span>
+          <input type="checkbox" id="loan-show-settled" onchange="Loans.render()" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Person-wise Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px;margin-bottom:24px" id="loan-cards">
+        ${Object.keys(personMap).length ? Object.entries(personMap).map(([person, {given, received}]) => {
+          const net = given - received;
+          const settled = net === 0;
+          if (settled && !document.getElementById('loan-show-settled')?.checked) return '';
+          const letter = (person[0] || '?').toUpperCase();
+          return `
+          <div class="loan-person-card" onclick="Loans.showPersonDetail('${person.replace(/'/g,"\\'")}')" data-person="${person.toLowerCase()}">
+            <div class="person-avatar">${letter}</div>
+            <div class="person-name">${person}</div>
+            <div class="person-owe" style="color:${net>0?'#ff4757':'#00ff88'}">
+              ${net > 0 ? 'We Owe: ' : 'They Owe: '}${Utils.takaEn(Math.abs(net))}
+            </div>
+            <div class="person-breakdown">
+              <span>Given: ${Utils.takaEn(given)}</span>
+              <span>Recv: ${Utils.takaEn(received)}</span>
+            </div>
+          </div>`;
+        }).join('') : `<div class="no-data" style="grid-column:1/-1"><i class="fa fa-inbox"></i>No loans found</div>`}
+      </div>
+
+      <!-- Stats Summary -->
+      <div class="grid-3" style="margin-bottom:20px">
+        <div class="stat-card glow-orange">
+          <div class="stat-header">Total Given Loan</div>
+          <div class="stat-value" style="color:#ff6b35">${Utils.takaEn(totalGiven)}</div>
+          <div class="stat-icon-wrapper" style="background:rgba(255,107,53,0.1);color:#ff6b35;border:1px solid rgba(255,107,53,0.2)"><i class="fa fa-arrow-up-right-from-square"></i></div>
+        </div>
+        <div class="stat-card glow-green">
+          <div class="stat-header">Total Taken Loan</div>
+          <div class="stat-value">${Utils.takaEn(totalReceived)}</div>
+          <div class="stat-icon-wrapper" style="background:rgba(0,255,136,0.1);color:#00ff88;border:1px solid rgba(0,255,136,0.2)"><i class="fa fa-arrow-down"></i></div>
+        </div>
+        <div class="stat-card ${netOwed>=0?'glow-cyan':'glow-orange'}">
+          <div class="stat-header">${netOwed>=0?'Others Owe Us':'We Owe Others'}</div>
+          <div class="stat-value">${Utils.takaEn(Math.abs(netOwed))}</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-scale-balanced"></i></div>
         </div>
       </div>
 
-      <div class="grid-2" style="align-items:start">
-
-        <!-- Person-wise Summary -->
-        <div class="card">
-          <div class="card-title" style="margin-bottom:14px"><i class="fa fa-users" style="color:var(--primary-light)"></i> Person based summary</div>
-          ${Object.keys(personMap).length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Person</th><th>Given</th><th>Taken</th><th>Net</th></tr></thead>
-            <tbody>
-              ${Object.entries(personMap).map(([person, {given, received}])=>{
-                const net = given - received;
-                return `<tr>
-                  <td style="font-weight:600">${person}</td>
-                  <td class="ledger-expense">${Utils.takaEn(given)}</td>
-                  <td class="ledger-income">${Utils.takaEn(received)}</td>
-                  <td class="${net>0?'ledger-expense':'ledger-income'}" style="font-weight:700">
-                    ${net>0?'Will give ':'Will give '}${Utils.takaEn(Math.abs(net))}
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table></div>` : `<div class="no-data"><i class="fa fa-inbox"></i>No Loan not found</div>`}
-        </div>
-
-        <!-- Loan Ledger -->
-        <div class="card">
-          <div class="card-title" style="margin-bottom:14px"><i class="fa fa-list" style="color:var(--accent)"></i> Loan Ledger</div>
-          ${loans.length ? `<div class="table-wrapper"><table>
-            <thead><tr><th>Date</th><th>Person</th><th>Direction</th><th>Amount</th><th>Status</th><th class="no-print">Action</th></tr></thead>
-            <tbody>
-              ${loans.map(l=>`<tr>
-                <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
-                <td style="font-weight:600">${l.person||'—'}</td>
-                <td>${l.direction==='given'
-                  ? Utils.badge('Given','danger')
-                  : Utils.badge('Taken','success')}</td>
-                <td style="font-family:var(--font-en);font-weight:600">${Utils.takaEn(l.amount)}</td>
-                <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
-                <td class="no-print">
-                  <div class="table-actions">
-                    <button class="btn-outline btn-xs" onclick="Loans.toggleStatus('${l.id}','${l.status||'Outstanding'}')">
-                      <i class="fa fa-check"></i>
-                    </button>
-                    <button class="btn-outline btn-xs" onclick="Loans.openEditModal('${l.id}')"><i class="fa fa-pen"></i></button>
-                    <button class="btn-danger btn-xs"  onclick="Loans.deleteLoan('${l.id}')"><i class="fa fa-trash"></i></button>
-                  </div>
-                </td>
-              </tr>`).join('')}
-            </tbody>
-          </table></div>` : `<div class="no-data"><i class="fa fa-inbox"></i>No Loan not found</div>`}
-        </div>
+      <!-- Full Loan Ledger -->
+      <div class="card" style="border-color:rgba(0,212,255,0.12)">
+        <div class="card-title" style="margin-bottom:14px;color:var(--brand-primary)"><i class="fa fa-list" style="color:var(--brand-primary)"></i> Loan Ledger</div>
+        ${loans.length ? `<div class="table-wrapper"><table>
+          <thead><tr><th>Date</th><th>Person</th><th>Direction</th><th>Amount</th><th>Status</th><th class="no-print">Action</th></tr></thead>
+          <tbody>
+            ${loans.map(l=>`<tr>
+              <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
+              <td style="font-weight:600">${l.person||'—'}</td>
+              <td>${l.direction==='given'
+                ? '<span class="badge-expense">Given</span>'
+                : '<span class="badge-income">Taken</span>'}</td>
+              <td style="font-family:var(--font-ui);font-weight:600">${Utils.takaEn(l.amount)}</td>
+              <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
+              <td class="no-print">
+                <div class="table-actions">
+                  <button class="btn-edit" onclick="Loans.toggleStatus('${l.id}','${l.status||'Outstanding'}')">
+                    <i class="fa fa-check"></i>
+                  </button>
+                  <button class="btn-edit" onclick="Loans.openEditModal('${l.id}')"><i class="fa fa-pen"></i></button>
+                  <button class="btn-delete" onclick="Loans.deleteLoan('${l.id}')"><i class="fa fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>` : `<div class="no-data"><i class="fa fa-inbox"></i>No loans found</div>`}
       </div>
     `;
   }
@@ -219,6 +232,42 @@ const Loans = (() => {
     render();
   }
 
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan };
+  function filterCards() {
+    const q = (document.getElementById('loan-search')?.value || '').toLowerCase();
+    document.querySelectorAll('.loan-person-card').forEach(card => {
+      const person = card.dataset.person || '';
+      card.style.display = person.includes(q) ? '' : 'none';
+    });
+  }
+
+  function showPersonDetail(person) {
+    const loans = SupabaseSync.getAll(DB.loans).filter(l => l.person === person);
+    const given = loans.filter(l=>l.direction==='given').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
+    const recv  = loans.filter(l=>l.direction==='received').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
+    Utils.openModal(`<i class="fa fa-user"></i> ${person} — Loan History`, `
+      <div style="display:flex;gap:16px;margin-bottom:16px">
+        <div style="flex:1;text-align:center;padding:12px;background:rgba(255,71,87,0.08);border-radius:10px">
+          <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase">Given</div>
+          <div style="font-size:1.2rem;font-weight:800;color:#ff4757">${Utils.takaEn(given)}</div>
+        </div>
+        <div style="flex:1;text-align:center;padding:12px;background:rgba(0,255,136,0.08);border-radius:10px">
+          <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase">Received</div>
+          <div style="font-size:1.2rem;font-weight:800;color:#00ff88">${Utils.takaEn(recv)}</div>
+        </div>
+      </div>
+      <div class="table-wrapper"><table>
+        <thead><tr><th>Date</th><th>Direction</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody>${loans.map(l => `<tr>
+          <td>${Utils.formatDate(l.date)}</td>
+          <td>${l.direction==='given'?'<span class="badge-expense">Given</span>':'<span class="badge-income">Taken</span>'}</td>
+          <td style="font-weight:600">${Utils.takaEn(l.amount)}</td>
+          <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+      <div class="form-actions"><button class="btn-secondary" onclick="Utils.closeModal()">Close</button></div>
+    `);
+  }
+
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail };
 
 })();

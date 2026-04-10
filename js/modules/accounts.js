@@ -33,8 +33,58 @@ const Accounts = (() => {
     });
 
     const total = Object.values(balances).reduce((s,v)=>s+v,0);
+    const cashBal = balances['Cash'];
+    const cashAccount = accounts.find(a => a.type === 'Cash');
 
     container.innerHTML = `
+      <!-- Cash Hero Section -->
+      <div class="account-hero">
+        <div>
+          <div style="display:flex;align-items:center;gap:12px">
+            <span class="hero-icon">💵</span>
+            <div>
+              <div class="hero-label">CASH</div>
+              <div class="hero-desc">Physical cash on hand</div>
+            </div>
+          </div>
+          <div class="hero-actions">
+            <button class="btn-edit" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAccount?.balance||0)}','${cashAccount?.id||''}')">
+              <i class="fa fa-pen"></i> UPDATE CASH
+            </button>
+            <button class="btn-outline btn-sm" style="color:var(--text-secondary)" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull()">
+              <i class="fa fa-rotate"></i> SYNC
+            </button>
+          </div>
+        </div>
+        <div class="hero-amount">${Utils.takaEn(cashBal)}</div>
+      </div>
+
+      <!-- Search All Accounts -->
+      <div class="search-accounts-bar">
+        <div class="bar-title"><i class="fa fa-search"></i> Search All Accounts (💵 Cash + 🏦 Bank + 📱 Mobile Banking)</div>
+        <div class="form-row" style="margin-bottom:0">
+          <div class="form-group">
+            <label class="filter-label">Select Account</label>
+            <select id="acc-search-type" class="form-control" style="border-color:rgba(0,212,255,0.2)">
+              <option value="">-- Select an Account --</option>
+              ${TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="filter-label">From Date</label>
+            <input type="date" class="form-control" id="acc-search-from" style="border-color:rgba(0,212,255,0.2)" />
+          </div>
+          <div class="form-group">
+            <label class="filter-label">To Date</label>
+            <input type="date" class="form-control" id="acc-search-to" value="${Utils.today()}" style="border-color:rgba(0,212,255,0.2)" />
+          </div>
+          <div class="form-group" style="flex:0 0 auto;display:flex;gap:6px;align-items:flex-end">
+            <button class="btn-outline btn-sm" onclick="Accounts.searchLedger()"><i class="fa fa-search"></i></button>
+            <button class="btn-ghost btn-sm" onclick="Accounts.clearSearch()"><i class="fa fa-times"></i></button>
+          </div>
+        </div>
+      </div>
+
       <!-- Balance Cards -->
       <div class="grid-3" style="margin-bottom:20px">
         ${Object.entries(balances).map(([type,bal]) => `
@@ -43,58 +93,58 @@ const Accounts = (() => {
             <div class="label">${type}</div>
             <div class="amount" style="color:${bal>=0?'var(--text-primary)':'var(--danger-light)'}">${Utils.takaEn(bal)}</div>
             <div style="margin-top:12px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap">
-              <button class="btn-outline btn-xs" onclick="Accounts.openSetModal('${type}','${Utils.safeNum(accounts.find(a=>a.type===type)?.balance||0)}','${accounts.find(a=>a.type===type)?.id||''}')">
+              <button class="btn-edit" onclick="Accounts.openSetModal('${type}','${Utils.safeNum(accounts.find(a=>a.type===type)?.balance||0)}','${accounts.find(a=>a.type===type)?.id||''}')">
                 <i class="fa fa-pen"></i> Set Balance
-              </button>
               </button>
             </div>
           </div>`).join('')}
       </div>
 
-      <!-- Total + Transfer -->
-      <div class="grid-2" style="margin-bottom:20px">
-        <div class="card" style="text-align:center">
-          <div class="card-title">Total Balance</div>
-          <div style="font-family:var(--font-en);font-size:2.2rem;font-weight:800;color:var(--accent);margin-top:8px">${Utils.takaEn(total)}</div>
+      <!-- Total Balance -->
+      <div class="card" style="text-align:center;margin-bottom:20px;border-color:rgba(0,212,255,0.15)">
+        <div class="card-title" style="color:var(--brand-primary)">Total Balance (All Accounts)</div>
+        <div style="font-family:var(--font-ui);font-size:2.4rem;font-weight:800;color:${total>=0?'#00ff88':'#ff4757'};margin-top:8px;text-shadow:0 0 15px ${total>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(total)}</div>
+      </div>
+
+      <!-- Internal Balance Transfer -->
+      <div class="transfer-section">
+        <div class="transfer-title">
+          <i class="fa fa-arrow-right-arrow-left"></i> INTERNAL BALANCE TRANSFER
         </div>
-        <div class="card">
-          <div class="card-title" style="margin-bottom:14px"><i class="fa fa-arrow-right-arrow-left" style="color:var(--primary-light)"></i> Account Transfer</div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>From</label>
-              <select id="tr-from" class="form-control">
-                ${TYPES.map(t=>`<option value="${t}">${t==='Cash'?'Cash':t==='Bank'?'Bank':'Mobile Banking'}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label>To</label>
-              <select id="tr-to" class="form-control">
-                ${TYPES.map((t,i)=>`<option value="${t}" ${i===1?'selected':''}>${t==='Cash'?'Cash':t==='Bank'?'Bank':'Mobile Banking'}</option>`).join('')}
-              </select>
-            </div>
+        <div class="transfer-desc">Move funds between Cash, Bank & Mobile accounts instantly.</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="filter-label">From</label>
+            <select id="tr-from" class="form-control" style="border-color:rgba(0,255,136,0.2)">
+              ${TYPES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+            </select>
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Amount (৳)</label>
-              <input id="tr-amount" type="number" class="form-control" placeholder="0" />
-            </div>
-            <div class="form-group">
-              <label>Date</label>
-              <input id="tr-date" type="date" class="form-control" value="${Utils.today()}" />
-            </div>
+          <div class="form-group">
+            <label class="filter-label">To</label>
+            <select id="tr-to" class="form-control" style="border-color:rgba(0,255,136,0.2)">
+              ${TYPES.map((t,i)=>`<option value="${t}" ${i===1?'selected':''}>${t}</option>`).join('')}
+            </select>
           </div>
-          <div id="tr-error" class="form-error hidden"></div>
-          <button class="btn-primary" style="width:100%" onclick="Accounts.doTransfer()">
-            <i class="fa fa-arrow-right-arrow-left"></i> Transfer Funds
-          </button>
+          <div class="form-group">
+            <label class="filter-label">Amount (৳)</label>
+            <input id="tr-amount" type="number" class="form-control" placeholder="0" style="border-color:rgba(0,255,136,0.2)" />
+          </div>
+          <div class="form-group">
+            <label class="filter-label">Date</label>
+            <input id="tr-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(0,255,136,0.2)" />
+          </div>
         </div>
+        <div id="tr-error" class="form-error hidden"></div>
+        <button class="btn-primary" style="width:100%;border-radius:10px;padding:12px;margin-top:8px;background:linear-gradient(90deg,#00d4ff,#00ff88);color:#0a0e1a;font-weight:800" onclick="Accounts.doTransfer()">
+          <i class="fa fa-arrow-right-arrow-left"></i> TRANSFER NOW
+        </button>
       </div>
 
       <!-- Per-account Ledger -->
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fa fa-list" style="color:var(--primary-light)"></i> Account Based Ledger</div>
+      <div class="card" style="border-color:rgba(0,212,255,0.12)">
+        <div class="card-title" style="margin-bottom:14px;color:var(--brand-primary)"><i class="fa fa-list" style="color:var(--brand-primary)"></i> Account Based Ledger</div>
         <div class="sub-tabs" id="acc-tabs">
-          ${TYPES.map((t,i)=>`<button class="sub-tab-btn ${i===0?'active':''}" onclick="Accounts.showLedger('${t}',this)">${t==='Cash'?'Cash':t==='Bank'?'Bank':'Mobile Banking'}</button>`).join('')}
+          ${TYPES.map((t,i)=>`<button class="sub-tab-btn ${i===0?'active':''}" onclick="Accounts.showLedger('${t}',this)">${t}</button>`).join('')}
         </div>
         <div id="acc-ledger-body">${renderLedger('Cash',finance)}</div>
       </div>
@@ -186,6 +236,28 @@ const Accounts = (() => {
     render();
   }
 
-  return { render, showLedger, openSetModal, saveBalance, doTransfer };
+  /* ── Search Ledger by Account/Date ── */
+  function searchLedger() {
+    const type = document.getElementById('acc-search-type')?.value;
+    const from = document.getElementById('acc-search-from')?.value;
+    const to   = document.getElementById('acc-search-to')?.value;
+    if (!type) { Utils.toast('Select an account first','warn'); return; }
+    let finance = SupabaseSync.getAll(DB.finance).filter(f => f.method === type);
+    if (from) finance = finance.filter(f => f.date >= from);
+    if (to)   finance = finance.filter(f => f.date <= to);
+    // Switch the sub-tab to this type
+    document.querySelectorAll('#acc-tabs .sub-tab-btn').forEach(b => {
+      b.classList.toggle('active', b.textContent.trim() === type);
+    });
+    document.getElementById('acc-ledger-body').innerHTML = renderLedger(type, finance);
+  }
+
+  function clearSearch() {
+    if(document.getElementById('acc-search-type')) document.getElementById('acc-search-type').value = '';
+    if(document.getElementById('acc-search-from')) document.getElementById('acc-search-from').value = '';
+    render();
+  }
+
+  return { render, showLedger, openSetModal, saveBalance, doTransfer, searchLedger, clearSearch };
 
 })();
