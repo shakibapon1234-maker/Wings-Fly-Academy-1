@@ -71,6 +71,13 @@ const App = (() => {
   // ── Navigation ────────────────────────────────────────────
   function navigateTo(section) {
     if (!SECTIONS.includes(section)) return;
+
+    // Settings opens as a modal overlay instead of navigating
+    if (section === 'settings') {
+      if (typeof SettingsModule !== 'undefined') SettingsModule.openModal();
+      return;
+    }
+
     currentSection = section;
 
     // Hide all sections
