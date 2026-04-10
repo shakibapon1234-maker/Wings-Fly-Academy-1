@@ -367,19 +367,55 @@ const Attendance = (() => {
             ${getBatches().map(b => `<option value="${b}">${b}</option>`).join('')}
           </select>
         </div>
-        <button class="att-action-btn" onclick="Attendance.generateBlankSheet()">
-          <i class="fa fa-file-alt"></i> GENERATE
-        </button>
-        <button class="export-btn export-btn-print" onclick="Attendance.printBlankSheet()">
-          <i class="fa fa-print"></i> PRINT SHEET
-        </button>
-      </div>
-      <div id="att-blank-result" class="att-sheet-area">
-        <div class="att-empty-state">
-          <i class="fa fa-file-alt" style="font-size:3rem;opacity:0.3;margin-bottom:16px"></i>
-          <div class="att-empty-text bn">Batch সিলেক্ট করে Generate চাপুন</div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-calendar-days"></i> COLUMNS (DAYS)</label>
+          <select id="att-blank-days" class="att-filter-select">
+            ${[26, 28, 30, 31].map(d => `<option value="${d}" ${d === 26 ? 'selected' : ''}>${d} Days</option>`).join('')}
+          </select>
+        </div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-calendar"></i> MONTH / SESSION LABEL</label>
+          <input type="text" id="att-blank-label" class="att-filter-input" placeholder="e.g. January 2026" />
         </div>
       </div>
+
+      <!-- 4 Sheet Type Cards -->
+      <div class="blank-sheet-cards">
+        <div class="sheet-type-card" onclick="Attendance.generateBlankSheet('portrait')">
+          <div class="sheet-icon">📄</div>
+          <div class="sheet-info">
+            <div class="sheet-name">Portrait Sheet</div>
+            <div class="sheet-desc bn">A4 Portrait — ছোট batch (≤15 students)</div>
+          </div>
+          <i class="fa fa-chevron-right sheet-arrow"></i>
+        </div>
+        <div class="sheet-type-card" onclick="Attendance.generateBlankSheet('landscape')">
+          <div class="sheet-icon">📋</div>
+          <div class="sheet-info">
+            <div class="sheet-name">Landscape Sheet</div>
+            <div class="sheet-desc bn">A4 Landscape — বেশি columns/students</div>
+          </div>
+          <i class="fa fa-chevron-right sheet-arrow"></i>
+        </div>
+        <div class="sheet-type-card" onclick="Attendance.generateBlankSheet('grid')">
+          <div class="sheet-icon">🗓️</div>
+          <div class="sheet-info">
+            <div class="sheet-name">Monthly Grid</div>
+            <div class="sheet-desc">Calendar-style grid with all 31 days</div>
+          </div>
+          <i class="fa fa-chevron-right sheet-arrow"></i>
+        </div>
+        <div class="sheet-type-card" onclick="Attendance.generateBlankSheet('signature')">
+          <div class="sheet-icon">🖊️</div>
+          <div class="sheet-info">
+            <div class="sheet-name">Signature Sheet</div>
+            <div class="sheet-desc">Name + wide signature column — formal</div>
+          </div>
+          <i class="fa fa-chevron-right sheet-arrow"></i>
+        </div>
+      </div>
+
+      <div id="att-blank-result" class="att-sheet-area"></div>
     `;
   }
 
@@ -585,11 +621,13 @@ const Attendance = (() => {
   }
 
   /* ─── Blank Sheet ─── */
-  function generateBlankSheet() {
+  function generateBlankSheet(sheetType = 'portrait') {
     const batch = document.getElementById('att-blank-batch')?.value;
+    const daysCount = parseInt(document.getElementById('att-blank-days')?.value || '26');
+    const sessionLabel = document.getElementById('att-blank-label')?.value || '';
     const wrapper = document.getElementById('att-blank-result');
     if (!wrapper || !batch) {
-      if (typeof Utils !== 'undefined') Utils.toast('Select a batch', 'warn');
+      if (typeof Utils !== 'undefined') Utils.toast('Select a batch first', 'warn');
       return;
     }
 
@@ -599,36 +637,137 @@ const Attendance = (() => {
       return;
     }
 
-    // Generate 31 day columns
-    const days = Array.from({ length: 31 }, (_, i) => i + 1);
+    const days = Array.from({ length: daysCount }, (_, i) => i + 1);
+    const headerInfo = `<div style="text-align:center;margin-bottom:12px;padding:10px;background:rgba(0,212,255,0.05);border-radius:8px;border:1px solid rgba(0,212,255,0.1)">
+      <strong style="color:#00d4ff;font-size:0.9rem">Wings Fly Aviation Academy</strong>
+      <span style="margin:0 8px;color:var(--text-muted)">|</span>
+      <span>Batch: <strong>${batch}</strong></span>
+      ${sessionLabel ? `<span style="margin:0 8px;color:var(--text-muted)">|</span><span>${sessionLabel}</span>` : ''}
+    </div>`;
 
-    wrapper.innerHTML = `
-      <div style="overflow-x:auto" id="att-blank-print-area">
-        <table class="att-sheet-table" style="font-size:0.7rem">
-          <thead><tr>
-            <th style="width:30px">#</th>
-            <th style="min-width:100px">NAME</th>
-            ${days.map(d => `<th style="width:26px;text-align:center">${d}</th>`).join('')}
-          </tr></thead>
-          <tbody>${students.map((s, i) => `
-            <tr>
-              <td style="text-align:center">${i + 1}</td>
-              <td><strong>${s.name}</strong></td>
-              ${days.map(() => `<td style="border:1px solid rgba(0,212,255,0.1)"></td>`).join('')}
-            </tr>
-          `).join('')}</tbody>
-        </table>
-      </div>
-    `;
+    let tableHTML = '';
+
+    if (sheetType === 'portrait') {
+      // Portrait: fewer columns, more readable
+      const showDays = days.slice(0, Math.min(daysCount, 15));
+      tableHTML = `
+        ${headerInfo}
+        <div style="overflow-x:auto" id="att-blank-print-area">
+          <table class="att-sheet-table" style="font-size:0.75rem">
+            <thead><tr>
+              <th style="width:30px">#</th>
+              <th style="min-width:120px">NAME</th>
+              ${showDays.map(d => `<th style="width:28px;text-align:center">${d}</th>`).join('')}
+              <th style="width:40px;text-align:center">T</th>
+            </tr></thead>
+            <tbody>${students.map((s, i) => `
+              <tr>
+                <td style="text-align:center">${i + 1}</td>
+                <td><strong>${s.name}</strong></td>
+                ${showDays.map(() => `<td style="border:1px solid rgba(0,212,255,0.1)"></td>`).join('')}
+                <td style="border:1px solid rgba(0,212,255,0.1)"></td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>`;
+
+    } else if (sheetType === 'landscape') {
+      // Landscape: all days, compact
+      tableHTML = `
+        ${headerInfo}
+        <div style="overflow-x:auto" id="att-blank-print-area">
+          <table class="att-sheet-table" style="font-size:0.65rem">
+            <thead><tr>
+              <th style="width:24px">#</th>
+              <th style="min-width:90px">NAME</th>
+              <th style="min-width:50px">ID</th>
+              ${days.map(d => `<th style="width:22px;text-align:center;padding:4px 2px">${d}</th>`).join('')}
+              <th style="width:30px">T</th>
+            </tr></thead>
+            <tbody>${students.map((s, i) => `
+              <tr>
+                <td style="text-align:center">${i + 1}</td>
+                <td style="font-size:0.65rem"><strong>${s.name}</strong></td>
+                <td style="font-size:0.6rem;color:var(--text-muted)">${s.student_id || ''}</td>
+                ${days.map(() => `<td style="border:1px solid rgba(0,212,255,0.08)"></td>`).join('')}
+                <td style="border:1px solid rgba(0,212,255,0.1)"></td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>`;
+
+    } else if (sheetType === 'grid') {
+      // Monthly Grid: calendar-style with all 31 days
+      const allDays = Array.from({ length: 31 }, (_, i) => i + 1);
+      tableHTML = `
+        ${headerInfo}
+        <div style="overflow-x:auto" id="att-blank-print-area">
+          <table class="att-sheet-table" style="font-size:0.68rem">
+            <thead><tr>
+              <th style="width:28px">#</th>
+              <th style="min-width:100px">NAME</th>
+              ${allDays.map(d => `<th style="width:22px;text-align:center;padding:3px 1px;font-size:0.6rem">${d}</th>`).join('')}
+              <th style="width:30px;text-align:center">P</th>
+              <th style="width:30px;text-align:center">A</th>
+            </tr></thead>
+            <tbody>${students.map((s, i) => `
+              <tr>
+                <td style="text-align:center">${i + 1}</td>
+                <td style="font-size:0.68rem"><strong>${s.name}</strong></td>
+                ${allDays.map(() => `<td style="border:1px solid rgba(0,212,255,0.06)"></td>`).join('')}
+                <td style="border:1px solid rgba(0,255,136,0.15)"></td>
+                <td style="border:1px solid rgba(255,71,87,0.15)"></td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>`;
+
+    } else if (sheetType === 'signature') {
+      // Signature: Name + wide signature column
+      tableHTML = `
+        ${headerInfo}
+        <div style="overflow-x:auto" id="att-blank-print-area">
+          <table class="att-sheet-table" style="font-size:0.82rem">
+            <thead><tr>
+              <th style="width:40px">#</th>
+              <th style="width:100px">STUDENT ID</th>
+              <th style="min-width:180px">NAME</th>
+              <th style="min-width:100px">PHONE</th>
+              <th style="min-width:200px">SIGNATURE</th>
+              <th style="min-width:80px">DATE</th>
+            </tr></thead>
+            <tbody>${students.map((s, i) => `
+              <tr style="height:42px">
+                <td style="text-align:center">${i + 1}</td>
+                <td style="font-size:0.78rem;color:var(--text-muted)">${s.student_id || ''}</td>
+                <td><strong>${s.name}</strong></td>
+                <td style="color:var(--text-secondary)">${s.phone || ''}</td>
+                <td style="border-bottom:1px dotted rgba(0,212,255,0.2)"></td>
+                <td style="border-bottom:1px dotted rgba(0,212,255,0.2)"></td>
+              </tr>
+            `).join('')}</tbody>
+          </table>
+        </div>`;
+    }
+
+    wrapper.innerHTML = tableHTML;
   }
 
   function printBlankSheet() {
     const area = document.getElementById('att-blank-print-area');
-    if (!area) { generateBlankSheet(); return; }
-    // Open print dialog
+    if (!area) {
+      if (typeof Utils !== 'undefined') Utils.toast('Generate a sheet first', 'warn');
+      return;
+    }
     const w = window.open('', '_blank');
-    w.document.write(`<html><head><title>Blank Attendance Sheet</title>
-      <style>body{font-family:sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:3px 5px;text-align:left}th{background:#f5f5f5}</style>
+    w.document.write(`<html><head><title>Attendance Sheet — Wings Fly Aviation Academy</title>
+      <style>
+        body{font-family:'Segoe UI',sans-serif;font-size:11px;padding:10px}
+        table{width:100%;border-collapse:collapse}
+        th,td{border:1px solid #ccc;padding:3px 5px;text-align:left}
+        th{background:#f0f0f0;font-weight:700}
+        strong{font-weight:700}
+      </style>
     </head><body>${area.innerHTML}</body></html>`);
     w.document.close();
     w.print();
