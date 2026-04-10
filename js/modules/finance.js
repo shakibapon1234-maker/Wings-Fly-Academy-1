@@ -194,7 +194,7 @@ const Finance = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Type <span class="req">*</span></label>
-          <select id="ff-type" class="form-control">
+          <select id="ff-type" class="form-control" onchange="document.getElementById('ff-person-group').style.display = (this.value==='Loan Giving'||this.value==='Loan Receiving')?'block':'none'">
             <option value="Income"         ${d.type==='Income'?'selected':''}>Income</option>
             <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense</option>
             <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
@@ -211,6 +211,10 @@ const Finance = (() => {
             <option value="Mobile Banking" ${d.method==='Mobile Banking'?'selected':''}>Mobile Banking</option>
           </select>
         </div>
+      </div>
+      <div id="ff-person-group" class="form-group" style="display:${(d.type==='Loan Giving'||d.type==='Loan Receiving')?'block':'none'};">
+        <label>Person's Name <span class="req">*</span></label>
+        <input id="ff-person" class="form-control" value="${d.person_name||''}" placeholder="Person's Name / Organization" />
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -256,10 +260,12 @@ const Finance = (() => {
     const amount = Utils.safeNum(Utils.formVal('ff-amount'));
     const type   = Utils.formVal('ff-type');
     const date   = Utils.formVal('ff-date');
+    const person = Utils.formVal('ff-person');
     const errEl  = document.getElementById('ff-error');
 
     if (!amount || amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
     if (!date)                { errEl.textContent='Date Required';  errEl.classList.remove('hidden'); return; }
+    if ((type==='Loan Giving'||type==='Loan Receiving') && !person) { errEl.textContent='Person Name required for Loans'; errEl.classList.remove('hidden'); return; }
 
     const record = {
       type,
@@ -269,13 +275,14 @@ const Finance = (() => {
       amount,
       date,
       note:        Utils.formVal('ff-note'),
+      person_name: person
     };
 
     /* Loan Giving/Receiving → also create loans table entry */
     if (type==='Loan Giving'||type==='Loan Receiving') {
       SupabaseSync.insert(DB.loans, {
-        direction:   type==='Loan Giving'?'given':'received',
-        person:      record.description||'Unknown',
+        type:        type,
+        person_name: person,
         amount,
         date,
         note:        record.note,
