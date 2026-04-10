@@ -5,33 +5,23 @@
 
 const HRStaff = (() => {
 
-  /* ─── State ─── */
-  let staff = [];
   let editingId = null;
 
   /* ─── Roles ─── */
   const ROLES = ['Instructor', 'Admin', 'Staff', 'Accountant', 'Receptionist', 'Driver', 'Guard'];
 
-  /* ─── Init ─── */
   function init() {
-    load();
     renderContent();
   }
 
-  /* ─── Storage ─── */
-  function load() {
-    try { staff = JSON.parse(localStorage.getItem('wf_hr_staff') || '[]'); }
-    catch { staff = []; }
-  }
-
-  function save() {
-    localStorage.setItem('wf_hr_staff', JSON.stringify(staff));
-    if (typeof SupabaseSync !== 'undefined') SupabaseSync.push('hr_staff', staff);
+  function getStaff() {
+    return Utils.sortBy(SupabaseSync.getAll(DB.staff), 'joiningDate', 'desc');
   }
 
   /* ─── Generate Staff ID ─── */
   function generateStaffId() {
-    const max = staff.reduce((m, s) => {
+    const staffList = getStaff();
+    const max = staffList.reduce((m, s) => {
       const n = parseInt((s.staffId || '').replace(/\D/g, '')) || 0;
       return Math.max(m, n);
     }, 0);
@@ -43,9 +33,10 @@ const HRStaff = (() => {
     const container = document.getElementById('hr-staff-content');
     if (!container) return;
 
-    const activeCount  = staff.filter(s => s.status === 'Active').length;
-    const inactiveCount = staff.filter(s => s.status === 'Inactive').length;
-    const totalSalary  = staff.filter(s => s.status === 'Active')
+    const staffList = getStaff();
+    const activeCount  = staffList.filter(s => s.status === 'Active').length;
+    const inactiveCount = staffList.filter(s => s.status === 'Inactive').length;
+    const totalSalary  = staffList.filter(s => s.status === 'Active')
                               .reduce((sum, s) => sum + (parseFloat(s.salary) || 0), 0);
 
     container.innerHTML = `
@@ -54,7 +45,7 @@ const HRStaff = (() => {
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-blue-glow)"><i class="fa fa-users"></i></div>
           <div class="stat-info">
-            <div class="stat-value">${staff.length}</div>
+            <div class="stat-value">${staffList.length}</div>
             <div class="stat-label">Total Staff</div>
           </div>
         </div>
@@ -75,7 +66,7 @@ const HRStaff = (() => {
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-gold-glow)"><i class="fa fa-sack-dollar"></i></div>
           <div class="stat-info">
-            <div class="stat-value">৳${Utils.formatNumber(totalSalary)}</div>
+            <div class="stat-value">৳${Utils.formatMoneyPlain(totalSalary)}</div>
             <div class="stat-label">Monthly Salary Budget</div>
           </div>
         </div>
@@ -101,9 +92,8 @@ const HRStaff = (() => {
         </button>
       </div>
 
-      <!-- Table -->
       <div class="table-wrapper" id="staff-table-wrapper">
-        ${renderTable(staff)}
+        ${renderTable(staffList)}
       </div>
     `;
   }
@@ -138,7 +128,7 @@ const HRStaff = (() => {
               <td><span class="badge badge-blue">${s.role}</span></td>
               <td>${s.phone || '—'}</td>
               <td>${s.email || '—'}</td>
-              <td>৳${Utils.formatNumber(s.salary || 0)}</td>
+              <td>৳${Utils.formatMoneyPlain(s.salary || 0)}</td>
               <td>${s.joiningDate ? Utils.formatDate(s.joiningDate) : '—'}</td>
               <td>
                 <span class="badge ${s.status === 'Active' ? 'badge-green' : 'badge-red'}">
@@ -161,13 +151,13 @@ const HRStaff = (() => {
       </table>`;
   }
 
-  /* ─── Apply Filter ─── */
   function applyFilter() {
     const q      = (document.getElementById('staff-search')?.value || '').toLowerCase();
     const role   = document.getElementById('staff-role-filter')?.value || '';
     const status = document.getElementById('staff-status-filter')?.value || '';
 
-    const filtered = staff.filter(s => {
+    const staffList = getStaff();
+    const filtered = staffList.filter(s => {
       const matchQ = !q || s.name.toLowerCase().includes(q) ||
                      (s.phone || '').includes(q) || (s.staffId || '').toLowerCase().includes(q);
       const matchRole   = !role   || s.role === role;
@@ -183,92 +173,84 @@ const HRStaff = (() => {
   function openAddModal() {
     editingId = null;
     const newId = generateStaffId();
-    showModal('Add Staff Add', formHTML(null, newId));
+    Utils.openModal('<i class="fa fa-id-badge" style="color:var(--brand-primary)"></i> Add New Employee', formHTML(null, newId));
   }
 
   /* ─── Modal: Edit ─── */
   function openEditModal(id) {
     editingId = id;
-    const s = staff.find(x => x.id === id);
+    const s = SupabaseSync.getById(DB.staff, id);
     if (!s) return;
-    showModal('Staff Info Edit', formHTML(s, s.staffId));
-  }
-
-  function showModal(title, body) {
-    if (typeof Utils !== 'undefined') {
-      Utils.openModal(title, body);
-    } else {
-      const overlay = document.getElementById('modal-overlay');
-      document.getElementById('modal-title').textContent = title;
-      document.getElementById('modal-body').innerHTML = body;
-      overlay?.classList.remove('hidden');
-    }
+    Utils.openModal('<i class="fa fa-pen" style="color:var(--brand-primary)"></i> Edit Employee', formHTML(s, s.staffId));
   }
 
   function formHTML(s, staffId) {
     return `
-      <div class="form-grid">
-        <div class="form-group">
-          <label>Staff ID</label>
-          <input type="text" id="sf-id" value="${staffId}" readonly style="opacity:.6" />
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px;">PERSONAL INFORMATION</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>FULL NAME <span class="req">*</span></label>
+            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" />
+          </div>
+          <div class="form-group">
+            <label>ROLE / DESIGNATION <span class="req">*</span></label>
+            <select id="sf-role" class="form-control">
+              ${ROLES.map(r => `<option value="${r}" ${s?.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+            </select>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Full Name <span class="required">*</span></label>
-          <input type="text" id="sf-name" placeholder="Staff Name" value="${s?.name || ''}" required />
-        </div>
-        <div class="form-group">
-          <label>Role <span class="required">*</span></label>
-          <select id="sf-role">
-            ${ROLES.map(r => `<option value="${r}" ${s?.role === r ? 'selected' : ''}>${r}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Phone Number</label>
-          <input type="tel" id="sf-phone" placeholder="01XXXXXXXXX" value="${s?.phone || ''}" />
-        </div>
-        <div class="form-group">
-          <label>Email</label>
-          <input type="email" id="sf-email" placeholder="example@email.com" value="${s?.email || ''}" />
-        </div>
-        <div class="form-group">
-          <label>Monthly Salary (৳)</label>
-          <input type="number" id="sf-salary" placeholder="0" min="0" value="${s?.salary || ''}" />
-        </div>
-        <div class="form-group">
-          <label>Join Date</label>
-          <input type="date" id="sf-joining" value="${s?.joiningDate || ''}" />
-        </div>
-        <div class="form-group">
-          <label>Resignation Date</label>
-          <input type="date" id="sf-resign" value="${s?.resignDate || ''}" />
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="sf-status">
-            <option value="Active"   ${(s?.status || 'Active') === 'Active'   ? 'selected' : ''}>Active</option>
-            <option value="Inactive" ${s?.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
-          </select>
-        </div>
-        <div class="form-group full-width">
-          <label>Address / Notes</label>
-          <textarea id="sf-note" rows="2" placeholder="Optional Notes...">${s?.note || ''}</textarea>
+        <div class="form-row">
+          <div class="form-group">
+            <label>EMAIL ADDRESS</label>
+            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" />
+          </div>
+          <div class="form-group">
+            <label>PHONE NUMBER</label>
+            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" />
+          </div>
         </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="HRStaff.saveStaff()">
-          <i class="fa fa-save"></i> Save
-        </button>
+
+      <div style="margin-bottom: 24px;">
+        <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px;">EMPLOYMENT DETAILS</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>JOINING DATE</label>
+            <input type="date" id="sf-joining" class="form-control" value="${s?.joiningDate || ''}" />
+          </div>
+          <div class="form-group">
+            <label>RESIGN DATE</label>
+            <input type="date" id="sf-resign" class="form-control" value="${s?.resignDate || ''}" />
+          </div>
+          <div class="form-group">
+            <label>MONTHLY SALARY (৳)</label>
+            <input type="number" id="sf-salary" class="form-control" placeholder="0.00" value="${s?.salary || ''}" />
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row" style="display:none;">
+        <input type="text" id="sf-id" value="${staffId}" />
+        <select id="sf-status">
+            <option value="Active"   ${(s?.status || 'Active') === 'Active'   ? 'selected' : ''}>Active</option>
+            <option value="Inactive" ${s?.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
+        </select>
+        <textarea id="sf-note" placeholder="Optional Notes...">${s?.note || ''}</textarea>
+      </div>
+
+      <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">
+        <button class="btn-secondary" style="border-radius:24px; padding: 10px 24px; font-weight: 700; color: #fff; background: rgba(255,255,255,0.1); border: none;" onclick="Utils.closeModal()">CANCEL</button>
+        <button class="btn-primary" style="border-radius:24px; padding: 10px 24px; font-weight: 700; border:none; color:#fff;" onclick="HRStaff.saveStaff()">SAVE EMPLOYEE</button>
       </div>`;
   }
 
   /* ─── Save ─── */
   function saveStaff() {
     const name = document.getElementById('sf-name')?.value.trim();
-    if (!name) { Utils.toast('Name is required!', 'error'); return; }
+    if (!name) { Utils.toast('Full Name is required!', 'error'); return; }
 
     const entry = {
-      id:          editingId || Utils.generateId(),
       staffId:     document.getElementById('sf-id')?.value || generateStaffId(),
       name,
       role:        document.getElementById('sf-role')?.value || 'Staff',
@@ -278,50 +260,46 @@ const HRStaff = (() => {
       joiningDate: document.getElementById('sf-joining')?.value || '',
       resignDate:  document.getElementById('sf-resign')?.value || '',
       status:      document.getElementById('sf-status')?.value || 'Active',
-      note:        document.getElementById('sf-note')?.value.trim() || '',
-      updatedAt:   new Date().toISOString(),
+      note:        document.getElementById('sf-note')?.value.trim() || ''
     };
 
     if (editingId) {
-      const idx = staff.findIndex(s => s.id === editingId);
-      if (idx !== -1) { entry.createdAt = staff[idx].createdAt; staff[idx] = entry; }
+      SupabaseSync.update(DB.staff, editingId, entry);
+      Utils.toast('Staff Info Updated ✓', 'success');
     } else {
-      entry.createdAt = new Date().toISOString();
-      staff.push(entry);
+      SupabaseSync.insert(DB.staff, entry);
+      Utils.toast('New Staff Added ✓', 'success');
     }
 
-    save();
     Utils.closeModal();
-    Utils.toast(editingId ? 'Staff Info Update done/happened ✓' : 'New Staff added ✓', 'success');
     renderContent();
     editingId = null;
   }
 
   /* ─── Toggle Status ─── */
   function toggleStatus(id) {
-    const s = staff.find(x => x.id === id);
+    const s = SupabaseSync.getById(DB.staff, id);
     if (!s) return;
-    s.status = s.status === 'Active' ? 'Inactive' : 'Active';
-    s.updatedAt = new Date().toISOString();
-    save();
+    const newStatus = s.status === 'Active' ? 'Inactive' : 'Active';
+    SupabaseSync.update(DB.staff, id, { status: newStatus });
     renderContent();
-    Utils.toast(`Status changed to: ${s.status}`, 'info');
+    Utils.toast(`Status changed to: ${newStatus}`, 'info');
   }
 
   /* ─── Delete ─── */
-  function deleteStaff(id) {
-    Utils.confirm('Delete this staff member?', () => {
-      staff = staff.filter(s => s.id !== id);
-      save();
-      renderContent();
-      Utils.toast('Staff has been deleted', 'warning');
-    });
+  async function deleteStaff(id) {
+    const ok = await Utils.confirm('Delete this staff member?', 'Delete Staff');
+    if (!ok) return;
+    SupabaseSync.remove(DB.staff, id);
+    renderContent();
+    Utils.toast('Staff has been deleted', 'warning');
   }
 
   /* ─── Export Excel ─── */
   function exportExcel() {
-    if (!staff.length) { Utils.toast('No data available', 'error'); return; }
-    const rows = staff.map(s => ({
+    const staffList = getStaff();
+    if (!staffList.length) { Utils.toast('No data available', 'error'); return; }
+    const rows = staffList.map(s => ({
       'Staff ID': s.staffId, 'Name': s.name, 'Role': s.role,
       'Phone': s.phone, 'Email': s.email, 'Salary': s.salary,
       'Join': s.joiningDate, 'Status': s.status
@@ -338,9 +316,9 @@ const HRStaff = (() => {
   }
 
   /* ─── Public API ─── */
-  return { init, load, renderContent, openAddModal, openEditModal,
+  return { init, renderContent, openAddModal, openEditModal,
            saveStaff, toggleStatus, deleteStaff, applyFilter,
            exportExcel, printList,
-           getAll: () => staff };
+           getAll: () => getStaff() };
 
 })();

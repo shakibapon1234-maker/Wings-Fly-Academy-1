@@ -64,21 +64,21 @@ const Salary = (() => {
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-gold-glow)"><i class="fa fa-sack-dollar"></i></div>
           <div class="stat-info">
-            <div class="stat-value">৳${Utils.formatNumber(totalBudget)}</div>
+            <div class="stat-value">৳${Utils.formatMoneyPlain(totalBudget)}</div>
             <div class="stat-label">Total Budget</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-green-glow)"><i class="fa fa-circle-check"></i></div>
           <div class="stat-info">
-            <div class="stat-value">৳${Utils.formatNumber(totalPaid)}</div>
+            <div class="stat-value">৳${Utils.formatMoneyPlain(totalPaid)}</div>
             <div class="stat-label">Paid (${paidCount} staff)</div>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon" style="background:var(--accent-red-glow)"><i class="fa fa-clock"></i></div>
           <div class="stat-info">
-            <div class="stat-value">৳${Utils.formatNumber(totalDue)}</div>
+            <div class="stat-value">৳${Utils.formatMoneyPlain(totalDue)}</div>
             <div class="stat-label">Due</div>
           </div>
         </div>
@@ -160,10 +160,10 @@ const Salary = (() => {
               <td><code>${r.staffId || '—'}</code></td>
               <td><strong>${r.staffName}</strong></td>
               <td><span class="badge badge-blue">${r.role || '—'}</span></td>
-              <td>৳${Utils.formatNumber(r.baseSalary || 0)}</td>
-              <td class="text-green">+৳${Utils.formatNumber(r.bonus || 0)}</td>
-              <td class="text-red">-৳${Utils.formatNumber(r.deduction || 0)}</td>
-              <td><strong>৳${Utils.formatNumber(net)}</strong></td>
+              <td>৳${Utils.formatMoneyPlain(r.baseSalary || 0)}</td>
+              <td class="text-green">+৳${Utils.formatMoneyPlain(r.bonus || 0)}</td>
+              <td class="text-red">-৳${Utils.formatMoneyPlain(r.deduction || 0)}</td>
+              <td><strong>৳${Utils.formatMoneyPlain(net)}</strong></td>
               <td>${r.method || '—'}</td>
               <td>
                 <span class="badge ${r.paid ? 'badge-green' : 'badge-yellow'}">
@@ -188,10 +188,10 @@ const Salary = (() => {
         <tfoot>
           <tr style="font-weight:700;background:var(--bg-tertiary)">
             <td colspan="3">Total</td>
-            <td>৳${Utils.formatNumber(data.reduce((s,r) => s+(r.baseSalary||0),0))}</td>
-            <td class="text-green">+৳${Utils.formatNumber(data.reduce((s,r) => s+(r.bonus||0),0))}</td>
-            <td class="text-red">-৳${Utils.formatNumber(data.reduce((s,r) => s+(r.deduction||0),0))}</td>
-            <td>৳${Utils.formatNumber(data.reduce((s,r) => s+(r.baseSalary||0)+(r.bonus||0)-(r.deduction||0),0))}</td>
+            <td>৳${Utils.formatMoneyPlain(data.reduce((s,r) => s+(r.baseSalary||0),0))}</td>
+            <td class="text-green">+৳${Utils.formatMoneyPlain(data.reduce((s,r) => s+(r.bonus||0),0))}</td>
+            <td class="text-red">-৳${Utils.formatMoneyPlain(data.reduce((s,r) => s+(r.deduction||0),0))}</td>
+            <td>৳${Utils.formatMoneyPlain(data.reduce((s,r) => s+(r.baseSalary||0)+(r.bonus||0)-(r.deduction||0),0))}</td>
             <td colspan="3"></td>
           </tr>
         </tfoot>
@@ -217,9 +217,9 @@ const Salary = (() => {
           ${sorted.map(m => `
             <tr>
               <td>${monthLabel(m)}</td>
-              <td>৳${Utils.formatNumber(monthMap[m].total)}</td>
-              <td class="text-green">৳${Utils.formatNumber(monthMap[m].paid)}</td>
-              <td class="text-red">৳${Utils.formatNumber(monthMap[m].total - monthMap[m].paid)}</td>
+              <td>৳${Utils.formatMoneyPlain(monthMap[m].total)}</td>
+              <td class="text-green">৳${Utils.formatMoneyPlain(monthMap[m].paid)}</td>
+              <td class="text-red">৳${Utils.formatMoneyPlain(monthMap[m].total - monthMap[m].paid)}</td>
             </tr>`).join('')}
         </tbody>
       </table>`;
