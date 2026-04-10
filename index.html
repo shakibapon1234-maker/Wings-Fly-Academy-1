@@ -36,9 +36,10 @@
 </head>
 <body>
 
-  <!-- ════════════════════════════════════════
-       LOGIN SCREEN
-  ════════════════════════════════════════ -->
+  <!-- Animated Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+
   <div id="login-screen">
     <div class="login-box">
       <img src="assets/logo.jpg.jpeg" alt="Wings Fly" onerror="this.style.display='none'" />
@@ -71,52 +72,55 @@
     <aside id="sidebar">
       <div class="sidebar-logo">
         <img src="assets/logo.jpg.jpeg" alt="logo" onerror="this.style.display='none'" />
-        <div class="academy-name bn">Wings Fly Aviation Academy</div>
+        <div class="logo-text">
+          <span class="logo-title">Wings Fly</span>
+          <span class="academy-name bn">Aviation Academy</span>
+        </div>
       </div>
 
       <nav>
         <button class="nav-item active" data-section="dashboard">
-          <i class="fa fa-gauge-high nav-icon"></i><span class="bn">Dashboard</span>
+          <i class="fa fa-gauge-high nav-icon"></i><span>Dashboard</span>
         </button>
         <button class="nav-item" data-section="students">
-          <i class="fa fa-user-graduate nav-icon"></i><span class="bn">Students</span>
+          <i class="fa fa-user-graduate nav-icon"></i><span>Students</span>
         </button>
         <button class="nav-item" data-section="finance">
-          <i class="fa fa-book-open nav-icon"></i><span class="bn">Finance</span>
+          <i class="fa fa-book-open nav-icon"></i><span>Finance</span>
         </button>
         <button class="nav-item" data-section="accounts">
-          <i class="fa fa-wallet nav-icon"></i><span class="bn">Accounts</span>
+          <i class="fa fa-wallet nav-icon"></i><span>Accounts</span>
         </button>
         <button class="nav-item" data-section="loans">
-          <i class="fa fa-hand-holding-dollar nav-icon"></i><span class="bn">Loans</span>
+          <i class="fa fa-hand-holding-dollar nav-icon"></i><span>Loans</span>
         </button>
         <button class="nav-item" data-section="visitors">
-          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span class="bn">Visitors</span>
+          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span>Visitors</span>
         </button>
         <button class="nav-item" data-section="hr-staff">
-          <i class="fa fa-users nav-icon"></i><span class="bn">HR/Staff</span>
+          <i class="fa fa-users nav-icon"></i><span>HR/Staff</span>
         </button>
         <button class="nav-item" data-section="exam">
-          <i class="fa fa-clipboard-list nav-icon"></i><span class="bn">Exams</span>
+          <i class="fa fa-clipboard-list nav-icon"></i><span>Exams</span>
         </button>
         <button class="nav-item" data-section="salary">
-          <i class="fa fa-sack-dollar nav-icon"></i><span class="bn">Salary Hub</span>
+          <i class="fa fa-sack-dollar nav-icon"></i><span>Salary Hub</span>
         </button>
         <button class="nav-item" data-section="attendance">
-          <i class="fa fa-calendar-check nav-icon"></i><span class="bn">Attendance</span>
+          <i class="fa fa-calendar-check nav-icon"></i><span>Attendance</span>
         </button>
         <button class="nav-item" data-section="id-cards">
-          <i class="fa fa-id-card nav-icon"></i><span class="bn">ID Cards</span>
+          <i class="fa fa-id-card nav-icon"></i><span>ID Cards</span>
         </button>
         <button class="nav-item" data-section="certificates">
-          <i class="fa fa-certificate nav-icon"></i><span class="bn">Certificates</span>
+          <i class="fa fa-certificate nav-icon"></i><span>Certificates</span>
         </button>
         <button class="nav-item" data-section="notice-board" id="nav-notice">
           <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
           <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;"></span>
         </button>
         <button class="nav-item" data-section="settings">
-          <i class="fa fa-gear nav-icon"></i><span class="bn">Settings</span>
+          <i class="fa fa-gear nav-icon"></i><span>Settings</span>
         </button>
       </nav>
 
@@ -360,6 +364,116 @@
         navigator.serviceWorker.register('service-worker.js').catch(() => {});
       });
     }
+  </script>
+
+  <!-- ════════════════════════════════════════
+       ANIMATED BACKGROUND: Growing Cells
+  ════════════════════════════════════════ -->
+  <script>
+  (function() {
+    const canvas = document.getElementById('bg-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    let W, H, cells = [];
+    const BG = '#0a0e27';
+    const COLORS = [
+      { r:0,   g:217, b:255 },   // cyan
+      { r:181, g:55,  b:242 },   // purple
+      { r:255, g:255, b:255 },   // white
+      { r:0,   g:255, b:200 },   // teal
+    ];
+
+    function resize() {
+      W = canvas.width  = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+
+    function makeCell() {
+      const col = COLORS[Math.floor(Math.random() * COLORS.length)];
+      return {
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 3 + 1,
+        maxR: Math.random() * 200 + 70,
+        speed: Math.random() * 0.4 + 0.18,
+        col,
+        alpha: 0,
+        maxAlpha: Math.random() * 0.18 + 0.1,  // brighter: up to 0.28
+        growing: true,
+        delay: Math.random() * 250 | 0,
+      };
+    }
+
+    for (let i = 0; i < 26; i++) cells.push(makeCell());
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // deep space base
+      ctx.fillStyle = BG;
+      ctx.fillRect(0, 0, W, H);
+
+      // subtle dot grid
+      ctx.fillStyle = 'rgba(0,217,255,0.06)';
+      const G = 45;
+      for (let x = G; x < W; x += G)
+        for (let y = G; y < H; y += G) {
+          ctx.beginPath();
+          ctx.arc(x, y, 1, 0, Math.PI*2);
+          ctx.fill();
+        }
+
+      cells.forEach((c, i) => {
+        if (c.delay > 0) { c.delay--; return; }
+
+        if (c.growing) {
+          c.r += c.speed;
+          c.alpha = Math.min(c.maxAlpha, c.alpha + 0.004);
+          if (c.r >= c.maxR) c.growing = false;
+        } else {
+          c.r += c.speed * 0.3;
+          c.alpha -= 0.003;
+          if (c.alpha <= 0) { cells[i] = makeCell(); return; }
+        }
+
+        const {r:cr, g:cg, b:cb} = c.col;
+
+        // filled radial gradient
+        const grad = ctx.createRadialGradient(c.x, c.y, 0, c.x, c.y, c.r);
+        grad.addColorStop(0,   `rgba(${cr},${cg},${cb},0)`);
+        grad.addColorStop(0.55,`rgba(${cr},${cg},${cb},${(c.alpha*0.35).toFixed(3)})`);
+        grad.addColorStop(0.85,`rgba(${cr},${cg},${cb},${c.alpha.toFixed(3)})`);
+        grad.addColorStop(1,   `rgba(${cr},${cg},${cb},0)`);
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // bright ring edge
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+        ctx.strokeStyle = `rgba(${cr},${cg},${cb},${Math.min(c.alpha*2.2, 0.55).toFixed(3)})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+
+        // white highlight spark at ring peak
+        if (c.growing) {
+          ctx.beginPath();
+          ctx.arc(c.x, c.y, c.r, 0, Math.PI*2);
+          ctx.strokeStyle = `rgba(255,255,255,${Math.min(c.alpha*1.5, 0.25).toFixed(3)})`;
+          ctx.lineWidth = 0.6;
+          ctx.stroke();
+        }
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    resize();
+    window.addEventListener('resize', resize);
+    draw();
+  })();
   </script>
 
 </body>

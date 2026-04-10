@@ -66,6 +66,7 @@ const SettingsModule = (() => {
   function buildSidebarTabs() {
     const tabs = [
       { id: 'general',       icon: 'fa-sliders',             label: 'General Settings' },
+      { id: 'theme',         icon: 'fa-palette',             label: '🎨 Theme / Appearance' },
       { id: 'categories',    icon: 'fa-tags',                label: 'Categories & Courses' },
       { id: 'data',          icon: 'fa-database',            label: 'Data Management' },
       { id: 'security',      icon: 'fa-lock',                label: 'Security & Access' },
@@ -90,6 +91,7 @@ const SettingsModule = (() => {
   function buildAllPanels() {
     return `
       ${panelGeneral()}
+      ${panelTheme()}
       ${panelCategories()}
       ${panelData()}
       ${panelSecurity()}
@@ -117,8 +119,496 @@ const SettingsModule = (() => {
   }
 
   // ════════════════════════════════════════════════════════════════
+  // TAB: THEME / APPEARANCE
+  // ════════════════════════════════════════════════════════════════
+  const THEMES = [
+    {
+      id: 'neon-space',
+      name: 'Neon Space Dark',
+      desc: 'Deep navy + Cyan + Purple — Default cyberpunk theme',
+      emoji: '🚀',
+      colors: ['#0a0e27', '#00d9ff', '#b537f2', '#00ff88'],
+      bg: 'linear-gradient(135deg, #0a0e27 0%, #0f0a28 100%)',
+    },
+    {
+      id: 'aurora',
+      name: 'Deep Ocean Aurora',
+      desc: 'Deep navy + flowing aurora teal & electric blue',
+      emoji: '🌊',
+      colors: ['#050d1e', '#00e5ff', '#00b4d8', '#48cae4'],
+      bg: 'linear-gradient(135deg, #050d1e 0%, #0a192f 50%, #072a4a 100%)',
+    },
+    {
+      id: 'nebula',
+      name: 'Nebula Purple Haze',
+      desc: 'Dark cosmic black + swirling galaxy purple & magenta',
+      emoji: '🌌',
+      colors: ['#0d0010', '#c77dff', '#e040fb', '#7b2d8b'],
+      bg: 'linear-gradient(135deg, #0d0010 0%, #1a0030 50%, #0d0020 100%)',
+    },
+    {
+      id: 'neon-grid',
+      name: 'Neon City Grid',
+      desc: 'Midnight black + electric green + hot pink cyberpunk',
+      emoji: '⚡',
+      colors: ['#080808', '#39ff14', '#ff006e', '#00f5d4'],
+      bg: 'linear-gradient(135deg, #080808 0%, #0d1117 100%)',
+    },
+    {
+      id: 'molten',
+      name: 'Molten Gold & Obsidian',
+      desc: 'Volcanic black + glowing gold veins — Luxury premium',
+      emoji: '🔥',
+      colors: ['#0a0800', '#ffd700', '#ff6b00', '#ff9900'],
+      bg: 'linear-gradient(135deg, #0a0800 0%, #1a1000 50%, #0d0900 100%)',
+    },
+    {
+      id: 'emerald',
+      name: 'Quantum Emerald',
+      desc: 'Forest black + bioluminescent emerald circuit glow',
+      emoji: '💚',
+      colors: ['#030d06', '#00ff88', '#00e676', '#69f0ae'],
+      bg: 'linear-gradient(135deg, #030d06 0%, #071a0a 50%, #030d06 100%)',
+    },
+  ];
+
+  const SIDEBAR_STYLES = [
+    {
+      id: 'glass',
+      name: 'Frosted Glass',
+      icon: '🧊',
+      desc: 'Master style — Semi-transparent blur, background glows through',
+      preview: 'background:rgba(10,14,39,0.42);border-right:1px solid rgba(255,255,255,0.13)',
+      master: true,
+    },
+    {
+      id: 'tinted',
+      name: 'Tinted Glow',
+      icon: '🌊',
+      desc: 'Theme-color tinted glass — subtle accent wash',
+      preview: 'background:rgba(0,25,50,0.6);border-right:1px solid rgba(0,217,255,0.3)',
+    },
+    {
+      id: 'carbon',
+      name: 'Carbon Dark',
+      icon: '⬛',
+      desc: 'Pure matte black — maximum contrast, ultra bold',
+      preview: 'background:#050507;border-right:1px solid rgba(255,255,255,0.06)',
+    },
+    {
+      id: 'neonstrip',
+      name: 'Neon Strip',
+      icon: '📌',
+      desc: 'Dark glass + glowing top neon strip accent',
+      preview: 'background:rgba(8,10,25,0.88);border-top:2px solid rgba(0,217,255,0.8)',
+    },
+    {
+      id: 'velvet',
+      name: 'Velvet Deep',
+      icon: '🟣',
+      desc: 'Rich deep purple-navy matte — premium luxury feel',
+      preview: 'background:linear-gradient(180deg,rgba(14,8,35,0.98) 0%,rgba(8,5,22,0.98) 100%)',
+    },
+  ];
+
+  function panelTheme() {
+    const currentTheme   = localStorage.getItem('wfa_theme') || 'neon-space';
+    const currentSidebar = localStorage.getItem(`wfa_sidebar_${currentTheme}`) || 'glass';
+
+    return `
+    <div class="settings-panel ${activeTab === 'theme' ? 'active' : ''}" data-panel="theme">
+
+      <!-- ── Background Theme ── -->
+      <div class="settings-card-title" style="color:var(--brand-primary);font-size:1.05rem;margin-bottom:6px">
+        <i class="fa fa-image"></i> BACKGROUND THEME
+      </div>
+      <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
+        Click করুন — সাথে সাথে apply হবে। প্রতিটি থিমে আলাদা সাইডবার সেটিং সেভ থাকবে।
+      </p>
+
+      <div class="theme-grid" style="margin-bottom:30px">
+        ${THEMES.map(t => `
+          <div class="theme-card ${currentTheme === t.id ? 'theme-active' : ''}"
+               onclick="SettingsModule.applyTheme('${t.id}')" title="${t.name}">
+            <div class="theme-preview" style="background:${t.bg}">
+              <div class="theme-preview-swatch">
+                ${t.colors.map(c => `<span style="background:${c}"></span>`).join('')}
+              </div>
+              <div class="theme-preview-bars">
+                <div style="width:60%;height:5px;border-radius:3px;background:${t.colors[1]};margin-bottom:4px;box-shadow:0 0 8px ${t.colors[1]}80"></div>
+                <div style="width:40%;height:3px;border-radius:3px;background:${t.colors[2]};margin-bottom:4px;opacity:.8"></div>
+                <div style="width:75%;height:3px;border-radius:3px;background:rgba(255,255,255,0.15)"></div>
+              </div>
+              ${currentTheme === t.id ? `<div class="theme-active-badge"><i class="fa fa-check"></i> Active</div>` : ''}
+            </div>
+            <div class="theme-info">
+              <div class="theme-name">${t.emoji} ${t.name}</div>
+              <div class="theme-desc">${t.desc}</div>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- ── Sidebar / Menu Bar Style ── -->
+      <div class="settings-card-title" style="color:var(--brand-accent);font-size:1.05rem;margin-bottom:6px">
+        <i class="fa fa-sidebar"></i> SIDEBAR / MENU BAR STYLE
+      </div>
+      <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
+        এই থিমের জন্য সাইডবার ডিজাইন বেছে নিন। প্রতিটি থিমে আলাদা সেটিং সেভ হবে।
+        <span style="color:var(--brand-primary);font-weight:600">
+          (বর্তমান থিম: <i class="fa fa-circle" style="font-size:.6rem"></i> ${THEMES.find(t=>t.id===currentTheme)?.emoji} ${THEMES.find(t=>t.id===currentTheme)?.name})
+        </span>
+      </p>
+
+      <div class="sidebar-style-grid">
+        ${SIDEBAR_STYLES.map(s => `
+          <div class="sidebar-style-card ${currentSidebar === s.id ? 'sidebar-style-active' : ''}"
+               onclick="SettingsModule.applySidebarStyle('${s.id}')">
+            <div class="sidebar-style-preview" style="${s.preview}">
+              <div style="padding:8px 10px;border-left:3px solid ${currentSidebar===s.id ? 'var(--brand-primary)' : 'transparent'};background:${currentSidebar===s.id ? 'rgba(0,217,255,0.15)' : 'transparent'};border-radius:6px;margin:2px 6px;font-size:.6rem;color:${currentSidebar===s.id ? 'var(--brand-neon)' : 'rgba(255,255,255,0.7)'};display:flex;align-items:center;gap:5px">
+                <span style="width:6px;height:6px;border-radius:50%;background:${currentSidebar===s.id ? 'var(--brand-primary)' : 'rgba(255,255,255,0.4)'}"></span> Dashboard
+              </div>
+              <div style="padding:5px 10px;margin:2px 6px;font-size:.55rem;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">
+                <span style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.3)"></span> Students
+              </div>
+              <div style="padding:5px 10px;margin:2px 6px;font-size:.55rem;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">
+                <span style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.3)"></span> Finance
+              </div>
+              <div style="padding:5px 10px;margin:2px 6px;font-size:.55rem;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">
+                <span style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.3)"></span> Settings
+              </div>
+              ${currentSidebar === s.id ? `<div style="position:absolute;top:6px;right:6px;background:var(--brand-primary);border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:.55rem">✓</div>` : ''}
+            </div>
+            <div class="sidebar-style-info">
+              <div class="sidebar-style-name">${s.icon} ${s.name} ${s.master ? '<span style="font-size:.6rem;background:rgba(0,217,255,0.2);color:#00d9ff;padding:1px 6px;border-radius:10px;margin-left:4px">MASTER</span>' : ''}</div>
+              <div class="sidebar-style-desc">${s.desc}</div>
+              <button class="customize-btn" onclick="event.stopPropagation();SettingsModule.openColorCustomizer('${s.id}')"
+                style="margin-top:6px;padding:3px 10px;font-size:.68rem;border:1px solid rgba(0,217,255,0.3);background:rgba(0,217,255,0.08);color:#00d9ff;border-radius:6px;cursor:pointer;transition:.2s">
+                ⚙️ Customize Colors
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- ── Color Customizer Panel ── -->
+      <div id="color-customizer-panel" style="display:none;margin-top:24px">
+        ${buildColorCustomizerHTML(currentTheme, currentSidebar)}
+      </div>
+
+      <!-- ── Dashboard Card Colors ── -->
+      <div style="margin-top:28px">
+        <div class="settings-card-title" style="color:var(--brand-gold);font-size:1.05rem;margin-bottom:6px">
+          <i class="fa fa-layer-group"></i> DASHBOARD CARD & ANALYTICS COLORS
+        </div>
+        <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
+          Dashboard cards এবং Analytics section এর background color customize করুন।
+          <span style="color:var(--brand-primary);font-weight:600">প্রতিটি থিমে আলাদা সেভ হবে।</span>
+        </p>
+        ${buildCardColorsHTML(currentTheme)}
+      </div>
+
+    </div>`;
+  }
+
+  function buildColorCustomizerHTML(themeId, styleId) {
+    const key = `wfa_sidebar_custom_${themeId}_${styleId}`;
+    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    return `
+      <div style="background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:16px" id="color-customizer-inner">
+        <div style="font-size:.9rem;font-weight:700;color:var(--brand-primary);margin-bottom:12px">
+          ⚙️ Sidebar Custom Colors — <span style="color:rgba(255,255,255,0.5);font-weight:400;font-size:.8rem">changes apply live</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:.75rem;color:var(--text-muted);display:block;margin-bottom:4px">BG Opacity</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="cust-opacity" min="5" max="98" value="${saved.opacity||48}"
+                oninput="SettingsModule.liveCustomSidebar()"
+                style="flex:1;accent-color:var(--brand-primary)">
+              <span id="cust-opacity-val" style="font-size:.75rem;color:#fff;min-width:30px">${saved.opacity||48}%</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.75rem;color:var(--text-muted);display:block;margin-bottom:4px">Border Color</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="color" id="cust-border" value="${saved.border||'#00d9ff'}"
+                oninput="SettingsModule.liveCustomSidebar()"
+                style="width:36px;height:28px;border-radius:6px;border:none;cursor:pointer;padding:2px">
+              <span style="font-size:.75rem;color:var(--text-muted)">Border glow</span>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:.75rem;color:var(--text-muted);display:block;margin-bottom:4px">Active Item Color</label>
+            <input type="color" id="cust-active" value="${saved.active||'#00d9ff'}"
+              oninput="SettingsModule.liveCustomSidebar()"
+              style="width:36px;height:28px;border-radius:6px;border:none;cursor:pointer;padding:2px">
+          </div>
+          <div>
+            <label style="font-size:.75rem;color:var(--text-muted);display:block;margin-bottom:4px">Blur Amount</label>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="range" id="cust-blur" min="0" max="40" value="${saved.blur||28}"
+                oninput="SettingsModule.liveCustomSidebar()"
+                style="flex:1;accent-color:var(--brand-primary)">
+              <span id="cust-blur-val" style="font-size:.75rem;color:#fff;min-width:30px">${saved.blur||28}px</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button onclick="SettingsModule.saveCustomSidebarColors()" class="btn btn-primary btn-sm">💾 Save Colors</button>
+          <button onclick="SettingsModule.resetCustomSidebarColors()" class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)">↺ Reset</button>
+        </div>
+      </div>`;
+  }
+
+  const CARD_PRESETS = [
+    { id: 'navy',   name: '🌑 Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
+    { id: 'obsidian',name: '🌌 Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
+    { id: 'maroon', name: '🔥 Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
+    { id: 'purple', name: '💜 Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
+    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' }
+  ];
+
+  function buildCardColorsHTML(themeId) {
+    const key = `wfa_card_theme_${themeId}`;
+    const savedId = localStorage.getItem(key) || 'navy';
+    
+    return `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(130px, 1fr));gap:8px;margin-bottom:14px">
+        ${CARD_PRESETS.map(p => `
+          <div onclick="SettingsModule.applyCardPreset('${p.id}')"
+               style="padding:10px; border-radius:8px; cursor:pointer; transition:.2s;
+                      background:${p.cardBg}; border:2px solid ${savedId === p.id ? 'var(--brand-primary)' : p.border};
+                      box-shadow:${savedId === p.id ? '0 0 12px var(--brand-primary)' : 'none'}">
+             <div style="font-size:.75rem; color:#fff; font-weight:600; text-align:center">${p.name}</div>
+          </div>
+        `).join('')}
+      </div>
+      <div style="font-size:.72rem;color:var(--text-muted);text-align:center;margin-top:10px">
+        👆 কার্ডের ব্যাকগ্রাউন্ড কালার সিলেক্ট করুন (এটি সাথে সাথে সেভ হয়ে যাবে)।
+      </div>`;
+  }
+
+
+  function applyTheme(themeId) {
+    const theme = THEMES.find(t => t.id === themeId);
+    if (!theme) return;
+    // Remove all theme classes
+    THEMES.forEach(t => document.body.classList.remove(`theme-${t.id}`));
+    document.body.classList.add(`theme-${themeId}`);
+    localStorage.setItem('wfa_theme', themeId);
+    // Restore this theme's sidebar style (default = glass)
+    const savedSidebar = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
+    _applySidebarClass(savedSidebar);
+    // Refresh panel
+    refreshModal();
+    switchTab('theme');
+    Utils.toast(`✨ Theme: ${theme.name}`, 'success');
+  }
+
+  function applySidebarStyle(styleId) {
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    localStorage.setItem(`wfa_sidebar_${themeId}`, styleId);
+    _applySidebarClass(styleId);
+    // Refresh only the sidebar style section
+    refreshModal();
+    switchTab('theme');
+    const style = SIDEBAR_STYLES.find(s => s.id === styleId);
+    Utils.toast(`🎨 Sidebar: ${style?.name || styleId}`, 'info');
+  }
+
+  function _applySidebarClass(styleId) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    // Remove all known sidebar style classes
+    ['glass','tinted','carbon','neonstrip','velvet'].forEach(s => sidebar.classList.remove(`sidebar-${s}`));
+    // Always apply a class (glass is the master/default)
+    sidebar.classList.add(`sidebar-${styleId}`);
+    
+    // Always update CSS overrides
+    _applyColorOverrides();
+  }
+
+  // ── Color Customizer Logic ──
+
+  function openColorCustomizer(styleId) {
+    const panel = document.getElementById('color-customizer-panel');
+    if(panel) {
+      if(panel.style.display === 'block') {
+         panel.style.display = 'none';
+      } else {
+         panel.style.display = 'block';
+         // Automatically select the sidebar style so we're editing the active one
+         applySidebarStyle(styleId); 
+      }
+    }
+  }
+
+  function liveCustomSidebar() {
+    const opacity = document.getElementById('cust-opacity').value;
+    const border = document.getElementById('cust-border').value;
+    const active = document.getElementById('cust-active').value;
+    const blur = document.getElementById('cust-blur').value;
+
+    document.getElementById('cust-opacity-val').textContent = opacity + '%';
+    document.getElementById('cust-blur-val').textContent = blur + 'px';
+
+    _injectCSSOverrides(opacity, border, active, blur);
+  }
+
+  function saveCustomSidebarColors() {
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
+    
+    const settings = {
+      opacity: document.getElementById('cust-opacity').value,
+      border: document.getElementById('cust-border').value,
+      active: document.getElementById('cust-active').value,
+      blur: document.getElementById('cust-blur').value
+    };
+    
+    localStorage.setItem(`wfa_sidebar_custom_${themeId}_${styleId}`, JSON.stringify(settings));
+    Utils.toast('Sidebar colors saved!', 'success');
+  }
+  
+  function resetCustomSidebarColors() {
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
+    localStorage.removeItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
+    refreshModal();
+    switchTab('theme');
+    _applyColorOverrides();
+    Utils.toast('Sidebar colors reset', 'info');
+  }
+
+  function applyCardPreset(presetId) {
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    localStorage.setItem(`wfa_card_theme_${themeId}`, presetId);
+    _applyColorOverrides();
+    refreshModal();
+    switchTab('theme');
+    const p = CARD_PRESETS.find(x => x.id === presetId);
+    Utils.toast(`Cards set to ${p?.name}`, 'success');
+  }
+
+  // ── Inject globally custom style block ──
+  
+  function _applyColorOverrides() {
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
+    const cardPresetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || 'navy';
+    
+    // Default fallback
+    _injectCSSOverrides();
+    _injectCardOverrides(cardPresetId);
+
+    // Re-apply if saved
+    const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
+    if(sideSavedJSON) {
+        const s = JSON.parse(sideSavedJSON);
+        _injectCSSOverrides(s.opacity, s.border, s.active, s.blur);
+    }
+  }
+
+  function _injectCSSOverrides(opacity, border, active, blur) {
+    let styleTag = document.getElementById('custom-sidebar-overrides');
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'custom-sidebar-overrides';
+      document.head.appendChild(styleTag);
+    }
+    
+    if(!opacity) { styleTag.textContent = ''; return; }
+    
+    const opVal = opacity / 100;
+    
+    styleTag.textContent = `
+       #sidebar.sidebar-glass { background: rgba(8,12,35,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
+       #sidebar.sidebar-tinted { background: color-mix(in srgb, var(--brand-primary) ${opacity}%, black) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
+       #sidebar.sidebar-carbon { border-right-color: ${border} !important; }
+       #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
+       #sidebar.sidebar-velvet { border-right-color: ${border} !important; }
+
+       /* Custom active color matching */
+       #sidebar.sidebar-glass .nav-item.active { border-left-color: ${active} !important; background: color-mix(in srgb, ${active} 10%, transparent) !important; }
+       #sidebar.sidebar-carbon .nav-item.active { color: ${active} !important; background: color-mix(in srgb, ${active} 12%, transparent) !important;}
+       #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${active} !important; box-shadow: 0 0 20px ${active} !important; }
+       #sidebar.sidebar-velvet .nav-item.active { color: ${active} !important; }
+    `;
+  }
+  
+  function _getDefaultPresetForTheme(themeId) {
+    const map = {
+      'neon-grid': 'maroon',
+      'nebula': 'purple',
+      'emerald': 'emerald',
+      'molten': 'obsidian'
+    };
+    return map[themeId] || 'navy';
+  }
+
+  function _injectCardOverrides(presetId) {
+    let styleTag = document.getElementById('custom-card-overrides');
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'custom-card-overrides';
+      document.head.appendChild(styleTag);
+    }
+    
+    // Auto-resolve preset if missing
+    if (!presetId) {
+       const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+       presetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || _getDefaultPresetForTheme(themeId);
+    }
+
+    const p = CARD_PRESETS.find(x => x.id === presetId) || CARD_PRESETS[0];
+
+    styleTag.textContent = `
+       :root {
+         --card-bg: ${p.cardBg} !important;
+         --card-border: ${p.border} !important;
+         --card-glow-inner: ${p.inner} !important;
+         --analytics-bg: ${p.anaBg} !important;
+         --bg-surface: ${p.cardBg} !important;
+         --bg-surface-solid: ${p.inner} !important;
+         --bg-card: ${p.cardBg} !important;
+       }
+       
+       /* Global UI Injection for this Preset */
+       .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { 
+         background: var(--card-bg) !important; 
+         border-color: var(--card-border) !important; 
+       }
+       .modal-box, .settings-modal, .att-modal-container { 
+         background: var(--card-glow-inner) !important; 
+         border-color: var(--card-border) !important; 
+       }
+       .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper {
+         background: var(--analytics-bg) !important;
+       }
+       .table-wrapper table th { background: rgba(0,0,0,0.6) !important; }
+       .notice-item { background: rgba(0,0,0,0.3) !important; }
+       .settings-sidebar, .card-title, .settings-modal-header, .modal-header, .table-wrapper th, .table-wrapper td {
+         border-color: rgba(255,255,255,0.08) !important;
+       }
+       input, select, textarea {
+         background: rgba(0,0,0,0.3) !important;
+         border-color: rgba(255,255,255,0.12) !important;
+         color: #fff !important;
+       }
+    `;
+  }
+
+
+
+
+
+
+
+  // ════════════════════════════════════════════════════════════════
   // TAB 1: GENERAL SETTINGS
   // ════════════════════════════════════════════════════════════════
+
   function panelGeneral() {
     const cfg = getConfig();
     const students = SupabaseSync.getAll(DB.students);
@@ -331,14 +821,6 @@ const SettingsModule = (() => {
           </div>
         </div>
         <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
-      </div>
-
-      <div class="settings-card glow-cyan">
-        <div class="settings-card-title"><i class="fa fa-palette"></i> Theme</div>
-        <div style="display:flex;gap:12px;align-items:center">
-          <button class="btn btn-outline" onclick="SettingsModule.setTheme('light')">☀️ Light Mode</button>
-          <button class="btn btn-outline" onclick="SettingsModule.setTheme('dark')">🌙 Dark Mode</button>
-        </div>
       </div>
     </div>`;
   }
@@ -1423,6 +1905,10 @@ const SettingsModule = (() => {
   return {
     render, openModal, closeModal, switchTab,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
+    applyTheme,
+    applySidebarStyle,
+    openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
+    applyCardPreset,
     viewTableData, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
@@ -1440,3 +1926,77 @@ const SettingsModule = (() => {
 })();
 
 window.SettingsModule = SettingsModule;
+
+// ── Restore saved theme + sidebar + colors on page load ──────────────
+(function restoreThemeOnLoad() {
+  const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
+  const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald'];
+  allThemeIds.forEach(id => document.body.classList.remove(`theme-${id}`));
+  document.body.classList.add(`theme-${savedTheme}`);
+  
+  const savedSidebar = localStorage.getItem(`wfa_sidebar_${savedTheme}`) || 'glass';
+  const allSidebarStyles = ['glass','tinted','carbon','neonstrip','velvet'];
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) {
+      allSidebarStyles.forEach(s => sidebar.classList.remove(`sidebar-${s}`));
+      sidebar.classList.add(`sidebar-${savedSidebar}`);
+    }
+  });
+
+  // Inject colors immediately
+  const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${savedTheme}_${savedSidebar}`);
+  if(sideSavedJSON) {
+      const s = JSON.parse(sideSavedJSON);
+      const styleTag = document.createElement('style');
+      styleTag.id = 'custom-sidebar-overrides';
+      styleTag.textContent = `
+         #sidebar.sidebar-glass { background: rgba(8,12,35,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-tinted { background: color-mix(in srgb, var(--brand-primary) ${s.opacity}%, black) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-carbon { border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-velvet { border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-glass .nav-item.active { border-left-color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 10%, transparent) !important; }
+         #sidebar.sidebar-carbon .nav-item.active { color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 12%, transparent) !important;}
+         #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${s.active} !important; box-shadow: 0 0 20px ${s.active} !important; }
+         #sidebar.sidebar-velvet .nav-item.active { color: ${s.active} !important; }
+      `;
+      document.head.appendChild(styleTag);
+  }
+  
+  const map = { 'neon-grid': 'maroon', 'nebula': 'purple', 'emerald': 'emerald', 'molten': 'obsidian' };
+  const cardPresetId = localStorage.getItem(`wfa_card_theme_${savedTheme}`) || map[savedTheme] || 'navy';
+  const CARD_PRESETS = [
+    { id: 'navy',   name: '🌑 Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
+    { id: 'obsidian',name: '🌌 Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
+    { id: 'maroon', name: '🔥 Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
+    { id: 'purple', name: '💜 Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
+    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' }
+  ];
+  const c = CARD_PRESETS.find(x => x.id === cardPresetId) || CARD_PRESETS[0];
+  const styleTag = document.createElement('style');
+  styleTag.id = 'custom-card-overrides';
+  styleTag.textContent = `
+     :root {
+       --card-bg: ${c.cardBg} !important;
+       --card-border: ${c.border} !important;
+       --card-glow-inner: ${c.inner} !important;
+       --analytics-bg: ${c.anaBg} !important;
+       --bg-surface: ${c.cardBg} !important;
+       --bg-surface-solid: ${c.inner} !important;
+       --bg-card: ${c.cardBg} !important;
+     }
+     .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { background: var(--card-bg) !important; border-color: var(--card-border) !important; }
+     .modal-box, .settings-modal, .att-modal-container { background: var(--card-glow-inner) !important; border-color: var(--card-border) !important; }
+     .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper { background: var(--analytics-bg) !important; }
+     .table-wrapper table th { background: rgba(0,0,0,0.6) !important; }
+     .notice-item { background: rgba(0,0,0,0.3) !important; }
+     .settings-sidebar, .card-title, .settings-modal-header, .modal-header, .table-wrapper th, .table-wrapper td { border-color: rgba(255,255,255,0.08) !important; }
+     input, select, textarea { background: rgba(0,0,0,0.3) !important; border-color: rgba(255,255,255,0.12) !important; color: #fff !important; }
+  `;
+  document.head.appendChild(styleTag);
+
+})();
+
+
