@@ -1,203 +1,343 @@
-// ============================================================
-// notice-board.js — Bengali Notice Board Module
-// Wings Fly Aviation Academy
-// ============================================================
+/* ════════════════════════════════════════════════
+   Wings Fly Aviation Academy
+   js/modules/notice-board.js
+   Legacy Notice Board Migration
+════════════════════════════════════════════════ */
 
 const NoticeBoardModule = (() => {
-  let notices = [];
-  let timerInterval = null;
 
-  const TYPES = {
-    warning:  { label: 'Warning',  icon: '⚠️', color: '#f59e0b', bg: '#fffbeb', border: '#fcd34d' },
-    info:     { label: 'Info',     icon: 'ℹ️', color: '#3b82f6', bg: '#eff6ff', border: '#93c5fd' },
-    urgent:   { label: 'Danger',   icon: '🚨', color: '#ef4444', bg: '#fef2f2', border: '#fca5a5' },
-    success:  { label: 'Success',   icon: '✅', color: '#22c55e', bg: '#f0fdf4', border: '#86efac' },
-  };
+  let countdownInterval = null;
+  let activeNotice = null;
 
-  // Preset durations (ms)
-  const DURATIONS = {
-    '30m':  30 * 60 * 1000,
-    '1h':   60 * 60 * 1000,
-    '3h':   3 * 60 * 60 * 1000,
-    '6h':   6 * 60 * 60 * 1000,
-    '12h':  12 * 60 * 60 * 1000,
-    '1d':   24 * 60 * 60 * 1000,
-    '3d':   3 * 24 * 60 * 60 * 1000,
-    '1w':   7 * 24 * 60 * 60 * 1000,
-    'never': null,
-  };
-
-  const DURATION_LABELS = {
-    '30m': '30 Minutes', '1h': '1 Hour', '3h': '3 Hours',
-    '6h': '6 Hours', '12h': '12 Hours', '1d': '1 Day',
-    '3d': '3 Days', '1w': '1 Week', 'never': 'No expiry',
-  };
-
-  // ── Load / Save ───────────────────────────────────────────
-  function load() {
-    notices = Utils.storage('wfa_notices') || [];
-    purgeExpired();
-    startTimer();
+  // ── INIT ────────────────────────────────────────────────
+  // Called by App on load or route change to initialize the global banner
+  function init() {
+    injectBannerContainer();
+    refreshActiveNotice();
   }
 
-  function save() {
-    Utils.storage('wfa_notices', notices);
-    SyncEngine.markDirty('notices');
+  function injectBannerContainer() {
+    if (document.getElementById('noticeBoardBanner')) return;
+    
+    const bannerHTML = `
+      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:0; right:0; z-index:9000; padding:12px; margin:10px 20px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center;">
+        <span class="notice-icon" style="margin-right:10px; font-size:1.2rem;"></span>
+        <span id="noticeBannerText" style="flex-grow:1; margin-right:15px; display:inline-block; font-size:1rem;"></span>
+        <span id="noticeBannerCountdown" style="background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:30px; font-size:0.85rem; font-family:monospace;"></span>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('afterbegin', bannerHTML);
   }
 
-  // ── CRUD ──────────────────────────────────────────────────
-  function add(data) {
-    const durMs = DURATIONS[data.duration] !== undefined ? DURATIONS[data.duration] : DURATIONS['1d'];
-    const expiresAt = durMs ? new Date(Date.now() + durMs).toISOString() : null;
+  // Find the single active notice from DB
+  function refreshActiveNotice() {
+    const all = SupabaseSync.getAll(DB.notices) || [];
+    
+    // Sort by descending created at
+    all.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    activeNotice = null;
+    hideBanner();
 
-    const notice = {
-      id: Utils.uid('NOT'),
-      title: data.title?.trim() || '',
-      body: data.body?.trim() || '',
-      type: data.type || 'info',
-      duration: data.duration || '1d',
-      expiresAt,
-      pinned: !!data.pinned,
-      createdAt: new Date().toISOString(),
-      createdBy: data.createdBy || 'Admin',
-    };
-    notices.unshift(notice);
-    save();
-    return notice;
-  }
-
-  function update(id, data) {
-    const idx = notices.findIndex(n => n.id === id);
-    if (idx === -1) return false;
-    // If duration changed, recalculate expiry
-    if (data.duration && data.duration !== notices[idx].duration) {
-      const durMs = DURATIONS[data.duration] !== undefined ? DURATIONS[data.duration] : DURATIONS['1d'];
-      data.expiresAt = durMs ? new Date(Date.now() + durMs).toISOString() : null;
-    }
-    notices[idx] = { ...notices[idx], ...data, updatedAt: new Date().toISOString() };
-    save();
-    return notices[idx];
-  }
-
-  function remove(id) {
-    notices = notices.filter(n => n.id !== id);
-    save();
-  }
-
-  function togglePin(id) {
-    const n = notices.find(n => n.id === id);
-    if (n) { n.pinned = !n.pinned; save(); }
-  }
-
-  function getAll() {
-    purgeExpired();
-    return [...notices].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1;
-      if (!a.pinned && b.pinned) return 1;
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    });
-  }
-
-  function getActive() {
-    return getAll().filter(n => !isExpired(n));
-  }
-
-  // ── Expiry Helpers ────────────────────────────────────────
-  function isExpired(n) {
-    if (!n.expiresAt) return false;
-    return new Date(n.expiresAt) < new Date();
-  }
-
-  function purgeExpired() {
-    const before = notices.length;
-    notices = notices.filter(n => !isExpired(n) || n.pinned);
-    if (notices.length !== before) save();
-  }
-
-  function timeRemaining(n) {
-    if (!n.expiresAt) return 'No expiry';
-    const ms = new Date(n.expiresAt) - Date.now();
-    if (ms <= 0) return 'Expired';
-    const mins = Math.floor(ms / 60000);
-    const hours = Math.floor(mins / 60);
-    const days = Math.floor(hours / 24);
-    if (days > 0) return `${days} Day Due`;
-    if (hours > 0) return `${hours} Hour Due`;
-    return `${mins} Minute Due`;
-  }
-
-  // ── Timer (auto-purge & UI refresh) ──────────────────────
-  function startTimer() {
-    if (timerInterval) clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      purgeExpired();
-      // Re-render if notice board section visible
-      const section = document.getElementById('section-notice-board');
-      if (section && !section.classList.contains('hidden')) {
-        renderNoticeBoard();
+    for (let n of all) {
+      if (typeof n.expiresAt === 'number' || typeof n.expiresAt === 'string') {
+        const exp = new Date(n.expiresAt).getTime();
+        if (exp > Date.now()) {
+           activeNotice = n;
+           break;
+        }
       }
-    }, 60 * 1000); // every minute
+    }
+
+    if (activeNotice) {
+      showBanner(activeNotice);
+    }
   }
 
-  // ── Render ────────────────────────────────────────────────
-  function renderNoticeBoard(containerId = 'notice-board-container') {
-    const container = document.getElementById(containerId);
-    if (!container) return;
-    const list = getActive();
+  // ── BANNER LOGIC ────────────────────────────────────────
 
-    if (list.length === 0) {
-      container.innerHTML = `<div class="notice-empty">No Active NotesNotice absent</div>`;
+  function showBanner(notice) {
+    const banner = document.getElementById('noticeBoardBanner');
+    const textEl = document.getElementById('noticeBannerText');
+    const iconEl = banner.querySelector('.notice-icon');
+    
+    if (!banner || !textEl) return;
+
+    textEl.innerHTML = (notice.text || notice.title || '').replace(/\n/g, '<br/>');
+    
+    // Style based on type
+    const type = notice.type || 'warning';
+    if (type === 'danger') {
+      banner.style.background = 'linear-gradient(135deg, #ef4444, #b91c1c)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #fca5a5';
+      iconEl.textContent = '🚨';
+    } else if (type === 'info') {
+      banner.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #93c5fd';
+      iconEl.textContent = 'ℹ️';
+    } else if (type === 'success') {
+      banner.style.background = 'linear-gradient(135deg, #22c55e, #15803d)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #86efac';
+      iconEl.textContent = '✅';
+    } else {
+      // Default warning
+      banner.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #fcd34d';
+      iconEl.textContent = '⚠️';
+    }
+
+    banner.style.display = 'flex';
+    banner.style.alignItems = 'center';
+    banner.style.justifyContent = 'center';
+
+    startCountdown(notice.expiresAt);
+  }
+
+  function hideBanner() {
+    const banner = document.getElementById('noticeBoardBanner');
+    if (banner) banner.style.display = 'none';
+    if (countdownInterval) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+    }
+  }
+
+  function startCountdown(expiresAtStr) {
+    if (countdownInterval) clearInterval(countdownInterval);
+    const expiresAt = new Date(expiresAtStr).getTime();
+    
+    updateTick(expiresAt);
+    countdownInterval = setInterval(() => updateTick(expiresAt), 1000);
+  }
+
+  function updateTick(expiresAt) {
+    const remaining = expiresAt - Date.now();
+    const cdEl = document.getElementById('noticeBannerCountdown');
+    
+    if (remaining <= 0) {
+      clearInterval(countdownInterval);
+      hideBanner();
+      // Only delete locally if expired; actual DB purge happens manually or cron
+      activeNotice = null;
+      render(); // refresh module if open
       return;
     }
 
-    container.innerHTML = list.map(n => {
-      const t = TYPES[n.type] || TYPES.info;
-      return `
-<div class="notice-card ${n.type} ${n.pinned ? 'pinned' : ''}" data-id="${n.id}"
-  style="border-left:4px solid ${t.border}; background:${t.bg}">
-  <div class="notice-card-header">
-    <span class="notice-type-badge" style="color:${t.color}">${t.icon} ${t.label}</span>
-    ${n.pinned ? '<span class="notice-pin-badge">📌 Pinned</span>' : ''}
-    <span class="notice-time-remaining" style="color:${t.color}">${timeRemaining(n)}</span>
-  </div>
-  ${n.title ? `<div class="notice-title">${n.title}</div>` : ''}
-  <div class="notice-body">${n.body.replace(/\n/g, '<br>')}</div>
-  <div class="notice-card-footer">
-    <span class="notice-meta">— ${n.createdBy} | ${Utils.formatDate(n.createdAt)}</span>
-    <div class="notice-actions">
-      <button class="btn-icon" onclick="NoticeBoardModule.togglePin('${n.id}');NoticeBoardModule.renderNoticeBoard()" title="Pin/Unpin">📌</button>
-      <button class="btn-icon" onclick="NoticeBoardModule.openEdit('${n.id}')" title="Edit">✏️</button>
-      <button class="btn-icon danger" onclick="NoticeBoardModule.confirmDelete('${n.id}')" title="Delete">🗑️</button>
-    </div>
-  </div>
-</div>`;
-    }).join('');
+    const d = Math.floor(remaining / 86400000);
+    const h = Math.floor((remaining % 86400000) / 3600000);
+    const m = Math.floor((remaining % 3600000) / 60000);
+    const s = Math.floor((remaining % 60000) / 1000);
+
+    let str = '';
+    if (d > 0) str += `${d}d `;
+    if (h > 0 || d > 0) str += `${h}h `;
+    str += `${m}m ${s}s remaining`;
+    
+    if(cdEl) cdEl.textContent = str;
   }
 
-  // ── UI Helpers ────────────────────────────────────────────
-  function openEdit(id) {
-    const n = notices.find(n => n.id === id);
-    if (!n) return;
-    document.getElementById('notice-edit-id').value = n.id;
-    document.getElementById('notice-type').value = n.type;
-    document.getElementById('notice-title').value = n.title;
-    document.getElementById('notice-body').value = n.body;
-    document.getElementById('notice-duration').value = n.duration;
-    document.getElementById('notice-pinned').checked = n.pinned;
-    document.getElementById('notice-modal-title').textContent = 'Edit Notice';
-    Utils.openModal('notice-modal');
+  // ── UI MODULE RENDERING ─────────────────────────────────
+
+  function render() {
+    const container = document.getElementById('notice-board-content');
+    if (!container) return;
+
+    // Refresh context
+    refreshActiveNotice();
+
+    const isRunning = activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now();
+
+    container.innerHTML = `
+      <div class="card" style="max-width:800px; margin:0 auto; padding:30px;">
+        <h3 class="mb-4 text-center text-primary" style="font-weight:700;"><i class="fa fa-bullhorn"></i> Global Notice Board</h3>
+        
+        ${isRunning ? 
+          `<div class="text-center mb-4 p-4 rounded-3" style="border:1px solid #4ade80; background:rgba(34, 197, 94, 0.1);">
+             <h4 class="text-success"><i class="fa fa-check-circle"></i> A Notice is currently Active</h4>
+             <p class="mt-2 text-white">"${activeNotice.text || activeNotice.title}"</p>
+             <p class="text-muted small">Expires at: ${new Date(activeNotice.expiresAt).toLocaleString()}</p>
+             <button class="btn btn-danger mt-3" onclick="NoticeBoardModule.deleteActive()"><i class="fa fa-trash"></i> Disable Notice</button>
+           </div>`
+          : 
+          `<div class="text-center mb-4 p-4 rounded-3" style="border:1px solid #64748b; background:rgba(100, 116, 139, 0.1);">
+             <h5 class="text-muted"><i class="fa fa-info-circle"></i> No notice is currently active.</h5>
+           </div>`
+        }
+
+        <div style="${isRunning ? 'opacity:0.5; pointer-events:none;' : ''}">
+          <div class="form-group mb-3">
+            <label>Notice Content</label>
+            <textarea id="noticeTextInput" class="form-control" rows="3" placeholder="Type your notice here..." oninput="document.getElementById('noticeCharCount').innerText = this.value.length"></textarea>
+            <div class="text-end text-muted small mt-1"><span id="noticeCharCount">0</span> characters</div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 form-group mb-3">
+              <label>Notice Type (Color)</label>
+              <select id="noticeTypeSelect" class="form-control" onchange="NoticeBoardModule.previewNotice()">
+                <option value="warning">Warning (Orange)</option>
+                <option value="info">Information (Blue)</option>
+                <option value="danger">Urgent (Red)</option>
+                <option value="success">Success (Green)</option>
+              </select>
+            </div>
+            <div class="col-md-6 form-group mb-3">
+              <label>Duration</label>
+              <select id="noticeDurationSelect" class="form-control" onchange="NoticeBoardModule.toggleCustom()">
+                <option value="30">30 Minutes</option>
+                <option value="60">1 Hour</option>
+                <option value="360">6 Hours</option>
+                <option value="720" selected>12 Hours</option>
+                <option value="1440">1 Day</option>
+                <option value="4320">3 Days</option>
+                <option value="custom">Custom...</option>
+              </select>
+            </div>
+          </div>
+
+          <div id="customDurationRow" class="row mb-3" style="display:none; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
+            <div class="col-4">
+              <label class="small">Days</label>
+              <input type="number" id="customDays" class="form-control" min="0" value="0">
+            </div>
+            <div class="col-4">
+              <label class="small">Hours</label>
+              <input type="number" id="customHours" class="form-control" min="0" value="0">
+            </div>
+            <div class="col-4">
+              <label class="small">Minutes</label>
+              <input type="number" id="customMinutes" class="form-control" min="0" value="0">
+            </div>
+          </div>
+
+          <div class="form-actions mt-4" style="justify-content:center; gap:15px;">
+            <button class="btn btn-secondary" onclick="NoticeBoardModule.previewNotice()"><i class="fa fa-eye"></i> Preview Banner</button>
+            <button class="btn btn-primary" onclick="NoticeBoardModule.publish()"><i class="fa fa-paper-plane"></i> Publish Global Notice</button>
+          </div>
+
+          <!-- Preview Area -->
+          <div id="noticePreviewArea" class="mt-4" style="display:none; padding:15px; border:1px dashed #64748b; border-radius:8px;">
+            <h6 class="text-muted text-center mb-3">Banner Preview</h6>
+            <div id="noticePreviewBanner" style="padding:12px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center;">
+              <span id="noticePreviewIcon" style="margin-right:10px; font-size:1.2rem;"></span>
+              <span id="noticePreviewText" style="flex-grow:1; display:inline-block; font-size:1rem;"></span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    `;
   }
 
-  function confirmDelete(id) {
-    if (confirm('Delete this notice?')) {
-      remove(id);
-      renderNoticeBoard();
+  // ── UI ACTIONS ──────────────────────────────────────────
+
+  function toggleCustom() {
+    const sel = document.getElementById('noticeDurationSelect');
+    const row = document.getElementById('customDurationRow');
+    if(sel && row) row.style.display = sel.value === 'custom' ? 'flex' : 'none';
+  }
+
+  function previewNotice() {
+    const text = document.getElementById('noticeTextInput')?.value.trim();
+    if (!text) return Utils.toast('Please write a notice to preview.', 'error');
+    
+    const type = document.getElementById('noticeTypeSelect')?.value || 'warning';
+    const banner = document.getElementById('noticePreviewBanner');
+    const textEl = document.getElementById('noticePreviewText');
+    const iconEl = document.getElementById('noticePreviewIcon');
+    const area = document.getElementById('noticePreviewArea');
+
+    textEl.textContent = text;
+    
+    if (type === 'danger') {
+      banner.style.background = 'linear-gradient(135deg, #ef4444, #b91c1c)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #fca5a5';
+      iconEl.textContent = '🚨';
+    } else if (type === 'info') {
+      banner.style.background = 'linear-gradient(135deg, #3b82f6, #1d4ed8)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #93c5fd';
+      iconEl.textContent = 'ℹ️';
+    } else if (type === 'success') {
+      banner.style.background = 'linear-gradient(135deg, #22c55e, #15803d)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #86efac';
+      iconEl.textContent = '✅';
+    } else {
+      banner.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+      banner.style.color = '#fff';
+      banner.style.border = '2px solid #fcd34d';
+      iconEl.textContent = '⚠️';
     }
+
+    area.style.display = 'block';
   }
 
-  return {
-    load, add, update, remove, togglePin, getAll, getActive,
-    renderNoticeBoard, openEdit, confirmDelete,
-    TYPES, DURATIONS, DURATION_LABELS, timeRemaining,
-  };
+  async function publish() {
+    const text = document.getElementById('noticeTextInput')?.value.trim();
+    if (!text) return Utils.toast('Notice text is required!', 'error');
+
+    const type = document.getElementById('noticeTypeSelect')?.value || 'warning';
+    const durSel = document.getElementById('noticeDurationSelect');
+    
+    let durationMinutes = 720;
+    if (durSel?.value === 'custom') {
+      const d = parseInt(document.getElementById('customDays')?.value) || 0;
+      const h = parseInt(document.getElementById('customHours')?.value) || 0;
+      const m = parseInt(document.getElementById('customMinutes')?.value) || 0;
+      durationMinutes = (d * 1440) + (h * 60) + m;
+      if (durationMinutes < 1) return Utils.toast('Duration must be at least 1 minute.', 'error');
+    } else {
+      durationMinutes = parseInt(durSel?.value) || 720;
+    }
+
+    const payload = {
+      id: Utils.uid('NOT'),
+      text: text,
+      title: text, // legacy fallback support
+      type: type,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString()
+    };
+
+    // Purge old notice in SupabaseSync DB to prevent clutter
+    if (activeNotice && activeNotice.id) {
+      SupabaseSync.remove(DB.notices, activeNotice.id);
+    }
+    
+    SupabaseSync.insert(DB.notices, payload);
+    Utils.toast('Global Notice Published successfully!', 'success');
+    
+    // Refresh
+    render();
+  }
+
+  function deleteActive() {
+    if (!confirm('Are you sure you want to disable the active notice?')) return;
+    if (activeNotice && activeNotice.id) {
+       SupabaseSync.remove(DB.notices, activeNotice.id);
+    }
+    activeNotice = null;
+    hideBanner();
+    Utils.toast('Notice Disabled.', 'success');
+    render();
+  }
+
+  // Open legacy compatibility
+  function openAddModal() {
+     // No longer use modal, this section acts as the primary interface now.
+     document.getElementById('noticeTextInput')?.focus();
+  }
+
+  return { init, render, toggleCustom, previewNotice, publish, deleteActive, openAddModal };
 })();
+
+// Hook into App init sequence
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(NoticeBoardModule.init, 1000);
+});

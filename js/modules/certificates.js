@@ -1,6 +1,6 @@
 // ============================================================
-// certificates.js — Aviation Certificate Generator Module
-// Wings Fly Aviation Academy
+// certificates.js — Certificate Generator Module
+// Wings Fly Aviation Academy (Legacy Design Restoration)
 // ============================================================
 
 const CertificatesModule = (() => {
@@ -15,98 +15,152 @@ const CertificatesModule = (() => {
     'F':  { label: 'Failed',      color: '#8a1a1a' },
   };
 
-  // ── Build Certificate HTML ────────────────────────────────
+  // ── Build Certificate HTML (Legacy Inline-Style Design) ────
   function buildCertHTML(data) {
-    const academyName = AppSettings.get('academyName') || 'Wings Fly Aviation Academy';
-    const academyAddress = AppSettings.get('academyAddress') || '';
-    const issueDate = data.issueDate || Utils.today();
-    const grade = data.grade || '';
-    const gradeInfo = GRADES[grade] || { label: '', color: '#333' };
-    const certNumber = data.certNumber || `CERT-${Date.now()}`;
+    const settings = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
+    const academyName = settings.academy_name || 'Wings Fly Aviation Academy';
+    const logoLinear = 'assets/wings_logo_linear.png';
+    const logoPremium = 'assets/wings_logo_premium.png';
+    const sigShakib = 'assets/shakib_sign.png';
+    const sigChairman = 'assets/chairman_sign.jpeg';
+    const issueDate = data.issueDate || (typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'));
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+
+    // Session calculation
+    let sessionLabel = 'Date';
+    let sessionValue = dateStr;
+    if (data.sessionStart && data.duration) {
+      const startDate = new Date(data.sessionStart);
+      const endDate = new Date(data.sessionStart);
+      endDate.setMonth(endDate.getMonth() + parseInt(data.duration));
+      endDate.setDate(endDate.getDate() - 1);
+      const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      sessionLabel = 'Session';
+      sessionValue = fmt(startDate) + ' — ' + fmt(endDate);
+    } else if (data.session) {
+      sessionLabel = 'Session';
+      sessionValue = data.session;
+    }
+
+    // Photo
+    const photoSrc = data.photo || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
 
     return `
-<div class="certificate-wrapper">
-  <div class="certificate-page">
-    <div class="cert-border-outer">
-      <div class="cert-border-inner">
+    <div id="certContent" style="
+      position: relative;
+      width: 100%;
+      max-width: 794px;
+      margin: 0 auto;
+      font-family: 'Georgia', serif;
+      background: linear-gradient(135deg, #0a1628 0%, #0d2240 50%, #0a1628 100%);
+      border: 3px solid #c9a227;
+      border-radius: 12px;
+      padding: 40px 50px;
+      color: #fff;
+      box-shadow: 0 0 40px rgba(201,162,39,0.3), inset 0 0 80px rgba(0,0,0,0.3);
+      text-align: center;
+      overflow: hidden;
+    ">
+      <!-- Corner decorations -->
+      <div style="position:absolute;top:10px;left:10px;width:40px;height:40px;border-top:3px solid #c9a227;border-left:3px solid #c9a227;border-radius:4px 0 0 0;"></div>
+      <div style="position:absolute;top:10px;right:10px;width:40px;height:40px;border-top:3px solid #c9a227;border-right:3px solid #c9a227;border-radius:0 4px 0 0;"></div>
+      <div style="position:absolute;bottom:10px;left:10px;width:40px;height:40px;border-bottom:3px solid #c9a227;border-left:3px solid #c9a227;border-radius:0 0 0 4px;"></div>
+      <div style="position:absolute;bottom:10px;right:10px;width:40px;height:40px;border-bottom:3px solid #c9a227;border-right:3px solid #c9a227;border-radius:0 0 4px 0;"></div>
 
-        <div class="cert-header">
-          <img src="assets/logo.jpg.jpeg" class="cert-logo-left" alt="Logo" onerror="this.style.display='none'">
-          <div class="cert-title-block">
-            <div class="cert-govt-text">Government Approved</div>
-            <div class="cert-academy-name">${academyName}</div>
-            <div class="cert-academy-address">${academyAddress}</div>
-          </div>
-          <img src="assets/academy-logo-b.png" class="cert-logo-right" alt="Logo" onerror="this.style.display='none'">
-        </div>
-
-        <div class="cert-divider"></div>
-
-        <div class="cert-certificate-of">CERTIFICATE OF COMPLETION</div>
-        <div class="cert-presented-to">This is to certify that</div>
-
-        <div class="cert-student-name">${data.studentName || '___________________'}</div>
-
-        <div class="cert-body-text">
-          Son/Daughter of <strong>${data.fatherName || '___________________'}</strong>,
-          having successfully completed the
-        </div>
-
-        <div class="cert-course-name">${data.courseName || '___________________'}</div>
-
-        <div class="cert-body-text">
-          training program conducted by <strong>${academyName}</strong>.<br>
-          Batch: <strong>${data.batch || '—'}</strong> &nbsp;|&nbsp;
-          Session: <strong>${data.session || '—'}</strong> &nbsp;|&nbsp;
-          Duration: <strong>${data.duration || '—'}</strong>
-        </div>
-
-        ${grade ? `
-        <div class="cert-grade-block">
-          <span class="cert-grade-label">Grade Achieved:</span>
-          <span class="cert-grade-value" style="color:${gradeInfo.color}">${grade}</span>
-          <span class="cert-grade-desc">(${gradeInfo.label})</span>
-        </div>` : ''}
-
-        ${data.marks ? `
-        <div class="cert-marks">
-          Total Marks: <strong>${data.marks}</strong> / <strong>${data.totalMarks || 100}</strong>
-        </div>` : ''}
-
-        <div class="cert-congrats">
-          We congratulate ${data.studentName?.split(' ')[0] || 'the candidate'} for this achievement and wish them
-          a successful career in the aviation industry.
-        </div>
-
-        <div class="cert-footer">
-          <div class="cert-sig-block">
-            <img src="assets/signature.png" class="cert-sig-img" alt="Sig" onerror="this.style.display='none'">
-            <div class="cert-sig-line"></div>
-            <div class="cert-sig-name">Chief Instructor</div>
-            <div class="cert-sig-title">${academyName}</div>
-          </div>
-
-          <div class="cert-seal-area">
-            <div class="cert-seal">OFFICIAL<br>SEAL</div>
-          </div>
-
-          <div class="cert-sig-block">
-            <div class="cert-sig-line"></div>
-            <div class="cert-sig-name">Academy Director</div>
-            <div class="cert-sig-title">${academyName}</div>
-          </div>
-        </div>
-
-        <div class="cert-meta">
-          <span>Certificate No: <strong>${certNumber}</strong></span>
-          <span>Issue Date: <strong>${issueDate}</strong></span>
-          <span>Student ID: <strong>${data.studentId || '—'}</strong></span>
-        </div>
-
+      <!-- Top right logo -->
+      <div style="position:absolute;top:16px;right:20px;
+        background:rgba(255,255,255,0.07);
+        border:1.5px solid rgba(201,162,39,0.5);
+        border-radius:10px;
+        padding:5px 12px;
+        box-shadow:0 0 12px rgba(201,162,39,0.25), inset 0 0 8px rgba(255,255,255,0.03);">
+        <img src="${logoLinear}" style="height:38px;object-fit:contain;opacity:0.92;" onerror="this.style.display='none'">
       </div>
-    </div>
-  </div>
-</div>`;
+
+      <!-- Academy Name -->
+      <div style="margin-bottom:8px;">
+        <div style="height:1px;background:linear-gradient(to right, transparent, #c9a227, transparent);margin:6px 0;"></div>
+      </div>
+
+      <!-- Certificate Title -->
+      <div style="font-size:28px;font-weight:bold;letter-spacing:3px;color:#c9a227;text-transform:uppercase;margin:10px 0 4px 0;text-shadow:0 0 10px rgba(201,162,39,0.5);">Certificate</div>
+      <div style="font-size:14px;letter-spacing:6px;color:#aaa;text-transform:uppercase;margin-bottom:16px;">of Completion</div>
+
+      <!-- Round Academy Logo center -->
+      <div style="margin:0 auto 12px auto;width:90px;height:90px;border-radius:50%;border:3px solid #c9a227;overflow:hidden;box-shadow:0 0 20px rgba(201,162,39,0.5);">
+        <img src="${logoPremium}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
+      </div>
+
+      <!-- This is to certify -->
+      <div style="font-size:13px;color:#aaa;margin-bottom:6px;">This is to certify that</div>
+
+      <!-- Student Name -->
+      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${data.studentName || 'N/A'}</div>
+
+      <!-- Student details -->
+      <div style="font-size:12px;color:#aaa;margin:10px 0;line-height:1.8;">
+        ID: <span style="color:#fff;font-weight:bold;">${data.studentId || 'N/A'}</span> &nbsp;|&nbsp;
+        Course: <span style="color:#fff;font-weight:bold;">${data.courseName || 'N/A'}</span> &nbsp;|&nbsp;
+        Batch: <span style="color:#fff;font-weight:bold;">${data.batch || 'N/A'}</span>
+      </div>
+
+      <!-- Completion text -->
+      <div style="font-size:13px;color:#ccc;margin:12px 30px;line-height:1.7;">
+        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${data.courseName || 'training program'}</span> 
+        training program conducted by <span style="color:#c9a227;">${academyName}</span>.
+        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${sessionValue}</span>` : ''}
+      </div>
+
+      ${data.grade ? `
+      <div style="margin:10px 0;">
+        <span style="color:#aaa;font-size:12px;">Grade: </span>
+        <span style="color:#c9a227;font-size:18px;font-weight:bold;">${data.grade}</span>
+        <span style="color:#aaa;font-size:11px;"> (${(GRADES[data.grade] || {}).label || ''})</span>
+      </div>` : ''}
+
+      <!-- Congratulations -->
+      <div style="font-size:11px;color:#888;margin:12px 40px;line-height:1.7;font-style:italic;">
+        We congratulate ${(data.studentName || 'the candidate').split(' ')[0]} for this achievement and wish continued success in aviation.
+      </div>
+
+      <!-- Divider -->
+      <div style="height:1px;background:linear-gradient(to right, transparent, #c9a227, transparent);margin:16px 0;"></div>
+
+      <!-- Footer with signatures -->
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;padding:0 20px;">
+        <!-- Left signature - Shakib (Chief Instructor) -->
+        <div style="text-align:center;flex:1;">
+          <img src="${sigShakib}" style="height:40px;object-fit:contain;filter:invert(1);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
+          <div style="width:120px;height:1px;background:#c9a227;margin:0 auto 4px;"></div>
+          <div style="color:#c9a227;font-size:9px;font-weight:bold;">Shakib Ibna Mustafa</div>
+          <div style="color:#666;font-size:7px;">Chief Instructor</div>
+        </div>
+
+        <!-- Center seal -->
+        <div style="flex:1;text-align:center;">
+          <div style="width:70px;height:70px;border:2px solid #c9a227;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;background:rgba(201,162,39,0.08);">
+            <div style="color:#c9a227;font-size:8px;font-weight:bold;text-align:center;line-height:1.3;">OFFICIAL<br>SEAL</div>
+          </div>
+        </div>
+
+        <!-- Right signature - Chairman (Ferdous Ahmed) -->
+        <div style="text-align:center;flex:1;">
+          <img src="${sigChairman}" style="height:40px;object-fit:contain;filter:invert(1);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
+          <div style="width:120px;height:1px;background:#c9a227;margin:0 auto 4px;"></div>
+          <div style="color:#c9a227;font-size:9px;font-weight:bold;">Ferdous Ahmed</div>
+          <div style="color:#666;font-size:7px;">Academy Director / Chairman</div>
+        </div>
+      </div>
+
+      <!-- Certificate number & date -->
+      <div style="display:flex;justify-content:space-between;margin-top:16px;padding:0 20px;font-size:8px;color:#666;">
+        <span>Certificate No: ${data.certNumber || 'WFA-' + new Date().getFullYear()}</span>
+        <span>${issueDate}</span>
+        <span>Student ID: ${data.studentId || 'N/A'}</span>
+      </div>
+    </div>`;
   }
 
   // ── Render Preview ────────────────────────────────────────
@@ -118,10 +172,10 @@ const CertificatesModule = (() => {
 
   // ── Auto-fill from Student ────────────────────────────────
   function fillFromStudent(studentId) {
+    if (typeof StudentsModule === 'undefined') return null;
     const student = StudentsModule.getById(studentId);
     if (!student) return null;
 
-    // Try to get exam result
     let grade = '', marks = '', totalMarks = '';
     if (typeof ExamModule !== 'undefined') {
       const results = ExamModule.getAll().filter(e => e.studentId === studentId);
@@ -141,8 +195,9 @@ const CertificatesModule = (() => {
       batch: student.batch,
       session: student.session,
       grade, marks, totalMarks,
+      photo: student.photo || '',
       certNumber: `WFA-${new Date().getFullYear()}-${(student.studentId || student.id).slice(-4)}`,
-      issueDate: Utils.today(),
+      issueDate: typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
     };
   }
 
@@ -150,25 +205,128 @@ const CertificatesModule = (() => {
   function print(data) {
     const html = buildCertHTML(data);
     const win = window.open('', '_blank');
-    win.document.write(`
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Certificate — ${data.studentName || ''}</title>
-  <link rel="stylesheet" href="css/main.css">
-  <link rel="stylesheet" href="css/print.css">
-  <style>
-    body { margin: 0; background: #d0c8b0; display:flex; justify-content:center; align-items:center; min-height:100vh; }
-    @media print {
-      body { background: white; }
-      @page { size: A4 landscape; margin: 10mm; }
-    }
-  </style>
-</head>
-<body>${html}<script>window.onload=()=>window.print();<\/script></body>
-</html>`);
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate - ${data.studentName || ''}</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a1628;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+    @media print{body{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:10mm;}}</style>
+    </head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
     win.document.close();
   }
 
-  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES };
+  // ── Render full section UI ─────────────────────────────────
+  function render() {
+    const container = document.getElementById('certificates-content');
+    if (!container) return;
+
+    const students = SupabaseSync.getAll(DB.students) || [];
+
+    container.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; gap:10px; align-items:center;">
+          <input type="text" id="cert-search" placeholder="🔍 Search student..."
+            style="padding:8px 14px; border-radius:8px; border:1px solid var(--border); background:var(--card-bg); color:var(--text); min-width:220px;"
+            oninput="CertificatesModule.render()">
+        </div>
+        <button class="btn btn-primary" onclick="CertificatesModule.printAllCerts()">
+          <i class="fa fa-print"></i> Print All Certificates
+        </button>
+      </div>
+
+      <div id="cert-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
+        ${students.length === 0 ? '<div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--text-muted);">No students found. Add students first.</div>' : ''}
+        ${filterStudents(students).map(s => `
+          <div style="background:var(--card-bg); border-radius:12px; padding:16px; border:1px solid var(--border); transition:all 0.3s;">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
+              <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, #f59e0b, #d97706); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:1.1rem;">
+                ${(s.name || '?')[0].toUpperCase()}
+              </div>
+              <div style="flex:1;">
+                <div style="font-weight:600; color:var(--text);">${s.name || 'Unknown'}</div>
+                <div style="font-size:0.82rem; color:var(--text-muted);">${s.studentId || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn btn-sm" style="flex:1; background:linear-gradient(135deg, #f59e0b, #d97706); color:#fff; border:none; padding:6px 0; border-radius:6px; cursor:pointer;"
+                onclick="CertificatesModule.previewForStudent('${s.id}')">
+                <i class="fa fa-eye"></i> Preview
+              </button>
+              <button class="btn btn-sm" style="flex:1; background:transparent; color:#f59e0b; border:1px solid #f59e0b; padding:6px 0; border-radius:6px; cursor:pointer;"
+                onclick="CertificatesModule.printForStudent('${s.id}')">
+                <i class="fa fa-print"></i> Print
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div id="cert-preview-modal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.7); align-items:center; justify-content:center;">
+        <div style="background:var(--card-bg); border-radius:16px; padding:24px; max-width:900px; width:95%; position:relative; max-height:90vh; overflow:auto;">
+          <button onclick="document.getElementById('cert-preview-modal').style.display='none'"
+            style="position:absolute; top:12px; right:12px; background:none; border:none; color:var(--text); font-size:1.4rem; cursor:pointer;">✕</button>
+          <div id="cert-preview-area" style="display:flex; justify-content:center; padding:20px 0;"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function filterStudents(students) {
+    const q = (document.getElementById('cert-search')?.value || '').toLowerCase();
+    if (!q) return students;
+    return students.filter(s =>
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.studentId || '').toLowerCase().includes(q) ||
+      (s.course || '').toLowerCase().includes(q) ||
+      (s.batch || '').toLowerCase().includes(q)
+    );
+  }
+
+  function buildDataFromStudent(s) {
+    return {
+      studentId: s.studentId || s.id,
+      studentName: s.name,
+      fatherName: s.fatherName || s.guardianName || '',
+      courseName: s.course,
+      batch: s.batch,
+      session: s.session,
+      duration: s.duration || '',
+      grade: s.grade || '',
+      marks: s.marks || '',
+      totalMarks: s.totalMarks || 100,
+      photo: s.photo || '',
+      certNumber: `WFA-${new Date().getFullYear()}-${(s.studentId || s.id || '0000').toString().slice(-4)}`,
+      issueDate: typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
+    };
+  }
+
+  function previewForStudent(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) return;
+    const modal = document.getElementById('cert-preview-modal');
+    const area = document.getElementById('cert-preview-area');
+    if (modal && area) {
+      area.innerHTML = buildCertHTML(buildDataFromStudent(s));
+      modal.style.display = 'flex';
+    }
+  }
+
+  function printForStudent(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) return;
+    print(buildDataFromStudent(s));
+  }
+
+  function printAllCerts() {
+    const students = SupabaseSync.getAll(DB.students) || [];
+    if (students.length === 0) return Utils.toast('No students to print certificates for.', 'error');
+    const allHTML = students.map(s => buildCertHTML(buildDataFromStudent(s))).join('<div style="page-break-after:always;"></div>');
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificates — Bulk Print</title>
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;padding:20px;background:#0a1628;}
+    @media print{body{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:10mm;}}</style>
+    </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
+    win.document.close();
+  }
+
+  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, printForStudent, printAllCerts };
 })();
