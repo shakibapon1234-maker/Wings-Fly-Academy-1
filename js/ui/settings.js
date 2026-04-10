@@ -4,177 +4,223 @@
 
 const SettingsModule = (() => {
 
+  let activeTab = 'general';
+
   function render() {
     const container = document.getElementById('settings-content');
     if (!container) return;
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     const monitor = SyncEngine.getDataMonitor();
+    const students = SupabaseSync.getAll(DB.students);
+    const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
 
     container.innerHTML = `
-      <div class="page-header">
-        <h2 class="bn">⚙️ Settings</h2>
-      </div>
-
-      <!-- Academy Info -->
-      <div class="card mb-24">
-        <div class="card-title bn">🏫 Academy Info</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="bn">Academy Name</label>
-            <input id="set-academy-name" value="${cfg.academy_name||'Wings Fly Aviation Academy'}" />
-          </div>
-          <div class="form-group">
-            <label class="bn">Address</label>
-            <input id="set-address" value="${cfg.address||''}" />
-          </div>
-          <div class="form-group">
-            <label class="bn">Phone</label>
-            <input id="set-phone" value="${cfg.phone||''}" />
-          </div>
-          <div class="form-group">
-            <label class="bn">Email</label>
-            <input id="set-email" value="${cfg.email||''}" />
-          </div>
+      <div class="settings-modal-layout">
+        <!-- LEFT SIDEBAR TABS -->
+        <div class="settings-sidebar">
+          <button class="settings-tab ${activeTab==='general'?'active':''}" onclick="SettingsModule.switchTab('general')">
+            <i class="fa fa-sliders"></i> General Settings
+          </button>
+          <button class="settings-tab ${activeTab==='data'?'active':''}" onclick="SettingsModule.switchTab('data')">
+            <i class="fa fa-database"></i> Data Management
+          </button>
+          <button class="settings-tab ${activeTab==='security'?'active':''}" onclick="SettingsModule.switchTab('security')">
+            <i class="fa fa-lock"></i> Security & Access
+          </button>
+          <button class="settings-tab ${activeTab==='sync'?'active':''}" onclick="SettingsModule.switchTab('sync')">
+            <i class="fa fa-cloud"></i> Sync Diagnostic
+          </button>
+          <button class="settings-tab ${activeTab==='danger'?'active':''}" onclick="SettingsModule.switchTab('danger')">
+            <i class="fa fa-trash-can"></i> Danger Zone
+          </button>
         </div>
 
-        <div style="margin-top:24px;border-top:1px solid var(--border);padding-top:16px;">
-          <h4 style="margin-bottom:12px;color:var(--accent)">Dashboard Display Settings</h4>
-          <div class="form-group mb-12">
-            <label class="bn">Monthly Target Income (৳)</label>
-            <input id="set-monthly-target" type="number" class="form-control" value="${cfg.monthly_target||''}" placeholder="e.g. 200000" />
-            <small class="text-muted">This sets the goal for your monthly progress bar.</small>
-          </div>
-          <div class="form-group mb-12">
-            <label class="bn">Running Batch Selection</label>
-            <input id="set-running-batch" class="form-control" value="${cfg.running_batch||''}" placeholder="e.g. Batch 19" />
-            <small class="text-muted">Select the batch you want to feature in the "Running Batch Overview" section on your dashboard.</small>
-          </div>
-          <div class="form-group">
-            <label class="bn">Expense Date / Month</label>
-            <input id="set-expense-month" type="month" class="form-control" value="${cfg.expense_month||''}" />
-            <small class="text-muted">Filter the total expense for this specific month on the dashboard.</small>
-          </div>
-        </div>
+        <!-- RIGHT CONTENT -->
+        <div class="settings-content-area">
 
-        <div style="margin-top:16px">
-          <button class="btn btn-primary" onclick="SettingsModule.saveAcademyInfo()">💾 Save Settings</button>
-        </div>
-      </div>
+          <!-- ══════════ TAB: GENERAL SETTINGS ══════════ -->
+          <div class="settings-panel ${activeTab==='general'?'':'hidden'}" id="tab-general">
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-building" style="color:var(--accent)"></i> Academy Information</div>
+              <div class="form-group mb-12">
+                <label class="settings-label">ACADEMY NAME</label>
+                <input id="set-academy-name" class="form-control" value="${cfg.academy_name||'Wings Fly Aviation Academy'}" placeholder="Enter Academy Name" />
+              </div>
+              <div class="form-group mb-12">
+                <label class="settings-label">Address</label>
+                <input id="set-address" class="form-control" value="${cfg.address||''}" placeholder="Academy Address" />
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="settings-label">Phone</label>
+                  <input id="set-phone" class="form-control" value="${cfg.phone||''}" placeholder="Phone Number" />
+                </div>
+                <div class="form-group">
+                  <label class="settings-label">Email</label>
+                  <input id="set-email" class="form-control" value="${cfg.email||''}" placeholder="Email Address" />
+                </div>
+              </div>
+            </div>
 
-      <!-- Password Change -->
-      <div class="card mb-24">
-        <div class="card-title bn">🔒 Change Password</div>
-        <div class="form-grid">
-          <div class="form-group">
-            <label class="bn">Current Password</label>
-            <input type="password" id="set-old-pw" placeholder="Current Password" />
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-crosshairs" style="color:var(--error)"></i> Monthly Target Income (BDT)</div>
+              <input id="set-monthly-target" type="number" class="form-control" value="${cfg.monthly_target||''}" placeholder="e.g. 200000" style="max-width:400px" />
+              <small class="text-muted" style="display:block;margin-top:6px">This sets the goal for your monthly progress bar.</small>
+            </div>
+
+            <div class="card mb-24" style="border:1px solid var(--accent);border-left:4px solid var(--accent)">
+              <div class="card-title" style="color:var(--accent)"><i class="fa fa-chart-bar"></i> Dashboard Display Settings</div>
+
+              <div class="form-group mb-12">
+                <label class="settings-label" style="color:var(--primary-light);text-transform:uppercase;font-weight:700;font-size:.8rem">RUNNING BATCH SELECTION</label>
+                <small class="text-muted" style="display:block;margin-bottom:6px">Select the batch you want to feature in the "Running Batch Overview" section on your dashboard.</small>
+                <select id="set-running-batch" class="form-control" style="max-width:400px">
+                  <option value="">-- All Batches --</option>
+                  ${batches.map(b => `<option value="${b}" ${cfg.running_batch===b?'selected':''}>${'Batch ' + b}</option>`).join('')}
+                </select>
+              </div>
+
+              <div class="form-group mb-12">
+                <label class="settings-label">Expense Date / Month</label>
+                <small class="text-muted" style="display:block;margin-bottom:6px">Filter the total expense for this specific month on the dashboard.</small>
+                <input id="set-expense-month" type="month" class="form-control" value="${cfg.expense_month||''}" style="max-width:400px" />
+              </div>
+            </div>
+
+            <button class="btn btn-primary" onclick="SettingsModule.saveAcademyInfo()">
+              <i class="fa fa-floppy-disk"></i> Save Settings
+            </button>
           </div>
-          <div class="form-group">
-            <label class="bn">New Password</label>
-            <input type="password" id="set-new-pw" placeholder="New Password" />
+
+          <!-- ══════════ TAB: DATA MANAGEMENT ══════════ -->
+          <div class="settings-panel ${activeTab==='data'?'':'hidden'}" id="tab-data">
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-chart-pie" style="color:var(--accent)"></i> Data Monitor</div>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Table</th>
+                      <th class="text-right">Local Records</th>
+                      <th>Last Updated</th>
+                      <th class="no-print">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${Object.entries(monitor).map(([key, v]) => `
+                      <tr>
+                        <td style="font-weight:600">${v.table}</td>
+                        <td class="text-right" style="font-family:var(--font-ui)">${v.localCount}</td>
+                        <td style="font-size:.8rem;color:var(--text-muted)">${v.lastUpdated !== '—' ? Utils.formatDate(v.lastUpdated) : '—'}</td>
+                        <td class="no-print">
+                          <button class="btn btn-outline btn-xs" onclick="SettingsModule.viewTableData('${v.table}')" title="View"><i class="fa fa-eye"></i></button>
+                        </td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:10px">
+                <button class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()">🔄 Refresh</button>
+                <button class="btn btn-outline btn-sm" onclick="SettingsModule.exportAllData()">📦 Export All (JSON)</button>
+              </div>
+            </div>
+
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-file-import" style="color:var(--primary-light)"></i> Data Migration (Old → New)</div>
+              <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
+                Import data from your old Supabase project or a JSON backup file.
+              </p>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Old Supabase URL</label>
+                  <input id="mig-url" class="form-control" placeholder="https://xxxxx.supabase.co" />
+                </div>
+                <div class="form-group">
+                  <label>Old Anon Key</label>
+                  <input id="mig-key" class="form-control" placeholder="eyJh..." />
+                </div>
+              </div>
+              <div id="mig-status" style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;display:none"></div>
+              <div style="display:flex;gap:10px">
+                <button class="btn btn-primary btn-sm" onclick="SettingsModule.startMigration()">📥 Start Import</button>
+                <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">📄 Import from JSON</button>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label class="bn">Confirm</label>
-            <input type="password" id="set-confirm-pw" placeholder="Retype" />
+
+          <!-- ══════════ TAB: SECURITY & ACCESS ══════════ -->
+          <div class="settings-panel ${activeTab==='security'?'':'hidden'}" id="tab-security">
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-lock" style="color:var(--accent-gold)"></i> Change Password</div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Current Password</label>
+                  <input type="password" id="set-old-pw" class="form-control" placeholder="Current Password" />
+                </div>
+                <div class="form-group">
+                  <label>New Password</label>
+                  <input type="password" id="set-new-pw" class="form-control" placeholder="New Password" />
+                </div>
+                <div class="form-group">
+                  <label>Confirm</label>
+                  <input type="password" id="set-confirm-pw" class="form-control" placeholder="Retype" />
+                </div>
+              </div>
+              <div style="margin-top:16px">
+                <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
+              </div>
+            </div>
+
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-palette" style="color:var(--primary-light)"></i> Theme</div>
+              <div style="display:flex;gap:12px;align-items:center">
+                <button class="btn btn-outline" onclick="SettingsModule.setTheme('light')">☀️ Light Mode</button>
+                <button class="btn btn-outline" onclick="SettingsModule.setTheme('dark')">🌙 Dark Mode</button>
+              </div>
+            </div>
           </div>
-        </div>
-        <div style="margin-top:16px">
-          <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
-        </div>
-      </div>
 
-      <!-- Theme -->
-      <div class="card mb-24">
-        <div class="card-title bn">🎨 Theme</div>
-        <div style="display:flex;gap:12px;align-items:center">
-          <button class="btn btn-outline" onclick="SettingsModule.setTheme('light')">☀️ Light Mode</button>
-          <button class="btn btn-outline" onclick="SettingsModule.setTheme('dark')">🌙 Dark Mode</button>
-        </div>
-      </div>
-
-      <!-- Cloud Sync & Real-time -->
-      <div class="card mb-24">
-        <div class="card-title">☁️ Cloud Sync (Real-time)</div>
-        <p style="font-size:.9rem;color:var(--text-secondary);margin-bottom:12px">
-          Supabase real-time sync is active. All changes are automatically synced across connected devices.
-        </p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button class="btn btn-primary btn-sm" onclick="SyncEngine.pull()">⬇ Pull from Cloud</button>
-          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push()">⬆ Push to Cloud</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time Turned On','success')">🟢 Real-time On</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); SyncEngine.setStatus('synced'); Utils.toast('Real-time Off','info')">🔴 Real-time Off</button>
-        </div>
-        <div style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted)">
-          <strong>Device ID:</strong> <code>${SupabaseSync._deviceId()}</code>
-        </div>
-      </div>
-
-      <!-- Data Monitor -->
-      <div class="card mb-24">
-        <div class="card-title">📊 Data Monitor</div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Table</th>
-                <th class="text-right">Local Records</th>
-                <th>Last Updated</th>
-                <th class="no-print">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${Object.entries(monitor).map(([key, v]) => `
-                <tr>
-                  <td style="font-weight:600">${v.table}</td>
-                  <td class="text-right" style="font-family:var(--font-ui)">${v.localCount}</td>
-                  <td style="font-size:.8rem;color:var(--text-muted)">${v.lastUpdated !== '—' ? Utils.formatDate(v.lastUpdated) : '—'}</td>
-                  <td class="no-print">
-                    <button class="btn btn-outline btn-xs" onclick="SettingsModule.viewTableData('${v.table}')" title="View"><i class="fa fa-eye"></i></button>
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-        <div style="margin-top:12px;display:flex;gap:10px">
-          <button class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()">🔄 Refresh</button>
-          <button class="btn btn-outline btn-sm" onclick="SettingsModule.exportAllData()">📦 Export All (JSON)</button>
-        </div>
-      </div>
-
-      <!-- Data Migration -->
-      <div class="card mb-24">
-        <div class="card-title bn">🔄 Data Migration (Old → New)</div>
-        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
-          Import data from your old Supabase project. Enter the old URL and Anon Key, then press Import.
-        </p>
-        <div class="form-row">
-          <div class="form-group">
-            <label>Old Supabase URL</label>
-            <input id="mig-url" class="form-control" placeholder="https://xxxxx.supabase.co" />
+          <!-- ══════════ TAB: SYNC DIAGNOSTIC ══════════ -->
+          <div class="settings-panel ${activeTab==='sync'?'':'hidden'}" id="tab-sync">
+            <div class="card mb-24">
+              <div class="card-title"><i class="fa fa-cloud" style="color:var(--accent)"></i> Cloud Sync (Real-time)</div>
+              <p style="font-size:.9rem;color:var(--text-secondary);margin-bottom:12px">
+                Supabase real-time sync is active. All changes are automatically synced across connected devices.
+              </p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+                <button class="btn btn-primary btn-sm" onclick="SyncEngine.pull()">⬇ Pull from Cloud</button>
+                <button class="btn btn-accent btn-sm" onclick="SyncEngine.push()">⬆ Push to Cloud</button>
+                <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time Turned On','success')">🟢 Real-time On</button>
+                <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); SyncEngine.setStatus('synced'); Utils.toast('Real-time Off','info')">🔴 Real-time Off</button>
+              </div>
+              <div style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted)">
+                <strong>Device ID:</strong> <code>${SupabaseSync._deviceId()}</code>
+              </div>
+            </div>
           </div>
-          <div class="form-group">
-            <label>Old Anon Key</label>
-            <input id="mig-key" class="form-control" placeholder="eyJh..." />
-          </div>
-        </div>
-        <div id="mig-status" class="bn" style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;display:none"></div>
-        <div style="display:flex;gap:10px">
-          <button class="btn btn-primary btn-sm" onclick="SettingsModule.startMigration()">📥 Start Import</button>
-          <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">📄 Import from JSON</button>
-        </div>
-      </div>
 
-      <!-- Danger Zone -->
-      <div class="card" style="border-color:var(--error)">
-        <div class="card-title" style="color:var(--error)">⚠️ Danger Zone</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-danger btn-sm" onclick="SettingsModule.clearLocalData()">🗑️ Delete Local Data</button>
-          <button class="btn btn-danger btn-sm" onclick="SettingsModule.clearCloudData()">☁️🗑️ Delete Cloud Data</button>
+          <!-- ══════════ TAB: DANGER ZONE ══════════ -->
+          <div class="settings-panel ${activeTab==='danger'?'':'hidden'}" id="tab-danger">
+            <div class="card" style="border-color:var(--error)">
+              <div class="card-title" style="color:var(--error)"><i class="fa fa-triangle-exclamation"></i> Danger Zone</div>
+              <p style="font-size:.9rem;color:var(--text-secondary);margin-bottom:16px">These actions are irreversible. Proceed with caution.</p>
+              <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn btn-danger btn-sm" onclick="SettingsModule.clearLocalData()">🗑️ Delete Local Data</button>
+                <button class="btn btn-danger btn-sm" onclick="SettingsModule.clearCloudData()">☁️🗑️ Delete Cloud Data</button>
+              </div>
+              <small class="text-muted" style="display:block;margin-top:8px">Warning: Deleting cloud data will permanently remove data from all connected devices!</small>
+            </div>
+          </div>
+
         </div>
-        <small class="text-muted" style="display:block;margin-top:8px">Warning: Deleting cloud data will permanently remove data from all connected devices!</small>
       </div>
     `;
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    render();
   }
 
   // ── Academy Info ──────────────────────────────────────────
@@ -593,12 +639,13 @@ const SettingsModule = (() => {
   async function clearLocalData() {
     const ok = await Utils.confirm('Delete all local data? Cloud data will remain.', 'Delete Data');
     if (!ok) return;
+    // Stop real-time sync so data doesn't get pulled back automatically
+    SyncEngine.stopRealtime();
     Object.values(DB).forEach(t => localStorage.removeItem(`wfa_${t}`));
     localStorage.removeItem('wfa_deletedItems');
     localStorage.removeItem('wfa_retry_queue');
-    Utils.toast('Local data deleted', 'success');
-    SyncEngine.pull();
-    render();
+    Utils.toast('Local data deleted. Page reloading...', 'success');
+    setTimeout(() => location.reload(), 800);
   }
 
   // ── Clear Cloud Data ──────────────────────────────────────
@@ -622,7 +669,7 @@ const SettingsModule = (() => {
   }
 
   return {
-    render, saveAcademyInfo, changePassword, setTheme,
+    render, switchTab, saveAcademyInfo, changePassword, setTheme,
     refreshMonitor, viewTableData, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData,
