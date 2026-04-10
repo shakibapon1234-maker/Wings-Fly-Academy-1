@@ -147,7 +147,7 @@ const CertificatesModule = (() => {
 
         <!-- Right signature - Chairman (Ferdous Ahmed) -->
         <div style="text-align:center;flex:1;">
-          <img src="${sigChairman}" style="height:40px;object-fit:contain;filter:invert(1);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
+          <img src="${sigChairman}" style="height:40px;object-fit:contain;filter:invert(1) contrast(5) brightness(1.5);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
           <div style="width:120px;height:1px;background:#c9a227;margin:0 auto 4px;"></div>
           <div style="color:#c9a227;font-size:9px;font-weight:bold;">Ferdous Ahmed</div>
           <div style="color:#666;font-size:7px;">Academy Director / Chairman</div>
