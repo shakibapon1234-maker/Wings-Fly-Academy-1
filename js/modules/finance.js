@@ -261,13 +261,6 @@ const Finance = (() => {
             <option value="Transfer In"  ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
             <option value="Transfer Out" ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
           </select>
-          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">
-            <i class="fa fa-info-circle"></i> লোন যোগ করতে
-            <a href="#" onclick="Utils.closeModal();App&&App.navigate&&App.navigate('loans');return false;"
-               style="color:var(--brand-primary);font-weight:700;text-decoration:none;">
-              Loans <i class="fa fa-arrow-right"></i>
-            </a> ট্যাবে যান
-          </div>
         </div>
         <div class="form-group">
           <label>Method <span class="req">*</span></label>
