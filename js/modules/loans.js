@@ -133,11 +133,22 @@ const Loans = (() => {
   }
 
   function formHTML(d={}) {
-    // সব existing persons collect করো (loan দেওয়া বা নেওয়া সব)
     const allLoans = SupabaseSync.getAll(DB.loans);
-    const existingPersons = [...new Set(
-      allLoans.map(l => l.person_name || l.person || '').filter(Boolean)
-    )].sort();
+
+    // ── Person dropdown: type-aware ──────────────────────────────────────
+    // Loan Given (আমি দিয়েছি) সিলেক্ট থাকলে → "Loan Receiving" করা নামগুলো দেখাও
+    //   (যাদের কাছ থেকে আগে নিয়েছিলাম, এখন ফেরত দিতে পারি)
+    // Loan Taken (আমি নিয়েছি) সিলেক্ট থাকলে → "Loan Giving" করা নামগুলো দেখাও
+    //   (যাদেরকে আগে দিয়েছিলাম, এখন তারা ফেরত দিতে পারে / নতুন নিতে পারি)
+    // কিন্তু edit mode-এ current name সহ সব নাম দেখাও
+    // Default: সব নাম দেখাও (dropdown সবসময় সব লোন পার্সনের নাম রাখবে)
+    const currentType = d.type || d.direction || 'Loan Giving';
+    const givenPersons    = [...new Set(allLoans.filter(l=>l.type==='Loan Giving'   ||l.direction==='given'   ).map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+    const receivedPersons = [...new Set(allLoans.filter(l=>l.type==='Loan Receiving'||l.direction==='received').map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+    const allPersons      = [...new Set(allLoans.map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+
+    // Editing হলে সব নাম দেখাও, নতুন add-এ type-wise
+    const existingPersons = d.id ? allPersons : allPersons; // always all, JS will filter dynamically
 
     // Date parts
     const dateStr = (d.date || Utils.today()).split('T')[0];
@@ -172,19 +183,22 @@ const Loans = (() => {
         </div>
       </div>
 
-      <!-- Person Name: dropdown + manual input -->
+      <!-- Person Name: type-aware dropdown + manual input -->
       <div class="form-group">
         <label>Person's Name <span class="req">*</span></label>
-        <div style="display:flex; gap:8px; align-items:center;">
-          ${existingPersons.length ? `
-          <select id="lf-person-select" class="form-control" style="flex:1;" onchange="Loans._onPersonSelect()">
-            <option value="">-- নতুন নাম লিখুন --</option>
-            ${existingPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
-          </select>` : ''}
-          <input id="lf-person" class="form-control" style="flex:1;" value="${d.person_name||d.person||''}" placeholder="Person's Name / Organization" />
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="lf-person-select" class="form-control" style="flex:1; min-width:160px;"
+            onchange="Loans._onPersonSelect()"
+            data-given='${JSON.stringify(givenPersons)}'
+            data-received='${JSON.stringify(receivedPersons)}'
+            data-all='${JSON.stringify(allPersons)}'>
+            <option value="">-- পূর্বের নাম বেছে নিন --</option>
+            ${allPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
+          </select>
+          <input id="lf-person" class="form-control" style="flex:1; min-width:160px;" value="${d.person_name||d.person||''}" placeholder="অথবা নতুন নাম লিখুন" />
         </div>
-        <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
-          <i class="fa fa-info-circle"></i> Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন
+        <div id="lf-person-hint" style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
+          <i class="fa fa-info-circle"></i> <span id="lf-hint-text">Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন</span>
         </div>
       </div>
 
@@ -228,6 +242,16 @@ const Loans = (() => {
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
         <button class="btn-primary" onclick="Loans.saveLoan()"><i class="fa fa-floppy-disk"></i> Save</button>
       </div>
+      <script>
+        // Form render হওয়ার পরে type-aware dropdown trigger করো
+        (function() {
+          setTimeout(function() {
+            if (typeof Loans !== 'undefined' && Loans._onTypeChange) {
+              Loans._onTypeChange();
+            }
+          }, 50);
+        })();
+      </script>
     `;
   }
 
@@ -238,9 +262,51 @@ const Loans = (() => {
     if (sel && inp && sel.value) inp.value = sel.value;
   }
 
-  /* Type change — label hint */
+  /* Type change — dropdown কে filter করো */
   function _onTypeChange() {
-    // future use — balance hint update করা যাবে
+    const typeEl = document.getElementById('lf-direction');
+    const sel    = document.getElementById('lf-person-select');
+    const hint   = document.getElementById('lf-hint-text');
+    if (!typeEl || !sel) return;
+
+    const type = typeEl.value; // 'Loan Giving' বা 'Loan Receiving'
+    let persons = [];
+    let hintMsg = '';
+
+    try {
+      const givenPersons    = JSON.parse(sel.dataset.given    || '[]');
+      const receivedPersons = JSON.parse(sel.dataset.received || '[]');
+      const allPersons      = JSON.parse(sel.dataset.all      || '[]');
+
+      if (type === 'Loan Giving') {
+        // আমি দিচ্ছি → যাদের কাছ থেকে আগে নিয়েছিলাম তাদের নাম suggest করো + সব নাম রাখো
+        // Priority: আগে received persons, তারপর বাকিরা
+        const priority = receivedPersons;
+        const rest     = allPersons.filter(p => !priority.includes(p));
+        persons = [...priority, ...rest];
+        hintMsg = receivedPersons.length
+          ? `⬆ উপরের ${receivedPersons.length} জন আগে লোন দিয়েছিলেন (ফেরত দেওয়ার সময়)`
+          : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+      } else {
+        // আমি নিচ্ছি → যাদেরকে আগে দিয়েছিলাম তাদের নাম suggest করো
+        const priority = givenPersons;
+        const rest     = allPersons.filter(p => !priority.includes(p));
+        persons = [...priority, ...rest];
+        hintMsg = givenPersons.length
+          ? `⬆ উপরের ${givenPersons.length} জনকে আগে লোন দেওয়া হয়েছে`
+          : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+      }
+    } catch(e) {
+      persons = [];
+      hintMsg = 'নতুন নাম লিখুন';
+    }
+
+    // Dropdown rebuild
+    const currentVal = sel.value;
+    sel.innerHTML = `<option value="">-- পূর্বের নাম বেছে নিন --</option>`
+      + persons.map(p => `<option value="${p}" ${currentVal===p?'selected':''}>${p}</option>`).join('');
+
+    if (hint) hint.textContent = hintMsg;
   }
 
   /* Date sync */
@@ -324,15 +390,40 @@ const Loans = (() => {
   }
 
   async function deleteLoan(id) {
-    const ok = await Utils.confirm('Delete this loan record? RecycleBin-এ যাবে।', 'Delete Loan');
+    const ok = await Utils.confirm('Delete this loan record? RecycleBin-এ যাবে এবং Restore করা যাবে।', 'Delete Loan');
     if (!ok) return;
-    // RecycleBin এ save করো restore করার জন্য
+
     const record = SupabaseSync.getById(DB.loans, id);
-    if (record) {
-      SupabaseSync.insert(DB.recycle || 'recycle', { ...record, _deletedFrom: 'loans', _deletedAt: Utils.today() });
-    }
+    if (!record) return;
+
+    // ── Finance এ linked entry খুঁজো ──────────────────────────────────
+    // saveLoan() এ finance এ insert করার সময় person_name ও _isLoan flag দেওয়া হয়েছিল
+    const financeEntries = SupabaseSync.getAll(DB.finance).filter(f =>
+      f._isLoan === true &&
+      (f.person_name === (record.person_name || record.person)) &&
+      f.type === record.type &&
+      f.amount == record.amount &&
+      f.date === record.date
+    );
+    const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
+
+    // ── RecycleBin এ save করো (linked finance id সহ) ─────────────────
+    SupabaseSync.insert(DB.recycle || 'recycle', {
+      ...record,
+      _deletedFrom:       'loans',
+      _deletedAt:         Utils.today(),
+      _linkedFinanceId:   linkedFinanceId,   // restore করার সময় কাজে লাগবে
+    });
+
+    // ── Loan remove ───────────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id);
-    Utils.toast('Loan deleted — RecycleBin-এ আছে', 'warning');
+
+    // ── Linked Finance entry-ও remove করো ────────────────────────────
+    if (linkedFinanceId) {
+      SupabaseSync.remove(DB.finance, linkedFinanceId);
+    }
+
+    Utils.toast('Loan deleted — RecycleBin-এ আছে, Restore করা যাবে', 'warning');
     render();
   }
 
@@ -375,7 +466,36 @@ const Loans = (() => {
   function changePage(p) { currentPage = p; render(); }
   function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
+  /* ── RecycleBin থেকে Restore ──────────────────────────────────────── */
+  async function restoreLoan(recycleId) {
+    const recycled = SupabaseSync.getById(DB.recycle || 'recycle', recycleId);
+    if (!recycled) { Utils.toast('Record not found', 'error'); return; }
+
+    // Loan restore
+    const { _deletedFrom, _deletedAt, _linkedFinanceId, id: _rid, ...loanData } = recycled;
+    SupabaseSync.insert(DB.loans, loanData);
+
+    // Finance entry restore
+    SupabaseSync.insert(DB.finance, {
+      type:        loanData.type,
+      method:      loanData.method,
+      category:    'Loan',
+      description: `${loanData.type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${loanData.person_name || loanData.person}`,
+      amount:      loanData.amount,
+      date:        loanData.date,
+      note:        loanData.note || '',
+      person_name: loanData.person_name || loanData.person,
+      _isLoan:     true,
+    });
+
+    // RecycleBin থেকে সরাও
+    SupabaseSync.remove(DB.recycle || 'recycle', recycleId);
+
+    Utils.toast('Loan Restored ✓ — Loans ও Finance উভয়ে ফিরে এসেছে', 'success');
+    render();
+  }
+
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, restoreLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
 
 })();
 

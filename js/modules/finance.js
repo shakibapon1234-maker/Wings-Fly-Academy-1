@@ -174,10 +174,42 @@ const Finance = (() => {
   function updateCategoryDropdown(selectObj) {
     const catEl = document.getElementById('ff-category');
     if (!catEl) return;
-    const type = selectObj.value;
-    const isLoan = type === 'Loan Giving' || type === 'Loan Receiving';
+    const type    = selectObj.value;
+    const isLoan  = type === 'Loan Giving' || type === 'Loan Receiving';
     const personGrp = document.getElementById('ff-person-group');
     if (personGrp) personGrp.style.display = isLoan ? 'block' : 'none';
+
+    // Person dropdown type-aware filter
+    if (isLoan) {
+      const sel  = document.getElementById('ff-person-select');
+      const hint = document.getElementById('ff-hint-text');
+      if (sel) {
+        try {
+          const givenPersons    = JSON.parse(sel.dataset.given    || '[]');
+          const receivedPersons = JSON.parse(sel.dataset.received || '[]');
+          const allPersons      = JSON.parse(sel.dataset.all      || '[]');
+          let persons = [], hintMsg = '';
+          if (type === 'Loan Giving') {
+            const priority = receivedPersons;
+            const rest     = allPersons.filter(p => !priority.includes(p));
+            persons  = [...priority, ...rest];
+            hintMsg  = receivedPersons.length
+              ? `⬆ উপরের ${receivedPersons.length} জন আগে লোন দিয়েছিলেন`
+              : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+          } else {
+            const priority = givenPersons;
+            const rest     = allPersons.filter(p => !priority.includes(p));
+            persons  = [...priority, ...rest];
+            hintMsg  = givenPersons.length
+              ? `⬆ উপরের ${givenPersons.length} জনকে আগে লোন দেওয়া হয়েছে`
+              : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+          }
+          sel.innerHTML = `<option value="">-- পূর্বের নাম বেছে নিন --</option>`
+            + persons.map(p => `<option value="${p}">${p}</option>`).join('');
+          if (hint) hint.textContent = hintMsg;
+        } catch(e) {}
+      }
+    }
 
     const categories = getCategories(type);
     catEl.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
@@ -188,6 +220,12 @@ const Finance = (() => {
   ══════════════════════════════════════════ */
   function applyFilters(rows) {
     let r = rows;
+    // ── _isLoan entries Finance ledger-এ default লুকানো থাকবে ─────────
+    // Loan Management module এ এগুলো দেখা যায়
+    // Finance-এ শুধু type filter দিয়ে explicitly select করলে দেখাবে
+    if (!filterType || (filterType !== 'Loan Giving' && filterType !== 'Loan Receiving')) {
+      r = r.filter(f => !f._isLoan);
+    }
     if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['description','category','note']);
     if (filterType)   r = r.filter(f=>f.type===filterType);
     if (filterMethod) r = r.filter(f=>f.method===filterMethod);
@@ -231,6 +269,28 @@ const Finance = (() => {
   }
 
   function formHTML(d={}) {
+    // ── Date parts ────────────────────────────────────────────
+    const dateStr  = (d.date || Utils.today()).split('T')[0];
+    const dateParts = dateStr.split('-');
+    const yyyy = dateParts[0] || String(new Date().getFullYear());
+    const mm   = dateParts[1] || String(new Date().getMonth()+1).padStart(2,'0');
+    const dd   = dateParts[2] || String(new Date().getDate()).padStart(2,'0');
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
+
+    // ── Loan person names for dropdown ────────────────────────
+    const allLoans        = SupabaseSync.getAll(DB.loans);
+    const givenPersons    = [...new Set(allLoans.filter(l=>l.type==='Loan Giving'   ||l.direction==='given'   ).map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+    const receivedPersons = [...new Set(allLoans.filter(l=>l.type==='Loan Receiving'||l.direction==='received').map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+    const allLoanPersons  = [...new Set(allLoans.map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
+
+    const isLoan = d.type==='Loan Giving' || d.type==='Loan Receiving';
+
     return `
       <div class="form-row">
         <div class="form-group">
@@ -253,22 +313,51 @@ const Finance = (() => {
           <div id="ff-bal-display" style="display:none;"></div>
         </div>
       </div>
-      <div id="ff-person-group" class="form-group" style="display:${(d.type==='Loan Giving'||d.type==='Loan Receiving')?'block':'none'};">
+
+      <!-- Person Name (Loan type-এ দেখাবে) -->
+      <div id="ff-person-group" class="form-group" style="display:${isLoan?'block':'none'};">
         <label>Person's Name <span class="req">*</span></label>
-        <input id="ff-person" class="form-control" value="${d.person_name||''}" placeholder="Person's Name / Organization" />
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <select id="ff-person-select" class="form-control" style="flex:1; min-width:160px;"
+            onchange="Finance._onPersonSelect()"
+            data-given='${JSON.stringify(givenPersons)}'
+            data-received='${JSON.stringify(receivedPersons)}'
+            data-all='${JSON.stringify(allLoanPersons)}'>
+            <option value="">-- পূর্বের নাম বেছে নিন --</option>
+            ${allLoanPersons.map(p=>`<option value="${p}" ${(d.person_name===p)?'selected':''}>${p}</option>`).join('')}
+          </select>
+          <input id="ff-person" class="form-control" style="flex:1; min-width:160px;"
+            value="${d.person_name||''}" placeholder="অথবা নতুন নাম লিখুন" />
+        </div>
+        <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
+          <i class="fa fa-info-circle"></i> <span id="ff-hint-text">Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন</span>
+        </div>
       </div>
+
       <div class="form-row">
         <div class="form-group">
           <label>Category</label>
           <select id="ff-category" class="form-control">
-            ${Finance._tempGetCategories ? Finance._tempGetCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('') : getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+            ${getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label>Date <span class="req">*</span></label>
-          <input id="ff-date" type="date" class="form-control" value="${(d.date||Utils.today()).split('T')[0]}" />
+          <div style="display:flex; gap:6px;">
+            <select id="ff-date-dd" class="form-control" style="flex:0 0 70px;" onchange="Finance._syncDate()">
+              ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+            </select>
+            <select id="ff-date-mm" class="form-control" style="flex:1;" onchange="Finance._syncDate()">
+              ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+            </select>
+            <select id="ff-date-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Finance._syncDate()">
+              ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+            </select>
+          </div>
+          <input type="hidden" id="ff-date" value="${yyyy}-${mm}-${dd}" />
         </div>
       </div>
+
       <div class="form-group">
         <label>Description</label>
         <input id="ff-description" class="form-control" value="${d.description||''}" placeholder="Transaction details" />
@@ -289,6 +378,22 @@ const Finance = (() => {
         <button class="btn-primary" onclick="Finance.saveEntry()"><i class="fa fa-floppy-disk"></i> Save</button>
       </div>
     `;
+  }
+
+  /* Date sync — DD/MM/YYYY dropdowns → hidden input */
+  function _syncDate() {
+    const dd   = document.getElementById('ff-date-dd')?.value   || '';
+    const mm   = document.getElementById('ff-date-mm')?.value   || '';
+    const yyyy = document.getElementById('ff-date-yyyy')?.value || '';
+    const h    = document.getElementById('ff-date');
+    if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+  }
+
+  /* Person dropdown select → text input এ নাম বসাও */
+  function _onPersonSelect() {
+    const sel = document.getElementById('ff-person-select');
+    const inp = document.getElementById('ff-person');
+    if (sel && inp && sel.value) inp.value = sel.value;
   }
 
   /* ══════════════════════════════════════════
@@ -400,6 +505,7 @@ const Finance = (() => {
     openAddModal, openEditModal, updateCategoryDropdown,
     saveEntry, deleteEntry, exportExcel,
     addExternalTransaction,
+    _syncDate, _onPersonSelect,
   };
 
 })();
