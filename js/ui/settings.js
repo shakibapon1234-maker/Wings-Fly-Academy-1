@@ -1339,7 +1339,7 @@ const SettingsModule = (() => {
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 local saves, updates, or deletes. Click a row for a <strong>current</strong> account balance snapshot (live data).</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 local saves, updates, or deletes. Click a row to view that transaction's saved dashboard snapshot.</p>
 
         <div class="table-wrapper">
           <table>
@@ -1350,7 +1350,7 @@ const SettingsModule = (() => {
                 recentChanges.slice(0, 10).map((c, i) => {
                   const badgeCls = c.type === 'Delete' ? 'badge-error' : c.type === 'Update' ? 'badge-warning' : 'badge-success';
                   return `
-                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showLiveAccountSnapshot()" title="Click for current account balances">
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click for saved snapshot at this transaction">
                     <td>${i + 1}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
                     <td><span class="badge ${badgeCls}">${c.type || '—'}</span></td>
@@ -1662,6 +1662,63 @@ const SettingsModule = (() => {
         </table>
       </div>
       <p style="margin-top:10px;font-weight:700;text-align:right">Combined: ৳${total.toLocaleString()}</p>
+    `, 'modal-lg');
+  }
+
+  function showMonitorSnapshot(index) {
+    const recentChanges = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+    const item = recentChanges[index];
+    if (!item) return showLiveAccountSnapshot();
+
+    const snapshot = item.snapshot || {};
+    const students = snapshot.students || {};
+    const accounts = snapshot.accounts || {};
+    const finance = snapshot.finance || {};
+    const rows = `
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Students</div>
+          <div style="font-size:1.4rem;font-weight:700">${students.totalStudents || 0}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Total Fee</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalFee || 0)}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Paid</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalPaid || 0)}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Due</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalDue || 0)}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Accounts</div>
+          <div style="font-size:1.4rem;font-weight:700">${accounts.count || 0}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Account Balance</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(accounts.totalBalance || 0)}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Income</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(finance.totalIncome || 0)}</div>
+        </div>
+        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Expense</div>
+          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(finance.totalExpense || 0)}</div>
+        </div>
+      </div>
+    `;
+
+    Utils.openModal(`Snapshot for ${item.type || 'Transaction'} — ${item.category || 'Unknown'}`, `
+      <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:8px">Saved at ${item.date || '—'} — ${item.person || 'N/A'} / ${item.item || 'Record'}</p>
+      ${rows}
+      <div style="font-size:.85rem;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
+        This snapshot shows the dashboard-like totals saved when the transaction was logged locally.
+      </div>
     `, 'modal-lg');
   }
 
@@ -2488,7 +2545,7 @@ const SettingsModule = (() => {
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
     applyCardPreset,
-    viewTableData, showLiveAccountSnapshot, exportAllData,
+    viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory,

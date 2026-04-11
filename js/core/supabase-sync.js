@@ -80,12 +80,37 @@ const SupabaseSync = (() => {
         category: String(category).slice(0, 100),
         person: String(person).slice(0, 100),
         table,
+        item: _recycleDisplayName(table, record),
+        snapshot: _getMonitorSnapshot(),
       };
       const arr = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
       arr.unshift(entry);
       if (arr.length > 120) arr.length = 120;
       localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
     } catch { /* ignore */ }
+  }
+
+  function _getMonitorSnapshot() {
+    try {
+      const students = getAll(DB.students);
+      const finance = getAll(DB.finance);
+      const accounts = getAll(DB.accounts);
+      const totalStudents = students.length;
+      const totalFee = students.reduce((sum, row) => sum + Number(row.total_fee || 0), 0);
+      const totalPaid = students.reduce((sum, row) => sum + Number(row.paid || 0), 0);
+      const totalDue = students.reduce((sum, row) => sum + Number(row.due || 0), 0);
+      const accountBalance = accounts.reduce((sum, row) => sum + Number(row.balance || 0), 0);
+      const totalIncome = finance.filter(f => String(f.type).toLowerCase() === 'income').reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const totalExpense = finance.filter(f => String(f.type).toLowerCase() === 'expense').reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      return {
+        students: { totalStudents, totalFee, totalPaid, totalDue },
+        accounts: { count: accounts.length, totalBalance: accountBalance },
+        finance: { totalIncome, totalExpense },
+        recordedAt: new Date().toISOString(),
+      };
+    } catch {
+      return { students: {}, accounts: {}, finance: {}, recordedAt: new Date().toISOString() };
+    }
   }
 
   function _getActivityLogs() {
@@ -346,6 +371,7 @@ const SyncEngine = (() => {
   let syncInterval = null;
   let realtimeChannels = [];
   let _lastSyncTime = 0;
+  const missingTables = new Set();
 
   // Serialize pull/push/syncAll so merge + batch upsert never interleave
   let _opQueue = Promise.resolve();
@@ -383,13 +409,13 @@ const SyncEngine = (() => {
       for (const key of Object.values(TABLES)) {
         const { data: cloudRows, error } = await client
           .from(key)
-          .select('*')
-          .order('created_at', { ascending: false });
+          .select('*');
 
         if (error) {
           // Table might not exist yet — skip silently
-          if (error.code === '42P01' || error.message?.includes('does not exist')) {
-            console.warn(`[Sync] Table "${key}" does not exist yet, skipping`);
+          if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('could not find')) {
+            console.warn(`[Sync] Table "${key}" does not exist or is unavailable, skipping`);
+            missingTables.add(key);
             continue;
           }
           throw error;
@@ -496,10 +522,11 @@ const SyncEngine = (() => {
       if (!batch.length) return { ok: true };
       const err = await tryBatch(batch);
       if (!err) return { ok: true };
-      if (err.code === '42P01' || (err.message || '').includes('does not exist')) {
+      if (err.code === '42P01' || (err.message || '').includes('does not exist') || (err.message || '').includes('relation')) {
+        missingTables.add(tableKey);
         return {
           ok: false,
-          error: `Table "${tableKey}" is missing in Supabase (create it or fix the name).`,
+          error: `Table "${tableKey}" is missing or unavailable in Supabase.`,
           code: err.code,
           table: tableKey,
         };
@@ -543,6 +570,10 @@ const SyncEngine = (() => {
     const tableList = onlyTables || Object.values(TABLES);
 
     for (const key of tableList) {
+      if (missingTables.has(key)) {
+        console.warn(`[Sync] Skipping push for missing table ${key}`);
+        continue;
+      }
       const raw = localStorage.getItem(`wfa_${key}`);
       if (!raw) continue;
       let rows;

@@ -45,7 +45,7 @@ const Students = (() => {
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="stu-search" class="form-control" placeholder="Name / ID / Phone Search…" value="${searchQuery}" oninput="Students.onSearch(this.value)" />
+          <input id="stu-search" class="form-control" placeholder="Search by Name / ID / Phone / Batch…" value="${searchQuery}" oninput="Students.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Students.onFilter('batch',this.value)">
           <option value="">All Batches</option>
@@ -139,7 +139,7 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   function applyFilters(rows) {
     let r = rows;
-    if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['name','student_id','phone','email']);
+    if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['name','student_id','phone','email','batch']);
     if (filterBatch)  r = r.filter(s => s.batch  === filterBatch);
     if (filterCourse) r = r.filter(s => s.course === filterCourse);
     if (filterStatus) r = r.filter(s => (s.status||'Active') === filterStatus);
