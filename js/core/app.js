@@ -57,6 +57,9 @@ const App = (() => {
   function hasPermission(section) {
     if (isAdmin()) return true;
 
+    const permissions = getUserPermissions();
+    if (permissions.includes('*')) return true;
+
     const map = {
       students: 'Students',
       finance: 'Finance/Ledger',
@@ -71,7 +74,7 @@ const App = (() => {
     const required = map[section];
     if (!required) return true; // allow sections without explicit sub-account controls
 
-    return getUserPermissions().includes(required);
+    return permissions.includes(required);
   }
 
   function login(username, password) {
@@ -79,7 +82,7 @@ const App = (() => {
     const correct = settings.admin_password || 'admin123';
     const normalizedUsername = String(username || '').trim();
 
-    if (normalizedUsername === 'admin' && password === correct) {
+    if ((normalizedUsername === 'admin' || normalizedUsername === '') && password === correct) {
       localStorage.setItem('wfa_logged_in', 'true');
       localStorage.setItem('wfa_user_role', 'admin');
       localStorage.setItem('wfa_user_name', 'admin');
@@ -87,6 +90,8 @@ const App = (() => {
       showApp();
       return true;
     }
+
+    if (!normalizedUsername) return false;
 
     const sub = getSubAccounts().find((s) => s.username === normalizedUsername && s.password === password);
     if (sub) {
