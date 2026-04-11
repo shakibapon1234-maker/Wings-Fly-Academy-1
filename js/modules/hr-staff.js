@@ -215,6 +215,49 @@ const HRStaff = (() => {
 
   function formHTML(s, staffId) {
     const roles = getRoles();
+
+    // date value → split into DD, MM, YYYY for custom picker
+    function parseDateParts(dateStr) {
+      if (!dateStr) return { dd: '', mm: '', yyyy: '' };
+      const d = new Date(dateStr);
+      if (isNaN(d)) return { dd: '', mm: '', yyyy: '' };
+      return {
+        dd:   String(d.getDate()).padStart(2,'0'),
+        mm:   String(d.getMonth()+1).padStart(2,'0'),
+        yyyy: String(d.getFullYear())
+      };
+    }
+    // combine DD MM YYYY → YYYY-MM-DD for storage
+    function dateSelectHTML(prefix, label, dateStr, required='') {
+      const {dd,mm,yyyy} = parseDateParts(dateStr);
+      const months = [
+        ['01','January'],['02','February'],['03','March'],['04','April'],
+        ['05','May'],['06','June'],['07','July'],['08','August'],
+        ['09','September'],['10','October'],['11','November'],['12','December']
+      ];
+      const currentYear = new Date().getFullYear();
+      const years = Array.from({length:10}, (_,i) => currentYear - 5 + i);
+      return `
+        <div class="form-group">
+          <label>${label}${required ? ' <span class="req">*</span>' : ''}</label>
+          <div style="display:flex; gap:6px;">
+            <select id="${prefix}-dd" class="form-control" style="flex:0 0 70px;" onchange="HRStaff._syncDate('${prefix}')">
+              <option value="">DD</option>
+              ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+            </select>
+            <select id="${prefix}-mm" class="form-control" style="flex:1;" onchange="HRStaff._syncDate('${prefix}')">
+              <option value="">Month</option>
+              ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+            </select>
+            <select id="${prefix}-yyyy" class="form-control" style="flex:0 0 90px;" onchange="HRStaff._syncDate('${prefix}')">
+              <option value="">Year</option>
+              ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+            </select>
+          </div>
+          <input type="hidden" id="${prefix}" value="${dateStr||''}" />
+        </div>`;
+    }
+
     return `
       <div style="margin-bottom: 24px;">
         <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px;">PERSONAL INFORMATION</div>
@@ -232,12 +275,18 @@ const HRStaff = (() => {
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label>EMAIL ADDRESS</label>
-            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" />
+            <label>DEPARTMENT</label>
+            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" />
           </div>
           <div class="form-group">
             <label>PHONE NUMBER</label>
             <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" />
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>EMAIL ADDRESS</label>
+            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" />
           </div>
         </div>
       </div>
@@ -245,17 +294,13 @@ const HRStaff = (() => {
       <div style="margin-bottom: 24px;">
         <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px;">EMPLOYMENT DETAILS</div>
         <div class="form-row">
+          ${dateSelectHTML('sf-joining', 'JOINING DATE', s?.joiningDate || Utils.today())}
+          ${dateSelectHTML('sf-resign', 'RESIGN DATE', s?.resignDate || '')}
+        </div>
+        <div class="form-row">
           <div class="form-group">
-            <label>JOINING DATE</label>
-            <input type="date" id="sf-joining" class="form-control" value="${s?.joiningDate || Utils.today()}" />
-          </div>
-          <div class="form-group">
-            <label>RESIGN DATE</label>
-            <input type="date" id="sf-resign" class="form-control" value="${s?.resignDate || Utils.today()}" />
-          </div>
-          <div class="form-group">
-            <label>MONTHLY SALARY (৳)</label>
-            <input type="number" id="sf-salary" class="form-control" placeholder="0.00" value="${s?.salary || ''}" />
+            <label>MONTHLY SALARY (৳) <span class="req">*</span></label>
+            <input type="number" id="sf-salary" class="form-control" placeholder="0.00" value="${s?.salary || ''}" min="1" />
           </div>
         </div>
       </div>
@@ -275,15 +320,28 @@ const HRStaff = (() => {
       </div>`;
   }
 
+  /* ─── Date Sync Helper: DD/MM/YYYY selects → hidden input ─── */
+  function _syncDate(prefix) {
+    const dd   = document.getElementById(prefix + '-dd')?.value   || '';
+    const mm   = document.getElementById(prefix + '-mm')?.value   || '';
+    const yyyy = document.getElementById(prefix + '-yyyy')?.value || '';
+    const hidden = document.getElementById(prefix);
+    if (hidden) hidden.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+  }
+
   /* ─── Save ─── */
   function saveStaff() {
     const name = document.getElementById('sf-name')?.value.trim();
     if (!name) { Utils.toast('Full Name is required!', 'error'); return; }
 
+    const salaryVal = document.getElementById('sf-salary')?.value;
+    if (!salaryVal || parseFloat(salaryVal) <= 0) { Utils.toast('Monthly Salary is required!', 'error'); return; }
+
     const entry = {
       staffId:     document.getElementById('sf-id')?.value || generateStaffId(),
       name,
       role:        document.getElementById('sf-role')?.value || 'Staff',
+      department:  document.getElementById('sf-department')?.value.trim() || '',
       phone:       document.getElementById('sf-phone')?.value.trim() || '',
       email:       document.getElementById('sf-email')?.value.trim() || '',
       salary:      parseFloat(document.getElementById('sf-salary')?.value) || 0,
@@ -300,6 +358,9 @@ const HRStaff = (() => {
       SupabaseSync.insert(DB.staff, entry);
       Utils.toast('New Staff Added ✓', 'success');
     }
+
+    // HR staff save/update এর পরে salary sync করো
+    if (typeof Salary !== 'undefined') Salary.syncFromHR(entry.staffId);
 
     Utils.closeModal();
     renderContent();
@@ -350,6 +411,7 @@ const HRStaff = (() => {
            openAddModal, openEditModal,
            saveStaff, toggleStatus, deleteStaff,
            exportExcel, printList,
+           _syncDate,
            getAll: () => getStaff() };
 
 })();

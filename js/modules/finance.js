@@ -353,6 +353,27 @@ const Finance = (() => {
   }
 
   /* ══════════════════════════════════════════
+     EXTERNAL TRANSACTION (Salary, Loans etc.)
+     Other modules এই function call করে Finance-এ entry দেয়
+  ══════════════════════════════════════════ */
+  function addExternalTransaction(entry) {
+    if (!entry || !entry.type || !entry.amount) return;
+    const record = {
+      type:        entry.type        || 'Expense',
+      category:    entry.category    || 'Other',
+      method:      entry.method      || 'Cash',
+      description: entry.description || '',
+      amount:      Utils.safeNum(entry.amount),
+      date:        entry.date        || Utils.today(),
+      note:        entry.note        || '',
+      person_name: entry.person_name || '',
+    };
+    SupabaseSync.insert(DB.finance, record);
+    // If Finance tab is currently visible, re-render
+    try { render(); } catch { /* ignore if not mounted */ }
+  }
+
+  /* ══════════════════════════════════════════
      DELETE
   ══════════════════════════════════════════ */
   async function deleteEntry(id) {
@@ -386,6 +407,7 @@ const Finance = (() => {
     changePage, changePageSize,
     openAddModal, openEditModal, updateCategoryDropdown,
     saveEntry, deleteEntry, exportExcel,
+    addExternalTransaction,
   };
 
 })();
