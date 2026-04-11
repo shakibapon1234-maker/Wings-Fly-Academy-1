@@ -179,6 +179,9 @@ const Students = (() => {
     const all = SupabaseSync.getAll(DB.students);
     const newId = Utils.generateStudentId(all.map(s => s.student_id));
     const today = Utils.today();
+    
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-user-graduate"></i> Add Student', `
       <div class="form-row">
@@ -216,12 +219,7 @@ const Students = (() => {
           <label>Course <span class="req">*</span></label>
           <input id="sf-course" class="form-control" list="course-list" placeholder="Course Name" />
           <datalist id="course-list">
-            <option value="PPL (Private Pilot License)">
-            <option value="CPL (Commercial Pilot License)">
-            <option value="ATPL (Airline Transport Pilot)">
-            <option value="Aviation English">
-            <option value="Air Traffic Control">
-            <option value="Aircraft Maintenance">
+            ${courses.map(c => `<option value="${c}">`).join('')}
           </datalist>
         </div>
         <div class="form-group">
@@ -291,6 +289,9 @@ const Students = (() => {
     if (!s) return;
     editingId = id;
 
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+
     Utils.openModal('<i class="fa fa-pen"></i> Student Edit', `
       <div class="form-row">
         <div class="form-group">
@@ -325,7 +326,10 @@ const Students = (() => {
       <div class="form-row-3">
         <div class="form-group">
           <label>Course</label>
-          <input id="sf-course" class="form-control" value="${s.course||''}" />
+          <input id="sf-course" class="form-control" list="edit-course-list" value="${s.course||''}" />
+          <datalist id="edit-course-list">
+            ${courses.map(c => `<option value="${c}">`).join('')}
+          </datalist>
         </div>
         <div class="form-group">
           <label>Batch</label>

@@ -157,6 +157,9 @@ const Exam = (() => {
     const newRegId = generateRegId(exams);
     const students = SupabaseSync.getAll(DB.students);
 
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+
     Utils.openModal('<i class="fa fa-clipboard-list"></i> Exam Registration', `
       <div class="form-row">
         <div class="form-group">
@@ -193,13 +196,10 @@ const Exam = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Subject <span class="req">*</span></label>
-          <input id="ef-subject" class="form-control" list="exam-subject-list" placeholder="Subject Name" />
+          <label>Subject / Course <span class="req">*</span></label>
+          <input id="ef-subject" class="form-control" list="exam-subject-list" placeholder="Subject / Course Name" />
           <datalist id="exam-subject-list">
-            <option value="Aviation English"><option value="Air Navigation">
-            <option value="Meteorology"><option value="Aircraft Technical">
-            <option value="Air Regulation"><option value="Radio Telephony">
-            <option value="Flight Planning"><option value="Human Factors">
+            ${courses.map(c => `<option value="${c}">`).join('')}
           </datalist>
         </div>
         <div class="form-group">
@@ -248,6 +248,9 @@ const Exam = (() => {
     if (!e) return;
     editingId = id;
 
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+
     Utils.openModal('<i class="fa fa-pen"></i> Edit Exam', `
       <div class="form-row">
         <div class="form-group">
@@ -281,8 +284,11 @@ const Exam = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Subject</label>
-          <input id="ef-subject" class="form-control" value="${e.subject||''}" />
+          <label>Subject / Course</label>
+          <input id="ef-subject" class="form-control" list="edit-exam-subject-list" value="${e.subject||''}" />
+          <datalist id="edit-exam-subject-list">
+            ${courses.map(c => `<option value="${c}">`).join('')}
+          </datalist>
         </div>
         <div class="form-group">
           <label>Exam Fee (৳)</label>

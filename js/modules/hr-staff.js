@@ -10,7 +10,10 @@ const HRStaff = (() => {
   let pageSize = 20;
 
   /* ─── Roles ─── */
-  const ROLES = ['Instructor', 'Admin', 'Staff', 'Accountant', 'Receptionist', 'Driver', 'Guard'];
+  function getRoles() {
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    return cfg.employee_roles ? JSON.parse(cfg.employee_roles) : ['Admin', 'Instructor', 'Staff'];
+  }
 
   function init() {
     render();
@@ -71,7 +74,7 @@ const HRStaff = (() => {
         <input type="text" id="staff-search" placeholder="🔍 Name / Phone / Search ID..." oninput="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; min-width:200px;" />
         <select id="staff-role-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Roles</option>
-          ${ROLES.map(r => `<option value="${r}">${r}</option>`).join('')}
+          ${getRoles().map(r => `<option value="${r}">${r}</option>`).join('')}
         </select>
         <select id="staff-status-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Status</option>
@@ -211,6 +214,7 @@ const HRStaff = (() => {
   }
 
   function formHTML(s, staffId) {
+    const roles = getRoles();
     return `
       <div style="margin-bottom: 24px;">
         <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 12px;">PERSONAL INFORMATION</div>
@@ -222,7 +226,7 @@ const HRStaff = (() => {
           <div class="form-group">
             <label>ROLE / DESIGNATION <span class="req">*</span></label>
             <select id="sf-role" class="form-control">
-              ${ROLES.map(r => `<option value="${r}" ${s?.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+              ${roles.map(r => `<option value="${r}" ${s?.role === r ? 'selected' : ''}>${r}</option>`).join('')}
             </select>
           </div>
         </div>
