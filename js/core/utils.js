@@ -276,28 +276,73 @@ const Utils = (() => {
   }
 
     // ── Payment Methods Dropdown ──────────────────────────────
-    function getPaymentMethodsHTML(selectedValue = 'Cash') {
+    function getPaymentMethodsHTML(selectedValue = '') {
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
       let h = `<option value="Cash" ${selectedValue==='Cash'?'selected':''}>Cash</option>`;
       
       const banks = accounts.filter(a => a.type==='Bank_Detail');
-      if (banks.length > 0) {
-        h += `<optgroup label="Bank Accounts">`;
-        banks.forEach(b => {
-          h += `<option value="${b.name}" ${selectedValue===b.name?'selected':''}>${b.name}</option>`;
-        });
-        h += `</optgroup>`;
-      }
+      banks.forEach(b => {
+        h += `<option value="${b.name}" ${selectedValue===b.name?'selected':''}>${b.name}</option>`;
+      });
       
       const mobiles = accounts.filter(a => a.type==='Mobile_Detail');
-      if (mobiles.length > 0) {
-        h += `<optgroup label="Mobile Accounts">`;
-        mobiles.forEach(m => {
-          h += `<option value="${m.name}" ${selectedValue===m.name?'selected':''}>${m.name}</option>`;
-        });
-        h += `</optgroup>`;
-      }
+      mobiles.forEach(m => {
+        h += `<option value="${m.name}" ${selectedValue===m.name?'selected':''}>${m.name}</option>`;
+      });
+      
       return h;
+    }
+
+    function getAccountBalance(methodName) {
+      if (!window.SupabaseSync || !methodName) return 0;
+      const accounts = window.SupabaseSync.getAll(window.DB.accounts);
+      const finance = window.SupabaseSync.getAll(window.DB.finance);
+      
+      let balance = 0;
+      
+      if (methodName === 'Cash') {
+        const cashAcc = accounts.find(a => a.type === 'Cash');
+        balance = cashAcc ? parseFloat(cashAcc.balance) || 0 : 0;
+      } else {
+        const acc = accounts.find(a => a.name === methodName);
+        if (acc) balance = parseFloat(acc.balance) || 0;
+      }
+      
+      finance.forEach(f => {
+        if (f.method === methodName) {
+          const amt = parseFloat(f.amount) || 0;
+          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') balance += amt;
+          else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') balance -= amt;
+        }
+      });
+      return balance;
+    }
+
+    // ── Payment Methods Event Listener Helper ──
+    function onPaymentMethodChange(selectEl, displayElId) {
+      if (!selectEl) return;
+      const method = selectEl.value;
+      const displayEl = document.getElementById(displayElId);
+      if (!displayEl) return;
+      if (!method) {
+        displayEl.innerHTML = '';
+        displayEl.style.display = 'none';
+        return;
+      }
+      const bal = getAccountBalance(method);
+      displayEl.innerHTML = `<span>&#128181; Available Balance: ${formatMoneyPlain(bal)}</span>`;
+      displayEl.style.display = 'inline-flex';
+      displayEl.style.alignItems = 'center';
+      displayEl.style.marginTop = '8px';
+      displayEl.style.padding = '6px 14px';
+      displayEl.style.borderRadius = '8px';
+      displayEl.style.fontSize = '0.85rem';
+      displayEl.style.fontWeight = '700';
+      displayEl.style.color = '#00ff88';
+      displayEl.style.background = 'rgba(0, 255, 136, 0.08)';
+      displayEl.style.border = '1px solid rgba(0, 255, 136, 0.2)';
+      displayEl.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.05)';
+      displayEl.style.transition = 'all 0.3s ease';
     }
 
     return {
@@ -326,7 +371,7 @@ const Utils = (() => {
       // Print & Export
       printArea, exportExcel, downloadCSV,
       // Misc
-      debounce, paginate, getPaymentMethodsHTML
+      debounce, paginate, getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange
     };
 })();
 

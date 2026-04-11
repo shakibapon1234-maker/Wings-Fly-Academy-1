@@ -205,9 +205,11 @@ const Finance = (() => {
         </div>
         <div class="form-group">
           <label>Method <span class="req">*</span></label>
-          <select id="ff-method" class="form-control">
+          <select id="ff-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'ff-bal-display')">
+            <option value="">Select Method</option>
             ${Utils.getPaymentMethodsHTML(d.method)}
           </select>
+          <div id="ff-bal-display" style="display:none;"></div>
         </div>
       </div>
       <div id="ff-person-group" class="form-group" style="display:${(d.type==='Loan Giving'||d.type==='Loan Receiving')?'block':'none'};">
@@ -257,23 +259,35 @@ const Finance = (() => {
   function saveEntry() {
     const amount = Utils.safeNum(Utils.formVal('ff-amount'));
     const type   = Utils.formVal('ff-type');
-    const date   = Utils.formVal('ff-date');
-    const person = Utils.formVal('ff-person');
+    const method = Utils.formVal('ff-method');
     const errEl  = document.getElementById('ff-error');
+    errEl.classList.add('hidden');
+    
+    if (!method) { errEl.textContent = 'Please select a Payment Method.'; errEl.classList.remove('hidden'); return; }
+    if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount.'; errEl.classList.remove('hidden'); return; }
 
-    if (!amount || amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
-    if (!date)                { errEl.textContent='Date Required';  errEl.classList.remove('hidden'); return; }
+    const person = Utils.formVal('ff-person');
     if ((type==='Loan Giving'||type==='Loan Receiving') && !person) { errEl.textContent='Person Name required for Loans'; errEl.classList.remove('hidden'); return; }
+
+    // Prevent negative balance for Expense / Transfer Out / Loan Giving
+    if (type === 'Expense' || type === 'Transfer Out' || type === 'Loan Giving') {
+      const available = Utils.getAccountBalance(method);
+      if (amount > available) {
+        errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
+        errEl.classList.remove('hidden');
+        return;
+      }
+    }
 
     const record = {
       type,
-      method:      Utils.formVal('ff-method') || 'Cash',
+      method,
       category:    Utils.formVal('ff-category'),
       description: Utils.formVal('ff-description'),
       amount,
-      date,
+      date:        Utils.formVal('ff-date') || Utils.today(),
       note:        Utils.formVal('ff-note'),
-      person_name: person
+      person_name: Utils.formVal('ff-person')
     };
 
     /* Loan Giving/Receiving → also create loans table entry */

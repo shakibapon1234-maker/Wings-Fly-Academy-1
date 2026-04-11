@@ -1407,26 +1407,61 @@ const SettingsModule = (() => {
 
   // ─── Advance Payments & Investments ───────────────────────────
   function addAdvancePayment() {
-    Utils.openModal('💰 Add Advance Payment', `
-      <div class="form-group mb-12"><label>Person Name</label><input id="adv-person" class="form-control" placeholder="Name" /></div>
-      <div class="form-group mb-12"><label>Amount</label><input id="adv-amount" type="number" class="form-control" placeholder="Amount" /></div>
-      <div class="form-group mb-12"><label>Date</label><input id="adv-date" type="date" class="form-control" value="${new Date().toISOString().split('T')[0]}" /></div>
-      <div class="form-group mb-12"><label>Note</label><input id="adv-note" class="form-control" placeholder="Optional note" /></div>
-      <div class="form-actions">
-        <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn btn-success" onclick="SettingsModule.saveAdvancePayment()"><i class="fa fa-check"></i> Save</button>
-      </div>
-    `);
+    try {
+      Utils.openModal('Add Advance Payment', `
+        <div class="form-group mb-12"><label>Person Name <span class="req">*</span></label><input id="adv-person" class="form-control" placeholder="Name" /></div>
+        <div class="form-group mb-12"><label>Amount <span class="req">*</span></label><input id="adv-amount" type="number" class="form-control" placeholder="Amount" /></div>
+        <div class="form-group mb-12">
+          <label>Payment Method <span class="req">*</span></label>
+          <select id="adv-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'adv-bal-display')">
+            <option value="">Select Method</option>
+            ${Utils.getPaymentMethodsHTML()}
+          </select>
+          <div id="adv-bal-display" style="display:none;"></div>
+        </div>
+        <div class="form-group mb-12"><label>Date <span class="req">*</span></label><input id="adv-date" type="date" class="form-control" value="${Utils.today()}" /></div>
+        <div class="form-group mb-12"><label>Note</label><input id="adv-note" class="form-control" placeholder="Optional note" /></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
+          <button class="btn btn-success" onclick="SettingsModule.saveAdvancePayment()"><i class="fa fa-check"></i> Save</button>
+        </div>
+      `);
+    } catch(err) {
+      console.error(err);
+      Utils.toast('Failed to open modal: ' + err.message, 'error');
+    }
   }
   function saveAdvancePayment() {
+    const person = document.getElementById('adv-person')?.value || '';
+    const amount = parseFloat(document.getElementById('adv-amount')?.value) || 0;
+    const method = document.getElementById('adv-method')?.value || '';
+    if (!person || !amount || !method) { Utils.toast('Name, Amount, and Method are required', 'error'); return; }
+    
+    // Check balance
+    const available = Utils.getAccountBalance(method);
+    if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`, 'error'); return; }
+
     const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
     advances.push({
-      person: document.getElementById('adv-person')?.value || '',
-      amount: document.getElementById('adv-amount')?.value || 0,
-      date: document.getElementById('adv-date')?.value || '',
+      person,
+      amount,
+      method,
+      date: document.getElementById('adv-date')?.value || Utils.today(),
       note: document.getElementById('adv-note')?.value || '',
     });
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+    
+    // Optional: Log it in finance? The user didn't mention it, but advance payments deduct balance.
+    // We MUST deduct balance from finance otherwise 'Available' won't drop!
+    SupabaseSync.insert(DB.finance, {
+      type: 'Expense',
+      method: method,
+      category: 'Advance Payment',
+      description: `Advance to ${person}`,
+      amount: amount,
+      date: Utils.today()
+    });
+
     Utils.closeModal();
     Utils.toast('Advance payment saved', 'success');
     refreshModal();
@@ -1440,9 +1475,17 @@ const SettingsModule = (() => {
 
   function addInvestment() {
     Utils.openModal('📈 Add Investment', `
-      <div class="form-group mb-12"><label>Source</label><input id="inv-source" class="form-control" placeholder="Source" /></div>
-      <div class="form-group mb-12"><label>Amount</label><input id="inv-amount" type="number" class="form-control" placeholder="Amount" /></div>
-      <div class="form-group mb-12"><label>Date</label><input id="inv-date" type="date" class="form-control" value="${new Date().toISOString().split('T')[0]}" /></div>
+      <div class="form-group mb-12"><label>Source <span class="req">*</span></label><input id="inv-source" class="form-control" placeholder="Source" /></div>
+      <div class="form-group mb-12"><label>Amount <span class="req">*</span></label><input id="inv-amount" type="number" class="form-control" placeholder="Amount" /></div>
+      <div class="form-group mb-12">
+        <label>Deposit To <span class="req">*</span></label>
+        <select id="inv-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'inv-bal-display')">
+          <option value="">Select Account</option>
+          ${Utils.getPaymentMethodsHTML()}
+        </select>
+        <div id="inv-bal-display" style="display:none;"></div>
+      </div>
+      <div class="form-group mb-12"><label>Date <span class="req">*</span></label><input id="inv-date" type="date" class="form-control" value="${Utils.today()}" /></div>
       <div class="form-group mb-12"><label>Note</label><input id="inv-note" class="form-control" placeholder="Optional note" /></div>
       <div class="form-actions">
         <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
@@ -1451,14 +1494,31 @@ const SettingsModule = (() => {
     `);
   }
   function saveInvestment() {
+    const source = document.getElementById('inv-source')?.value || '';
+    const amount = parseFloat(document.getElementById('inv-amount')?.value) || 0;
+    const method = document.getElementById('inv-method')?.value || '';
+    if (!source || !amount || !method) { Utils.toast('Source, Amount, and Method are required', 'error'); return; }
+
     const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
     investments.push({
-      source: document.getElementById('inv-source')?.value || '',
-      amount: document.getElementById('inv-amount')?.value || 0,
-      date: document.getElementById('inv-date')?.value || '',
+      source,
+      amount,
+      method,
+      date: document.getElementById('inv-date')?.value || Utils.today(),
       note: document.getElementById('inv-note')?.value || '',
     });
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
+    
+    // Add to finance ledger
+    SupabaseSync.insert(DB.finance, {
+      type: 'Income',
+      method: method,
+      category: 'Investment Receiving',
+      description: `Investment from ${source}`,
+      amount: amount,
+      date: Utils.today()
+    });
+
     Utils.closeModal();
     Utils.toast('Investment saved', 'success');
     refreshModal();

@@ -3444,3 +3444,12 @@ tbody tr:hover {
     transform: translateX(4px);
   }
 }
+/* Fix Dropdown Background Issue */
+select option {
+  background-color: #0b1325;
+  color: #a8b2c1;
+}
+select option:checked {
+  background-color: #004d66;
+  color: #fff;
+}

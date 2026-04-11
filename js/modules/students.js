@@ -218,7 +218,8 @@ const Students = (() => {
           <input id="sf-session" class="form-control" placeholder="e.g.: 2024-25" />
         </div>
       </div>
-      <div class="form-row-3">
+      </div>
+      <div class="form-row">
         <div class="form-group">
           <label>Total Fee (৳) <span class="req">*</span></label>
           <input id="sf-total-fee" type="number" class="form-control" placeholder="0" oninput="Students.calcDue()" />
@@ -227,9 +228,19 @@ const Students = (() => {
           <label>Paid (৳)</label>
           <input id="sf-paid" type="number" class="form-control" placeholder="0" value="0" oninput="Students.calcDue()" />
         </div>
+      </div>
+      <div class="form-row-3">
         <div class="form-group">
           <label>Due (৳)</label>
           <input id="sf-due" type="number" class="form-control" placeholder="0" readonly style="background:var(--bg-surface)" />
+        </div>
+        <div class="form-group" style="grid-column: span 2">
+          <label>Payment Method <span class="req">*</span></label>
+          <select id="sf-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'sf-bal-display')">
+            <option value="">Select Method...</option>
+            ${Utils.getPaymentMethodsHTML()}
+          </select>
+          <div id="sf-bal-display" style="display:none;"></div>
         </div>
       </div>
       <div class="form-row">
@@ -323,6 +334,14 @@ const Students = (() => {
           <label>Due (৳)</label>
           <input id="sf-due" type="number" class="form-control" value="${s.due||0}" readonly style="background:var(--bg-surface)" />
         </div>
+      </div>
+      <div class="form-group">
+        <label>Payment Method (if paying now) <span class="req">*</span></label>
+        <select id="sf-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'sf-bal-display')">
+          <option value="">Select Method...</option>
+          ${Utils.getPaymentMethodsHTML()}
+        </select>
+        <div id="sf-bal-display" style="display:none;"></div>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -470,14 +489,16 @@ const Students = (() => {
         <div style="font-weight:700; color:var(--brand-primary); margin-bottom:12px;">Add New Installment</div>
         <div style="display:flex; gap:12px; align-items:center;">
           <input id="pay-amount" type="number" class="form-control" style="flex:1" placeholder="Amount (e.g. ${s.due})" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
-          <select id="pay-method" class="form-control" style="flex:1">
-            ${Utils.getPaymentMethodsHTML('Cash')}
+          <select id="pay-method" class="form-control" style="flex:1" onchange="Utils.onPaymentMethodChange(this, 'pay-bal-display')">
+            <option value="">Select Method...</option>
+            ${Utils.getPaymentMethodsHTML()}
           </select>
           <input id="pay-date" type="date" class="form-control hidden" value="${Utils.today()}" />
           <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:6px; font-weight:700;" onclick="Students.savePayment('${id}')">
             + ADD & PRINT RECEIPT
           </button>
         </div>
+        <div id="pay-bal-display" style="display:none; margin-top:8px;"></div>
         <div id="pay-error" class="form-error hidden" style="margin-top:8px"></div>
       </div>
 
@@ -549,6 +570,23 @@ const Students = (() => {
       Utils.toast('Student info updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.students, record);
+      
+      // If there's an initial payment during admission, log it!
+      if (paid > 0) {
+        const method = Utils.formVal('sf-method');
+        if (method) {
+          SupabaseSync.insert(DB.finance, {
+            type:        'Income',
+            category:    'Student Fee',
+            description: `${name} (${record.student_id}) — Initial Admission Payment`,
+            amount:      paid,
+            method:      method,
+            date:        record.admission_date,
+            note:        record.note,
+            ref_id:      record.student_id,
+          });
+        }
+      }
       Utils.toast('New student added ✓', 'success');
     }
 
@@ -581,12 +619,18 @@ const Students = (() => {
     SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
 
     /* Finance ledger entry */
+    const method = Utils.formVal('pay-method');
+    if (!method) {
+      errEl.textContent = 'Please select a Payment Method';
+      errEl.classList.remove('hidden'); return;
+    }
+
     SupabaseSync.insert(DB.finance, {
       type:        'Income',
       category:    'Student Fee',
       description: `${s.name} (${s.student_id}) — Course Fee`,
       amount:      amount,
-      method:      Utils.formVal('pay-method') || 'Cash',
+      method:      method,
       date:        Utils.formVal('pay-date') || Utils.today(),
       note:        Utils.formVal('pay-note'),
       ref_id:      studentId,

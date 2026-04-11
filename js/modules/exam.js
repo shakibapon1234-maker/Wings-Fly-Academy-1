@@ -196,6 +196,16 @@ const Exam = (() => {
           <input id="ef-fee" type="number" class="form-control" placeholder="0" value="0" />
         </div>
       </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column: span 2">
+          <label>Payment Method (if paying fee) <span class="req">*</span></label>
+          <select id="ef-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'ef-bal-display')">
+            <option value="">Select Method...</option>
+            ${Utils.getPaymentMethodsHTML()}
+          </select>
+          <div id="ef-bal-display" style="display:none;"></div>
+        </div>
+      </div>
       <div class="form-group">
         <label>Notes</label>
         <textarea id="ef-note" class="form-control" rows="2" placeholder="Optional"></textarea>
@@ -266,6 +276,16 @@ const Exam = (() => {
         <div class="form-group">
           <label>Exam Fee (৳)</label>
           <input id="ef-fee" type="number" class="form-control" value="${e.exam_fee||0}" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column: span 2">
+          <label>Payment Method (if paying fee) <span class="req">*</span></label>
+          <select id="ef-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'ef-bal-display')">
+            <option value="">Select Method...</option>
+            ${Utils.getPaymentMethodsHTML()}
+          </select>
+          <div id="ef-bal-display" style="display:none;"></div>
         </div>
       </div>
       <div class="form-row">
@@ -363,6 +383,11 @@ const Exam = (() => {
 
     if (!regId) { errEl.textContent = 'Reg ID Required'; errEl.classList.remove('hidden'); return; }
     if (!subject) { errEl.textContent = 'Subject Required'; errEl.classList.remove('hidden'); return; }
+    
+    if (Utils.safeNum(Utils.formVal('ef-fee')) > 0 && !Utils.formVal('ef-method')) {
+      errEl.textContent = 'Payment Method is required when Exam Fee is entered';
+      errEl.classList.remove('hidden'); return;
+    }
 
     let studentName, studentId;
     if (editingId) {
@@ -401,11 +426,18 @@ const Exam = (() => {
 
       // Finance entry for exam fee
       if (record.exam_fee > 0) {
-        SupabaseSync.insert(DB.finance, {
-          type: 'Income', category: 'Exam Fee',
-          description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
-          amount: record.exam_fee, method: 'Cash', date: record.exam_date,
-        });
+        const method = Utils.formVal('ef-method');
+        if (!method) {
+          Utils.toast('Please select payment method for the fee', 'error');
+          // Still completed exam entry, but let him know fee wasn't recorded properly.
+          // Wait, if it fails, it shouldn't proceed. Handled below ideally.
+        } else {
+          SupabaseSync.insert(DB.finance, {
+            type: 'Income', category: 'Exam Fee',
+            description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
+            amount: record.exam_fee, method: method, date: record.exam_date,
+          });
+        }
       }
     }
 

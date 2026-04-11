@@ -153,10 +153,12 @@ const Loans = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Payment Method</label>
-          <select id="lf-method" class="form-control">
+          <label>Payment Method <span class="req">*</span></label>
+          <select id="lf-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'lf-bal-display')">
+            <option value="">Select Method</option>
             ${Utils.getPaymentMethodsHTML(d.method)}
           </select>
+          <div id="lf-bal-display" style="display:none;"></div>
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -181,18 +183,31 @@ const Loans = (() => {
   function saveLoan() {
     const person = Utils.formVal('lf-person');
     const amount = Utils.safeNum(Utils.formVal('lf-amount'));
+    const type   = Utils.formVal('lf-direction') || 'Loan Giving';
+    const method = Utils.formVal('lf-method') || 'Cash';
     const errEl  = document.getElementById('lf-error');
+    errEl.classList.add('hidden');
 
-    if (!person) { errEl.textContent="Person's Name is required"; errEl.classList.remove('hidden'); return; }
-    if (!amount||amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
+    if (!person) { errEl.textContent='Person Name required'; errEl.classList.remove('hidden'); return; }
+    if (!amount) { errEl.textContent='Valid amount required'; errEl.classList.remove('hidden'); return; }
+    if (!method) { errEl.textContent='Payment Method required'; errEl.classList.remove('hidden'); return; }
+    
+    // Validate negative balance for giving loan
+    if (type === 'Loan Giving') {
+      const available = Utils.getAccountBalance(method);
+      if (amount > available) {
+        errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
+        errEl.classList.remove('hidden');
+        return;
+      }
+    }
 
-    const type = Utils.formVal('lf-direction');
     const record = {
       type: type,
       person_name: person,
       amount,
       date:   Utils.formVal('lf-date')||Utils.today(),
-      method: Utils.formVal('lf-method')||'Cash',
+      method: method,
       status: Utils.formVal('lf-status')||'Outstanding',
       note:   Utils.formVal('lf-note'),
     };

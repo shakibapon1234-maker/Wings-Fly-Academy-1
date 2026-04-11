@@ -29,10 +29,10 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- CSS -->
-  <link rel="stylesheet" href="css/main.css?v=2.01" />
-  <link rel="stylesheet" href="css/attendance.css?v=2.01" />
-  <link rel="stylesheet" href="css/exam.css?v=2.01" />
-  <link rel="stylesheet" href="css/print.css?v=2.01" media="print" />
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/attendance.css" />
+  <link rel="stylesheet" href="css/exam.css" />
+  <link rel="stylesheet" href="css/print.css" media="print" />
 </head>
 <body>
 
@@ -354,9 +354,15 @@
 
   <!-- PWA -->
   <script>
+    // Bypass Service Worker Cache during development
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(() => {});
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+      });
+      caches.keys().then(keys => {
+        keys.forEach(key => caches.delete(key));
       });
     }
   </script>

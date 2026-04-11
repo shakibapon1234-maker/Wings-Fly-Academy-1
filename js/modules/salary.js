@@ -207,6 +207,15 @@ const Salary = (() => {
     const r = SupabaseSync.getById(DB.salary, id);
     if (!r) return;
     
+    const method = r.method || 'Cash';
+    const net = (r.baseSalary || 0) + (r.bonus || 0) - (r.deduction || 0);
+    const available = Utils.getAccountBalance(method);
+    
+    if (net > available) {
+      Utils.toast(`Error: Insufficient balance in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available. Please edit and change payment method first.`, 'error');
+      return;
+    }
+    
     SupabaseSync.update(DB.salary, id, {
       paid: true,
       paidDate: new Date().toISOString().split('T')[0]
@@ -284,10 +293,12 @@ const Salary = (() => {
       
       <div class="form-row">
         <div class="form-group">
-          <label>Payment Method</label>
-          <select id="sal-method" class="form-control">
+          <label>Payment Method <span class="req">*</span></label>
+          <select id="sal-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'sal-bal-display')">
+            <option value="">Select Method...</option>
             ${Utils.getPaymentMethodsHTML(r?.method)}
           </select>
+          <div id="sal-bal-display" style="display:none;"></div>
         </div>
         <div class="form-group">
           <label>Pay Status</label>
@@ -327,6 +338,8 @@ const Salary = (() => {
     const staffOpt  = staffSel?.options[staffSel.selectedIndex];
     if (!staffId) { Utils.toast('Please select a staff member', 'error'); return; }
 
+    if (!document.getElementById('sal-method')?.value) { Utils.toast('Please select a Payment Method', 'error'); return; }
+
     const entry = {
       staffId,
       staffName:   staffOpt?.dataset.name || '',
@@ -341,6 +354,15 @@ const Salary = (() => {
       paidDate:    document.getElementById('sal-paiddate')?.value || '',
       note:        document.getElementById('sal-note')?.value.trim() || ''
     };
+
+    if (entry.paid) {
+      const net = entry.baseSalary + entry.bonus - entry.deduction;
+      const available = Utils.getAccountBalance(entry.method);
+      if (net > available) {
+        Utils.toast(`Insufficient funds in ${entry.method}. Only ৳${Utils.formatMoneyPlain(available)} available.`, 'error');
+        return;
+      }
+    }
 
     if (editingId) {
       SupabaseSync.update(DB.salary, editingId, entry);
