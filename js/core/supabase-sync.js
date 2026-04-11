@@ -305,10 +305,22 @@ const SupabaseSync = (() => {
   }
 
   // ── Cloud Operations (fire-and-forget) ─────────────────────
+  function _sanitizeRecord(record) {
+    if (!record || typeof record !== 'object') return record;
+    const o = {};
+    for (const [k, v] of Object.entries(record)) {
+      if (v === undefined) continue;
+      if (k.startsWith('_')) continue; // skip _device and other internal fields
+      o[k] = v;
+    }
+    return o;
+  }
+
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
-      const { error } = await client.from(table).upsert([record], { onConflict: 'id' });
+      const clean = _sanitizeRecord(record);
+      const { error } = await client.from(table).upsert([clean], { onConflict: 'id' });
       if (error) throw error;
       SyncEngine.setStatus('synced');
     } catch (e) {
@@ -343,7 +355,8 @@ const SupabaseSync = (() => {
       const remaining = [];
       for (const item of queue) {
         try {
-          const { error } = await client.from(item.table).upsert([item.record], { onConflict: 'id' });
+          const clean = _sanitizeRecord(item.record);
+          const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
           if (error) throw error;
         } catch { remaining.push(item); }
       }
