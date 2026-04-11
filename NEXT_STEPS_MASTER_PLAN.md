@@ -1,15 +1,20 @@
 # 🛫 Wings Fly Aviation Academy — Next Steps Master Plan
 **Date:** April 2026  
-**Current Status:** New app (Wings-Fly-Academy-1) is structurally complete but needs:
-1. Design upgrade (dark premium theme like old app)
-2. All UI in English (not Bengali)
-3. Supabase data structure (tables, schema)
-4. Payment methods setup
-5. Sync engine setup
+**Canonical repo (this codebase: `wings-fly-clean`):** matches [PROJECT-SCANNER.md](PROJECT-SCANNER.md).
+
+**Current Status:** App code is structurally complete. Remaining work is mostly **operational**:
+1. Run **data migration** (Settings → Migration) when moving from old Supabase
+2. **End-to-end testing** of all CRUD flows
+3. **Deploy** to GitHub Pages
+
+Design, English UI, Supabase-backed modules, payment methods in forms, and sync engine are implemented in-repo.
 
 **Old App (reference):** https://shakibapon1234-maker.github.io/wings-fly-academy/  
-**New App (work in progress):** https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/  
-**New GitHub:** https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1  
+**New App (canonical):** https://shakibmustafa550-ai.github.io/Wings-Fly-Academy/  
+**New GitHub (canonical):** https://github.com/shakibmustafa550-ai/Wings-Fly-Academy  
+
+**Alternate fork (older doc only; do not mix with canonical):** `shakibapon1234-maker` / `Wings-Fly-Academy-1`  
+
 **Backend:** Supabase ONLY (no Firebase anywhere)
 
 ---
@@ -96,7 +101,22 @@ Old app uses English for all UI labels.
 
 ## 🗄️ STEP 3 — Supabase Database Structure (Priority: HIGH)
 
-### Supabase Tables Required:
+### Actual table names in `wings-fly-clean` (`js/core/supabase-config.js`)
+
+The SQL below uses **conceptual** names from an early blueprint. The running app syncs these Supabase tables:
+
+| Blueprint / SQL name in this doc | Live table name in app |
+|----------------------------------|-------------------------|
+| `transactions` | `finance_ledger` |
+| `employees` | `staff` |
+| `salary_payments` | `salary` |
+| `account_transfers` | *(no separate table in `DB`; transfers modeled via `finance_ledger` + `accounts`)* |
+
+Unchanged names: `students`, `accounts`, `loans`, `exams`, `attendance`, `visitors`, `notices`, `settings`.
+
+When creating or migrating a database, **match the live names** above or update `DB` and all module references together.
+
+### Supabase Tables Required (reference DDL — align names to table above):
 
 #### Table 1: `students`
 ```sql
@@ -386,7 +406,7 @@ const appData = {
 | 1 | Dark theme CSS | `css/main.css` | ✅ DONE |
 | 2 | English UI - Sidebar | `index.html` | ✅ DONE |
 | 3 | English UI - All sections | all section files | ✅ DONE |
-| 4 | Supabase tables create | Supabase dashboard | ⏳ PENDING |
+| 4 | Supabase tables create | Supabase dashboard | ✅ DONE (aligned with `DB` in app) |
 | 5 | supabase-config.js | `js/core/supabase-config.js` | ✅ DONE |
 
 ### Week 2 — Core Modules
@@ -414,7 +434,7 @@ const appData = {
 | 17 | ID Cards + Certificates | `js/modules/id-cards.js` | ✅ DONE |
 | 18 | Notice Board | `js/modules/notice-board.js` | ✅ DONE |
 | 19 | Supabase sync engine | `js/core/supabase-sync.js` | ✅ DONE |
-| 20 | Data migration from old Supabase | export/import | ✅ DONE |
+| 20 | Data migration from old Supabase | Settings → Migration; Supabase export/import | ⏳ PENDING (run when ready) |
 | 21 | Final test + Go Live 🚀 | — | ⏳ PENDING |
 
 ---
@@ -428,10 +448,11 @@ const appData = {
 3. Start from the next step without asking questions
 4. Produce the complete file code ready to copy-paste into GitHub
 
-**Current Status:** All Week 1, 2, 3, and 4 Core modules have been upgraded with the new UI and translated!
-Next step is Order 20: Data Migration from old Supabase. 
+**Current Status:** Week 1–4 **code** tasks are done (modules, sync, migration **UI** in Settings).
 
-**Next task:** We need to export your old database and import it into your new database instance. Let me know when you are ready to proceed with Data Migration!
+**Next step — Order 20:** Run **data migration** from the old Supabase (or JSON backup) into the project linked in `js/core/supabase-config.js`, using **Settings → Migration** and/or Supabase dashboard tools.
+
+**Then — Order 21:** Full end-to-end test and deploy to GitHub Pages (canonical site above).
 
 ---
 

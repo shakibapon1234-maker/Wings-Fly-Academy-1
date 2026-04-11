@@ -5,6 +5,8 @@
 **নতুন GitHub:** https://github.com/shakibmustafa550-ai/Wings-Fly-Academy  
 **Backend:** Supabase (নতুন account, আলাদা email) — Firebase নেই, থাকবেও না।
 
+**Schema vs blueprint:** চালু টেবিলের নাম `js/core/supabase-config.js` এর `DB` অবজেক্ট অনুযায়ী। [NEXT_STEPS_MASTER_PLAN.md](NEXT_STEPS_MASTER_PLAN.md)-এ যে SQL আছে তার সাথে নাম পার্থক্য হতে পারে (যেমন `finance_ledger` ↔ `transactions`, `staff` ↔ `employees`, `salary` ↔ `salary_payments`)—এই রিপোতে **`DB`ই সত্য**।
+
 ---
 
 ## 📌 এই Document-এর উদ্দেশ্য
@@ -295,6 +297,14 @@ Wings-Fly-Academy/
 - Multi-user real-time sync
 - Cloud vs Local monitor
 - Data monitor
+
+---
+
+## 🚀 Session Log — April 11, 2026
+
+### Documentation alignment
+- [NEXT_STEPS_MASTER_PLAN.md](NEXT_STEPS_MASTER_PLAN.md) canonical URLs aligned with this file; blueprint SQL names mapped to live `DB` keys (`finance_ledger`, `staff`, `salary`).
+- Execution checklist: Order 20 = run migration when ready; Order 21 = E2E + deploy.
 
 ---
 

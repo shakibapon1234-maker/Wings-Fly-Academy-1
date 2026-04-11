@@ -62,7 +62,7 @@ const Accounts = (() => {
             <button class="btn btn-outline btn-sm" style="background:#fff; color:#0e1628; border:none; font-weight:700; padding:6px 16px; border-radius:20px;" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAcc?.balance||0)}','${cashAcc?.id||''}')">
               <i class="fa fa-pen" style="font-size:0.8rem;"></i> UPDATE CASH
             </button>
-            <button class="btn btn-outline btn-sm" style="color:var(--text-muted); border-color:rgba(255,255,255,0.2); font-weight:600; border-radius:20px;" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull()">
+            <button class="btn btn-outline btn-sm" style="color:var(--text-muted); border-color:rgba(255,255,255,0.2); font-weight:600; border-radius:20px;" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull({silent:false})">
               <i class="fa fa-rotate"></i> SYNC
             </button>
           </div>
