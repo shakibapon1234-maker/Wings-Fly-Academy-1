@@ -170,6 +170,14 @@ const SettingsModule = (() => {
       colors: ['#030d06', '#00ff88', '#00e676', '#69f0ae'],
       bg: 'linear-gradient(135deg, #030d06 0%, #071a0a 50%, #030d06 100%)',
     },
+    {
+      id: 'aurora-wave',
+      name: 'Aurora Wave',
+      desc: 'Northern lights — animated color waves on dark starry sky',
+      emoji: '🌌',
+      colors: ['#050510', '#00f0ff', '#0077b6', '#00e5cc'],
+      bg: 'linear-gradient(135deg, #050510 0%, #07091a 50%, #0a1030 100%)',
+    },
   ];
 
   const SIDEBAR_STYLES = [
@@ -180,6 +188,20 @@ const SettingsModule = (() => {
       desc: 'Master style — Semi-transparent blur, background glows through',
       preview: 'background:rgba(10,14,39,0.42);border-right:1px solid rgba(255,255,255,0.13)',
       master: true,
+    },
+    {
+      id: 'aurora-glow',
+      name: 'Aurora Wave Match',
+      icon: '🌌',
+      desc: 'Matches exactly the cyan Dashboard theme background gradient',
+      preview: 'background:linear-gradient(135deg, #050510, #0077b6); border-right:1px solid #00f0ff',
+    },
+    {
+      id: 'crystal',
+      name: 'Ultra Crystal (Aurora)',
+      icon: '✨',
+      desc: 'Maximum transparency — Best for Aurora & Background images',
+      preview: 'background:rgba(0,0,10,0.15); border-right:1px solid rgba(255,255,255,0.1)',
     },
     {
       id: 'tinted',
@@ -421,7 +443,7 @@ const SettingsModule = (() => {
     const sidebar = document.getElementById('sidebar');
     if (!sidebar) return;
     // Remove all known sidebar style classes
-    ['glass','tinted','carbon','neonstrip','velvet'].forEach(s => sidebar.classList.remove(`sidebar-${s}`));
+    ['glass','crystal','aurora-glow','tinted','carbon','neonstrip','velvet'].forEach(s => sidebar.classList.remove(`sidebar-${s}`));
     // Always apply a class (glass is the master/default)
     sidebar.classList.add(`sidebar-${styleId}`);
     
@@ -524,13 +546,15 @@ const SettingsModule = (() => {
     
     styleTag.textContent = `
        #sidebar.sidebar-glass { background: rgba(8,12,35,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
+       #sidebar.sidebar-crystal { background: rgba(0,5,20,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
+       #sidebar.sidebar-aurora-glow { border-right-color: ${border} !important; }
        #sidebar.sidebar-tinted { background: color-mix(in srgb, var(--brand-primary) ${opacity}%, black) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
        #sidebar.sidebar-carbon { border-right-color: ${border} !important; }
        #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
        #sidebar.sidebar-velvet { border-right-color: ${border} !important; }
 
        /* Custom active color matching */
-       #sidebar.sidebar-glass .nav-item.active { border-left-color: ${active} !important; background: color-mix(in srgb, ${active} 10%, transparent) !important; }
+       #sidebar.sidebar-glass .nav-item.active, #sidebar.sidebar-crystal .nav-item.active, #sidebar.sidebar-aurora-glow .nav-item.active { border-left-color: ${active} !important; background: color-mix(in srgb, ${active} 10%, transparent) !important; }
        #sidebar.sidebar-carbon .nav-item.active { color: ${active} !important; background: color-mix(in srgb, ${active} 12%, transparent) !important;}
        #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${active} !important; box-shadow: 0 0 20px ${active} !important; }
        #sidebar.sidebar-velvet .nav-item.active { color: ${active} !important; }
@@ -542,7 +566,8 @@ const SettingsModule = (() => {
       'neon-grid': 'maroon',
       'nebula': 'purple',
       'emerald': 'emerald',
-      'molten': 'obsidian'
+      'molten': 'obsidian',
+      'aurora-wave': 'navy'
     };
     return map[themeId] || 'navy';
   }
@@ -1930,12 +1955,12 @@ window.SettingsModule = SettingsModule;
 // ── Restore saved theme + sidebar + colors on page load ──────────────
 (function restoreThemeOnLoad() {
   const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
-  const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald'];
+  const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald','aurora-wave'];
   allThemeIds.forEach(id => document.body.classList.remove(`theme-${id}`));
   document.body.classList.add(`theme-${savedTheme}`);
   
   const savedSidebar = localStorage.getItem(`wfa_sidebar_${savedTheme}`) || 'glass';
-  const allSidebarStyles = ['glass','tinted','carbon','neonstrip','velvet'];
+  const allSidebarStyles = ['glass','crystal','aurora-glow','tinted','carbon','neonstrip','velvet'];
   
   document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.getElementById('sidebar');
@@ -1953,11 +1978,13 @@ window.SettingsModule = SettingsModule;
       styleTag.id = 'custom-sidebar-overrides';
       styleTag.textContent = `
          #sidebar.sidebar-glass { background: rgba(8,12,35,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-crystal { background: rgba(0,5,20,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
+         #sidebar.sidebar-aurora-glow { border-right-color: ${s.border} !important; }
          #sidebar.sidebar-tinted { background: color-mix(in srgb, var(--brand-primary) ${s.opacity}%, black) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
          #sidebar.sidebar-carbon { border-right-color: ${s.border} !important; }
          #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
          #sidebar.sidebar-velvet { border-right-color: ${s.border} !important; }
-         #sidebar.sidebar-glass .nav-item.active { border-left-color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 10%, transparent) !important; }
+         #sidebar.sidebar-glass .nav-item.active, #sidebar.sidebar-crystal .nav-item.active, #sidebar.sidebar-aurora-glow .nav-item.active { border-left-color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 10%, transparent) !important; }
          #sidebar.sidebar-carbon .nav-item.active { color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 12%, transparent) !important;}
          #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${s.active} !important; box-shadow: 0 0 20px ${s.active} !important; }
          #sidebar.sidebar-velvet .nav-item.active { color: ${s.active} !important; }
@@ -1965,7 +1992,7 @@ window.SettingsModule = SettingsModule;
       document.head.appendChild(styleTag);
   }
   
-  const map = { 'neon-grid': 'maroon', 'nebula': 'purple', 'emerald': 'emerald', 'molten': 'obsidian' };
+  const map = { 'neon-grid': 'maroon', 'nebula': 'purple', 'emerald': 'emerald', 'molten': 'obsidian', 'aurora-wave': 'navy' };
   const cardPresetId = localStorage.getItem(`wfa_card_theme_${savedTheme}`) || map[savedTheme] || 'navy';
   const CARD_PRESETS = [
     { id: 'navy',   name: '🌑 Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },

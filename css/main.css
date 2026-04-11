@@ -167,12 +167,75 @@ body.theme-emerald {
   background-attachment: fixed;
 }
 
+/* 🌌 Aurora Wave — Northern Lights */
+body.theme-aurora-wave {
+  --brand-primary:   #00f0ff;
+  --brand-accent:    #0077b6;
+  --brand-neon:      #00e5cc;
+  --bg-base:         #050510;
+  --bg-surface-solid:#07091a;
+  --bg-sidebar:      #040408;
+  --border:          rgba(0, 240, 255, 0.18);
+  --border-glow:     rgba(0, 240, 255, 0.35);
+  --border-focus:    #00f0ff;
+  --shadow-neon:     0 0 20px rgba(0,240,255,0.2), 0 0 40px rgba(0,119,182,0.12);
+  background-color:  #050510;
+  background-image:  url('../assets/theme_aurora_wave.png');
+  background-size:   cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
 /* ── Canvas bg color synced per theme ─── */
 body.theme-aurora  #bg-canvas { filter: hue-rotate(160deg) brightness(1.1); }
 body.theme-nebula  #bg-canvas { filter: hue-rotate(220deg) saturate(1.3); }
 body.theme-neon-grid #bg-canvas { filter: hue-rotate(90deg) saturate(1.8) brightness(1.2); }
 body.theme-molten  #bg-canvas { filter: hue-rotate(20deg) saturate(1.5) brightness(0.9); }
 body.theme-emerald #bg-canvas { filter: hue-rotate(130deg) saturate(1.4); }
+
+/* Hide canvas for themes with background images — let body bg-image show through */
+body:not(.theme-neon-space) #bg-canvas { display: none; }
+
+/* ── Aurora Wave: Full immersive glass UI ─── */
+body.theme-aurora-wave #sidebar.sidebar-glass,
+body.theme-aurora-wave #sidebar.sidebar-crystal,
+body.theme-aurora-wave #sidebar.sidebar-tinted,
+body.theme-aurora-wave #sidebar.sidebar-carbon,
+body.theme-aurora-wave #sidebar.sidebar-neonstrip,
+body.theme-aurora-wave #sidebar.sidebar-velvet {
+  background: rgba(0, 5, 20, 0.15) !important;
+  backdrop-filter: blur(15px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(1.8) !important;
+  border-right: 1px solid rgba(0, 240, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+body.theme-aurora-wave #sidebar::after {
+  opacity: 0.1 !important;
+}
+
+body.theme-aurora-wave #topbar {
+  background: rgba(5, 5, 16, 0.25) !important;
+  backdrop-filter: blur(15px) saturate(1.5) !important;
+  border-bottom-color: rgba(0, 240, 255, 0.1) !important;
+}
+
+/* Make Dashboard Cards Transparent for Aurora Wave */
+body.theme-aurora-wave .card, 
+body.theme-aurora-wave .stat-card, 
+body.theme-aurora-wave .settings-card {
+  background: rgba(4, 6, 20, 0.35) !important;
+  backdrop-filter: blur(12px) saturate(1.3) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(1.3) !important;
+  border: 1px solid rgba(0, 240, 255, 0.15) !important;
+}
+
+body.theme-aurora-wave .sub-tab-panel, 
+body.theme-aurora-wave .finance-tabs, 
+body.theme-aurora-wave .table-wrapper {
+  background: rgba(10, 15, 30, 0.3) !important;
+  backdrop-filter: blur(10px) !important;
+}
 
 /* ══════════════════════════════════════════════════════════════
    THEME PICKER UI — .theme-grid, .theme-card etc.
@@ -408,6 +471,66 @@ input:focus, select:focus, textarea:focus {
 #sidebar.sidebar-glass .sidebar-logo {
   background: rgba(255,255,255,0.03);
   border-bottom-color: rgba(255,255,255,0.08);
+}
+
+/* 🌌 Aurora Theme Match — Gradient matching the dashboard aurora */
+#sidebar.sidebar-aurora-glow {
+  background: linear-gradient(135deg, rgba(5,5,16,0.9), rgba(0,119,182,0.6), rgba(0,229,204,0.3)) !important;
+  backdrop-filter: blur(25px) saturate(2.0) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(2.0) !important;
+  border-right: 1px solid rgba(0, 240, 255, 0.4) !important;
+  box-shadow: 4px 0 30px rgba(0,240,255,0.15) !important;
+}
+#sidebar.sidebar-aurora-glow::before {
+  content: ''; position: absolute; top:0; left:0; right:0; bottom:0;
+  background: radial-gradient(circle at top left, rgba(0,240,255,0.15), transparent 60%);
+  pointer-events: none;
+}
+#sidebar.sidebar-aurora-glow .nav-item:not(.active) {
+  background: rgba(0,20,40,0.4);
+  border: 1px solid rgba(0,240,255,0.1);
+}
+#sidebar.sidebar-aurora-glow .nav-item:hover {
+  background: rgba(0,240,255,0.15) !important;
+  border-color: rgba(0,240,255,0.3) !important;
+}
+#sidebar.sidebar-aurora-glow .nav-item.active {
+  background: rgba(0, 240, 255, 0.25) !important;
+  border-left-color: #00f0ff !important;
+  color: #fff !important;
+  box-shadow: inset 4px 0 15px rgba(0, 240, 255, 0.3) !important;
+}
+
+/* ✨ Ultra Crystal — maximum transparency */
+#sidebar.sidebar-crystal {
+  background: rgba(0, 5, 20, 0.15) !important;
+  backdrop-filter: blur(15px) saturate(1.8) !important;
+  -webkit-backdrop-filter: blur(15px) saturate(1.8) !important;
+  border-right: 1px solid rgba(255,255,255,0.08) !important;
+  box-shadow: 2px 0 20px rgba(0,0,0,0.1) !important;
+}
+#sidebar.sidebar-crystal::after {
+  opacity: 0.2;
+}
+#sidebar.sidebar-crystal .nav-item:not(.active) {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid transparent;
+  color: rgba(255,255,255,0.85);
+}
+#sidebar.sidebar-crystal .nav-item:hover {
+  background: rgba(255,255,255,0.08) !important;
+  border-color: rgba(255,255,255,0.1) !important;
+  color: #fff;
+}
+#sidebar.sidebar-crystal .nav-item.active {
+  background: rgba(0, 240, 255, 0.15) !important;
+  border-left-color: var(--brand-primary) !important;
+  color: #fff !important;
+  box-shadow: inset 4px 0 10px rgba(0, 240, 255, 0.1) !important;
+}
+#sidebar.sidebar-crystal .sidebar-logo {
+  background: rgba(0,0,0,0.1);
+  border-bottom-color: rgba(255,255,255,0.05);
 }
 
 /* 🌊 Tinted Glow — theme-accent color tinted glass */

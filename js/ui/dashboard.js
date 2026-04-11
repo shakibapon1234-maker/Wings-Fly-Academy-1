@@ -475,13 +475,24 @@ const DashboardModule = (() => {
       const incomeData = mKeys.map(k => monthly[k].income / 1000);
       const expenseData = mKeys.map(k => monthly[k].expense / 1000);
 
+      const style = getComputedStyle(document.body);
+      const colorIncome = style.getPropertyValue('--brand-primary').trim() || '#00d4ff';
+      const colorExpense = style.getPropertyValue('--error').trim() || '#ff4757';
+      const colorDoughnut = [
+        style.getPropertyValue('--brand-primary').trim() || '#00d4ff',
+        style.getPropertyValue('--brand-accent').trim() || '#ffeb3b',
+        style.getPropertyValue('--brand-gold').trim() || '#F9A825',
+        style.getPropertyValue('--brand-neon').trim() || '#00ff88',
+        style.getPropertyValue('--error').trim() || '#ff4757'
+      ];
+
       window.dashRevChart = new Chart(revCanvas, {
         type: 'bar',
         data: {
           labels: labels,
           datasets: [
-            { label: 'Income', data: incomeData, backgroundColor: '#00d4ff', borderRadius: 4, barPercentage: 0.6 },
-            { label: 'Expense', data: expenseData, backgroundColor: '#ff4757', borderRadius: 4, barPercentage: 0.6 }
+            { label: 'Income', data: incomeData, backgroundColor: colorIncome, borderRadius: 4, barPercentage: 0.6 },
+            { label: 'Expense', data: expenseData, backgroundColor: colorExpense, borderRadius: 4, barPercentage: 0.6 }
           ]
         },
         options: {
@@ -510,13 +521,22 @@ const DashboardModule = (() => {
       const cLabels = Object.keys(courseMap);
       const cData = Object.values(courseMap);
 
+      const style = getComputedStyle(document.body);
+      const colorDoughnut = [
+        style.getPropertyValue('--brand-primary').trim() || '#00d4ff',
+        style.getPropertyValue('--brand-accent').trim() || '#ffeb3b',
+        style.getPropertyValue('--brand-gold').trim() || '#F9A825',
+        style.getPropertyValue('--brand-neon').trim() || '#00ff88',
+        style.getPropertyValue('--info').trim() || '#00d9ff'
+      ];
+
       window.dashCourseChart = new Chart(courseCanvas, {
         type: 'doughnut',
         data: {
           labels: cLabels,
           datasets: [{
             data: cData,
-            backgroundColor: ['#00d4ff', '#ffeb3b', '#7c3aed', '#00ff88', '#ff4757'],
+            backgroundColor: colorDoughnut,
             borderWidth: 0,
             hoverOffset: 4
           }]
