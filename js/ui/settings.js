@@ -1930,6 +1930,9 @@ const SettingsModule = (() => {
         const statusEl = document.getElementById('mig-status');
         if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Analyzing backup format...'; }
 
+        // Track which tables received new data
+        const touchedTables = new Set();
+
         const isLegacy = data.hasOwnProperty('employees') ||
                          data.hasOwnProperty('cashBalance') ||
                          data.hasOwnProperty('incomeCategories') ||
@@ -1938,6 +1941,10 @@ const SettingsModule = (() => {
         if (isLegacy) {
           Utils.toast('Legacy backup detected — converting...', 'info');
           imported = await importLegacyData(data, statusEl);
+          // Legacy importer can touch many tables
+          Object.values(DB).forEach(t => {
+            if (SupabaseSync.getAll(t).length > 0) touchedTables.add(t);
+          });
         } else {
           const tableAliases = {
             finance: DB.finance,
@@ -1956,25 +1963,55 @@ const SettingsModule = (() => {
             if (newRows.length > 0) {
               SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
               imported += newRows.length;
+              touchedTables.add(targetTable);
             }
           }
         }
 
-        if (statusEl) statusEl.innerHTML = `✅ Import complete! ${imported} records imported.`;
+        if (statusEl) statusEl.innerHTML = `✅ Import complete! ${imported} records imported locally.`;
         Utils.toast(`Import complete! ${imported} records imported`, 'success');
 
         if (imported > 0) {
-          if (statusEl) statusEl.innerHTML += '<br>🔄 Pushing to cloud...';
+          if (statusEl) statusEl.innerHTML += '<br>🔄 Pushing to cloud table-by-table...';
+
+          // Push table by table with individual status
           const pushResult = await SyncEngine.push({ silent: true });
+
           if (pushResult?.ok) {
-            if (statusEl) statusEl.innerHTML += '<br>✅ Cloud sync complete!';
+            if (statusEl) statusEl.innerHTML += '<br>✅ All data synced to cloud successfully!';
             Utils.toast('Backup uploaded to Supabase ✅', 'success');
           } else {
-            const errLine = pushResult?.error || 'Unknown error';
-            if (statusEl) {
-              statusEl.innerHTML += `<br>⚠️ Cloud upload failed (data is safe locally):<br><span style="color:var(--error);font-size:0.8rem">${String(errLine).replace(/</g, '&lt;')}</span><br><small>Open browser DevTools (F12) → Console for details. Often: missing Supabase table, column mismatch, or RLS blocking anonymous writes.</small>`;
+            // Show partial success info
+            const sc = pushResult?.successCount || 0;
+            const errs = pushResult?.errors || [];
+            let statusHTML = '';
+
+            if (sc > 0) {
+              statusHTML += `<br>✅ <span style="color:var(--success)">${sc} table(s) synced successfully</span>`;
             }
-            Utils.toast('Import saved locally — cloud upload failed (see Data Management status)', 'warn');
+
+            if (errs.length > 0) {
+              statusHTML += `<br>⚠️ <span style="color:var(--warning)">${errs.length} table(s) had issues:</span>`;
+              errs.forEach(err => {
+                const tbl = err.table || '?';
+                const msg = String(err.error || '').replace(/</g, '&lt;');
+                // Check if it's a "column does not exist" error and extract column name
+                const colMatch = msg.match(/column\s+"([^"]+)"/i);
+                const hint = colMatch
+                  ? `<br><small style="color:var(--text-muted)">💡 Fix: In Supabase SQL Editor, run: <code>ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS "${colMatch[1]}" text;</code></small>`
+                  : '';
+                statusHTML += `<br><span style="color:var(--error);font-size:0.8rem">• ${tbl}: ${msg}</span>${hint}`;
+              });
+              statusHTML += `<br><br><button class="btn btn-outline" style="font-size:0.8rem;padding:6px 14px" onclick="SyncEngine.push().then(r => { if(r.ok) Utils.toast('Push successful!','success'); else Utils.toast('Still failing — check console (F12)','error'); })">🔄 Retry Push</button>`;
+            }
+
+            if (statusEl) statusEl.innerHTML += statusHTML;
+            Utils.toast(
+              sc > 0
+                ? `Import done — ${sc} table(s) synced, ${errs.length} need attention`
+                : 'Import saved locally — cloud push failed (see status below)',
+              'warn'
+            );
           }
         }
 

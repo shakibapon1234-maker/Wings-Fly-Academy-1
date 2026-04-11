@@ -445,7 +445,11 @@ const SyncEngine = (() => {
     if (!row || typeof row !== 'object') return row;
     const o = {};
     for (const [k, v] of Object.entries(row)) {
-      if (v !== undefined) o[k] = v;
+      // Skip undefined values and internal fields (e.g. _device) that
+      // are not real Supabase columns — they cause "column does not exist" errors
+      if (v === undefined) continue;
+      if (k.startsWith('_')) continue;
+      o[k] = v;
     }
     return o;
   }
@@ -502,28 +506,35 @@ const SyncEngine = (() => {
   // ── Push (all local data to cloud) ────────────────────────
   async function _pushCore(options = {}) {
     const silent = options.silent === true;
+    const onlyTables = options.tables || null; // optional: push only specific tables
     setStatus('syncing');
 
-    try {
-      for (const key of Object.values(TABLES)) {
-        const raw = localStorage.getItem(`wfa_${key}`);
-        if (!raw) continue;
-        let rows;
-        try {
-          rows = JSON.parse(raw);
-        } catch {
-          console.warn(`[Sync] Skip corrupt local JSON for ${key}`);
-          continue;
-        }
-        if (!Array.isArray(rows) || rows.length === 0) continue;
+    const errors = [];
+    let successCount = 0;
 
+    const tableList = onlyTables || Object.values(TABLES);
+
+    for (const key of tableList) {
+      const raw = localStorage.getItem(`wfa_${key}`);
+      if (!raw) continue;
+      let rows;
+      try {
+        rows = JSON.parse(raw);
+      } catch {
+        console.warn(`[Sync] Skip corrupt local JSON for ${key}`);
+        continue;
+      }
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      try {
         const up = await _upsertTableWithSplit(key, rows);
         if (!up.ok) {
           const fullMsg = `[${up.table}] ${up.error}${up.badRowId != null ? ` (id: ${up.badRowId})` : ''}`;
-          const err = new Error(fullMsg);
-          err.pushDetail = up;
-          throw err;
+          errors.push({ table: key, error: fullMsg, detail: up });
+          console.error(`[Sync] Push failed for ${key}:`, fullMsg);
+          continue; // ← continue to next table instead of stopping
         }
+        successCount++;
 
         // Push deletions
         const deletedIds = SupabaseSync.getDeletedIds(key);
@@ -533,23 +544,33 @@ const SyncEngine = (() => {
           } catch { /* ignore individual delete failures */ }
         }
         SupabaseSync.clearDeletedIds(key);
+      } catch (e) {
+        errors.push({ table: key, error: e?.message || String(e) });
+        console.error(`[Sync] Push exception for ${key}:`, e);
       }
+    }
 
+    if (errors.length === 0) {
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
       if (!silent && typeof Utils !== 'undefined') Utils.toast('Push to Cloud completed ✅', 'success');
       return { ok: true };
-    } catch (e) {
-      console.error('[Sync] Push failed:', e);
+    } else {
+      // Partial success or full failure
+      const allFailed = successCount === 0;
       setStatus('error');
-      const msg = e?.message || String(e);
+      const summary = errors.map(e => e.error).join('\n');
       if (!silent && typeof Utils !== 'undefined') {
+        const short = summary.length > 160 ? summary.slice(0, 157) + '…' : summary;
         Utils.toast(
-          msg.length > 160 ? `Push failed: ${msg.slice(0, 157)}…` : `Push failed: ${msg}`,
+          allFailed ? `Push failed: ${short}` : `Push partially done (${successCount} ok, ${errors.length} failed): ${short}`,
           'error'
         );
       }
-      return { ok: false, error: msg, detail: e?.pushDetail };
+      if (successCount > 0) {
+        window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
+      }
+      return { ok: false, error: summary, errors, successCount };
     }
   }
 

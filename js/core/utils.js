@@ -381,21 +381,15 @@ const Utils = (() => {
 
       let h = opt('Cash', 'Cash');
 
-      const banks = accounts.filter(a => a.type === 'Bank_Detail');
+      const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
       banks.forEach(b => {
-        const name = b.name || '';
+        const name = b.name.trim();
         h += opt(name, name);
-        if (name) {
-          h += opt('Cheque::' + name, 'Cheque — ' + name);
-          h += opt('Card::' + name, 'Card — ' + name);
-        }
       });
-      h += opt('Cheque::Cash', 'Cheque — Cash');
-      h += opt('Card::Cash', 'Card — Cash');
 
-      const mobiles = accounts.filter(a => a.type === 'Mobile_Detail');
+      const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
       mobiles.forEach(m => {
-        const name = m.name || '';
+        const name = m.name.trim();
         h += opt(name, name);
       });
 
@@ -416,13 +410,6 @@ const Utils = (() => {
         const acc = accounts.find(a => a.name === settle);
         if (acc) balance = parseFloat(acc.balance) || 0;
       }
-
-      finance.forEach(f => {
-        if (getSettlementKey(f.method) !== settle) return;
-        const amt = parseFloat(f.amount) || 0;
-        if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') balance += amt;
-        else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') balance -= amt;
-      });
       return balance;
     }
 

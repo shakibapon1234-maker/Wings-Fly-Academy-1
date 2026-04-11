@@ -14,15 +14,41 @@ const Accounts = (() => {
   let histResFrom = '';
   let histResTo = '';
 
+  function getPrimaryCashAccount(accounts) {
+    const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
+    if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
+    return cashAccounts.reduce((best, a) => {
+      return Math.abs(Utils.safeNum(a.balance)) < Math.abs(Utils.safeNum(best.balance)) ? a : best;
+    });
+  }
+
+  function normalizeAccounts(accounts) {
+    const seen = new Set();
+    const normalized = [];
+    accounts.forEach(a => {
+      const name = String(a.name || '').trim();
+      if (a.type === 'Cash' && name !== 'Cash') return;
+      if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+        const invalid = !name || /^\d+$/.test(name) || /^Bank \d+$/.test(name) || /^Mobile Banking \d+$/.test(name);
+        if (invalid) return;
+      }
+      const key = `${a.type}||${name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(a);
+    });
+    return normalized;
+  }
+
   function render() {
     const container = document.getElementById('accounts-content');
     if (!container) return;
 
     const finance  = SupabaseSync.getAll(DB.finance);
-    const accounts = SupabaseSync.getAll(DB.accounts);
+    const accounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
 
     // Filter accounts by class
-    const cashAcc = accounts.find(a => a.type === 'Cash') || { id: '', type: 'Cash', balance: 0 };
+    const cashAcc = getPrimaryCashAccount(accounts);
     const bankDetails = accounts.filter(a => a.type === 'Bank_Detail');
     const mobileDetails = accounts.filter(a => a.type === 'Mobile_Detail');
 
@@ -30,19 +56,12 @@ const Accounts = (() => {
     const bankInitialSum = bankDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
     const mobileInitialSum = mobileDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
 
-    // Calculate dynamic totals
-    let cashBal = Utils.safeNum(cashAcc.balance);
-    let bankBal = bankInitialSum;
-    let mobileBal = mobileInitialSum;
-
-    finance.forEach(f => {
-      const isPos = ['Income','Loan Receiving','Transfer In'].includes(f.type);
-      const amt = Utils.safeNum(f.amount) * (isPos ? 1 : -1);
-      const bucket = Utils.getPaymentMethodBucket(f.method, accounts);
-      if (bucket === 'cash') cashBal += amt;
-      else if (bucket === 'bank') bankBal += amt;
-      else if (bucket === 'mobile') mobileBal += amt;
-    });
+    // Account balances are already FINAL in the database
+    // They already include all transactions (income, expense, transfers)
+    // Just use them directly without recalculating
+    const cashBal = Utils.safeNum(cashAcc.balance);
+    const bankBal = bankInitialSum;
+    const mobileBal = mobileInitialSum;
 
     const totalAll = cashBal + bankBal + mobileBal;
 

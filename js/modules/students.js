@@ -474,7 +474,7 @@ const Students = (() => {
 
     let historyTableRows = '';
     if (history.length === 0) {
-      historyTableRows = '<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:12px;">No payment history found</td></tr>';
+      historyTableRows = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px;">No payment history found</td></tr>';
     } else {
       historyTableRows = history.map((f, index) => `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
@@ -482,6 +482,7 @@ const Students = (() => {
           <td style="padding:10px 8px">${f.date}</td>
           <td style="padding:10px 8px"><span class="badge badge-info">${f.method||'Cash'}</span></td>
           <td style="padding:10px 8px;font-weight:700;color:var(--success)">${Utils.takaEn(f.amount)}</td>
+          <td style="padding:10px 8px;text-align:right"><button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')">Delete</button></td>
         </tr>
       `).join('');
     }
@@ -534,6 +535,7 @@ const Students = (() => {
               <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">DATE</th>
               <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">METHOD</th>
               <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">AMOUNT</th>
+              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px;text-align:right">ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -631,6 +633,12 @@ const Students = (() => {
       errEl.classList.remove('hidden'); return;
     }
 
+    const method = Utils.formVal('pay-method');
+    if (!method) {
+      errEl.textContent = 'Please select a Payment Method';
+      errEl.classList.remove('hidden'); return;
+    }
+
     const newPaid = Utils.safeNum(s.paid) + amount;
     const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
 
@@ -638,12 +646,6 @@ const Students = (() => {
     SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
 
     /* Finance ledger entry */
-    const method = Utils.formVal('pay-method');
-    if (!method) {
-      errEl.textContent = 'Please select a Payment Method';
-      errEl.classList.remove('hidden'); return;
-    }
-
     SupabaseSync.insert(DB.finance, {
       type:        'Income',
       category:    'Student Fee',
@@ -659,6 +661,25 @@ const Students = (() => {
     Utils.closeModal();
     render();
     App.updateNotifCount();
+  }
+
+  async function deletePayment(paymentId, studentId) {
+    const payment = SupabaseSync.getById(DB.finance, paymentId);
+    if (!payment) return;
+
+    const ok = await Utils.confirm(`Delete payment of ${Utils.takaEn(payment.amount)}?`, 'Delete Payment');
+    if (!ok) return;
+
+    const student = SupabaseSync.getById(DB.students, studentId);
+    if (student) {
+      const newPaid = Math.max(0, Utils.safeNum(student.paid) - Utils.safeNum(payment.amount));
+      const newDue  = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
+      SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+    }
+
+    SupabaseSync.remove(DB.finance, paymentId);
+    Utils.toast('Payment deleted ✓', 'info');
+    Students.openPayModal(studentId);
   }
 
   /* ══════════════════════════════════════════

@@ -13,52 +13,85 @@ const DashboardModule = (() => {
     };
   }
 
+  function normalizeAccounts(accounts) {
+    const seen = new Set();
+    const normalized = [];
+    accounts.forEach(a => {
+      const name = String(a.name || '').trim();
+      if (a.type === 'Cash' && name !== 'Cash') return;
+      if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+        const invalid = !name || /^\d+$/.test(name) || /^Bank \d+$/.test(name) || /^Mobile Banking \d+$/.test(name);
+        if (invalid) return;
+      }
+      const key = `${a.type}||${name}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(a);
+    });
+    return normalized;
+  }
+
+  function getPrimaryCashAccount(accounts) {
+    const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
+    if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
+    return cashAccounts.reduce((best, a) => {
+      return Math.abs(Utils.safeNum(a.balance)) < Math.abs(Utils.safeNum(best.balance)) ? a : best;
+    });
+  }
+
   function getStats() {
     const students  = SupabaseSync.getAll(DB.students);
     const finance   = SupabaseSync.getAll(DB.finance);
-    const accounts  = SupabaseSync.getAll(DB.accounts);
+    const accounts  = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
     const loans     = SupabaseSync.getAll(DB.loans);
     const notices   = SupabaseSync.getAll(DB.notices);
     const settings  = getSettings();
+    const cfg       = SupabaseSync.getAll(DB.settings)[0] || {};
 
     const totalStudents = students.length;
-    const totalIncome   = finance.filter(f => f.type === 'Income').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-    const totalExpense  = finance.filter(f => f.type === 'Expense').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-    const netProfit     = totalIncome - totalExpense;
 
-    // Running Batch filtered stats
-    const rStudents     = settings.runningBatch
+    // All-Time: "All Collection" = sum of all finance Income records
+    const totalIncome  = finance.filter(f => f.type === 'Income').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    // All-Time: "Total Expense" = sum of all finance expenses
+    const totalExpense = finance.filter(f => f.type === 'Expense').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    const netProfit    = totalIncome - totalExpense;
+
+    // ── Running Batch filtered stats ──────────────────────────
+    const rStudents      = settings.runningBatch
       ? students.filter(s => s.batch === settings.runningBatch)
       : students;
     const rTotalStudents = rStudents.length;
-    const rStudentIds    = new Set(rStudents.map(s => s.student_id));
-    const rTotalIncome   = settings.runningBatch
-      ? finance.filter(f => f.type === 'Income' && f.category === 'Student Fee' && rStudentIds.has(f.ref_id)).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
+
+    // Student Collection for running batch = sum of paid from batch students
+    const rTotalIncome = settings.runningBatch
+      ? rStudents.reduce((s, st) => s + Utils.safeNum(st.paid), 0)
       : totalIncome;
 
-    // Expense Month filtered
-    const rTotalExpense = settings.expenseMonth
-      ? finance.filter(f => f.type === 'Expense' && f.date && f.date.startsWith(settings.expenseMonth)).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
+    // Expense for running batch = filtered by expense_start_date → today
+    const expStart = cfg.expense_start_date || '';
+    const today    = new Date().toISOString().split('T')[0]; // always use today as end
+    const rTotalExpense = expStart
+      ? finance.filter(f => {
+          if (f.type !== 'Expense') return false;
+          if (!f.date) return false;
+          if (f.date < expStart) return false;
+          if (f.date > today) return false;
+          return true;
+        }).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
       : totalExpense;
     const rNetProfit = rTotalIncome - rTotalExpense;
 
-    // Account balances (opening + ledger by settlement bucket)
-    let cashOpen = 0, bankOpen = 0, mobileOpen = 0;
-    accounts.forEach(a => {
-      if (a.type === 'Cash') cashOpen += Utils.safeNum(a.balance);
-      else if (a.type === 'Bank_Detail') bankOpen += Utils.safeNum(a.balance);
-      else if (a.type === 'Mobile_Detail') mobileOpen += Utils.safeNum(a.balance);
+    // ── Account Balance = just sum of valid accounts.balance ────────
+    // Ignore generic or broken duplicate account entries from import.
+    const cleanAccounts = normalizeAccounts(accounts);
+    let cashBal = 0, bankBal = 0, mobileBal = 0;
+    cleanAccounts.forEach(a => {
+      if (a.type === 'Cash')          cashBal   += Utils.safeNum(a.balance);
+      else if (a.type === 'Bank_Detail')   bankBal   += Utils.safeNum(a.balance);
+      else if (a.type === 'Mobile_Detail') mobileBal += Utils.safeNum(a.balance);
     });
-    const balances = { Cash: cashOpen, Bank: bankOpen, 'Mobile Banking': mobileOpen };
-    finance.forEach(f => {
-      const isPos = ['Income', 'Loan Receiving', 'Transfer In'].includes(f.type);
-      const amt = Utils.safeNum(f.amount) * (isPos ? 1 : -1);
-      const bucket = Utils.getPaymentMethodBucket(f.method, accounts);
-      if (bucket === 'cash') balances.Cash += amt;
-      else if (bucket === 'bank') balances.Bank += amt;
-      else if (bucket === 'mobile') balances['Mobile Banking'] += amt;
-    });
-    const totalBalance = balances.Cash + balances.Bank + balances['Mobile Banking'];
+    const balances     = { Cash: cashBal, Bank: bankBal, 'Mobile Banking': mobileBal };
+    const totalBalance = cashBal + bankBal + mobileBal;
 
     const totalDue = students.reduce((s, st) => s + Math.max(0, Utils.safeNum(st.total_fee) - Utils.safeNum(st.paid)), 0);
     const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
