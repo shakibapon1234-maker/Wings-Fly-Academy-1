@@ -1035,20 +1035,21 @@ const SettingsModule = (() => {
           <i class="fa fa-trash-can"></i> EMPTY BIN
         </button>
       </div>
-      <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:12px">Deleted items — Restore or permanently delete.</p>
-      <span class="badge badge-muted" style="margin-bottom:12px;display:inline-block">মোট: ${deleted.length}</span>
+      <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:12px">Items you delete in the app are listed here. Restore puts them back locally and syncs to Supabase. Empty bin clears the list and tombstones only for those items (cloud stays deleted until you restore).</p>
+      <span class="badge badge-muted" style="margin-bottom:12px;display:inline-block">Total: ${deleted.length}</span>
 
       <div class="table-wrapper" style="max-height:400px;overflow:auto">
         <table>
-          <thead><tr><th>Icon</th><th>Type</th><th>Item</th><th>Deleted At</th><th>Actions</th></tr></thead>
+          <thead><tr><th>Icon</th><th>Table</th><th>Type</th><th>Item</th><th>Deleted At</th><th>Actions</th></tr></thead>
           <tbody>
             ${deleted.length === 0 ?
-              `<tr><td colspan="5" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle Bin খালি।</td></tr>` :
+              `<tr><td colspan="6" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle bin is empty.</td></tr>` :
               deleted.map((d, i) => `
                 <tr>
-                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : 'fa-file'}"></i></td>
+                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : 'fa-file'}"></i></td>
+                  <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || '—'}</td>
                   <td><span class="badge badge-muted">${d.type || 'item'}</span></td>
-                  <td style="font-size:.85rem">${d.name || d.description || d.id || '—'}</td>
+                  <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || '—'}</td>
                   <td style="font-size:.78rem;color:var(--text-muted)">${d.deletedAt ? new Date(d.deletedAt).toLocaleString() : '—'}</td>
                   <td>
                     <button class="btn btn-outline btn-xs" onclick="SettingsModule.restoreItem(${i})" title="Restore"><i class="fa fa-rotate-left"></i></button>
@@ -1433,39 +1434,38 @@ const SettingsModule = (() => {
     refreshModal();
   }
 
-  // ─── Recycle Bin ──────────────────────────────────────────────
+  // ─── Recycle Bin (wfa_recycle_bin — separate from sync tombstones wfa_deletedItems) ───
   function getDeletedItems() {
-    return JSON.parse(localStorage.getItem('wfa_deletedItems') || '[]');
+    try {
+      const raw = JSON.parse(localStorage.getItem('wfa_recycle_bin') || '[]');
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return [];
+    }
   }
 
   function restoreItem(index) {
-    const deleted = getDeletedItems();
-    const item = deleted[index];
-    if (!item) return;
-    // Restore back to its table
-    if (item.table && item.data) {
-      const existing = SupabaseSync.getAll(item.table);
-      existing.push(item.data);
-      SupabaseSync.setAll(item.table, existing);
-    }
-    deleted.splice(index, 1);
-    localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
-    Utils.toast('Item restored', 'success');
-    logActivity('add', 'restore', `Restored ${item.type || 'item'}: ${item.name || ''}`);
-    refreshModal();
+    SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
+      if (ok) {
+        Utils.toast('Item restored and synced', 'success');
+        logActivity('add', 'restore', `Restored from recycle bin (index ${index})`);
+        refreshModal();
+        if (typeof App !== 'undefined' && App.updateNotifCount) App.updateNotifCount();
+      } else {
+        Utils.toast('Could not restore item', 'error');
+      }
+    });
   }
 
   function permanentDelete(index) {
-    const deleted = getDeletedItems();
-    deleted.splice(index, 1);
-    localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
-    Utils.toast('Permanently deleted', 'info');
+    SupabaseSync.permanentDeleteRecycleBinItem(index);
+    Utils.toast('Removed from recycle bin', 'info');
     refreshModal();
   }
 
   function emptyRecycleBin() {
-    localStorage.setItem('wfa_deletedItems', '[]');
-    Utils.toast('Recycle Bin emptied', 'info');
+    SupabaseSync.emptyRecycleBin();
+    Utils.toast('Recycle bin emptied', 'info');
     refreshModal();
   }
 
@@ -2116,6 +2116,7 @@ const SettingsModule = (() => {
       if (key !== 'settings') localStorage.removeItem(`wfa_${t}`);
     });
     localStorage.removeItem('wfa_deletedItems');
+    localStorage.removeItem('wfa_recycle_bin');
     localStorage.removeItem('wfa_retry_queue');
     logActivity('delete', 'system', 'Local data reset (kept settings)');
     Utils.toast('Local data deleted. Page reloading...', 'success');
@@ -2140,6 +2141,7 @@ const SettingsModule = (() => {
     // Delete all local data
     Object.values(DB).forEach(t => localStorage.removeItem(`wfa_${t}`));
     localStorage.removeItem('wfa_deletedItems');
+    localStorage.removeItem('wfa_recycle_bin');
     localStorage.removeItem('wfa_activity_log');
     localStorage.removeItem('wfa_keep_records');
     localStorage.removeItem('wfa_advance_payments');

@@ -50,9 +50,12 @@ const SupabaseSync = (() => {
     const victim = before.find(r => r.id === id);
     const rows = before.filter(r => r.id !== id);
     setAll(table, rows);
-    if (victim) _logRecentChange(table, 'delete', victim);
+    if (victim) {
+      _addToRecycleBin(table, victim);
+      _logRecentChange(table, 'delete', victim);
+    }
     _deleteFromCloud(table, id);
-    // Track deletion for sync
+    // Track deletion for sync (tombstone so row does not reappear on pull)
     _trackDeletion(table, id);
   }
 
@@ -96,7 +99,8 @@ const SupabaseSync = (() => {
   function _trackDeletion(table, id) {
     try {
       const key = 'wfa_deletedItems';
-      const deleted = JSON.parse(localStorage.getItem(key)) || {};
+      let deleted = JSON.parse(localStorage.getItem(key)) || {};
+      if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       if (!deleted[table]) deleted[table] = [];
       if (!deleted[table].includes(id)) deleted[table].push(id);
       localStorage.setItem(key, JSON.stringify(deleted));
@@ -106,16 +110,145 @@ const SupabaseSync = (() => {
   function getDeletedIds(table) {
     try {
       const deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
-      return deleted[table] || [];
+      if (Array.isArray(deleted) || typeof deleted !== 'object') return [];
+      const arr = deleted[table];
+      return Array.isArray(arr) ? arr : [];
     } catch { return []; }
   }
 
   function clearDeletedIds(table) {
     try {
-      const deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      let deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       delete deleted[table];
       localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
     } catch { /* ignore */ }
+  }
+
+  /** Remove one id from sync tombstones (used when restoring from recycle bin). */
+  function untrackDeletion(table, id) {
+    try {
+      let deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
+      if (!Array.isArray(deleted[table])) return;
+      deleted[table] = deleted[table].filter((x) => x !== id);
+      if (deleted[table].length === 0) delete deleted[table];
+      localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
+    } catch { /* ignore */ }
+  }
+
+  const RECYCLE_BIN_KEY = 'wfa_recycle_bin';
+  const RECYCLE_MAX = 500;
+
+  function _recycleTypeLabel(table) {
+    const map = {
+      students: 'student',
+      finance_ledger: 'transaction',
+      accounts: 'account',
+      loans: 'loan',
+      exams: 'exam',
+      staff: 'staff',
+      salary: 'salary',
+      attendance: 'attendance',
+      visitors: 'visitor',
+      notices: 'notice',
+      settings: 'settings',
+    };
+    return map[table] || 'record';
+  }
+
+  function _recycleDisplayName(table, r) {
+    if (!r || typeof r !== 'object') return '—';
+    return (
+      r.name ||
+      r.student_id ||
+      r.description ||
+      r.reg_id ||
+      r.person_name ||
+      r.title ||
+      (r.type && r.amount != null ? `${r.type} ৳${r.amount}` : '') ||
+      r.id ||
+      '—'
+    );
+  }
+
+  function _tableDisplayName(table) {
+    try {
+      const DB = window.DB || {};
+      const entry = Object.entries(DB).find(([, v]) => v === table);
+      return entry ? entry[0].replace(/_/g, ' ') : table;
+    } catch {
+      return table;
+    }
+  }
+
+  function _addToRecycleBin(table, record) {
+    try {
+      const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+      if (!Array.isArray(bin)) return;
+      bin.unshift({
+        table,
+        data: JSON.parse(JSON.stringify(record)),
+        deletedAt: new Date().toISOString(),
+        type: _recycleTypeLabel(table),
+        name: _recycleDisplayName(table, record),
+        tableLabel: _tableDisplayName(table),
+      });
+      if (bin.length > RECYCLE_MAX) bin.length = RECYCLE_MAX;
+      localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+    } catch (e) {
+      console.warn('[Recycle] add failed:', e);
+    }
+  }
+
+  /** Restore one item back into local storage + Supabase; removes tombstone and bin entry. */
+  async function restoreRecycleBinItem(index) {
+    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    if (!Array.isArray(bin)) return false;
+    const item = bin[index];
+    if (!item?.table || !item?.data?.id) return false;
+
+    const table = item.table;
+    const record = {
+      ...item.data,
+      updated_at: new Date().toISOString(),
+      _device: _deviceId(),
+    };
+
+    const rows = getAll(table);
+    const idx = rows.findIndex((r) => r.id === record.id);
+    if (idx >= 0) rows[idx] = record;
+    else rows.unshift(record);
+    setAll(table, rows);
+
+    untrackDeletion(table, record.id);
+    await _pushRecord(table, record);
+
+    bin.splice(index, 1);
+    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+
+    _logRecentChange(table, 'insert', record);
+    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
+    return true;
+  }
+
+  function permanentDeleteRecycleBinItem(index) {
+    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    if (!Array.isArray(bin) || index < 0 || index >= bin.length) return;
+    const item = bin[index];
+    if (item?.table && item?.data?.id) untrackDeletion(item.table, item.data.id);
+    bin.splice(index, 1);
+    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+  }
+
+  function emptyRecycleBin() {
+    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    if (Array.isArray(bin)) {
+      bin.forEach((item) => {
+        if (item?.table && item?.data?.id) untrackDeletion(item.table, item.data.id);
+      });
+    }
+    localStorage.setItem(RECYCLE_BIN_KEY, '[]');
   }
 
   // ── Cloud Operations (fire-and-forget) ─────────────────────
@@ -170,7 +303,8 @@ const SupabaseSync = (() => {
 
   return {
     getAll, getById, setAll, insert, update, remove, generateId,
-    getDeletedIds, clearDeletedIds, processRetryQueue, _deviceId,
+    getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
+    restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
   };
 })();
 window.SupabaseSync = SupabaseSync;
