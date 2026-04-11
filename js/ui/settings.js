@@ -847,6 +847,8 @@ const SettingsModule = (() => {
   // TAB 4: SECURITY & ACCESS
   // ════════════════════════════════════════════════════════════════
   function panelSecurity() {
+    const subs = getSubAccounts();
+    const cfg = getConfig();
     return `
     <div class="settings-panel ${activeTab === 'security' ? 'active' : ''}" data-panel="security">
       <div class="settings-card glow-gold">
@@ -867,6 +869,101 @@ const SettingsModule = (() => {
         </div>
         <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
       </div>
+
+      <!-- Secret Recovery Question -->
+      <div class="settings-card glow-purple" style="margin-top:16px; border: 1px solid rgba(181, 55, 242, 0.2)">
+         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('recovery-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down, i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">
+            <div style="display:flex; gap:12px; align-items:center">
+               <div style="width:40px; height:40px; border-radius:8px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; font-size:1.2rem; border:1px solid rgba(255,255,255,0.1)">
+                  <i class="fa fa-shield-halved" style="color:#ff3366"></i>
+               </div>
+               <div>
+                  <div style="font-weight:700; font-size:1.05rem; color:#fff">Secret Recovery Question</div>
+                  <div style="font-size:0.8rem; color:var(--brand-primary)">পাসওয়ার্ড ভুলে গেলে এই প্রশ্ন দিয়ে reset করতে পারবেন</div>
+               </div>
+            </div>
+            <i class="fa fa-caret-down" style="color:var(--brand-primary)"></i>
+         </div>
+         
+         <div id="recovery-body" class="${cfg.security_question ? 'hidden' : ''}" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px">
+            <div class="form-group mb-12">
+               <label>Security Question</label>
+               <select id="sec-question" class="form-control">
+                  <option value="">Select a question...</option>
+                  <option value="pet" ${cfg.security_question === 'pet' ? 'selected' : ''}>What is the name of your first pet?</option>
+                  <option value="city" ${cfg.security_question === 'city' ? 'selected' : ''}>In what city were you born?</option>
+                  <option value="school" ${cfg.security_question === 'school' ? 'selected' : ''}>What is the name of your first school?</option>
+                  <option value="childhood" ${cfg.security_question === 'childhood' ? 'selected' : ''}>What was your childhood nickname?</option>
+               </select>
+            </div>
+            <div class="form-group mb-12">
+               <label>Answer (Keep it secret)</label>
+               <input type="password" id="sec-answer" class="form-control" placeholder="Your answer" value="${cfg.security_answer || ''}" />
+            </div>
+            <div style="display:flex; justify-content:flex-end">
+               <button class="btn" style="background:linear-gradient(135deg, rgba(181,55,242,0.8), rgba(0,217,255,0.8)); color:#fff; border:none; padding:8px 20px; border-radius:8px; box-shadow:0 0 10px rgba(181,55,242,0.3)" onclick="SettingsModule.saveRecoverySettings()">
+                  💾 Save Security Settings
+               </button>
+            </div>
+         </div>
+      </div>
+
+      <!-- Staff / Sub-account Access -->
+      <div class="settings-card glow-cyan" style="margin-top:16px; border: 1px solid rgba(0, 217, 255, 0.2)">
+         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('sub-account-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down, i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">
+            <div style="display:flex; gap:12px; align-items:center">
+               <div style="width:40px; height:40px; border-radius:8px; background:rgba(0,180,216,0.1); display:flex; align-items:center; justify-content:center; font-size:1.2rem; border:1px solid rgba(0,180,216,0.2)">
+                  <i class="fa fa-users" style="color:var(--brand-primary)"></i>
+               </div>
+               <div>
+                  <div style="font-weight:700; font-size:1.05rem; color:#fff">Staff / Sub-account Access</div>
+                  <div style="font-size:0.8rem; color:var(--brand-cyan)">সীমিত এক্সেস সম্পন্ন সাব আইডি তৈরি করুন</div>
+               </div>
+            </div>
+            <i class="fa fa-caret-up" style="color:var(--brand-cyan)"></i>
+         </div>
+
+         <div id="sub-account-body" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px">
+            
+            <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; text-align:center; color:var(--text-muted); font-size:0.9rem; margin-bottom:20px; min-height:50px">
+               ${subs.length === 0 ? 'কোনো সাব আইডি নেই' : buildSubAccountsList(subs)}
+            </div>
+
+            <div style="font-size:0.8rem; font-weight:700; color:var(--brand-primary); letter-spacing:1px; margin-bottom:12px; text-transform:uppercase">Create New Sub ID</div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr auto auto; gap:12px; margin-bottom:20px">
+               <input type="text" id="sub-username" class="form-control" placeholder="Username" />
+               <div style="position:relative">
+                 <input type="password" id="sub-pw" class="form-control" placeholder="Password" style="padding-right:35px" />
+                 <i class="fa fa-eye" style="position:absolute; right:12px; top:13px; color:var(--text-muted); cursor:pointer" onclick="const p=document.getElementById('sub-pw'); p.type=p.type==='password'?'text':'password'"></i>
+               </div>
+               <button class="btn" style="background:linear-gradient(135deg, rgba(0,217,255,0.8), rgba(181,55,242,0.8)); color:#fff; border:none; padding:0 20px; border-radius:8px; font-weight:700; box-shadow:0 0 15px rgba(0,217,255,0.4)" onclick="SettingsModule.addSubAccount()">
+                  + ADD
+               </button>
+            </div>
+
+            <div style="font-size:0.75rem; font-weight:700; color:var(--brand-gold); letter-spacing:1px; margin-bottom:12px; display:flex; align-items:center; gap:6px">
+               <i class="fa fa-lock"></i> TAB ACCESS PERMISSION
+            </div>
+            
+            <style>
+               .custom-chk { accent-color: var(--brand-primary); width: 16px; height: 16px; cursor: pointer; }
+            </style>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.85rem; background:rgba(0,0,0,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05)">
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-students" checked class="custom-chk"> <span>🏆 Students</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-finance" class="custom-chk"> <span>💰 Finance/Ledger</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-accounts" class="custom-chk"> <span>📊 Accounts</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-loans" class="custom-chk"> <span>💳 Loans</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-exams" class="custom-chk"> <span>📝 Exams</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-hr" class="custom-chk"> <span>👥 HR / Staff</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-salary" class="custom-chk"> <span>💵 Salary Hub</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-visitors" class="custom-chk"> <span>👤 Visitors</span></label>
+            </div>
+
+         </div>
+      </div>
+      
+      <style> .hidden { display: none !important; } </style>
     </div>`;
   }
 
@@ -2140,12 +2237,122 @@ const SettingsModule = (() => {
     `;
   }
 
+  // ── Recovery & Sub-accounts ───────────────────────────────────
+  function saveRecoverySettings() {
+     const question = document.getElementById('sec-question')?.value;
+     const answer = document.getElementById('sec-answer')?.value?.trim();
+     if(!question || !answer) {
+        if(typeof Utils !== 'undefined') Utils.toast('Both question and answer are required', 'error');
+        return;
+     }
+
+     const cfg = getConfig();
+     cfg.id = cfg.id || SupabaseSync.generateId();
+     cfg.security_question = question;
+     cfg.security_answer = answer; // In a real app this should be hashed, but keeping it simple for local
+     saveConfig(cfg);
+     
+     logActivity('edit', 'security', 'Updated Secret Recovery Question');
+     if(typeof Utils !== 'undefined') Utils.toast('Security Settings Saved ✅', 'success');
+     refreshModal();
+  }
+
+  function getSubAccounts() {
+     return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
+  }
+
+  function buildSubAccountsList(subs) {
+     return `
+        <table style="width:100%; text-align:left; border-collapse:collapse; font-size:0.85rem">
+           <thead>
+             <tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+               <th style="padding:6px 0; color:#fff">Username</th>
+               <th style="padding:6px 0; color:#fff">Tabs Access</th>
+               <th style="padding:6px 0; text-align:right">Action</th>
+             </tr>
+           </thead>
+           <tbody>
+             ${subs.map((s, idx) => `
+               <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+                  <td style="padding:8px 0; color:var(--brand-cyan)">@${s.username}</td>
+                  <td style="padding:8px 0; color:var(--text-muted); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="${s.permissions.join(', ')}">
+                    ${s.permissions.length ? s.permissions.join(', ') : '<span style="color:var(--error)">No Access</span>'}
+                  </td>
+                  <td style="padding:8px 0; text-align:right">
+                    <button class="btn btn-xs" style="background:rgba(255,0,85,0.1); border:1px solid rgba(255,0,85,0.3); color:var(--error); padding:2px 8px; border-radius:4px" onclick="SettingsModule.deleteSubAccount(${idx})"><i class="fa fa-trash"></i> DELETE</button>
+                  </td>
+               </tr>
+             `).join('')}
+           </tbody>
+        </table>
+     `;
+  }
+
+  function addSubAccount() {
+     const un = document.getElementById('sub-username')?.value?.trim();
+     const pw = document.getElementById('sub-pw')?.value;
+     
+     if(!un || !pw) {
+        if(typeof Utils !== 'undefined') Utils.toast('Username and Password required', 'error');
+        return;
+     }
+
+     const permissions = [];
+     const permsMap = {
+        'perm-students': 'Students',
+        'perm-finance': 'Finance/Ledger',
+        'perm-accounts': 'Accounts',
+        'perm-loans': 'Loans',
+        'perm-exams': 'Exams',
+        'perm-hr': 'HR / Staff',
+        'perm-salary': 'Salary Hub',
+        'perm-visitors': 'Visitors'
+     };
+
+     for(const [id, label] of Object.entries(permsMap)) {
+        const el = document.getElementById(id);
+        if(el && el.checked) {
+           permissions.push(label);
+        }
+     }
+
+     const subs = getSubAccounts();
+     if(subs.some(s => s.username === un)) {
+        if(typeof Utils !== 'undefined') Utils.toast('Username already exists', 'error');
+        return;
+     }
+
+     subs.push({
+        username: un,
+        password: pw, // In real app, hash this!
+        permissions: permissions
+     });
+     localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+     
+     logActivity('add', 'security', `Added sub-account @${un}`);
+     if(typeof Utils !== 'undefined') Utils.toast('Sub-account created ✅', 'success');
+     refreshModal();
+  }
+
+  function deleteSubAccount(idx) {
+     const subs = getSubAccounts();
+     const target = subs[idx];
+     if(target) {
+        subs.splice(idx, 1);
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+        logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
+        if(typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
+        refreshModal();
+     }
+  }
+
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
     render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
+    saveRecoverySettings, addSubAccount, deleteSubAccount,
     applyTheme,
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
