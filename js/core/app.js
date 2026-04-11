@@ -195,11 +195,7 @@ const App = (() => {
 
     // Sync buttons
     const syncBtn = document.getElementById('btn-sync-now');
-    if (syncBtn) {
-      syncBtn.addEventListener('click', () => {
-        SyncEngine.syncAll().then(() => Utils.toast('Synced from cloud', 'success'));
-      });
-    }
+    if (syncBtn) syncBtn.addEventListener('click', () => SyncEngine.syncAll({ silent: false }));
 
     const pushBtn = document.getElementById('btn-sync-push');
     if (pushBtn) pushBtn.addEventListener('click', () => SyncEngine.push());

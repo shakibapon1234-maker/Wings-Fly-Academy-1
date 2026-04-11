@@ -29,6 +29,7 @@ const SupabaseSync = (() => {
     const rows = getAll(table);
     rows.unshift(record);
     setAll(table, rows);
+    _logRecentChange(table, 'insert', record);
     _pushRecord(table, record);
     return record;
   }
@@ -39,13 +40,17 @@ const SupabaseSync = (() => {
     if (idx >= 0) {
       rows[idx] = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
       setAll(table, rows);
+      _logRecentChange(table, 'update', rows[idx]);
       _pushRecord(table, rows[idx]);
     }
   }
 
   function remove(table, id) {
-    const rows = getAll(table).filter(r => r.id !== id);
+    const before = getAll(table);
+    const victim = before.find(r => r.id === id);
+    const rows = before.filter(r => r.id !== id);
     setAll(table, rows);
+    if (victim) _logRecentChange(table, 'delete', victim);
     _deleteFromCloud(table, id);
     // Track deletion for sync
     _trackDeletion(table, id);
@@ -53,6 +58,28 @@ const SupabaseSync = (() => {
 
   function generateId() {
     return Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 8).toUpperCase();
+  }
+
+  /** Settings → Monitor: last local saves/updates/deletes (not pull/merge). */
+  function _logRecentChange(table, action, record) {
+    try {
+      if (!record || typeof record !== 'object') return;
+      const person = record.name || record.student_id || record.person_name || record.reg_id
+        || record.description || record.note || '—';
+      const category = record.category || record.type || table;
+      const typeLabel = action === 'delete' ? 'Delete' : (action === 'insert' ? 'Save' : 'Update');
+      const entry = {
+        date: new Date().toLocaleString(),
+        type: typeLabel,
+        category: String(category).slice(0, 100),
+        person: String(person).slice(0, 100),
+        table,
+      };
+      const arr = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+      arr.unshift(entry);
+      if (arr.length > 120) arr.length = 120;
+      localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
+    } catch { /* ignore */ }
   }
 
   // Device identifier for multi-user conflict resolution
@@ -183,7 +210,9 @@ const SyncEngine = (() => {
   }
 
   // ── Smart Pull with Conflict Resolution (core; run inside queue) ──
-  async function _pullCore() {
+  /** @param {{ silent?: boolean }} [opts] — pass `{ silent: false }` from UI for toast feedback */
+  async function _pullCore(opts = {}) {
+    const silent = opts.silent !== false ? true : false;
     setStatus('syncing');
 
     try {
@@ -222,6 +251,13 @@ const SyncEngine = (() => {
       _lastSyncTime = Date.now();
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
 
+      if (!silent && typeof Utils !== 'undefined') {
+        Utils.toast(
+          hasChanges ? 'Pulled updates from cloud' : 'Pull complete — data in sync with cloud',
+          'success'
+        );
+      }
+
       if (hasChanges) {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
       }
@@ -232,11 +268,12 @@ const SyncEngine = (() => {
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
       setStatus('error');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Pull from cloud failed', 'error');
     }
   }
 
-  function pull() {
-    return queueSyncOp(() => _pullCore());
+  function pull(opts) {
+    return queueSyncOp(() => _pullCore(opts));
   }
 
   // ── Merge Algorithm (timestamp-based) ─────────────────────
@@ -324,7 +361,7 @@ const SyncEngine = (() => {
     return queueSyncOp(async () => {
       await SupabaseSync.processRetryQueue();
       if (options.forcePush) await _pushCore({ silent: true });
-      await _pullCore();
+      await _pullCore(options);
     });
   }
 
@@ -424,17 +461,17 @@ const SyncEngine = (() => {
     syncInterval = setInterval(() => {
       // Only poll if real-time isn't active
       if (realtimeChannels.length === 0) {
-        pull();
+        pull({ silent: true });
       } else {
         // Light heartbeat every 60s to catch any missed events
         if (Date.now() - _lastSyncTime > 60_000) {
-          pull();
+          pull({ silent: true });
         }
       }
     }, 30_000);
 
     // Initial pull
-    pull().then(() => {
+    pull({ silent: true }).then(() => {
       // After initial pull, start real-time
       startRealtime();
     });

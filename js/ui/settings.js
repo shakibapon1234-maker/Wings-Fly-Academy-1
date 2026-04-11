@@ -1071,34 +1071,34 @@ const SettingsModule = (() => {
     <div class="settings-panel ${activeTab === 'sync' ? 'active' : ''}" data-panel="sync">
       <div class="settings-card glow-cyan">
         <div class="settings-card-title"><i class="fa fa-bolt"></i> System Diagnostic Center</div>
-        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:16px">Data, Sync ও সব function ঠিকঠাক আছে কিনা এখানে দেখুন</p>
+        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:16px">Verify data integrity, sync health, and cloud row counts in one place.</p>
       </div>
 
       <div class="settings-card glow-green">
         <div class="settings-card-title"><i class="fa fa-heart-pulse" style="color:var(--error)"></i> AUTO-HEAL ENGINE</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <span style="font-size:.85rem;color:var(--text-secondary)">Background-এ নিজে নিজে সমস্যা খুঁজে fix করে — প্রতি ৬০ সেকেন্ডে</span>
-          <button class="btn btn-success btn-sm" onclick="SettingsModule.runAutoHeal()"><i class="fa fa-bolt"></i> এখনই Run করুন</button>
+          <span style="font-size:.85rem;color:var(--text-secondary)">Scans all tables for corrupt rows (missing <code>id</code>) and removes them. Run manually anytime.</span>
+          <button class="btn btn-success btn-sm" onclick="SettingsModule.runAutoHeal()"><i class="fa fa-bolt"></i> Run now</button>
         </div>
         <div class="diag-stats" id="diag-heal-stats">
-          <div class="diag-stat-box green"><div class="label">মোট Check</div><div class="value" id="heal-total">0</div></div>
-          <div class="diag-stat-box blue"><div class="label">Auto Fix</div><div class="value" id="heal-fixed">0</div></div>
-          <div class="diag-stat-box blue"><div class="label">শেষ Check</div><div class="value" id="heal-last">—</div></div>
-          <div class="diag-stat-box red"><div class="label">শেষ Fix</div><div class="value" id="heal-lastfix">—</div></div>
+          <div class="diag-stat-box green"><div class="label">Records scanned</div><div class="value" id="heal-total">0</div></div>
+          <div class="diag-stat-box blue"><div class="label">Auto fix</div><div class="value" id="heal-fixed">0</div></div>
+          <div class="diag-stat-box blue"><div class="label">Last run</div><div class="value" id="heal-last">—</div></div>
+          <div class="diag-stat-box red"><div class="label">Last fix</div><div class="value" id="heal-lastfix">—</div></div>
         </div>
         <div style="margin-top:10px">
           <div class="settings-label" style="font-size:.78rem"><i class="fa fa-wrench"></i> HEAL LOG</div>
           <div id="heal-log-output" style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);min-height:40px;border:1px solid var(--border)">
-            Engine চালু হলে এখানে log দেখাবে...
+            Run Auto-Heal to see the log here.
           </div>
         </div>
       </div>
 
       <div class="settings-card glow-cyan">
-        <div class="settings-card-title"><i class="fa fa-database"></i> SYNC & DATA CHECK</div>
+        <div class="settings-card-title"><i class="fa fa-database"></i> SYNC &amp; DATA CHECK</div>
         <div style="display:flex;align-items:center;justify-content:space-between">
-          <span style="font-size:.85rem;color:var(--text-secondary)">Check all data integrity</span>
-          <button class="btn btn-primary btn-sm" onclick="SettingsModule.runSyncCheck()"><i class="fa fa-magnifying-glass"></i> পরীক্ষা চালান</button>
+          <span style="font-size:.85rem;color:var(--text-secondary)">Validates IDs locally and compares row counts to Supabase (mismatch = pending push/pull or conflict).</span>
+          <button class="btn btn-primary btn-sm" onclick="SettingsModule.runSyncCheck()"><i class="fa fa-magnifying-glass"></i> Run check</button>
         </div>
         <div id="sync-check-output" style="margin-top:10px;font-size:.82rem;color:var(--text-muted)"></div>
       </div>
@@ -1109,8 +1109,8 @@ const SettingsModule = (() => {
           Supabase real-time sync is active. All changes are automatically synced.
         </p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button class="btn btn-primary btn-sm" onclick="SyncEngine.syncAll().then(()=>Utils.toast('Pulled','success'))">⬇ Sync (retry + pull)</button>
-          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push().then(()=>Utils.toast('Pushed','success'))">⬆ Push to Cloud</button>
+          <button class="btn btn-primary btn-sm" onclick="SyncEngine.syncAll({ silent: false })">⬇ Sync (retry + pull)</button>
+          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push({ silent: false })">⬆ Push to Cloud</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time On','success')">🟢 Real-time On</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time Off','info')">🔴 Real-time Off</button>
         </div>
@@ -1331,28 +1331,33 @@ const SettingsModule = (() => {
     return `
     <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
       <div class="settings-card glow-purple">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
-          <span style="color:var(--brand-primary);font-size:1.1rem;font-weight:800">Grand Total: ৳${totalRecords}</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="color:var(--brand-primary);font-size:1rem;font-weight:700">Total records (all tables): ${totalRecords}</span>
+            <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
+          </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">লাস্ট ১০টা data change/save এখানে দেখাবে। যেকোনো row তে ক্লিক করলে উপরে সেই সময়কার Account Balance Snapshot দেখাবে।</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 local saves, updates, or deletes. Click a row for a <strong>current</strong> account balance snapshot (live data).</p>
 
         <div class="table-wrapper">
           <table>
             <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON</th></tr></thead>
             <tbody>
               ${recentChanges.length === 0 ?
-                `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No recent changes</td></tr>` :
-                recentChanges.slice(0, 10).map((c, i) => `
-                  <tr>
+                `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No recent changes yet — add or edit data to populate this list.</td></tr>` :
+                recentChanges.slice(0, 10).map((c, i) => {
+                  const badgeCls = c.type === 'Delete' ? 'badge-error' : c.type === 'Update' ? 'badge-warning' : 'badge-success';
+                  return `
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showLiveAccountSnapshot()" title="Click for current account balances">
                     <td>${i + 1}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
-                    <td><span class="badge ${c.type === 'System' ? 'badge-info' : 'badge-success'}">${c.type || '—'}</span></td>
+                    <td><span class="badge ${badgeCls}">${c.type || '—'}</span></td>
                     <td style="font-size:.82rem">${c.category || '—'}</td>
                     <td style="font-size:.82rem">${c.person || '—'}</td>
                   </tr>
-                  <tr><td colspan="5" style="padding:0"><div class="monitor-bar" style="width:${Math.max(20, 100 - i * 8)}%"></div></td></tr>
-                `).join('')
+                  <tr><td colspan="5" style="padding:0"><div class="monitor-bar" style="width:${Math.max(20, 100 - i * 8)}%"></div></td></tr>`;
+                }).join('')
               }
             </tbody>
           </table>
@@ -1636,6 +1641,31 @@ const SettingsModule = (() => {
     refreshModal();
   }
 
+  function showLiveAccountSnapshot() {
+    const accounts = SupabaseSync.getAll(DB.accounts) || [];
+    const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    const rows = accounts.length
+      ? accounts.map((a, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${esc(a.name || a.type || '—')}</td>
+            <td>${esc(a.type || '—')}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">৳${(parseFloat(a.balance) || 0).toLocaleString()}</td>
+          </tr>`).join('')
+      : '<tr><td colspan="4" class="no-data">No account rows in local cache</td></tr>';
+    const total = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+    Utils.openModal('Account balances (current snapshot)', `
+      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px">Live totals from <code>accounts</code> in local cache. Use Pull from Cloud if these look stale.</p>
+      <div class="table-wrapper" style="max-height:360px;overflow:auto">
+        <table>
+          <thead><tr><th>#</th><th>Name</th><th>Type</th><th class="text-right">Balance</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <p style="margin-top:10px;font-weight:700;text-align:right">Combined: ৳${total.toLocaleString()}</p>
+    `, 'modal-lg');
+  }
+
   // ─── Diagnostic Functions ─────────────────────────────────────
   function runAutoHeal() {
     let checks = 0, fixes = 0;
@@ -1663,25 +1693,60 @@ const SettingsModule = (() => {
     logActivity('edit', 'system', `Auto-Heal: ${checks} checked, ${fixes} fixed`);
   }
 
-  function runSyncCheck() {
+  async function runSyncCheck() {
     const output = document.getElementById('sync-check-output');
     if (!output) return;
+    output.innerHTML = '<span style="color:var(--text-muted)">Checking local IDs and cloud row counts…</span>';
+
     let issues = 0;
     let report = '';
+    const client = typeof window.SUPABASE_CONFIG !== 'undefined' ? window.SUPABASE_CONFIG.client : null;
 
-    Object.values(DB).forEach(table => {
+    for (const table of Object.values(DB)) {
       const rows = SupabaseSync.getAll(table);
-      const noId = rows.filter(r => !r.id).length;
+      const noId = rows.filter(r => !r || !r.id).length;
       if (noId > 0) {
         issues += noId;
-        report += `⚠️ ${table}: ${noId} records without ID<br>`;
+        report += `⚠️ ${table}: ${noId} record(s) without ID<br>`;
       }
-    });
 
-    output.innerHTML = issues === 0 ?
-      `<span style="color:var(--success)">✅ All data integrity checks passed!</span>` :
-      `<span style="color:var(--error)">${report}</span>`;
-    Utils.toast(issues === 0 ? 'All checks passed!' : `${issues} issues found`, issues === 0 ? 'success' : 'error');
+      if (!client) continue;
+
+      try {
+        const { count, error } = await client.from(table).select('*', { count: 'exact', head: true });
+        if (error) {
+          if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
+            issues++;
+            report += `⚠️ ${table}: cloud table missing or not accessible<br>`;
+            continue;
+          }
+          issues++;
+          report += `⚠️ ${table}: cloud error — ${error.message || 'unknown'}<br>`;
+          continue;
+        }
+        const localCount = rows.length;
+        const cloudCount = count ?? 0;
+        if (cloudCount !== localCount) {
+          issues++;
+          report += `⚠️ ${table}: local <strong>${localCount}</strong> rows vs cloud <strong>${cloudCount}</strong><br>`;
+        }
+      } catch (e) {
+        issues++;
+        report += `⚠️ ${table}: ${e.message || 'cloud check failed'}<br>`;
+      }
+    }
+
+    const cloudNote = !client
+      ? '<br><span style="color:var(--text-muted)">Cloud row counts skipped (no Supabase client).</span>'
+      : '';
+
+    if (issues === 0) {
+      output.innerHTML = `<span style="color:var(--success)">✅ All checks passed — IDs valid${client ? ' and row counts match cloud' : ''}.</span>${cloudNote}`;
+      Utils.toast('All checks passed!', 'success');
+    } else {
+      output.innerHTML = `<span style="color:var(--error)">${report}</span>${cloudNote}`;
+      Utils.toast(`${issues} issue(s) found`, 'error');
+    }
   }
 
   function runAutoFix() {
@@ -2357,7 +2422,7 @@ const SettingsModule = (() => {
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
     applyCardPreset,
-    viewTableData, exportAllData,
+    viewTableData, showLiveAccountSnapshot, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory,
