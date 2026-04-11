@@ -34,19 +34,78 @@ const App = (() => {
     return localStorage.getItem('wfa_logged_in') === 'true';
   }
 
-  function login(password) {
+  function getSubAccounts() {
+    try {
+      return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function isAdmin() {
+    return localStorage.getItem('wfa_user_role') === 'admin';
+  }
+
+  function getUserPermissions() {
+    try {
+      return JSON.parse(localStorage.getItem('wfa_user_permissions') || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function hasPermission(section) {
+    if (isAdmin()) return true;
+
+    const map = {
+      students: 'Students',
+      finance: 'Finance/Ledger',
+      accounts: 'Accounts',
+      loans: 'Loans',
+      exam: 'Exams',
+      'hr-staff': 'HR / Staff',
+      salary: 'Salary Hub',
+      visitors: 'Visitors',
+    };
+
+    const required = map[section];
+    if (!required) return true; // allow sections without explicit sub-account controls
+
+    return getUserPermissions().includes(required);
+  }
+
+  function login(username, password) {
     const settings = SupabaseSync.getAll(DB.settings)[0] || {};
     const correct = settings.admin_password || 'admin123';
-    if (password === correct) {
+    const normalizedUsername = String(username || '').trim();
+
+    if (normalizedUsername === 'admin' && password === correct) {
       localStorage.setItem('wfa_logged_in', 'true');
+      localStorage.setItem('wfa_user_role', 'admin');
+      localStorage.setItem('wfa_user_name', 'admin');
+      localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
       showApp();
       return true;
     }
+
+    const sub = getSubAccounts().find((s) => s.username === normalizedUsername && s.password === password);
+    if (sub) {
+      localStorage.setItem('wfa_logged_in', 'true');
+      localStorage.setItem('wfa_user_role', 'subaccount');
+      localStorage.setItem('wfa_user_name', sub.username);
+      localStorage.setItem('wfa_user_permissions', JSON.stringify(sub.permissions || []));
+      showApp();
+      return true;
+    }
+
     return false;
   }
 
   function logout() {
     localStorage.removeItem('wfa_logged_in');
+    localStorage.removeItem('wfa_user_role');
+    localStorage.removeItem('wfa_user_name');
+    localStorage.removeItem('wfa_user_permissions');
     showLogin();
     SyncEngine.stopAutoSync();
   }
@@ -74,6 +133,10 @@ const App = (() => {
 
     // Settings opens as a modal overlay instead of navigating
     if (section === 'settings') {
+      if (!isAdmin()) {
+        if (typeof Utils !== 'undefined') Utils.toast('Access denied: settings are admin only', 'error');
+        return;
+      }
       if (typeof SettingsModule !== 'undefined') SettingsModule.openModal();
       return;
     }
@@ -81,6 +144,11 @@ const App = (() => {
     // Attendance opens as a modal overlay
     if (section === 'attendance') {
       if (typeof Attendance !== 'undefined') Attendance.openModal();
+      return;
+    }
+
+    if (!hasPermission(section)) {
+      if (typeof Utils !== 'undefined') Utils.toast('Access denied: permission required', 'error');
       return;
     }
 
@@ -205,15 +273,16 @@ const App = (() => {
     if (loginForm) {
       loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        const un = document.getElementById('login-username')?.value;
         const pw = document.getElementById('login-password')?.value;
         const errEl = document.getElementById('login-error');
-        const ok = login(pw);
+        const ok = login(un, pw);
         if (!ok) {
           if (errEl) {
-            errEl.textContent = 'Password Has been wrong!';
+            errEl.textContent = 'Username or password incorrect!';
             errEl.classList.remove('hidden');
           }
-          Utils.toast('Password Has been wrong!', 'error');
+          Utils.toast('Login failed: invalid credentials', 'error');
         }
       });
     }
