@@ -700,6 +700,15 @@ const SettingsModule = (() => {
           </div>
         </div>
       </div>
+
+      <div style="display:flex;justify-content:flex-end;margin-bottom:20px;margin-top:10px;">
+        <button class="settings-save-btn" onclick="SettingsModule.saveAllChanges()" style="background:linear-gradient(135deg, rgba(0,217,255,0.8), rgba(181,55,242,0.8));color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 15px rgba(0,217,255,0.25);transition:all 0.3s ease">
+          <i class="fa fa-floppy-disk"></i> Save General Settings
+        </button>
+      </div>
+
+      ${buildSnapshotsHTML()}
+
     </div>`;
   }
 
@@ -1995,11 +2004,147 @@ const SettingsModule = (() => {
     }
   }
 
+  // ── Auto Snapshots ──────────────────────────────────────────────
+  function getSnapshots() {
+    return JSON.parse(localStorage.getItem('wfa_auto_snapshots') || '[]');
+  }
+
+  function saveSnapshot(manual = false) {
+    const snapshots = getSnapshots();
+    const now = new Date();
+    
+    if (!manual && snapshots.length > 0) {
+       const lastAuto = snapshots.find(s => !s.manual);
+       if (lastAuto) {
+         const diffMinutes = (now - new Date(lastAuto.timestamp)) / 1000 / 60;
+         if (diffMinutes < 60) return; 
+       }
+    }
+
+    const data = {};
+    if (typeof DB !== 'undefined' && typeof SupabaseSync !== 'undefined') {
+      Object.keys(DB).forEach(key => {
+        data[DB[key]] = SupabaseSync.getAll(DB[key]);
+      });
+    }
+
+    snapshots.unshift({
+      id: 'snap_' + Date.now(),
+      timestamp: now.toISOString(),
+      displayDate: typeof Utils !== 'undefined' ? Utils.formatDateEN(now.toISOString()) + ', ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}) : now.toLocaleString(),
+      manual: manual,
+      data: data
+    });
+
+    if (snapshots.length > 7) snapshots.length = 7; 
+
+    localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
+    if (manual) {
+      if (typeof Utils !== 'undefined') Utils.toast('📸 Manual Snapshot Saved', 'success');
+      refreshModal();
+    }
+  }
+
+  function restoreSnapshot(snapId) {
+    if(typeof Utils !== 'undefined') {
+       Utils.confirm("Are you sure you want to restore this snapshot? All current data will be replaced!").then(ok => {
+         if(!ok) return;
+         _doRestore(snapId);
+       });
+    } else {
+       if(!window.confirm("Are you sure you want to restore this snapshot? All current data will be replaced!")) return;
+       _doRestore(snapId);
+    }
+  }
+
+  function _doRestore(snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    if (!snap) return;
+
+    if (typeof SupabaseSync !== 'undefined') {
+      Object.keys(snap.data).forEach(table => {
+        SupabaseSync.setAll(table, snap.data[table]);
+      });
+    }
+
+    if(typeof Utils !== 'undefined') Utils.toast('✅ Snapshot Restored Successfully', 'success');
+    logActivity('edit', 'system', 'Restored database from snapshot: ' + snap.displayDate);
+    setTimeout(() => window.location.reload(), 1500);
+  }
+
+  function downloadSnapshot(snapId) {
+    const snapshots = getSnapshots();
+    const snap = snapshots.find(s => s.id === snapId);
+    if (!snap) return;
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(snap.data, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `wfa_snapshot_${snap.id}.json`);
+    document.body.appendChild(dlAnchorElem);
+    dlAnchorElem.click();
+    document.body.removeChild(dlAnchorElem);
+  }
+
+  function deleteSnapshot(snapId) {
+    let snapshots = getSnapshots();
+    snapshots = snapshots.filter(s => s.id !== snapId);
+    localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
+    if(typeof Utils !== 'undefined') Utils.toast('Snapshot deleted', 'info');
+    refreshModal();
+  }
+
+  function buildSnapshotsHTML() {
+    const snaps = getSnapshots();
+    return `
+      <div class="settings-card glow-cyan" style="margin-top:20px;border-color:var(--brand-primary);background:var(--bg-card)">
+        
+        <div class="settings-card-title" style="color:var(--brand-primary);font-weight:800;letter-spacing:1px;font-size:1.1rem;margin-bottom:12px;border-bottom:1px solid rgba(0,217,255,0.15);padding-bottom:10px">
+          <i class="fa fa-camera-retro"></i> AUTO SNAPSHOTS
+        </div>
+        
+        <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,150,255,0.05);padding:12px 18px;border-radius:8px;border:1px solid rgba(0,217,255,0.2);margin-bottom:15px">
+           <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+             <span style="color:var(--brand-primary);font-weight:600;font-size:0.95rem">প্রতি ১ ঘণ্টায় auto snapshot</span>
+             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 7 রাখা হয়</span>
+           </div>
+           <button class="btn btn-outline" style="border-color:var(--brand-cyan);color:var(--brand-primary);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(0,217,255,0.2)" onclick="SettingsModule.saveSnapshot(true)">
+              <i class="fa fa-camera-retro"></i> এখনই নিন
+           </button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:10px">
+          ${snaps.length === 0 ? `<div style="text-align:center;color:var(--text-muted);font-size:0.9rem;padding:25px;background:rgba(0,0,0,0.2);border-radius:8px">No snapshots available</div>` : ''}
+          ${snaps.map((s, idx) => `
+             <div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-surface-solid);padding:12px 18px;border-radius:8px;border:1px solid var(--border);transition:all 0.3s ease">
+               <div style="color:rgba(255,255,255,0.9);font-size:0.9rem;font-weight:500;display:flex;align-items:center;gap:8px">
+                 <span style="color:var(--brand-primary);font-weight:700">#${snaps.length - idx}</span> 
+                 <i class="fa fa-camera-retro" style="opacity:0.7;margin:0 4px;"></i> ${s.displayDate} ${s.manual ? '<span style="font-size:0.65rem;background:rgba(255,255,255,0.15);padding:2px 6px;border-radius:10px;color:#fff;margin-left:5px">Manual</span>' : ''}
+               </div>
+               <div style="display:flex;gap:10px">
+                 <button class="btn" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:var(--success);font-size:0.75rem;padding:5px 12px;border-radius:15px;display:flex;align-items:center;gap:5px" onclick="SettingsModule.restoreSnapshot('${s.id}')">
+                   <i class="fa fa-rotate-left"></i> RESTORE
+                 </button>
+                 <button class="btn" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.3);color:var(--brand-primary);font-size:0.8rem;padding:5px 12px;border-radius:15px;display:flex;align-items:center;justify-content:center" onclick="SettingsModule.downloadSnapshot('${s.id}')">
+                   <i class="fa fa-arrow-down"></i>
+                 </button>
+                 <button class="btn" style="background:rgba(255,0,85,0.1);border:1px solid rgba(255,0,85,0.3);color:var(--error);font-size:0.8rem;padding:5px 12px;border-radius:15px;display:flex;align-items:center;justify-content:center" onclick="SettingsModule.deleteSnapshot('${s.id}')">
+                   <i class="fa fa-trash-can"></i>
+                 </button>
+               </div>
+             </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
-    render, openModal, closeModal, switchTab,
+    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     applyTheme,
     applySidebarStyle,
