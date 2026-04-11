@@ -554,11 +554,9 @@ const SettingsModule = (() => {
        #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${opVal}) !important; backdrop-filter: blur(${blur}px) !important; border-right-color: ${border} !important; }
        #sidebar.sidebar-velvet { border-right-color: ${border} !important; }
 
-       /* Custom active color matching */
-       #sidebar.sidebar-glass .nav-item.active, #sidebar.sidebar-crystal .nav-item.active, #sidebar.sidebar-aurora-glow .nav-item.active { border-left-color: ${active} !important; background: color-mix(in srgb, ${active} 10%, transparent) !important; }
-       #sidebar.sidebar-carbon .nav-item.active { color: ${active} !important; background: color-mix(in srgb, ${active} 12%, transparent) !important;}
+       /* Custom active color matching has been disabled to preserve the multi-color navigation theme across all themes */
+       #sidebar.sidebar-carbon .nav-item.active { background: color-mix(in srgb, ${active} 12%, transparent) !important;}
        #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${active} !important; box-shadow: 0 0 20px ${active} !important; }
-       #sidebar.sidebar-velvet .nav-item.active { color: ${active} !important; }
     `;
   }
   
@@ -1997,10 +1995,9 @@ window.SettingsModule = SettingsModule;
          #sidebar.sidebar-carbon { border-right-color: ${s.border} !important; }
          #sidebar.sidebar-neonstrip { background: rgba(7,9,24,${s.opacity/100}) !important; backdrop-filter: blur(${s.blur}px) !important; border-right-color: ${s.border} !important; }
          #sidebar.sidebar-velvet { border-right-color: ${s.border} !important; }
-         #sidebar.sidebar-glass .nav-item.active, #sidebar.sidebar-crystal .nav-item.active, #sidebar.sidebar-aurora-glow .nav-item.active { border-left-color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 10%, transparent) !important; }
-         #sidebar.sidebar-carbon .nav-item.active { color: ${s.active} !important; background: color-mix(in srgb, ${s.active} 12%, transparent) !important;}
+         /* Disabled to keep dynamic multicolored sidebar */
+         #sidebar.sidebar-carbon .nav-item.active { background: color-mix(in srgb, ${s.active} 12%, transparent) !important;}
          #sidebar.sidebar-neonstrip .sidebar-logo::before { background: ${s.active} !important; box-shadow: 0 0 20px ${s.active} !important; }
-         #sidebar.sidebar-velvet .nav-item.active { color: ${s.active} !important; }
       `;
       document.head.appendChild(styleTag);
   }

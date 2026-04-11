@@ -70,7 +70,7 @@ const Accounts = (() => {
       </div>
 
       <!-- Search All Accounts -->
-      <div style="background:var(--bg-surface); padding:16px; border-radius:8px; border:1px solid rgba(0,212,255,0.15); margin-bottom:20px;">
+      <div class="card" style="padding:16px; border-radius:8px; border:1px solid rgba(0,212,255,0.15); margin-bottom:20px;">
         <div style="color:var(--brand-primary); font-weight:700; margin-bottom:12px; font-size:0.95rem;">
           <i class="fa fa-search"></i> Search All Accounts (💵 Cash + 🏦 Bank + 📱 Mobile Banking)
         </div>
@@ -110,7 +110,7 @@ const Accounts = (() => {
           <i class="fa fa-arrow-right-arrow-left"></i> TRANSFER NOW
         </button>
       </div>
-      <div style="background:var(--bg-surface); padding:16px; border-radius:12px; border:1px solid rgba(0,212,255,0.15); margin-bottom:30px;">
+      <div class="card" style="padding:16px; border-radius:12px; border:1px solid rgba(0,212,255,0.15); margin-bottom:30px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
           <h4 style="margin:0; color:#fff; display:flex; align-items:center; gap:8px;"><i class="fa fa-clock-rotate-left" style="color:#ffd700"></i> Transfer History</h4>
           <div style="display:flex; gap:8px; align-items:center;">
@@ -130,8 +130,8 @@ const Accounts = (() => {
         <h3 style="color:#00d4ff; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin:0;"><i class="fa fa-folder" style="color:#00d4ff"></i> BANK DETAILS</h3>
         <button class="btn btn-primary" onclick="Accounts.openBankModal()" style="font-weight:700;"><i class="fa fa-plus"></i> ADD NEW BANK ACCOUNT</button>
       </div>
-      <div style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2);">
-        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:var(--bg-surface);">
+      <div class="table-wrapper" style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2);">
+        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:transparent;">
           <thead style="background:rgba(0,212,255,0.05); border-bottom:1px solid rgba(0,212,255,0.2);">
             <tr>
               <th style="color:#00d4ff; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">SL.</th>
@@ -168,8 +168,8 @@ const Accounts = (() => {
         <h3 style="color:#00ff88; text-transform:uppercase; font-weight:800; letter-spacing:1px; margin:0;"><i class="fa fa-mobile-screen" style="color:#00ff88"></i> MOBILE BANKING</h3>
         <button class="btn btn-success" onclick="Accounts.openMobileModal()" style="font-weight:700;"><i class="fa fa-plus"></i> ADD MOBILE ACCOUNT</button>
       </div>
-      <div style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,255,136,0.2);">
-        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:var(--bg-surface);">
+      <div class="table-wrapper" style="margin-bottom:30px; border-radius:8px; overflow:hidden; border:1px solid rgba(0,255,136,0.2);">
+        <table class="table" style="margin:0; width:100%; border-collapse:collapse; background:transparent;">
           <thead style="background:rgba(0,255,136,0.05); border-bottom:1px solid rgba(0,255,136,0.2);">
             <tr>
               <th style="color:#00ff88; font-weight:700; padding:12px; text-transform:uppercase; font-size:0.8rem; text-align:left;">SL.</th>
@@ -204,7 +204,7 @@ const Accounts = (() => {
       </div>
 
       <!-- Total Balance Overview -->
-      <div style="border:1px solid rgba(0,212,255,0.1); border-radius:12px; padding:24px; background:var(--bg-surface);">
+      <div class="card" style="border:1px solid rgba(0,212,255,0.1); border-radius:12px; padding:24px;">
         <div style="text-align:center; margin-bottom:24px;">
           <h3 style="color:#a8b2c1; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; margin:0; text-transform:uppercase; letter-spacing:1px;">
             <i class="fa fa-sack-dollar" style="color:#ffd700"></i> TOTAL BALANCE OVERVIEW
@@ -242,7 +242,7 @@ const Accounts = (() => {
 
     if (filtered.length === 0) return `<div style="text-align:center; padding:20px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed rgba(255,255,255,0.1);">No transactions found for this search.</div>`;
 
-    let html = `<div style="background:var(--bg-surface); border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2); margin-bottom:20px;">
+    let html = `<div class="table-wrapper" style="border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2); margin-bottom:20px;">
       <table class="table" style="margin:0; width:100%; border-collapse:collapse;">
         <thead style="background:rgba(0,212,255,0.05); border-bottom:1px solid rgba(0,212,255,0.2);">
           <tr>
@@ -281,7 +281,7 @@ const Accounts = (() => {
       </div>`;
     }
 
-    return `<div style="overflow-x:auto;">
+    return `<div class="table-wrapper" style="overflow-x:auto;">
       <table class="table" style="width:100%; border-collapse:collapse; margin:0;">
         <thead style="border-bottom:2px solid rgba(0,212,255,0.3);">
           <tr>
