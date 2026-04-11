@@ -337,8 +337,9 @@ const HRStaff = (() => {
     const salaryVal = document.getElementById('sf-salary')?.value;
     if (!salaryVal || parseFloat(salaryVal) <= 0) { Utils.toast('Monthly Salary is required!', 'error'); return; }
 
+    const rawStaffId = document.getElementById('sf-id')?.value || '';
     const entry = {
-      staffId:     document.getElementById('sf-id')?.value || generateStaffId(),
+      staffId:     (rawStaffId && rawStaffId !== 'undefined') ? rawStaffId : generateStaffId(),
       name,
       role:        document.getElementById('sf-role')?.value || 'Staff',
       department:  document.getElementById('sf-department')?.value.trim() || '',

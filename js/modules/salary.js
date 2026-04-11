@@ -66,18 +66,24 @@ const Salary = (() => {
   /* ─── HR sync: যখন HR record update হয়, salary record update করো ─── */
   function syncFromHR(staffId) {
     if (typeof HRStaff === 'undefined') return;
-    const staffMember = HRStaff.getAll().find(s => s.staffId === staffId);
+
+    // staffId দিয়ে খোঁজো, না পেলে staffName দিয়ে fallback
+    let staffMember = HRStaff.getAll().find(s => s.staffId === staffId);
     if (!staffMember) return;
 
     const salaryRecords = SupabaseSync.getAll(DB.salary);
     // শুধু unpaid records update করো (paid গুলো fixed থাকবে)
+    // staffId দিয়ে match, না হলে staffName দিয়ে fallback
     salaryRecords.forEach(r => {
-      if (r.staffId === staffId && !r.paid) {
+      const matchById   = r.staffId && r.staffId === staffMember.staffId;
+      const matchByName = !r.staffId && r.staffName && r.staffName === staffMember.name;
+      if ((matchById || matchByName) && !r.paid) {
         SupabaseSync.update(DB.salary, r.id, {
-          staffName:   staffMember.name,
-          role:        staffMember.role,
-          phone:       staffMember.phone || '',
-          baseSalary:  staffMember.salary || 0,
+          staffId:    staffMember.staffId,
+          staffName:  staffMember.name,
+          role:       staffMember.role,
+          phone:      staffMember.phone || '',
+          baseSalary: staffMember.salary || 0,
         });
       }
     });
@@ -755,6 +761,13 @@ const Salary = (() => {
   // finance.js-এ এই function নেই, তাই salary.js নিজেই direct insert করে
   // কিন্তু যদি future-এ Finance module update হয়, তাহলে এটা কাজ করবে
 
+  /* ─── সকল HR staff এর জন্য একবারে sync ─── */
+  function syncAllFromHR() {
+    if (typeof HRStaff === 'undefined') return;
+    HRStaff.getAll().forEach(s => syncFromHR(s.staffId));
+    if (typeof renderContent === 'function') renderContent();
+  }
+
   return {
     init:              renderContent,
     render:            renderContent,
@@ -772,6 +785,7 @@ const Salary = (() => {
     onStaffSelect,
     updateNetDisplay,
     syncFromHR,
+    syncAllFromHR,
     getSummary,
   };
 
