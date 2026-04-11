@@ -471,10 +471,7 @@ const Students = (() => {
         <div style="display:flex; gap:12px; align-items:center;">
           <input id="pay-amount" type="number" class="form-control" style="flex:1" placeholder="Amount (e.g. ${s.due})" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
           <select id="pay-method" class="form-control" style="flex:1">
-            <option value="Cash">Cash</option>
-            <option value="Bank">Bank Transfer</option>
-            <option value="bKash">bKash</option>
-            <option value="Nagad">Nagad</option>
+            ${Utils.getPaymentMethodsHTML('Cash')}
           </select>
           <input id="pay-date" type="date" class="form-control hidden" value="${Utils.today()}" />
           <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:6px; font-weight:700;" onclick="Students.savePayment('${id}')">

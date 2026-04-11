@@ -206,9 +206,7 @@ const Finance = (() => {
         <div class="form-group">
           <label>Method <span class="req">*</span></label>
           <select id="ff-method" class="form-control">
-            <option value="Cash"           ${(d.method||'Cash')==='Cash'?'selected':''}>Cash</option>
-            <option value="Bank"           ${d.method==='Bank'?'selected':''}>Bank</option>
-            <option value="Mobile Banking" ${d.method==='Mobile Banking'?'selected':''}>Mobile Banking</option>
+            ${Utils.getPaymentMethodsHTML(d.method)}
           </select>
         </div>
       </div>

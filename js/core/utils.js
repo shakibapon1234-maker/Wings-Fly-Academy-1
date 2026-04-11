@@ -275,34 +275,59 @@ const Utils = (() => {
     return { items: arr.slice(start, start + pageSize), total: arr.length, pages: Math.ceil(arr.length / pageSize) };
   }
 
-  return {
-    // Date
-    today, todayISO, nowISO, formatDate, formatDateEN,
-    // Number
-    safeNum, takaEn, formatMoney, formatMoneyPlain,
-    // String
-    truncate, capitalize,
-    // Form
-    formVal, formSet,
-    // DOM
-    el,
-    // Toast
-    toast,
-    // Modal
-    openModal, closeModal, confirm,
-    // Badges
-    badge, statusBadge, methodBadge,
-    // Table
-    noDataRow,
-    // Sort & Filter
-    sortBy, searchFilter, dateRangeFilter,
-    // Student ID
-    generateStudentId,
-    // Print & Export
-    printArea, exportExcel, downloadCSV,
-    // Misc
-    debounce, paginate,
-  };
+    // ── Payment Methods Dropdown ──────────────────────────────
+    function getPaymentMethodsHTML(selectedValue = 'Cash') {
+      const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
+      let h = `<option value="Cash" ${selectedValue==='Cash'?'selected':''}>Cash</option>`;
+      
+      const banks = accounts.filter(a => a.type==='Bank_Detail');
+      if (banks.length > 0) {
+        h += `<optgroup label="Bank Accounts">`;
+        banks.forEach(b => {
+          h += `<option value="${b.name}" ${selectedValue===b.name?'selected':''}>${b.name}</option>`;
+        });
+        h += `</optgroup>`;
+      }
+      
+      const mobiles = accounts.filter(a => a.type==='Mobile_Detail');
+      if (mobiles.length > 0) {
+        h += `<optgroup label="Mobile Accounts">`;
+        mobiles.forEach(m => {
+          h += `<option value="${m.name}" ${selectedValue===m.name?'selected':''}>${m.name}</option>`;
+        });
+        h += `</optgroup>`;
+      }
+      return h;
+    }
+
+    return {
+      // Date
+      today, todayISO, nowISO, formatDate, formatDateEN,
+      // Number
+      safeNum, takaEn, formatMoney, formatMoneyPlain,
+      // String
+      truncate, capitalize,
+      // Form
+      formVal, formSet,
+      // DOM
+      el,
+      // Toast
+      toast,
+      // Modal
+      openModal, closeModal, confirm,
+      // Badges
+      badge, statusBadge, methodBadge,
+      // Table
+      noDataRow,
+      // Sort & Filter
+      sortBy, searchFilter, dateRangeFilter,
+      // Student ID
+      generateStudentId,
+      // Print & Export
+      printArea, exportExcel, downloadCSV,
+      // Misc
+      debounce, paginate, getPaymentMethodsHTML
+    };
 })();
 
 window.Utils = Utils;

@@ -286,8 +286,7 @@ const Salary = (() => {
         <div class="form-group">
           <label>Payment Method</label>
           <select id="sal-method" class="form-control">
-            ${['Cash','Bank','Mobile Banking'].map(m =>
-              `<option value="${m}" ${r?.method === m ? 'selected' : ''}>${m}</option>`).join('')}
+            ${Utils.getPaymentMethodsHTML(r?.method)}
           </select>
         </div>
         <div class="form-group">
