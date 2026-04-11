@@ -94,6 +94,22 @@ const Utils = (() => {
 
     if (box) {
       box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '760px' : '560px';
+      
+      // Dynamic PowerPoint-style Entrance Animations
+      box.classList.remove('anim-slide-left', 'anim-slide-right', 'anim-drop-spin', 'anim-zoom-in', 'anim-fade-up', 'anim-slide-down');
+      
+      const t = (title || '').toLowerCase();
+      let animClass = 'anim-fade-up';
+      if (t.includes('student')) animClass = 'anim-slide-left';
+      else if (t.includes('transaction') || t.includes('finance')) animClass = 'anim-slide-right';
+      else if (t.includes('visitor')) animClass = 'anim-drop-spin';
+      else if (t.includes('exam')) animClass = 'anim-zoom-in';
+      else {
+        const anims = ['anim-slide-left', 'anim-slide-right', 'anim-slide-down', 'anim-fade-up', 'anim-zoom-in'];
+        animClass = anims[Math.floor(Math.random() * anims.length)];
+      }
+      
+      box.classList.add(animClass);
     }
 
     backdrop.classList.add('open');
