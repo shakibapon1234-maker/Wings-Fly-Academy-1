@@ -1252,27 +1252,168 @@ const SettingsModule = (() => {
 
   function buildAdvancePaymentSection() {
     const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advancesWithCalc = advances.map((a, i) => {
+      const returns = a.returns || [];
+      const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const remaining = (parseFloat(a.amount) || 0) - totalReturned;
+      return { ...a, _idx: i, _totalReturned: totalReturned, _remaining: remaining };
+    });
+    const totalAdvanced    = advancesWithCalc.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    const totalReturned    = advancesWithCalc.reduce((s, a) => s + a._totalReturned, 0);
+    const totalOutstanding = totalAdvanced - totalReturned;
     return `
       <div class="settings-card glow-green">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-money-bill-transfer"></i> Advance Payments</div>
-          <button class="btn btn-success btn-sm" onclick="SettingsModule.addAdvancePayment()">+ ADD ADVANCE</button>
+          <button class="btn btn-success btn-sm" onclick="SettingsModule.addAdvancePayment()"><i class="fa fa-plus"></i> ADD ADVANCE</button>
         </div>
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>#</th><th>Person</th><th>Amount</th><th>Date</th><th>Note</th><th>Action</th></tr></thead>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="flex:1;min-width:130px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Advanced</div>
+            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">৳${totalAdvanced.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Returned</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${totalReturned.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Outstanding</div>
+            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">৳${totalOutstanding.toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="table-wrapper" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">#</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Person</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Amount</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Returned</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Remaining</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Method</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Date</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Note</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Status</th>
+                <th style="padding:10px 8px;text-align:center;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Action</th>
+              </tr>
+            </thead>
             <tbody>
-              ${advances.length === 0 ? '<tr><td colspan="6" class="no-data">No advance payments</td></tr>' :
-                advances.map((a, i) => `
-                  <tr>
-                    <td>${i + 1}</td>
-                    <td>${a.person || '—'}</td>
-                    <td style="color:var(--success)">৳${(parseFloat(a.amount) || 0).toLocaleString()}</td>
-                    <td style="font-size:.82rem">${a.date || '—'}</td>
-                    <td style="font-size:.82rem">${a.note || '—'}</td>
-                    <td><button class="btn btn-danger btn-xs" onclick="SettingsModule.deleteAdvance(${i})"><i class="fa fa-xmark"></i></button></td>
-                  </tr>
-                `).join('')
+              ${advancesWithCalc.length === 0
+                ? `<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--text-muted)">No advance payments yet.</td></tr>`
+                : advancesWithCalc.map(a => {
+                    const pct = a.amount > 0 ? Math.min(100, Math.round((a._totalReturned / a.amount) * 100)) : 0;
+                    const isFullyReturned = a._remaining <= 0;
+                    const statusColor = isFullyReturned ? '#00ff88' : a._totalReturned > 0 ? '#ffd700' : '#ff4757';
+                    const statusText  = isFullyReturned ? 'Cleared' : a._totalReturned > 0 ? 'Partial' : 'Pending';
+                    return `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                      <td style="padding:10px 8px;color:var(--text-muted)">${a._idx + 1}</td>
+                      <td style="padding:10px 8px;font-weight:700">${a.person || '—'}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">৳${a._totalReturned.toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ff4757'};font-weight:700">৳${a._remaining.toLocaleString()}</td>
+                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${a.method || '—'}</span></td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${a.date || '—'}</td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${a.note || '—'}</td>
+                      <td style="padding:10px 8px">
+                        <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;border:1px solid ${statusColor}44">${statusText}</span>
+                        ${!isFullyReturned && pct > 0 ? `<div style="margin-top:4px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px"><div style="width:${pct}%;height:100%;background:#00d4ff;border-radius:2px"></div></div>` : ''}
+                      </td>
+                      <td style="padding:10px 8px;text-align:center">
+                        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+                          ${!isFullyReturned ? `<button style="background:rgba(0,212,255,0.15);color:#00d4ff;border:1px solid rgba(0,212,255,0.3);font-size:.72rem;padding:3px 8px;border-radius:6px;cursor:pointer" onclick="SettingsModule.openReturnAdvanceModal(${a._idx})"><i class="fa fa-rotate-left"></i> Return</button>` : ''}
+                          <button style="background:rgba(255,215,0,0.15);color:#ffd700;border:1px solid rgba(255,215,0,0.3);font-size:.72rem;padding:3px 8px;border-radius:6px;cursor:pointer" onclick="SettingsModule.viewAdvanceLedger(${a._idx})"><i class="fa fa-list"></i> Ledger</button>
+                          <button class="btn btn-danger btn-xs" onclick="SettingsModule.deleteAdvance(${a._idx})"><i class="fa fa-xmark"></i></button>
+                        </div>
+                      </td>
+                    </tr>`;
+                  }).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  function buildInvestmentSection() {
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const invWithCalc = investments.map((inv, i) => {
+      const returns = inv.returns || [];
+      const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      const remaining = (parseFloat(inv.amount) || 0) - totalReturned;
+      return { ...inv, _idx: i, _totalReturned: totalReturned, _remaining: remaining };
+    });
+    const totalInvested    = invWithCalc.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    const totalReturnedAmt = invWithCalc.reduce((s, a) => s + a._totalReturned, 0);
+    const totalOutstanding = totalInvested - totalReturnedAmt;
+    return `
+      <div class="settings-card glow-purple">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> Investments</div>
+          <button class="btn btn-accent btn-sm" onclick="SettingsModule.addInvestment()"><i class="fa fa-plus"></i> ADD INVESTMENT</button>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="flex:1;min-width:130px;background:rgba(138,43,226,0.08);border:1px solid rgba(138,43,226,0.3);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Invested</div>
+            <div style="color:#a855f7;font-size:1.3rem;font-weight:800">৳${totalInvested.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Returned</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${totalReturnedAmt.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Active Investment</div>
+            <div style="color:#ffd700;font-size:1.3rem;font-weight:800">৳${totalOutstanding.toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="table-wrapper" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">#</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Source</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Amount</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Returned</th>
+                <th style="padding:10px 8px;text-align:right;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Active</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Account</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Date</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Note</th>
+                <th style="padding:10px 8px;text-align:left;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Status</th>
+                <th style="padding:10px 8px;text-align:center;font-size:.78rem;color:var(--text-muted);text-transform:uppercase;border-bottom:1px solid rgba(255,255,255,0.08)">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${invWithCalc.length === 0
+                ? `<tr><td colspan="10" style="padding:20px;text-align:center;color:var(--text-muted)">No investments yet.</td></tr>`
+                : invWithCalc.map(inv => {
+                    const pct = inv.amount > 0 ? Math.min(100, Math.round((inv._totalReturned / inv.amount) * 100)) : 0;
+                    const isFullyReturned = inv._remaining <= 0;
+                    const statusColor = isFullyReturned ? '#00ff88' : inv._totalReturned > 0 ? '#ffd700' : '#a855f7';
+                    const statusText  = isFullyReturned ? 'Returned' : inv._totalReturned > 0 ? 'Partial' : 'Active';
+                    return `
+                    <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
+                      <td style="padding:10px 8px;color:var(--text-muted)">${inv._idx + 1}</td>
+                      <td style="padding:10px 8px;font-weight:700">${inv.source || '—'}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">৳${(parseFloat(inv.amount)||0).toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">৳${inv._totalReturned.toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ffd700'};font-weight:700">৳${inv._remaining.toLocaleString()}</td>
+                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${inv.method || '—'}</span></td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${inv.date || '—'}</td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${inv.note || '—'}</td>
+                      <td style="padding:10px 8px">
+                        <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;border:1px solid ${statusColor}44">${statusText}</span>
+                        ${!isFullyReturned && pct > 0 ? `<div style="margin-top:4px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px"><div style="width:${pct}%;height:100%;background:#a855f7;border-radius:2px"></div></div>` : ''}
+                      </td>
+                      <td style="padding:10px 8px;text-align:center">
+                        <div style="display:flex;gap:4px;justify-content:center;flex-wrap:wrap">
+                          ${!isFullyReturned ? `<button style="background:rgba(0,212,255,0.15);color:#00d4ff;border:1px solid rgba(0,212,255,0.3);font-size:.72rem;padding:3px 8px;border-radius:6px;cursor:pointer" onclick="SettingsModule.openReturnInvestmentModal(${inv._idx})"><i class="fa fa-rotate-left"></i> Return</button>` : ''}
+                          <button style="background:rgba(255,215,0,0.15);color:#ffd700;border:1px solid rgba(255,215,0,0.3);font-size:.72rem;padding:3px 8px;border-radius:6px;cursor:pointer" onclick="SettingsModule.viewInvestmentLedger(${inv._idx})"><i class="fa fa-list"></i> Ledger</button>
+                          <button class="btn btn-danger btn-xs" onclick="SettingsModule.deleteInvestment(${inv._idx})"><i class="fa fa-xmark"></i></button>
+                        </div>
+                      </td>
+                    </tr>`;
+                  }).join('')
               }
             </tbody>
           </table>
@@ -1290,34 +1431,7 @@ const SettingsModule = (() => {
     if (tab === 'advance') {
       container.innerHTML = buildAdvancePaymentSection();
     } else {
-      const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
-      container.innerHTML = `
-        <div class="settings-card glow-purple">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-            <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> Investments</div>
-            <button class="btn btn-accent btn-sm" onclick="SettingsModule.addInvestment()">+ ADD INVESTMENT</button>
-          </div>
-          <div class="table-wrapper">
-            <table>
-              <thead><tr><th>#</th><th>Source</th><th>Amount</th><th>Date</th><th>Note</th><th>Action</th></tr></thead>
-              <tbody>
-                ${investments.length === 0 ? '<tr><td colspan="6" class="no-data">No investments</td></tr>' :
-                  investments.map((inv, i) => `
-                    <tr>
-                      <td>${i + 1}</td>
-                      <td>${inv.source || '—'}</td>
-                      <td style="color:var(--brand-accent)">৳${(parseFloat(inv.amount) || 0).toLocaleString()}</td>
-                      <td style="font-size:.82rem">${inv.date || '—'}</td>
-                      <td style="font-size:.82rem">${inv.note || '—'}</td>
-                      <td><button class="btn btn-danger btn-xs" onclick="SettingsModule.deleteInvestment(${i})"><i class="fa fa-xmark"></i></button></td>
-                    </tr>
-                  `).join('')
-                }
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
+      container.innerHTML = buildInvestmentSection();
     }
   }
 
@@ -1515,129 +1629,393 @@ const SettingsModule = (() => {
     refreshModal();
   }
 
+  // ─── Settings-এর ভেতরে নিজস্ব modal (z-index সমস্যা সমাধান) ───
+  function openSettingsInternalModal(title, bodyHTML) {
+    const old = document.getElementById('settings-inner-modal');
+    if (old) old.remove();
+    const wrap = document.createElement('div');
+    wrap.id = 'settings-inner-modal';
+    wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:999999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);';
+    wrap.innerHTML = `
+      <div style="background:var(--bg-surface,#0e1628);border:1px solid rgba(0,212,255,0.25);border-radius:14px;padding:28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.7);position:relative;animation:fadeUp .2s ease;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+          <div style="font-size:1rem;font-weight:800;color:#fff">${title}</div>
+          <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+        </div>
+        ${bodyHTML}
+      </div>`;
+    wrap.addEventListener('click', e => { if (e.target === wrap) closeSettingsInternalModal(); });
+    document.body.appendChild(wrap);
+  }
+
+  function closeSettingsInternalModal() {
+    const el = document.getElementById('settings-inner-modal');
+    if (el) el.remove();
+  }
+
   // ─── Advance Payments & Investments ───────────────────────────
   function addAdvancePayment() {
-    try {
-      Utils.openModal('Add Advance Payment', `
-        <div class="form-group mb-12"><label>Person Name <span class="req">*</span></label><input id="adv-person" class="form-control" placeholder="Name" /></div>
-        <div class="form-group mb-12"><label>Amount <span class="req">*</span></label><input id="adv-amount" type="number" class="form-control" placeholder="Amount" /></div>
-        <div class="form-group mb-12">
-          <label>Payment Method <span class="req">*</span></label>
-          <select id="adv-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'adv-bal-display')">
-            <option value="">Select Method</option>
-            ${Utils.getPaymentMethodsHTML()}
-          </select>
-          <div id="adv-bal-display" style="display:none;"></div>
-        </div>
-        <div class="form-group mb-12"><label>Date <span class="req">*</span></label><input id="adv-date" type="date" class="form-control" value="${Utils.today()}" /></div>
-        <div class="form-group mb-12"><label>Note</label><input id="adv-note" class="form-control" placeholder="Optional note" /></div>
-        <div class="form-actions">
-          <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
-          <button class="btn btn-success" onclick="SettingsModule.saveAdvancePayment()"><i class="fa fa-check"></i> Save</button>
-        </div>
-      `);
-    } catch(err) {
-      console.error(err);
-      Utils.toast('Failed to open modal: ' + err.message, 'error');
-    }
-  }
-  function saveAdvancePayment() {
-    const person = document.getElementById('adv-person')?.value || '';
-    const amount = parseFloat(document.getElementById('adv-amount')?.value) || 0;
-    const method = document.getElementById('adv-method')?.value || '';
-    if (!person || !amount || !method) { Utils.toast('Name, Amount, and Method are required', 'error'); return; }
-    
-    // Check balance
-    const available = Utils.getAccountBalance(method);
-    if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`, 'error'); return; }
-
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
-    advances.push({
-      person,
-      amount,
-      method,
-      date: document.getElementById('adv-date')?.value || Utils.today(),
-      note: document.getElementById('adv-note')?.value || '',
-    });
-    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    
-    // Optional: Log it in finance? The user didn't mention it, but advance payments deduct balance.
-    // We MUST deduct balance from finance otherwise 'Available' won't drop!
-    SupabaseSync.insert(DB.finance, {
-      type: 'Expense',
-      method: method,
-      category: 'Advance Payment',
-      description: `Advance to ${person}`,
-      amount: amount,
-      date: Utils.today()
-    });
-
-    Utils.closeModal();
-    Utils.toast('Advance payment saved', 'success');
-    refreshModal();
-  }
-  function deleteAdvance(i) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
-    advances.splice(i, 1);
-    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    refreshModal();
-  }
-
-  function addInvestment() {
-    Utils.openModal('📈 Add Investment', `
-      <div class="form-group mb-12"><label>Source <span class="req">*</span></label><input id="inv-source" class="form-control" placeholder="Source" /></div>
-      <div class="form-group mb-12"><label>Amount <span class="req">*</span></label><input id="inv-amount" type="number" class="form-control" placeholder="Amount" /></div>
-      <div class="form-group mb-12">
-        <label>Deposit To <span class="req">*</span></label>
-        <select id="inv-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'inv-bal-display')">
-          <option value="">Select Account</option>
-          ${Utils.getPaymentMethodsHTML()}
-        </select>
-        <div id="inv-bal-display" style="display:none;"></div>
+    openSettingsInternalModal('💰 Add Advance Payment', `
+      <div style="margin-bottom:12px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Person Name <span style="color:#ff4757">*</span></label>
+        <input id="adv-person" class="form-control" placeholder="e.g. Shakib" style="width:100%;box-sizing:border-box" />
       </div>
-      <div class="form-group mb-12"><label>Date <span class="req">*</span></label><input id="inv-date" type="date" class="form-control" value="${Utils.today()}" /></div>
-      <div class="form-group mb-12"><label>Note</label><input id="inv-note" class="form-control" placeholder="Optional note" /></div>
-      <div class="form-actions">
-        <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn btn-accent" onclick="SettingsModule.saveInvestment()"><i class="fa fa-check"></i> Save</button>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <input id="adv-amount" type="number" class="form-control" placeholder="0" />
+        </div>
+        <div>
+          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
+          <input id="adv-date" type="date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Payment Method <span style="color:#ff4757">*</span></label>
+        <select id="adv-method" class="form-control" style="width:100%">
+          <option value="">Select Method</option>
+          ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
+        <input id="adv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button onclick="SettingsModule.saveAdvancePayment()" style="background:linear-gradient(135deg,#00ff88,#00cc6e);color:#000;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
       </div>
     `);
   }
-  function saveInvestment() {
-    const source = document.getElementById('inv-source')?.value || '';
-    const amount = parseFloat(document.getElementById('inv-amount')?.value) || 0;
-    const method = document.getElementById('inv-method')?.value || '';
-    if (!source || !amount || !method) { Utils.toast('Source, Amount, and Method are required', 'error'); return; }
 
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
-    investments.push({
-      source,
-      amount,
-      method,
-      date: document.getElementById('inv-date')?.value || Utils.today(),
-      note: document.getElementById('inv-note')?.value || '',
-    });
-    localStorage.setItem('wfa_investments', JSON.stringify(investments));
-    
-    // Add to finance ledger
+  function saveAdvancePayment() {
+    const person = document.getElementById('adv-person')?.value?.trim() || '';
+    const amount = parseFloat(document.getElementById('adv-amount')?.value) || 0;
+    const method = document.getElementById('adv-method')?.value || '';
+    const date   = document.getElementById('adv-date')?.value || Utils.today();
+    const note   = document.getElementById('adv-note')?.value || '';
+    if (!person) { Utils.toast('Person name required', 'error'); return; }
+    if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
+    if (!method) { Utils.toast('Payment method required', 'error'); return; }
+    if (typeof Utils.getAccountBalance === 'function') {
+      const available = Utils.getAccountBalance(method);
+      if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
+    }
+    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    advances.push({ person, amount, method, date, note, returns: [] });
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     SupabaseSync.insert(DB.finance, {
-      type: 'Income',
-      method: method,
-      category: 'Investment Receiving',
-      description: `Investment from ${source}`,
-      amount: amount,
-      date: Utils.today()
+      type: 'Expense', method, category: 'Advance Payment',
+      description: `Advance to ${person}`, amount, date, note
     });
-
-    Utils.closeModal();
-    Utils.toast('Investment saved', 'success');
+    closeSettingsInternalModal();
+    Utils.toast('Advance payment saved ✓', 'success');
     refreshModal();
   }
-  function deleteInvestment(i) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
-    investments.splice(i, 1);
-    localStorage.setItem('wfa_investments', JSON.stringify(investments));
+
+  function deleteAdvance(idx) {
+    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    if (!advances[idx]) return;
+    if (!confirm(`Delete advance for "${advances[idx].person}"?`)) return;
+    advances.splice(idx, 1);
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+    Utils.toast('Deleted', 'info');
     refreshModal();
+  }
+
+  function openReturnAdvanceModal(idx) {
+    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const a = advances[idx];
+    if (!a) return;
+    const returns = a.returns || [];
+    const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+    const remaining = (parseFloat(a.amount) || 0) - totalReturned;
+    openSettingsInternalModal(`↩️ Return Advance — ${a.person}`, `
+      <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Original Amount</span><span style="color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">৳${totalReturned.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining</span><span style="color:#ff4757;font-weight:800;font-size:1.1rem">৳${remaining.toLocaleString()}</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (৳) <span style="color:#ff4757">*</span></label>
+          <input id="ret-adv-amount" type="number" class="form-control" placeholder="0" max="${remaining}" />
+        </div>
+        <div>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
+          <input id="ret-adv-date" type="date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Received In (Account)</label>
+        <select id="ret-adv-method" class="form-control" style="width:100%">
+          <option value="${a.method||'Cash'}" selected>${a.method||'Cash'} (Original)</option>
+          ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : ''}
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
+        <input id="ret-adv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button onclick="SettingsModule.saveReturnAdvance(${idx})" style="background:linear-gradient(135deg,#00d4ff,#0099bb);color:#000;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-rotate-left"></i> Confirm Return</button>
+      </div>
+    `);
+  }
+
+  function saveReturnAdvance(idx) {
+    const retAmount = parseFloat(document.getElementById('ret-adv-amount')?.value) || 0;
+    const retDate   = document.getElementById('ret-adv-date')?.value || Utils.today();
+    const retMethod = document.getElementById('ret-adv-method')?.value || 'Cash';
+    const retNote   = document.getElementById('ret-adv-note')?.value || '';
+    const advances  = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const a = advances[idx];
+    if (!a) return;
+    const totalReturned = (a.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
+    const remaining = (parseFloat(a.amount)||0) - totalReturned;
+    if (!retAmount || retAmount <= 0) { Utils.toast('Return amount required', 'error'); return; }
+    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
+    if (!advances[idx].returns) advances[idx].returns = [];
+    advances[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+    SupabaseSync.insert(DB.finance, {
+      type: 'Income', method: retMethod, category: 'Advance Return',
+      description: `Advance return from ${a.person}`, amount: retAmount, date: retDate, note: retNote
+    });
+    closeSettingsInternalModal();
+    Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
+    refreshModal();
+  }
+
+  function viewAdvanceLedger(idx) {
+    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const a = advances[idx];
+    if (!a) return;
+    const returns = a.returns || [];
+    const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
+    const remaining = (parseFloat(a.amount)||0) - totalReturned;
+    const rows = [
+      `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.date}</td>
+        <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Advance Given</span></td>
+        <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.method}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.note||'—'}</td>
+      </tr>`,
+      ...returns.map((r, ri) => `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
+          <td style="padding:10px 8px"><span style="background:rgba(0,255,136,0.15);color:#00ff88;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
+          <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">+৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.method||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.note||'—'}</td>
+        </tr>`)
+    ].join('');
+    openSettingsInternalModal(`📋 Advance Ledger — ${a.person}`, `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="flex:1;min-width:100px;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Advanced</div><div style="color:#ff4757;font-weight:800">৳${(parseFloat(a.amount)||0).toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Remaining</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">৳${remaining.toLocaleString()}</div></div>
+      </div>
+      <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:8px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--bg-surface,#0e1628)">
+            <tr>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Date</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Type</th>
+              <th style="padding:8px;text-align:right;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Amount</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Account</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Note</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 20px;border-radius:8px;cursor:pointer">Close</button>
+      </div>
+    `);
+  }
+
+  function addInvestment() {
+    openSettingsInternalModal('📈 Add Investment', `
+      <div style="margin-bottom:12px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Investor / Source <span style="color:#ff4757">*</span></label>
+        <input id="inv-source" class="form-control" placeholder="e.g. Rahim, Company XYZ" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <input id="inv-amount" type="number" class="form-control" placeholder="0" />
+        </div>
+        <div>
+          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
+          <input id="inv-date" type="date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Deposit To (Account) <span style="color:#ff4757">*</span></label>
+        <select id="inv-method" class="form-control" style="width:100%">
+          <option value="">Select Account</option>
+          ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
+        <input id="inv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button onclick="SettingsModule.saveInvestment()" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
+      </div>
+    `);
+  }
+
+  function saveInvestment() {
+    const source = document.getElementById('inv-source')?.value?.trim() || '';
+    const amount = parseFloat(document.getElementById('inv-amount')?.value) || 0;
+    const method = document.getElementById('inv-method')?.value || '';
+    const date   = document.getElementById('inv-date')?.value || Utils.today();
+    const note   = document.getElementById('inv-note')?.value || '';
+    if (!source) { Utils.toast('Source/Investor name required', 'error'); return; }
+    if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
+    if (!method) { Utils.toast('Account required', 'error'); return; }
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    investments.push({ source, amount, method, date, note, returns: [] });
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
+    SupabaseSync.insert(DB.finance, {
+      type: 'Income', method, category: 'Investment Receiving',
+      description: `Investment from ${source}`, amount, date, note
+    });
+    closeSettingsInternalModal();
+    Utils.toast('Investment saved ✓', 'success');
+    refreshModal();
+  }
+
+  function deleteInvestment(idx) {
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    if (!investments[idx]) return;
+    if (!confirm(`Delete investment from "${investments[idx].source}"?`)) return;
+    investments.splice(idx, 1);
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
+    Utils.toast('Deleted', 'info');
+    refreshModal();
+  }
+
+  function openReturnInvestmentModal(idx) {
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const inv = investments[idx];
+    if (!inv) return;
+    const returns = inv.returns || [];
+    const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
+    const remaining = (parseFloat(inv.amount)||0) - totalReturned;
+    openSettingsInternalModal(`↩️ Return Investment — ${inv.source}`, `
+      <div style="background:rgba(138,43,226,0.08);border:1px solid rgba(138,43,226,0.25);border-radius:10px;padding:14px;margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Total Invested</span><span style="color:#a855f7;font-weight:700">৳${(parseFloat(inv.amount)||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">৳${totalReturned.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining to Return</span><span style="color:#ffd700;font-weight:800;font-size:1.1rem">৳${remaining.toLocaleString()}</span></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (৳) <span style="color:#ff4757">*</span></label>
+          <input id="ret-inv-amount" type="number" class="form-control" placeholder="0" max="${remaining}" />
+        </div>
+        <div>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
+          <input id="ret-inv-date" type="date" class="form-control" value="${Utils.today()}" />
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Paid From (Account)</label>
+        <select id="ret-inv-method" class="form-control" style="width:100%">
+          <option value="${inv.method||'Cash'}" selected>${inv.method||'Cash'} (Original)</option>
+          ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : ''}
+        </select>
+      </div>
+      <div style="margin-bottom:20px">
+        <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
+        <input id="ret-inv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
+        <button onclick="SettingsModule.saveReturnInvestment(${idx})" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-rotate-left"></i> Confirm Return</button>
+      </div>
+    `);
+  }
+
+  function saveReturnInvestment(idx) {
+    const retAmount = parseFloat(document.getElementById('ret-inv-amount')?.value) || 0;
+    const retDate   = document.getElementById('ret-inv-date')?.value || Utils.today();
+    const retMethod = document.getElementById('ret-inv-method')?.value || 'Cash';
+    const retNote   = document.getElementById('ret-inv-note')?.value || '';
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const inv = investments[idx];
+    if (!inv) return;
+    const totalReturned = (inv.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
+    const remaining = (parseFloat(inv.amount)||0) - totalReturned;
+    if (!retAmount || retAmount <= 0) { Utils.toast('Return amount required', 'error'); return; }
+    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
+    if (!investments[idx].returns) investments[idx].returns = [];
+    investments[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
+    SupabaseSync.insert(DB.finance, {
+      type: 'Expense', method: retMethod, category: 'Investment Return',
+      description: `Investment return to ${inv.source}`, amount: retAmount, date: retDate, note: retNote
+    });
+    closeSettingsInternalModal();
+    Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
+    refreshModal();
+  }
+
+  function viewInvestmentLedger(idx) {
+    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const inv = investments[idx];
+    if (!inv) return;
+    const returns = inv.returns || [];
+    const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
+    const remaining = (parseFloat(inv.amount)||0) - totalReturned;
+    const rows = [
+      `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.date}</td>
+        <td style="padding:10px 8px"><span style="background:rgba(168,85,247,0.15);color:#a855f7;padding:2px 8px;border-radius:20px;font-size:.75rem">Investment In</span></td>
+        <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">+৳${(parseFloat(inv.amount)||0).toLocaleString()}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.method}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.note||'—'}</td>
+      </tr>`,
+      ...returns.map((r, ri) => `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
+          <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
+          <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.method||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.note||'—'}</td>
+        </tr>`)
+    ].join('');
+    openSettingsInternalModal(`📋 Investment Ledger — ${inv.source}`, `
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <div style="flex:1;min-width:100px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Invested</div><div style="color:#a855f7;font-weight:800">৳${(parseFloat(inv.amount)||0).toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Outstanding</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">৳${remaining.toLocaleString()}</div></div>
+      </div>
+      <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:8px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:var(--bg-surface,#0e1628)">
+            <tr>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Date</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Type</th>
+              <th style="padding:8px;text-align:right;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Amount</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Account</th>
+              <th style="padding:8px;text-align:left;font-size:.75rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.08)">Note</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 20px;border-radius:8px;cursor:pointer">Close</button>
+      </div>
+    `);
   }
 
   function showLiveAccountSnapshot() {
@@ -2555,7 +2933,10 @@ const SettingsModule = (() => {
     renderBatchReport,
     showAccountsSubTab,
     addAdvancePayment, saveAdvancePayment, deleteAdvance,
+    openReturnAdvanceModal, saveReturnAdvance, viewAdvanceLedger,
     addInvestment, saveInvestment, deleteInvestment,
+    openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
+    openSettingsInternalModal, closeSettingsInternalModal,
     runAutoHeal, runSyncCheck, runAutoFix,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
   };
