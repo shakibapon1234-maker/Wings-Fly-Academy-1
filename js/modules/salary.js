@@ -66,14 +66,10 @@ const Salary = (() => {
   /* ─── HR sync: যখন HR record update হয়, salary record update করো ─── */
   function syncFromHR(staffId) {
     if (typeof HRStaff === 'undefined') return;
-
-    // staffId দিয়ে খোঁজো, না পেলে staffName দিয়ে fallback
-    let staffMember = HRStaff.getAll().find(s => s.staffId === staffId);
+    const staffMember = HRStaff.getAll().find(s => s.staffId === staffId);
     if (!staffMember) return;
 
     const salaryRecords = SupabaseSync.getAll(DB.salary);
-    // শুধু unpaid records update করো (paid গুলো fixed থাকবে)
-    // staffId দিয়ে match, না হলে staffName দিয়ে fallback
     salaryRecords.forEach(r => {
       const matchById   = r.staffId && r.staffId === staffMember.staffId;
       const matchByName = !r.staffId && r.staffName && r.staffName === staffMember.name;
@@ -87,6 +83,13 @@ const Salary = (() => {
         });
       }
     });
+  }
+
+  /* ─── সকল HR staff এর জন্য একবারে sync ─── */
+  function syncAllFromHR() {
+    if (typeof HRStaff === 'undefined') return;
+    HRStaff.getAll().forEach(s => syncFromHR(s.staffId));
+    renderContent();
   }
 
   /* ─── Finance-এ Expense entry যোগ করো ─── */
@@ -319,7 +322,35 @@ const Salary = (() => {
     if (!r) return;
 
     const net = Utils.safeNum(r.baseSalary) + Utils.safeNum(r.bonus) - Utils.safeNum(r.deduction);
-    const todayStr = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const todayDD   = String(today.getDate()).padStart(2,'0');
+    const todayMM   = String(today.getMonth()+1).padStart(2,'0');
+    const todayYYYY = String(today.getFullYear());
+
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const currentYear = today.getFullYear();
+    const years = Array.from({length:6}, (_,i) => currentYear - 2 + i);
+
+    function dateDropdowns(prefix, dd, mm, yyyy) {
+      return `
+        <div style="display:flex; gap:6px;">
+          <select id="${prefix}-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate('${prefix}','${todayStr}')">
+            ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+          </select>
+          <select id="${prefix}-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate('${prefix}','${todayStr}')">
+            ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+          </select>
+          <select id="${prefix}-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate('${prefix}','${todayStr}')">
+            ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+          </select>
+        </div>
+        <input type="hidden" id="${prefix}" value="${yyyy}-${mm}-${dd}" />`;
+    }
 
     const html = `
       <div style="margin-bottom:20px;">
@@ -336,6 +367,7 @@ const Salary = (() => {
             <div style="margin-left:auto; text-align:right;">
               <div style="font-size:.7rem; color:var(--text-muted);">Net Salary</div>
               <div style="font-size:1.3rem; font-weight:800; color:#00ff88;">৳${Utils.formatMoneyPlain(net)}</div>
+              ${Utils.safeNum(r.paidAmount) > 0 && !r.paid ? `<div style="font-size:.72rem; color:#ffb703;">আগে দেওয়া: ৳${Utils.formatMoneyPlain(r.paidAmount)} | বাকি: ৳${Utils.formatMoneyPlain(net - Utils.safeNum(r.paidAmount))}</div>` : ''}
             </div>
           </div>
         </div>
@@ -343,12 +375,12 @@ const Salary = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>Payment Amount (৳) <span class="req">*</span></label>
-            <input type="number" id="pay-amount" class="form-control" min="1" value="${net}" placeholder="Enter amount to pay" />
-            <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">Net salary: ৳${Utils.formatMoneyPlain(net)}</div>
+            <input type="number" id="pay-amount" class="form-control" min="1" value="${net - Utils.safeNum(r.paidAmount)}" placeholder="Enter amount to pay" />
+            <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">এই বারের payment — partial বা full যেকোনো amount দিতে পারেন</div>
           </div>
           <div class="form-group">
             <label>Payment Date <span class="req">*</span></label>
-            <input type="date" id="pay-date" class="form-control" value="${todayStr}" />
+            ${dateDropdowns('pay-date', todayDD, todayMM, todayYYYY)}
           </div>
         </div>
 
@@ -377,6 +409,15 @@ const Salary = (() => {
     Utils.openModal(`<i class="fa fa-sack-dollar" style="color:#00d4ff;"></i> Pay Salary — ${r.staffName}`, html);
   }
 
+  /* ─── Date Sync Helper for Pay Modal ─── */
+  function _syncPayDate(prefix) {
+    const dd   = document.getElementById(prefix + '-dd')?.value   || '';
+    const mm   = document.getElementById(prefix + '-mm')?.value   || '';
+    const yyyy = document.getElementById(prefix + '-yyyy')?.value || '';
+    const hidden = document.getElementById(prefix);
+    if (hidden) hidden.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+  }
+
   function confirmPay(id) {
     const r = SupabaseSync.getById(DB.salary, id);
     if (!r) return;
@@ -397,20 +438,30 @@ const Salary = (() => {
       return;
     }
 
+    // Net salary হিসেব
+    const net = Utils.safeNum(r.baseSalary) + Utils.safeNum(r.bonus) - Utils.safeNum(r.deduction);
+    // আগে কত paid ছিল
+    const prevPaid = Utils.safeNum(r.paidAmount);
+    // নতুন total paid
+    const totalPaid = prevPaid + payAmount;
+    // পুরো salary দেওয়া হলে paid=true, partial হলে due রাখো
+    const isFullyPaid = totalPaid >= net;
+
     SupabaseSync.update(DB.salary, id, {
-      paid:       true,
-      paidAmount: payAmount,
+      paid:       isFullyPaid,
+      paidAmount: totalPaid,
       paidDate:   payDate,
       method,
       note: note || r.note || '',
     });
 
-    // Finance Expense entry
+    // যেকোনো amount > 0 হলে Finance Expense entry যাবে
     _logToFinance(r, payAmount, payDate, method);
 
     Utils.closeModal();
     renderContent();
-    Utils.toast(`${r.staffName}-এর salary ৳${Utils.formatMoneyPlain(payAmount)} paid ✓`, 'success');
+    const statusMsg = isFullyPaid ? 'পুরো salary paid ✓' : `partial ৳${Utils.formatMoneyPlain(payAmount)} paid — বাকি ৳${Utils.formatMoneyPlain(net - totalPaid)}`;
+    Utils.toast(`${r.staffName}: ${statusMsg}`, isFullyPaid ? 'success' : 'info');
   }
 
   /* ─── markPaid (card-এর Pay button থেকে — quick pay with today's date) ─── */
@@ -506,7 +557,33 @@ const Salary = (() => {
           </div>
           <div class="form-group">
             <label>Payment Date <span class="req">*</span></label>
-            <input type="date" id="sal-paiddate" class="form-control" value="${r?.paidDate || Utils.today()}" />
+            ${(() => {
+              const pd = r?.paidDate || Utils.today();
+              const d = new Date(pd);
+              const dd   = String(d.getDate()).padStart(2,'0');
+              const mm   = String(d.getMonth()+1).padStart(2,'0');
+              const yyyy = String(d.getFullYear());
+              const monthNames = [
+                ['01','January'],['02','February'],['03','March'],['04','April'],
+                ['05','May'],['06','June'],['07','July'],['08','August'],
+                ['09','September'],['10','October'],['11','November'],['12','December']
+              ];
+              const currentYear = new Date().getFullYear();
+              const yearOpts = Array.from({length:6},(_,i)=>currentYear-2+i);
+              return `
+                <div style="display:flex; gap:6px;">
+                  <select id="sal-paiddate-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate('sal-paiddate','${pd}')">
+                    ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+                  </select>
+                  <select id="sal-paiddate-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate('sal-paiddate','${pd}')">
+                    ${monthNames.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+                  </select>
+                  <select id="sal-paiddate-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate('sal-paiddate','${pd}')">
+                    ${yearOpts.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+                  </select>
+                </div>
+                <input type="hidden" id="sal-paiddate" value="${yyyy}-${mm}-${dd}" />`;
+            })()}
           </div>
         </div>
         <div class="form-row">
@@ -628,12 +705,14 @@ const Salary = (() => {
       Utils.toast('Salary record saved ✓', 'success');
     }
 
-    // Finance log — নতুন করে paid হলে বা edit করে paid হলে
-    if (isPaid) {
+    // Finance log — paid হলে বা partial amount দিলেও Finance এ যাবে
+    if (payAmount > 0) {
       const existing = editingId ? SupabaseSync.getById(DB.salary, editingId) : null;
-      const wasAlreadyPaid = existing?.paid;
-      if (isNew || !wasAlreadyPaid) {
-        _logToFinance(entry, payAmount, payDate, method);
+      const prevPaidAmt = Utils.safeNum(existing?.paidAmount);
+      // নতুন record অথবা amount বেড়েছে — পার্থক্যটাই Finance এ যাবে
+      const diff = isNew ? payAmount : (payAmount - prevPaidAmt);
+      if (diff > 0) {
+        _logToFinance(entry, diff, payDate, method);
       }
     }
 
@@ -761,13 +840,6 @@ const Salary = (() => {
   // finance.js-এ এই function নেই, তাই salary.js নিজেই direct insert করে
   // কিন্তু যদি future-এ Finance module update হয়, তাহলে এটা কাজ করবে
 
-  /* ─── সকল HR staff এর জন্য একবারে sync ─── */
-  function syncAllFromHR() {
-    if (typeof HRStaff === 'undefined') return;
-    HRStaff.getAll().forEach(s => syncFromHR(s.staffId));
-    if (typeof renderContent === 'function') renderContent();
-  }
-
   return {
     init:              renderContent,
     render:            renderContent,
@@ -786,6 +858,7 @@ const Salary = (() => {
     updateNetDisplay,
     syncFromHR,
     syncAllFromHR,
+    _syncPayDate,
     getSummary,
   };
 
