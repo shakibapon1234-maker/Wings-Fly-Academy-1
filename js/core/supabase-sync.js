@@ -305,12 +305,17 @@ const SupabaseSync = (() => {
   }
 
   // ── Cloud Operations (fire-and-forget) ─────────────────────
-  function _sanitizeRecord(record) {
+  function _sanitizeRecord(record, tableKey) {
     if (!record || typeof record !== 'object') return record;
+    // Re-use SyncEngine's TABLE_COLUMNS allowlist if available after init
+    const allowedCols = (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && tableKey)
+      ? SyncEngine.TABLE_COLUMNS[tableKey]
+      : null;
     const o = {};
     for (const [k, v] of Object.entries(record)) {
       if (v === undefined) continue;
       if (k.startsWith('_')) continue; // skip _device and other internal fields
+      if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }
     return o;
@@ -319,7 +324,7 @@ const SupabaseSync = (() => {
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
-      const clean = _sanitizeRecord(record);
+      const clean = _sanitizeRecord(record, table);
       const { error } = await client.from(table).upsert([clean], { onConflict: 'id' });
       if (error) throw error;
       SyncEngine.setStatus('synced');
@@ -355,7 +360,7 @@ const SupabaseSync = (() => {
       const remaining = [];
       for (const item of queue) {
         try {
-          const clean = _sanitizeRecord(item.record);
+          const clean = _sanitizeRecord(item.record, item.table);
           const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
           if (error) throw error;
         } catch { remaining.push(item); }
@@ -508,14 +513,78 @@ const SyncEngine = (() => {
     return Array.from(merged.values());
   }
 
-  function _sanitizeRowForDb(row) {
+  // ── Per-table column allowlists ───────────────────────────
+  // Only columns listed here will be sent to Supabase.
+  // Add or remove columns to match your actual Supabase table schema.
+  // If a table is NOT listed here, all non-underscore columns are sent (default behaviour).
+  const TABLE_COLUMNS = {
+    settings: [
+      'id', 'created_at', 'updated_at',
+      'academy_name', 'academy_address', 'academy_phone', 'academy_email',
+      'admin_password', 'currency', 'timezone', 'logo_url',
+      'primary_color', 'theme',
+    ],
+    salary: [
+      'id', 'created_at', 'updated_at',
+      'staff_id', 'staff_name', 'month', 'year', 'amount',
+      'bonus', 'deduction', 'net_salary', 'status', 'note', 'paid_date',
+    ],
+    students: [
+      'id', 'created_at', 'updated_at',
+      'name', 'student_id', 'phone', 'email', 'address', 'dob',
+      'course', 'batch', 'enrollment_date', 'total_fee', 'paid', 'due',
+      'status', 'photo_url', 'guardian_name', 'guardian_phone', 'note',
+    ],
+    finance_ledger: [
+      'id', 'created_at', 'updated_at',
+      'date', 'type', 'category', 'amount', 'description',
+      'account_id', 'reference', 'note',
+    ],
+    accounts: [
+      'id', 'created_at', 'updated_at',
+      'name', 'type', 'balance', 'description', 'note',
+    ],
+    loans: [
+      'id', 'created_at', 'updated_at',
+      'person_name', 'type', 'amount', 'interest_rate', 'date',
+      'due_date', 'paid', 'status', 'note',
+    ],
+    exams: [
+      'id', 'created_at', 'updated_at',
+      'student_id', 'student_name', 'course', 'batch', 'exam_date',
+      'subject', 'marks', 'total_marks', 'grade', 'result', 'note',
+    ],
+    attendance: [
+      'id', 'created_at', 'updated_at',
+      'person_id', 'person_name', 'type', 'date', 'status', 'note',
+    ],
+    staff: [
+      'id', 'created_at', 'updated_at',
+      'name', 'role', 'phone', 'email', 'address', 'dob',
+      'join_date', 'salary', 'status', 'photo_url', 'note',
+    ],
+    visitors: [
+      'id', 'created_at', 'updated_at',
+      'name', 'phone', 'purpose', 'host', 'visit_date', 'visit_time',
+      'out_time', 'status', 'note',
+    ],
+    notices: [
+      'id', 'created_at', 'updated_at',
+      'title', 'content', 'date', 'category', 'priority', 'author',
+    ],
+  };
+
+  function _sanitizeRowForDb(row, tableKey) {
     if (!row || typeof row !== 'object') return row;
+    const allowedCols = tableKey ? TABLE_COLUMNS[tableKey] : null;
     const o = {};
     for (const [k, v] of Object.entries(row)) {
       // Skip undefined values and internal fields (e.g. _device) that
       // are not real Supabase columns — they cause "column does not exist" errors
       if (v === undefined) continue;
       if (k.startsWith('_')) continue;
+      // If an allowlist exists for this table, only include known columns
+      if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }
     return o;
@@ -523,7 +592,7 @@ const SyncEngine = (() => {
 
   /** Upsert rows; on batch failure, binary-split to locate one bad row (schema/RLS/type errors). */
   async function _upsertTableWithSplit(tableKey, rows) {
-    const clean = rows.map(_sanitizeRowForDb);
+    const clean = rows.map(r => _sanitizeRowForDb(r, tableKey));
     if (!clean.length) return { ok: true };
 
     const tryBatch = async (batch) => {
@@ -823,6 +892,7 @@ const SyncEngine = (() => {
     startRealtime, stopRealtime,
     getLocal, setLocal,
     setStatus, getDataMonitor,
+    TABLE_COLUMNS,
   };
 })();
 window.SyncEngine = SyncEngine;
