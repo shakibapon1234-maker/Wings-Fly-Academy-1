@@ -3496,3 +3496,7 @@ select option:checked {
 .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
 @media(max-width:1024px){ .grid-4 { grid-template-columns: 1fr 1fr; } }
 @media(max-width:768px){ .grid-4 { grid-template-columns: 1fr; } }
+
+.grid-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px; }
+@media(max-width:1200px){ .grid-5 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); } }
+@media(max-width:768px){ .grid-5 { grid-template-columns: 1fr; } }

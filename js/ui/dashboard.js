@@ -247,7 +247,7 @@ const DashboardModule = (() => {
         ${runningBatch ? `<span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}
       </div>
 
-      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div class="stat-grid grid-5">
         <!-- Total Students -->
         <div class="stat-card animated-glow glow-cyan" onclick="App.navigateTo('students')" style="cursor:pointer">
           <div class="stat-header">TOTAL STUDENTS</div>
@@ -302,7 +302,7 @@ const DashboardModule = (() => {
         <i class="fa fa-chart-bar"></i> ALL-TIME LIFETIME OVERVIEW
       </div>
 
-      <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+      <div class="stat-grid grid-5">
         <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
           <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL STUDENTS</div>
           <div class="stat-value" style="font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,255,255,0.3);">${totalStudents}</div>
