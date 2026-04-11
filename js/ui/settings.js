@@ -650,7 +650,7 @@ const SettingsModule = (() => {
     const students = SupabaseSync.getAll(DB.students);
     const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
     const today = new Date().toISOString().split('T')[0];
-    const expStart = cfg.expense_start_date || '';
+    const expStart = cfg.expense_start_date || today;
     const expEnd = cfg.expense_end_date || today;
 
     return `

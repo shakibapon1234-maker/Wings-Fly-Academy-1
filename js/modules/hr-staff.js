@@ -217,11 +217,11 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>JOINING DATE</label>
-            <input type="date" id="sf-joining" class="form-control" value="${s?.joiningDate || ''}" />
+            <input type="date" id="sf-joining" class="form-control" value="${s?.joiningDate || Utils.today()}" />
           </div>
           <div class="form-group">
             <label>RESIGN DATE</label>
-            <input type="date" id="sf-resign" class="form-control" value="${s?.resignDate || ''}" />
+            <input type="date" id="sf-resign" class="form-control" value="${s?.resignDate || Utils.today()}" />
           </div>
           <div class="form-group">
             <label>MONTHLY SALARY (৳)</label>

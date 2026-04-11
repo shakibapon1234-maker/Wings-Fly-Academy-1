@@ -117,7 +117,7 @@ const Accounts = (() => {
             <span style="color:var(--text-muted); font-size:0.8rem;">From:</span>
             <input type="date" id="hist-from" class="form-control" style="padding:4px 8px; font-size:0.85rem; max-width:130px; border-color:rgba(255,255,255,0.1)" value="${histResFrom}" />
             <span style="color:var(--text-muted); font-size:0.8rem;">To:</span>
-            <input type="date" id="hist-to" class="form-control" style="padding:4px 8px; font-size:0.85rem; max-width:130px; border-color:rgba(255,255,255,0.1)" value="${histResTo}" />
+            <input type="date" id="hist-to" class="form-control" style="padding:4px 8px; font-size:0.85rem; max-width:130px; border-color:rgba(255,255,255,0.1)" value="${histResTo || Utils.today()}" />
             <button class="btn btn-warning btn-sm" onclick="Accounts.filterHistory()" style="color:#000; font-weight:800;"><i class="fa fa-filter"></i> FILTER</button>
             <button class="btn btn-ghost btn-sm" onclick="Accounts.clearHistoryFilter()"><i class="fa fa-times"></i> CLEAR</button>
           </div>

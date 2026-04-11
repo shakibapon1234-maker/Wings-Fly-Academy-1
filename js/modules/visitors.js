@@ -152,7 +152,7 @@ const VisitorsModule = (() => {
         </div>
         <div class="form-group">
           <label>Follow-up Date</label>
-          <input type="date" id="vis-fdate" class="form-control" value="${r?.followUpDate || ''}" />
+          <input type="date" id="vis-fdate" class="form-control" value="${r?.followUpDate || Utils.today()}" />
         </div>
       </div>
 
