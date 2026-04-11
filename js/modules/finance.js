@@ -88,7 +88,7 @@ const Finance = (() => {
                 <th>#</th>
                 <th>Date</th>
                 <th>Type</th>
-                <th>Department</th>
+                <th>Category</th>
                 <th>Description</th>
                 <th>Method</th>
                 <th>Amount</th>
@@ -158,6 +158,32 @@ const Finance = (() => {
   }
 
   /* ══════════════════════════════════════════
+     HELPERS & SETTINGS SYNC
+  ══════════════════════════════════════════ */
+  function getCategories(type) {
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    let arr = [];
+    if (type === 'Income' || type === 'Transfer In' || type === 'Loan Receiving') {
+      arr = cfg.income_categories ? JSON.parse(cfg.income_categories) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
+    } else {
+      arr = cfg.expense_categories ? JSON.parse(cfg.expense_categories) : ['Rent', 'Salary', 'Loan Given', 'Other'];
+    }
+    return arr;
+  }
+
+  function updateCategoryDropdown(selectObj) {
+    const catEl = document.getElementById('ff-category');
+    if (!catEl) return;
+    const type = selectObj.value;
+    const isLoan = type === 'Loan Giving' || type === 'Loan Receiving';
+    const personGrp = document.getElementById('ff-person-group');
+    if (personGrp) personGrp.style.display = isLoan ? 'block' : 'none';
+
+    const categories = getCategories(type);
+    catEl.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+
+  /* ══════════════════════════════════════════
      FILTERS
   ══════════════════════════════════════════ */
   function applyFilters(rows) {
@@ -209,7 +235,7 @@ const Finance = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Type <span class="req">*</span></label>
-          <select id="ff-type" class="form-control" onchange="document.getElementById('ff-person-group').style.display = (this.value==='Loan Giving'||this.value==='Loan Receiving')?'block':'none'">
+          <select id="ff-type" class="form-control" onchange="Finance.updateCategoryDropdown(this)">
             <option value="Income"         ${d.type==='Income'?'selected':''}>Income</option>
             <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense</option>
             <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
@@ -233,13 +259,10 @@ const Finance = (() => {
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label>Department</label>
-          <input id="ff-category" class="form-control" list="fin-cat-list" value="${d.category||''}" placeholder="e.g.: Student Fee, Rent…" />
-          <datalist id="fin-cat-list">
-            <option value="Student Fee"><option value="Exam Fee"><option value="Salary">
-            <option value="Rent"><option value="Utilities"><option value="Equipment">
-            <option value="Marketing"><option value="Miscellaneous">
-          </datalist>
+          <label>Category</label>
+          <select id="ff-category" class="form-control">
+            ${Finance._tempGetCategories ? Finance._tempGetCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('') : getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group">
           <label>Date <span class="req">*</span></label>
@@ -349,7 +372,7 @@ const Finance = (() => {
     const rows     = filtered.map(f=>({
       'Date':    f.date||'',
       'Type':      f.type||'',
-      'Department':    f.category||'',
+      'Category':    f.category||'',
       'Description':    f.description||'',
       'Method':   f.method||'',
       'Amount':   f.amount||0,
@@ -361,7 +384,7 @@ const Finance = (() => {
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
-    openAddModal, openEditModal,
+    openAddModal, openEditModal, updateCategoryDropdown,
     saveEntry, deleteEntry, exportExcel,
   };
 
