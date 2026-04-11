@@ -31,6 +31,7 @@ const NoticeBoardModule = (() => {
 
   // Find the single active notice from DB
   function refreshActiveNotice() {
+    if (!window.DB || !DB.notices) return; // DB not ready yet
     const all = SupabaseSync.getAll(DB.notices) || [];
     
     // Sort by descending created at
@@ -168,7 +169,7 @@ const NoticeBoardModule = (() => {
            </div>`
         }
 
-        <div style="${isRunning ? 'opacity:0.5; pointer-events:none;' : ''}">
+        <div style="">
           <div class="form-group mb-3">
             <label>Notice Content</label>
             <textarea id="noticeTextInput" class="form-control" rows="3" placeholder="Type your notice here..." oninput="document.getElementById('noticeCharCount').innerText = this.value.length"></textarea>
@@ -296,8 +297,14 @@ const NoticeBoardModule = (() => {
       durationMinutes = parseInt(durSel?.value) || 720;
     }
 
+    // Active notice থাকলে replace করার আগে confirm
+    if (activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now()) {
+      const ok = await Utils.confirm('একটি Notice ইতিমধ্যে চলছে। Replace করবেন?', 'Replace Notice');
+      if (!ok) return;
+    }
+
     const payload = {
-      id: Utils.uid('NOT'),
+      id: 'NOT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       text: text,
       title: text, // legacy fallback support
       type: type,
@@ -313,12 +320,17 @@ const NoticeBoardModule = (() => {
     SupabaseSync.insert(DB.notices, payload);
     Utils.toast('Global Notice Published successfully!', 'success');
     
-    // Refresh
+    // Banner সাথে সাথে দেখাও
+    activeNotice = payload;
+    showBanner(payload);
+
+    // Refresh UI
     render();
   }
 
-  function deleteActive() {
-    if (!confirm('Are you sure you want to disable the active notice?')) return;
+  async function deleteActive() {
+    const ok = await Utils.confirm('Are you sure you want to disable the active notice?', 'Disable Notice');
+    if (!ok) return;
     if (activeNotice && activeNotice.id) {
        SupabaseSync.remove(DB.notices, activeNotice.id);
     }
