@@ -208,7 +208,7 @@ const DashboardModule = (() => {
   function renderLoanSummary(loanOut, loanIn) {
     const netLoan = loanOut - loanIn;
     return `
-      <div class="card">
+      <div class="card animated-border-box">
         <div class="card-title">💳 Loan Summary</div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
           <div>
@@ -303,44 +303,45 @@ const DashboardModule = (() => {
       </div>
 
       <div class="stat-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
-        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">All Students</div>
-          <div class="stat-value" style="font-size:1.4rem">${totalStudents}</div>
-          <div class="stat-subtext" style="margin-bottom:0;">Total Enrolled</div>
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL STUDENTS</div>
+          <div class="stat-value" style="font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,255,255,0.3);">${totalStudents}</div>
+          <div class="stat-subtext" style="color:var(--brand-primary)">Total Enrolled</div>
         </div>
 
-        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">All Collection</div>
-          <div class="stat-value" style="font-size:1.4rem; color:var(--success)">${Utils.takaEn(totalIncome)}</div>
-          <div class="stat-subtext" style="margin-bottom:0;">Student Fees</div>
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL COLLECTION</div>
+          <div class="stat-value" style="font-size:1.6rem; color:var(--success); font-weight:800; text-shadow:0 0 10px rgba(0,255,136,0.3);">${Utils.takaEn(totalIncome)}</div>
+          <div class="stat-subtext" style="color:var(--brand-primary)">Student Fees</div>
         </div>
 
-        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Total Expense</div>
-          <div class="stat-value" style="font-size:1.4rem; color:var(--error)">${Utils.takaEn(totalExpense)}</div>
-          <div class="stat-subtext" style="margin-bottom:0;">All Time Costs</div>
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">TOTAL EXPENSE</div>
+          <div class="stat-value" style="font-size:1.6rem; color:var(--error); font-weight:800; text-shadow:0 0 10px rgba(255,71,87,0.3);">${Utils.takaEn(totalExpense)}</div>
+          <div class="stat-subtext" style="color:var(--brand-primary)">All Time Costs</div>
         </div>
 
-        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Net Profit/Loss</div>
-          <div class="stat-value" style="font-size:1.4rem; color:${netProfit>=0?'var(--success)':'var(--error)'}">${Utils.takaEn(netProfit)}</div>
-          <div class="stat-subtext" style="margin-bottom:0;">${netProfit>=0?'Net Profit':'Net Loss'}</div>
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">NET PROFIT/LOSS</div>
+          <div class="stat-value" style="font-size:1.6rem; font-weight:800; color:${netProfit>=0?'var(--success)':'var(--error)'}; text-shadow:0 0 10px ${netProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(netProfit)}</div>
+          <div class="stat-subtext" style="color:var(--brand-primary)">${netProfit>=0?'Net Profit':'Net Loss'}</div>
         </div>
 
-        <div class="stat-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:var(--text-secondary); font-size:0.8rem;">Account Balance</div>
-          <div class="stat-value" style="font-size:1.4rem; color:var(--info)">${Utils.takaEn(totalBalance)}</div>
-          <div class="stat-subtext" style="margin-bottom:0;">Cash + Bank + Mobile</div>
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
+          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ACCOUNT BALANCE</div>
+          <div class="stat-value" style="font-size:1.6rem; color:var(--info); font-weight:800; text-shadow:0 0 10px rgba(0,212,255,0.3);">${Utils.takaEn(totalBalance)}</div>
+          <div class="stat-subtext" style="color:var(--brand-primary)">Cash + Bank + Mobile</div>
         </div>
       </div>
 
       <!-- Charts & Notices -->
       <div class="dash-grid mb-24" style="margin-top:32px;">
-        <div class="card stat-card" style="grid-column: 1 / -1; padding:24px; z-index:1;">
-          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(0,212,255,0.2); padding-bottom:12px; margin-bottom:20px;">
+        <div class="card stat-card animated-border-box" style="grid-column: 1 / -1; padding:24px; z-index:1;">
+          <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
             <div style="font-size:1.4rem; font-weight:800; color:var(--brand-primary); text-shadow:0 0 10px rgba(0,212,255,0.3);">Analytics Overview</div>
             <button class="btn btn-outline btn-sm"><i class="fa fa-calendar"></i> Date - ${new Date().toLocaleString('default', {month:'short', day:'numeric'})}</button>
           </div>
+          <div class="moving-gradient-line"></div>
           
           <div class="dash-grid" style="grid-template-columns: 2fr 1fr; gap:32px; align-items:center;">
             <!-- Revenue Chart -->
@@ -354,9 +355,10 @@ const DashboardModule = (() => {
             <!-- Course Enrollments Doughnut -->
             <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:24px; height:100%;">
               <div style="font-weight:700; color:#fff; margin-bottom:16px;">Course Enrollments</div>
-              <div style="position:relative; height:280px; display:flex; justify-content:center; align-items:center;">
-                <canvas id="courseChart"></canvas>
-                <div style="position:absolute; top:42%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none;">
+              <div style="position:relative; width:260px; height:260px; margin: 0 auto; display:flex; justify-content:center; align-items:center;">
+                <div class="doughnut-glow-ring"></div>
+                <canvas id="courseChart" style="position:relative; z-index:2; width:100%; height:100%;"></canvas>
+                <div style="position:absolute; top:42%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; z-index:3;">
                   <div class="counter-val" data-target="${rTotalStudents}" style="font-size:2.8rem; font-weight:800; color:#00d4ff; text-shadow:0 0 15px rgba(0,212,255,0.5); line-height:1;">0</div>
                   <div style="font-size:0.75rem; font-weight:700; letter-spacing:0.1em; color:var(--text-secondary); margin-top:4px;">STUDENTS</div>
                 </div>
@@ -365,8 +367,8 @@ const DashboardModule = (() => {
           </div>
         </div>
 
-        <div class="card" style="grid-column: 1 / -1;">
-          <div class="card-title" style="display:flex;justify-content:space-between">
+        <div class="card animated-border-box" style="grid-column: 1 / -1;">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
             <span>📢 Notice Board</span>
             <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">View All</button>
           </div>
@@ -377,7 +379,7 @@ const DashboardModule = (() => {
       <!-- Loan Summary & Student Reminders -->
       <div class="dash-grid mb-24">
         ${renderLoanSummary(loanOut, loanIn)}
-        <div class="card">
+        <div class="card animated-border-box">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
             <span>🔔 Student Reminders (Due)</span>
             <button class="btn btn-outline btn-sm" onclick="App.navigateTo('students')">View All</button>
@@ -388,13 +390,13 @@ const DashboardModule = (() => {
 
       <!-- Batch Summary & Recent Admissions -->
       <div class="dash-grid mb-24">
-        <div class="card">
+        <div class="card animated-border-box">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
             <span>📊 Batch Financial Summary</span>
           </div>
           ${renderBatchSummary(students)}
         </div>
-        <div class="card">
+        <div class="card animated-border-box">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
             <span>🆕 Recent Admissions</span>
             <button class="btn btn-outline btn-sm" onclick="App.navigateTo('students')">View All</button>
@@ -404,7 +406,7 @@ const DashboardModule = (() => {
       </div>
 
       <!-- Last 5 Transactions -->
-      <div class="card mb-24">
+      <div class="card animated-border-box mb-24">
         <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
           <span>💸 Last 5 Transactions</span>
           <button class="btn btn-outline btn-sm" onclick="App.navigateTo('finance')">View All</button>
@@ -523,11 +525,11 @@ const DashboardModule = (() => {
 
       const style = getComputedStyle(document.body);
       const colorDoughnut = [
-        style.getPropertyValue('--brand-primary').trim() || '#00d4ff',
-        style.getPropertyValue('--brand-accent').trim() || '#ffeb3b',
-        style.getPropertyValue('--brand-gold').trim() || '#F9A825',
-        style.getPropertyValue('--brand-neon').trim() || '#00ff88',
-        style.getPropertyValue('--info').trim() || '#00d9ff'
+        '#00ff88', /* Neon Green */
+        '#ffeb3b', /* Bright Yellow */
+        '#ff007f', /* Neon Pink */
+        '#00d4ff', /* Cyan */
+        '#b537f2'  /* Purple */
       ];
 
       window.dashCourseChart = new Chart(courseCanvas, {

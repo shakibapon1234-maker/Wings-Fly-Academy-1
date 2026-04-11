@@ -258,7 +258,7 @@ const App = (() => {
   // ── Init ──────────────────────────────────────────────────
   function init() {
     // Apply saved theme
-    const savedTheme = localStorage.getItem('wfa_theme') || 'dark';
+    const savedTheme = localStorage.getItem('wfa_theme') || 'aurora-wave';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeBtn = document.getElementById('btn-theme-toggle');
     if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';

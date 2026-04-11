@@ -234,7 +234,7 @@ const SettingsModule = (() => {
   ];
 
   function panelTheme() {
-    const currentTheme   = localStorage.getItem('wfa_theme') || 'neon-space';
+    const currentTheme   = localStorage.getItem('wfa_theme') || 'aurora-wave';
     const currentSidebar = localStorage.getItem(`wfa_sidebar_${currentTheme}`) || 'glass';
 
     return `
@@ -388,7 +388,8 @@ const SettingsModule = (() => {
     { id: 'obsidian',name: '🌌 Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
     { id: 'maroon', name: '🔥 Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
     { id: 'purple', name: '💜 Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
-    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' }
+    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' },
+    { id: 'glass',  name: '🧊 Aurora Glass', cardBg: 'rgba(5,10,25,0.30)', border: 'rgba(0,240,255,0.25)', inner: 'rgba(4,6,18,0.45)', anaBg: 'rgba(2,4,12,0.35)' }
   ];
 
   function buildCardColorsHTML(themeId) {
@@ -429,7 +430,7 @@ const SettingsModule = (() => {
   }
 
   function applySidebarStyle(styleId) {
-    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
     localStorage.setItem(`wfa_sidebar_${themeId}`, styleId);
     _applySidebarClass(styleId);
     // Refresh only the sidebar style section
@@ -479,7 +480,7 @@ const SettingsModule = (() => {
   }
 
   function saveCustomSidebarColors() {
-    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     
     const settings = {
@@ -494,7 +495,7 @@ const SettingsModule = (() => {
   }
   
   function resetCustomSidebarColors() {
-    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     localStorage.removeItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
     refreshModal();
@@ -504,7 +505,7 @@ const SettingsModule = (() => {
   }
 
   function applyCardPreset(presetId) {
-    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
     localStorage.setItem(`wfa_card_theme_${themeId}`, presetId);
     _applyColorOverrides();
     refreshModal();
@@ -516,7 +517,7 @@ const SettingsModule = (() => {
   // ── Inject globally custom style block ──
   
   function _applyColorOverrides() {
-    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     const cardPresetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || 'navy';
     
@@ -567,7 +568,7 @@ const SettingsModule = (() => {
       'nebula': 'purple',
       'emerald': 'emerald',
       'molten': 'obsidian',
-      'aurora-wave': 'navy'
+      'aurora-wave': 'glass'
     };
     return map[themeId] || 'navy';
   }
@@ -582,7 +583,7 @@ const SettingsModule = (() => {
     
     // Auto-resolve preset if missing
     if (!presetId) {
-       const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
+       const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
        presetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || _getDefaultPresetForTheme(themeId);
     }
 
@@ -603,13 +604,19 @@ const SettingsModule = (() => {
        .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { 
          background: var(--card-bg) !important; 
          border-color: var(--card-border) !important; 
+         backdrop-filter: blur(14px) saturate(1.4) !important;
+         -webkit-backdrop-filter: blur(14px) saturate(1.4) !important;
        }
        .modal-box, .settings-modal, .att-modal-container { 
          background: var(--card-glow-inner) !important; 
          border-color: var(--card-border) !important; 
+         backdrop-filter: blur(20px) saturate(1.2) !important;
+         -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
        }
        .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper {
          background: var(--analytics-bg) !important;
+         backdrop-filter: blur(10px) !important;
+         -webkit-backdrop-filter: blur(10px) !important;
        }
        .table-wrapper table th { background: rgba(0,0,0,0.6) !important; }
        .notice-item { background: rgba(0,0,0,0.3) !important; }
@@ -1954,7 +1961,7 @@ window.SettingsModule = SettingsModule;
 
 // ── Restore saved theme + sidebar + colors on page load ──────────────
 (function restoreThemeOnLoad() {
-  const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
+  const savedTheme = localStorage.getItem('wfa_theme') || 'aurora-wave';
   const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald','aurora-wave'];
   allThemeIds.forEach(id => document.body.classList.remove(`theme-${id}`));
   document.body.classList.add(`theme-${savedTheme}`);
