@@ -10,6 +10,8 @@ const Exam = (() => {
   let filterBatch = '';
   let filterStatus = '';
   let editingId = null;
+  let currentPage = 1;
+  let pageSize = 20;
 
   /* ══════════════════════════════════════════
      RENDER
@@ -77,18 +79,25 @@ const Exam = (() => {
               </tr>
             </thead>
             <tbody>
-              ${renderRows(filtered)}
+              ${(() => {
+                const pageData = Utils.paginate(filtered, currentPage, pageSize);
+                return renderRows(pageData.items, (currentPage - 1) * pageSize);
+              })()}
             </tbody>
           </table>
         </div>
+        ${(() => {
+          const pageData = Utils.paginate(filtered, currentPage, pageSize);
+          return (pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Exam') : '';
+        })()}
       </div>
     `;
   }
 
-  function renderRows(rows) {
+  function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(10, 'No exam registrations found');
     return rows.map((e, i) => `<tr>
-      <td style="color:var(--text-muted);font-size:0.8rem">${i + 1}</td>
+      <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
       <td>${Utils.badge(e.reg_id || '—', 'primary')}</td>
       <td>
         <div style="font-weight:600">${e.student_name || '—'}</div>
@@ -128,14 +137,16 @@ const Exam = (() => {
     return r;
   }
 
-  const debouncedRender = Utils.debounce(() => render(), 250);
-  function onSearch(val) { searchQuery = val; debouncedRender(); }
+  function onSearch(val) { searchQuery = val; currentPage = 1; Utils.debounce(() => render(), 250)(); }
   function onFilter(key, val) {
     if (key === 'batch')  filterBatch = val;
     if (key === 'status') filterStatus = val;
+    currentPage = 1;
     render();
   }
-  function resetFilters() { searchQuery = filterBatch = filterStatus = ''; render(); }
+  function resetFilters() { searchQuery = filterBatch = filterStatus = ''; currentPage = 1; render(); }
+  function changePage(p) { currentPage = p; render(); }
+  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
   /* ══════════════════════════════════════════
      REGISTRATION MODAL
@@ -429,8 +440,6 @@ const Exam = (() => {
         const method = Utils.formVal('ef-method');
         if (!method) {
           Utils.toast('Please select payment method for the fee', 'error');
-          // Still completed exam entry, but let him know fee wasn't recorded properly.
-          // Wait, if it fails, it shouldn't proceed. Handled below ideally.
         } else {
           SupabaseSync.insert(DB.finance, {
             type: 'Income', category: 'Exam Fee',
@@ -493,6 +502,7 @@ const Exam = (() => {
 
   return {
     render, onSearch, onFilter, resetFilters,
+    changePage, changePageSize,
     openRegModal, openEditModal, openGradeModal,
     onStudentSelect, saveEntry, saveGrade, deleteEntry, exportExcel,
   };

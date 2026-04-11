@@ -12,6 +12,8 @@ const Students = (() => {
   let filterCourse = '';
   let filterStatus = '';
   let editingId    = null;
+  let currentPage  = 1;
+  let pageSize     = 20;
 
   /* ══════════════════════════════════════════
      MAIN RENDER
@@ -84,19 +86,26 @@ const Students = (() => {
               </tr>
             </thead>
             <tbody id="students-tbody">
-              ${renderRows(filtered)}
+              ${(() => {
+                const pageData = Utils.paginate(filtered, currentPage, pageSize);
+                return renderRows(pageData.items, (currentPage - 1) * pageSize);
+              })()}
             </tbody>
           </table>
         </div>
+        ${(() => {
+          const pageData = Utils.paginate(filtered, currentPage, pageSize);
+          return (pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Students') : '';
+        })()}
       </div>
     `;
   }
 
-  function renderRows(rows) {
+  function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(12, 'No Student not found');
     return rows.map((s, i) => `
       <tr>
-        <td style="color:var(--text-muted);font-size:0.8rem">${i+1}</td>
+        <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td><span class="badge badge-primary">${s.student_id||'—'}</span></td>
         <td>
           <div style="font-weight:600">${s.name}</div>
@@ -141,6 +150,7 @@ const Students = (() => {
 
   function onSearch(val) {
     searchQuery = val;
+    currentPage = 1;
     debouncedRender();
   }
 
@@ -148,13 +158,18 @@ const Students = (() => {
     if (type === 'batch')  filterBatch  = val;
     if (type === 'course') filterCourse = val;
     if (type === 'status') filterStatus = val;
+    currentPage = 1;
     render();
   }
 
   function resetFilters() {
     searchQuery = filterBatch = filterCourse = filterStatus = '';
+    currentPage = 1;
     render();
   }
+
+  function changePage(p) { currentPage = p; render(); }
+  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
   /* ══════════════════════════════════════════
      ADD MODAL
@@ -680,6 +695,7 @@ const Students = (() => {
 
   return {
     render, onSearch, onFilter, resetFilters,
+    changePage, changePageSize,
     openAddModal, openEditModal, openPayModal, openManageAction,
     calcDue, saveStudent, savePayment,
     deleteStudent, exportExcel,

@@ -3453,3 +3453,42 @@ select option:checked {
   background-color: #004d66;
   color: #fff;
 }
+
+/* -- Pagination Buttons -- */
+.page-btn {
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: #fff;
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-en);
+  font-size: 0.9rem;
+}
+.page-btn:hover {
+  background: rgba(0,212,255,0.2);
+  border-color: rgba(0,212,255,0.5);
+  color: #00d4ff;
+}
+.page-btn.active {
+  background: rgba(0,212,255,0.2);
+  border-color: #00d4ff;
+  color: #00d4ff;
+  font-weight: 700;
+  box-shadow: 0 0 10px rgba(0,212,255,0.3);
+}
+.page-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+.page-dots {
+  color: rgba(255,255,255,0.5);
+  font-weight: 700;
+  user-select: none;
+}

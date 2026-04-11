@@ -12,6 +12,8 @@ const Finance = (() => {
   let filterTo     = Utils.today();
   let searchQuery  = '';
   let editingId    = null;
+  let currentPage  = 1;
+  let pageSize     = 20;
 
   /* ══════════════════════════════════════════
      RENDER
@@ -95,20 +97,27 @@ const Finance = (() => {
               </tr>
             </thead>
             <tbody>
-              ${renderRows(withBalance)}
+              ${(() => {
+                const pageData = Utils.paginate(withBalance, currentPage, pageSize);
+                return renderRows(pageData.items, (currentPage - 1) * pageSize);
+              })()}
             </tbody>
           </table>
         </div>
+        ${(() => {
+          const pageData = Utils.paginate(withBalance, currentPage, pageSize);
+          return (pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Finance') : '';
+        })()}
       </div>
     `;
   }
 
-  function renderRows(rows) {
-    if (!rows.length) return Utils.noDataRow(9,'No Transaction not found');
-    return rows.map((f,i) => {
+  function renderRows(rows, startIndex = 0) {
+    if (!rows.length) return Utils.noDataRow(9, 'No records found');
+    return rows.map((f, i) => {
       const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
       return `<tr>
-        <td style="color:var(--text-muted);font-size:0.8rem">${i+1}</td>
+        <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDate(f.date)}</td>
         <td>${typeBadge(f.type)}</td>
         <td style="font-size:0.82rem;color:var(--text-secondary)">${f.category||'—'}</td>
@@ -161,18 +170,24 @@ const Finance = (() => {
   }
 
   const debouncedRender = Utils.debounce(()=>render(),250);
-  function onSearch(val) { searchQuery=val; debouncedRender(); }
-  function onFilter(key,val) {
-    if(key==='type')  filterType=val;
-    if(key==='method')filterMethod=val;
-    if(key==='from')  filterFrom=val;
-    if(key==='to')    filterTo=val;
+  function onSearch(val) { searchQuery = val; currentPage = 1; debouncedRender(); }
+  function onFilter(t, v) {
+    if (t === 'type') filterType = v;
+    if (t === 'method') filterMethod = v;
+    if (t === 'from') filterFrom = v;
+    if (t === 'to') filterTo = v;
+    currentPage = 1;
     render();
   }
   function resetFilters() {
-    filterType=filterMethod=filterFrom=filterTo=searchQuery='';
+    filterType = filterMethod = filterFrom = searchQuery = '';
+    filterTo = Utils.today();
+    currentPage = 1;
     render();
   }
+  
+  function changePage(p) { currentPage = p; render(); }
+  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
   /* ══════════════════════════════════════════
      ADD MODAL
@@ -296,7 +311,7 @@ const Finance = (() => {
         type:        type,
         person_name: person,
         amount,
-        date,
+        date:        record.date,
         note:        record.note,
         status:      'Outstanding',
       });
@@ -345,6 +360,7 @@ const Finance = (() => {
 
   return {
     render, onSearch, onFilter, resetFilters,
+    changePage, changePageSize,
     openAddModal, openEditModal,
     saveEntry, deleteEntry, exportExcel,
   };

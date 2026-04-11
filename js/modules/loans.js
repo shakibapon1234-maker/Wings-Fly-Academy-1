@@ -7,6 +7,8 @@
 const Loans = (() => {
 
   let editingId = null;
+  let currentPage = 1;
+  let pageSize = 20;
 
   function render() {
     const container = document.getElementById('loans-content');
@@ -87,29 +89,33 @@ const Loans = (() => {
       <!-- Full Loan Ledger -->
       <div class="card" style="border-color:rgba(0,212,255,0.12)">
         <div class="card-title" style="margin-bottom:14px;color:var(--brand-primary)"><i class="fa fa-list" style="color:var(--brand-primary)"></i> Loan Ledger</div>
-        ${loans.length ? `<div class="table-wrapper"><table>
-          <thead><tr><th>Date</th><th>Person</th><th>Type</th><th>Amount</th><th>Status</th><th class="no-print">Action</th></tr></thead>
-          <tbody>
-            ${loans.map(l=>`<tr>
-              <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
-              <td style="font-weight:600">${l.person_name || l.person || '—'}</td>
-              <td>${(l.type==='Loan Giving' || l.direction==='given')
-                ? '<span class="badge-expense">Given</span>'
-                : '<span class="badge-income">Taken</span>'}</td>
-              <td style="font-family:var(--font-ui);font-weight:600">${Utils.takaEn(l.amount)}</td>
-              <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
-              <td class="no-print">
-                <div class="table-actions">
-                  <button class="btn-edit" onclick="Loans.toggleStatus('${l.id}','${l.status||'Outstanding'}')">
-                    <i class="fa fa-check"></i>
-                  </button>
-                  <button class="btn-edit" onclick="Loans.openEditModal('${l.id}')"><i class="fa fa-pen"></i></button>
-                  <button class="btn-delete" onclick="Loans.deleteLoan('${l.id}')"><i class="fa fa-trash"></i></button>
-                </div>
-              </td>
-            </tr>`).join('')}
-          </tbody>
-        </table></div>` : `<div class="no-data"><i class="fa fa-inbox"></i>No loans found</div>`}
+        ${loans.length ? (() => {
+          const pageData = Utils.paginate(loans, currentPage, pageSize);
+          return `<div class="table-wrapper"><table>
+            <thead><tr><th>Date</th><th>Person</th><th>Type</th><th>Amount</th><th>Status</th><th class="no-print">Action</th></tr></thead>
+            <tbody>
+              ${pageData.items.map(l=>`<tr>
+                <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
+                <td style="font-weight:600">${l.person_name || l.person || '—'}</td>
+                <td>${(l.type==='Loan Giving' || l.direction==='given')
+                  ? '<span class="badge-expense">Given</span>'
+                  : '<span class="badge-income">Taken</span>'}</td>
+                <td style="font-family:var(--font-ui);font-weight:600">${Utils.takaEn(l.amount)}</td>
+                <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
+                <td class="no-print">
+                  <div class="table-actions">
+                    <button class="btn-edit" onclick="Loans.toggleStatus('${l.id}','${l.status||'Outstanding'}')">
+                      <i class="fa fa-check"></i>
+                    </button>
+                    <button class="btn-edit" onclick="Loans.openEditModal('${l.id}')"><i class="fa fa-pen"></i></button>
+                    <button class="btn-delete" onclick="Loans.deleteLoan('${l.id}')"><i class="fa fa-trash"></i></button>
+                  </div>
+                </td>
+              </tr>`).join('')}
+            </tbody>
+          </table></div>
+          ${(pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Loans') : ''}`;
+        })() : `<div class="no-data"><i class="fa fa-inbox"></i>No loans found</div>`}
       </div>
     `;
   }
@@ -284,6 +290,10 @@ const Loans = (() => {
     `);
   }
 
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail };
+  function changePage(p) { currentPage = p; render(); }
+  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
+
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize };
 
 })();
+

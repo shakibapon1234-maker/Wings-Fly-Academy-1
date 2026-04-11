@@ -275,6 +275,49 @@ const Utils = (() => {
     return { items: arr.slice(start, start + pageSize), total: arr.length, pages: Math.ceil(arr.length / pageSize) };
   }
 
+  function renderPaginationUI(totalItems, currentPage, pageSize, moduleName) {
+    const totalPages = Math.ceil(totalItems / pageSize) || 1;
+    if (currentPage > totalPages) currentPage = totalPages;
+
+    let pagesHtml = '';
+    
+    // Previous button
+    pagesHtml += `<button class="page-btn ${currentPage === 1 ? 'disabled' : ''}" onclick="${currentPage > 1 ? `${moduleName}.changePage(${currentPage - 1})` : ''}"><i class="fa fa-chevron-left"></i></button>`;
+    
+    // Page numbers
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+      pagesHtml += `<button class="page-btn" onclick="${moduleName}.changePage(1)">1</button>`;
+      if (startPage > 2) pagesHtml += `<span class="page-dots">...</span>`;
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+      pagesHtml += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="${moduleName}.changePage(${i})">${i}</button>`;
+    }
+    
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) pagesHtml += `<span class="page-dots">...</span>`;
+      pagesHtml += `<button class="page-btn" onclick="${moduleName}.changePage(${totalPages})">${totalPages}</button>`;
+    }
+    
+    // Next button
+    pagesHtml += `<button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" onclick="${currentPage < totalPages ? `${moduleName}.changePage(${currentPage + 1})` : ''}"><i class="fa fa-chevron-right"></i></button>`;
+
+    return `
+      <div class="pagination-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px;">
+        ${pagesHtml}
+        <select class="page-size-select" onchange="${moduleName}.changePageSize(this.value)" style="margin-left: 8px; padding: 6px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none; cursor: pointer;">
+          <option value="10" ${pageSize==10?'selected':''}>10 / page</option>
+          <option value="20" ${pageSize==20?'selected':''}>20 / page</option>
+          <option value="50" ${pageSize==50?'selected':''}>50 / page</option>
+          <option value="100" ${pageSize==100?'selected':''}>100 / page</option>
+        </select>
+      </div>
+    `;
+  }
+
     // ── Payment Methods Dropdown ──────────────────────────────
     function getPaymentMethodsHTML(selectedValue = '') {
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
@@ -371,7 +414,7 @@ const Utils = (() => {
       // Print & Export
       printArea, exportExcel, downloadCSV,
       // Misc
-      debounce, paginate, getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange
+      debounce, paginate, renderPaginationUI, getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange
     };
 })();
 
