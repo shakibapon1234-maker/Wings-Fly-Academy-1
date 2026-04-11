@@ -133,44 +133,89 @@ const Loans = (() => {
   }
 
   function formHTML(d={}) {
+    // সব existing persons collect করো (loan দেওয়া বা নেওয়া সব)
+    const allLoans = SupabaseSync.getAll(DB.loans);
+    const existingPersons = [...new Set(
+      allLoans.map(l => l.person_name || l.person || '').filter(Boolean)
+    )].sort();
+
+    // Date parts
+    const dateStr = (d.date || Utils.today()).split('T')[0];
+    const dateParts = dateStr.split('-');
+    const yyyy = dateParts[0] || String(new Date().getFullYear());
+    const mm   = dateParts[1] || String(new Date().getMonth()+1).padStart(2,'0');
+    const dd   = dateParts[2] || String(new Date().getDate()).padStart(2,'0');
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
+
     return `
       <div class="form-row">
         <div class="form-group">
           <label>Loan Type <span class="req">*</span></label>
-          <select id="lf-direction" class="form-control">
-            <option value="Loan Giving"    ${(l=>l.type==='Loan Giving'||l.direction==='given')(d)?'selected':''}>I have given</option>
-            <option value="Loan Receiving" ${(l=>l.type==='Loan Receiving'||l.direction==='received')(d)?'selected':''}>I have taken</option>
+          <select id="lf-direction" class="form-control" onchange="Loans._onTypeChange()">
+            <option value="Loan Giving"    ${(l=>l.type==='Loan Giving'||l.direction==='given')(d)?'selected':''}>আমি দিয়েছি (Loan Given)</option>
+            <option value="Loan Receiving" ${(l=>l.type==='Loan Receiving'||l.direction==='received')(d)?'selected':''}>আমি নিয়েছি (Loan Taken)</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Person's Name <span class="req">*</span></label>
-          <input id="lf-person" class="form-control" value="${d.person_name||d.person||''}" placeholder="Person's Name / Organization" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Amount (৳) <span class="req">*</span></label>
-          <input id="lf-amount" type="number" class="form-control" value="${d.amount||''}" placeholder="0" />
-        </div>
-        <div class="form-group">
-          <label>Date</label>
-          <input id="lf-date" type="date" class="form-control" value="${(d.date||Utils.today()).split('T')[0]}" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
           <label>Payment Method <span class="req">*</span></label>
-          <select id="lf-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'lf-bal-display')">
+          <select id="lf-method" class="form-control" onchange="Utils.onPaymentMethodChange && Utils.onPaymentMethodChange(this, 'lf-bal-display')">
             <option value="">Select Method</option>
             ${Utils.getPaymentMethodsHTML(d.method)}
           </select>
           <div id="lf-bal-display" style="display:none;"></div>
         </div>
+      </div>
+
+      <!-- Person Name: dropdown + manual input -->
+      <div class="form-group">
+        <label>Person's Name <span class="req">*</span></label>
+        <div style="display:flex; gap:8px; align-items:center;">
+          ${existingPersons.length ? `
+          <select id="lf-person-select" class="form-control" style="flex:1;" onchange="Loans._onPersonSelect()">
+            <option value="">-- নতুন নাম লিখুন --</option>
+            ${existingPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
+          </select>` : ''}
+          <input id="lf-person" class="form-control" style="flex:1;" value="${d.person_name||d.person||''}" placeholder="Person's Name / Organization" />
+        </div>
+        <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
+          <i class="fa fa-info-circle"></i> Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Amount (৳) <span class="req">*</span></label>
+          <input id="lf-amount" type="number" class="form-control" value="${d.amount||''}" placeholder="0" min="1" />
+        </div>
+        <div class="form-group">
+          <label>Date <span class="req">*</span></label>
+          <div style="display:flex; gap:6px;">
+            <select id="lf-date-dd" class="form-control" style="flex:0 0 70px;" onchange="Loans._syncDate()">
+              ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+            </select>
+            <select id="lf-date-mm" class="form-control" style="flex:1;" onchange="Loans._syncDate()">
+              ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+            </select>
+            <select id="lf-date-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Loans._syncDate()">
+              ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+            </select>
+          </div>
+          <input type="hidden" id="lf-date" value="${yyyy}-${mm}-${dd}" />
+        </div>
+      </div>
+
+      <div class="form-row">
         <div class="form-group">
           <label>Status</label>
           <select id="lf-status" class="form-control">
-            <option value="Outstanding" ${(d.status||'Outstanding')==='Outstanding'?'selected':''}>Due</option>
-            <option value="Paid"        ${d.status==='Paid'?'selected':''}>Paid</option>
+            <option value="Outstanding" ${(d.status||'Outstanding')==='Outstanding'?'selected':''}>Outstanding (Due)</option>
+            <option value="Paid"        ${d.status==='Paid'?'selected':''}>Settled / Paid</option>
           </select>
         </div>
       </div>
@@ -186,21 +231,42 @@ const Loans = (() => {
     `;
   }
 
+  /* Person dropdown select করলে text input এ নাম বসাও */
+  function _onPersonSelect() {
+    const sel = document.getElementById('lf-person-select');
+    const inp = document.getElementById('lf-person');
+    if (sel && inp && sel.value) inp.value = sel.value;
+  }
+
+  /* Type change — label hint */
+  function _onTypeChange() {
+    // future use — balance hint update করা যাবে
+  }
+
+  /* Date sync */
+  function _syncDate() {
+    const dd   = document.getElementById('lf-date-dd')?.value   || '';
+    const mm   = document.getElementById('lf-date-mm')?.value   || '';
+    const yyyy = document.getElementById('lf-date-yyyy')?.value || '';
+    const h    = document.getElementById('lf-date');
+    if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+  }
+
   function saveLoan() {
-    const person = Utils.formVal('lf-person');
+    const person = (document.getElementById('lf-person')?.value || '').trim();
     const amount = Utils.safeNum(Utils.formVal('lf-amount'));
     const type   = Utils.formVal('lf-direction') || 'Loan Giving';
-    const method = Utils.formVal('lf-method') || 'Cash';
+    const method = Utils.formVal('lf-method') || '';
     const errEl  = document.getElementById('lf-error');
     errEl.classList.add('hidden');
 
     if (!person) { errEl.textContent='Person Name required'; errEl.classList.remove('hidden'); return; }
     if (!amount) { errEl.textContent='Valid amount required'; errEl.classList.remove('hidden'); return; }
     if (!method) { errEl.textContent='Payment Method required'; errEl.classList.remove('hidden'); return; }
-    
-    // Validate negative balance for giving loan
+
+    // Loan দেওয়ার সময় account থেকে টাকা কাটবে — balance check
     if (type === 'Loan Giving') {
-      const available = Utils.getAccountBalance(method);
+      const available = Utils.getAccountBalance ? Utils.getAccountBalance(method) : Infinity;
       if (amount > available) {
         errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
         errEl.classList.remove('hidden');
@@ -209,32 +275,43 @@ const Loans = (() => {
     }
 
     const record = {
-      type: type,
+      type:        type,
       person_name: person,
       amount,
-      date:   Utils.formVal('lf-date')||Utils.today(),
-      method: method,
-      status: Utils.formVal('lf-status')||'Outstanding',
-      note:   Utils.formVal('lf-note'),
+      date:        Utils.formVal('lf-date') || Utils.today(),
+      method:      method,
+      status:      Utils.formVal('lf-status') || 'Outstanding',
+      note:        Utils.formVal('lf-note') || '',
     };
-
-    /* Finance ledger entry */
-    const finType = type;
-    if (!editingId) {
-      SupabaseSync.insert(DB.finance, {
-        type: finType, method:record.method, category:'Loan',
-        description:`Loan — ${person}`, amount, date:record.date, note:record.note,
-        person_name: person
-      });
-    }
 
     if (editingId) {
       SupabaseSync.update(DB.loans, editingId, record);
-      Utils.toast('Loan updated ✓','success');
+      Utils.toast('Loan updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.loans, record);
-      Utils.toast('Loan Added ✓','success');
+
+      // ──────────────────────────────────────────────────────
+      // Loan দেওয়া = Account থেকে টাকা বের হয় (Expense like)
+      // Loan নেওয়া = Account এ টাকা ঢোকে (Income like)
+      // Finance ledger এ যাবে NOT — শুধু Account balance track করতে
+      // finance এ Loan Giving / Loan Receiving type দিয়ে insert করি
+      // যাতে Account balance calculation সঠিক থাকে
+      // ──────────────────────────────────────────────────────
+      SupabaseSync.insert(DB.finance, {
+        type:        type,           // 'Loan Giving' বা 'Loan Receiving'
+        method:      method,
+        category:    'Loan',
+        description: `${type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${person}`,
+        amount,
+        date:        record.date,
+        note:        record.note,
+        person_name: person,
+        _isLoan:     true,           // flag — Finance UI এ আলাদাভাবে show করতে
+      });
+
+      Utils.toast('Loan Added ✓', 'success');
     }
+
     Utils.closeModal();
     render();
   }
@@ -247,10 +324,15 @@ const Loans = (() => {
   }
 
   async function deleteLoan(id) {
-    const ok = await Utils.confirm('Delete this loan record?','Delete Loan');
+    const ok = await Utils.confirm('Delete this loan record? RecycleBin-এ যাবে।', 'Delete Loan');
     if (!ok) return;
+    // RecycleBin এ save করো restore করার জন্য
+    const record = SupabaseSync.getById(DB.loans, id);
+    if (record) {
+      SupabaseSync.insert(DB.recycle || 'recycle', { ...record, _deletedFrom: 'loans', _deletedAt: Utils.today() });
+    }
     SupabaseSync.remove(DB.loans, id);
-    Utils.toast('has been deleted','info');
+    Utils.toast('Loan deleted — RecycleBin-এ আছে', 'warning');
     render();
   }
 
@@ -293,7 +375,7 @@ const Loans = (() => {
   function changePage(p) { currentPage = p; render(); }
   function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize };
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
 
 })();
 

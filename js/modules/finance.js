@@ -328,17 +328,9 @@ const Finance = (() => {
       person_name: Utils.formVal('ff-person')
     };
 
-    /* Loan Giving/Receiving → also create loans table entry */
-    if (type==='Loan Giving'||type==='Loan Receiving') {
-      SupabaseSync.insert(DB.loans, {
-        type:        type,
-        person_name: person,
-        amount,
-        date:        record.date,
-        note:        record.note,
-        status:      'Outstanding',
-      });
-    }
+    /* Loan Giving/Receiving → loans table এ আর insert করা হচ্ছে না
+       কারণ loans.js নিজেই DB.loans এ insert করে এবং
+       account balance track এর জন্য DB.finance এ Loan type entry রাখা হয় */
 
     if (editingId) {
       SupabaseSync.update(DB.finance, editingId, record);
