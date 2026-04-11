@@ -602,19 +602,25 @@ const SettingsModule = (() => {
        
        /* Global UI Injection for this Preset */
        .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { 
-         background: var(--card-bg) !important; 
+         background-color: var(--card-bg) !important; 
+         background-image: linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px) !important;
+         background-size: 20px 20px !important;
          border-color: var(--card-border) !important; 
          backdrop-filter: blur(14px) saturate(1.4) !important;
          -webkit-backdrop-filter: blur(14px) saturate(1.4) !important;
        }
        .modal-box, .settings-modal, .att-modal-container { 
-         background: var(--card-glow-inner) !important; 
+         background-color: var(--card-glow-inner) !important; 
+         background-image: linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px) !important;
+         background-size: 20px 20px !important;
          border-color: var(--card-border) !important; 
          backdrop-filter: blur(20px) saturate(1.2) !important;
          -webkit-backdrop-filter: blur(20px) saturate(1.2) !important;
        }
        .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper {
-         background: var(--analytics-bg) !important;
+         background-color: var(--analytics-bg) !important;
+         background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px) !important;
+         background-size: 20px 20px !important;
          backdrop-filter: blur(10px) !important;
          -webkit-backdrop-filter: blur(10px) !important;
        }
@@ -2021,9 +2027,23 @@ window.SettingsModule = SettingsModule;
        --bg-surface-solid: ${c.inner} !important;
        --bg-card: ${c.cardBg} !important;
      }
-     .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { background: var(--card-bg) !important; border-color: var(--card-border) !important; }
-     .modal-box, .settings-modal, .att-modal-container { background: var(--card-glow-inner) !important; border-color: var(--card-border) !important; }
-     .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper { background: var(--analytics-bg) !important; }
+     .card, .stat-card, .settings-card, .account-balance-card, .loan-person-card, .theme-card, .sidebar-style-card { 
+       background-color: var(--card-bg) !important; 
+       background-image: linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px) !important;
+       background-size: 20px 20px !important;
+       border-color: var(--card-border) !important; 
+     }
+     .modal-box, .settings-modal, .att-modal-container { 
+       background-color: var(--card-glow-inner) !important; 
+       background-image: linear-gradient(rgba(0, 212, 255, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.04) 1px, transparent 1px) !important;
+       background-size: 20px 20px !important;
+       border-color: var(--card-border) !important; 
+     }
+     .sub-tab-panel, .finance-tabs, .batch-controls, .data-table-container, .table-wrapper { 
+       background-color: var(--analytics-bg) !important; 
+       background-image: linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px) !important;
+       background-size: 20px 20px !important;
+     }
      .table-wrapper table th { background: rgba(0,0,0,0.6) !important; }
      .notice-item { background: rgba(0,0,0,0.3) !important; }
      .settings-sidebar, .card-title, .settings-modal-header, .modal-header, .table-wrapper th, .table-wrapper td { border-color: rgba(255,255,255,0.08) !important; }
