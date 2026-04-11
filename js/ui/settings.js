@@ -798,7 +798,7 @@ const SettingsModule = (() => {
             <i class="fa fa-cloud-arrow-up"></i> IMPORT DATA
           </button>
         </div>
-        <button class="settings-btn-lg btn-sync-cloud" onclick="SyncEngine.push().then(()=>Utils.toast('Synced!','success'))">
+        <button class="settings-btn-lg btn-sync-cloud" onclick="SyncEngine.syncAll({ forcePush: true }).then(()=>Utils.toast('Cloud sync complete','success'))">
           <i class="fa fa-cloud"></i> SYNC WITH CLOUD NOW
         </button>
         <small style="display:block;text-align:center;margin-top:6px;color:var(--text-muted);font-size:.78rem">Auto-syncs every 30 seconds</small>
@@ -1109,8 +1109,8 @@ const SettingsModule = (() => {
           Supabase real-time sync is active. All changes are automatically synced.
         </p>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button class="btn btn-primary btn-sm" onclick="SyncEngine.pull()">⬇ Pull from Cloud</button>
-          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push()">⬆ Push to Cloud</button>
+          <button class="btn btn-primary btn-sm" onclick="SyncEngine.syncAll().then(()=>Utils.toast('Pulled','success'))">⬇ Sync (retry + pull)</button>
+          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push().then(()=>Utils.toast('Pushed','success'))">⬆ Push to Cloud</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time On','success')">🟢 Real-time On</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time Off','info')">🔴 Real-time Off</button>
         </div>

@@ -173,6 +173,13 @@ const Utils = (() => {
   }
 
   function methodBadge(method) {
+    if (!method) return badge('—', 'muted');
+    if (method.startsWith('Cheque::')) {
+      return badge('Cheque — ' + method.slice(8), 'info');
+    }
+    if (method.startsWith('Card::')) {
+      return badge('Card — ' + method.slice(6), 'warning');
+    }
     const map = {
       'Cash': ['💵 Cash', 'success'], 'Bank': ['🏦 Bank', 'info'],
       'Mobile Banking': ['📱 Mobile', 'warning'],
@@ -318,21 +325,80 @@ const Utils = (() => {
     `;
   }
 
+    // ── Payment methods: settlement account + rollups (Cheque:: / Card:: composite values) ──
+    function escAttr(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+    }
+    function escText(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    }
+
+    /** Account whose balance is affected (Cash, bank name, or mobile wallet name). */
+    function getSettlementKey(method) {
+      if (!method || method === 'Cash') return 'Cash';
+      if (method.startsWith('Cheque::')) {
+        const rest = method.slice(8);
+        return rest || 'Cash';
+      }
+      if (method.startsWith('Card::')) {
+        const rest = method.slice(6);
+        return rest || 'Cash';
+      }
+      return method;
+    }
+
+    /** Bucket for dashboard / accounts hero totals: cash | bank | mobile */
+    function getPaymentMethodBucket(method, accounts) {
+      if (!accounts && window.SupabaseSync && window.DB) {
+        accounts = window.SupabaseSync.getAll(window.DB.accounts);
+      }
+      accounts = accounts || [];
+      const key = getSettlementKey(method);
+      if (key === 'Cash') return 'cash';
+      if (method === 'Bank') return 'bank';
+      if (method === 'Mobile Banking') return 'mobile';
+      const acc = accounts.find(a => a.name === key);
+      if (acc?.type === 'Bank_Detail') return 'bank';
+      if (acc?.type === 'Mobile_Detail') return 'mobile';
+      return 'bank';
+    }
+
+    /** Accounts search: category is Cash | Bank | Mobile Banking */
+    function financeMatchesAccountCategory(method, categoryUi, accounts) {
+      const b = getPaymentMethodBucket(method, accounts);
+      if (categoryUi === 'Cash') return b === 'cash';
+      if (categoryUi === 'Bank') return b === 'bank';
+      if (categoryUi === 'Mobile Banking') return b === 'mobile';
+      return false;
+    }
+
     // ── Payment Methods Dropdown ──────────────────────────────
     function getPaymentMethodsHTML(selectedValue = '') {
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
-      let h = `<option value="Cash" ${selectedValue==='Cash'?'selected':''}>Cash</option>`;
-      
-      const banks = accounts.filter(a => a.type==='Bank_Detail');
+      const sel = selectedValue;
+      const opt = (val, label) =>
+        `<option value="${escAttr(val)}" ${sel === val ? 'selected' : ''}>${escText(label)}</option>`;
+
+      let h = opt('Cash', 'Cash');
+
+      const banks = accounts.filter(a => a.type === 'Bank_Detail');
       banks.forEach(b => {
-        h += `<option value="${b.name}" ${selectedValue===b.name?'selected':''}>${b.name}</option>`;
+        const name = b.name || '';
+        h += opt(name, name);
+        if (name) {
+          h += opt('Cheque::' + name, 'Cheque — ' + name);
+          h += opt('Card::' + name, 'Card — ' + name);
+        }
       });
-      
-      const mobiles = accounts.filter(a => a.type==='Mobile_Detail');
+      h += opt('Cheque::Cash', 'Cheque — Cash');
+      h += opt('Card::Cash', 'Card — Cash');
+
+      const mobiles = accounts.filter(a => a.type === 'Mobile_Detail');
       mobiles.forEach(m => {
-        h += `<option value="${m.name}" ${selectedValue===m.name?'selected':''}>${m.name}</option>`;
+        const name = m.name || '';
+        h += opt(name, name);
       });
-      
+
       return h;
     }
 
@@ -340,23 +406,22 @@ const Utils = (() => {
       if (!window.SupabaseSync || !methodName) return 0;
       const accounts = window.SupabaseSync.getAll(window.DB.accounts);
       const finance = window.SupabaseSync.getAll(window.DB.finance);
-      
+      const settle = getSettlementKey(methodName);
+
       let balance = 0;
-      
-      if (methodName === 'Cash') {
+      if (settle === 'Cash') {
         const cashAcc = accounts.find(a => a.type === 'Cash');
         balance = cashAcc ? parseFloat(cashAcc.balance) || 0 : 0;
       } else {
-        const acc = accounts.find(a => a.name === methodName);
+        const acc = accounts.find(a => a.name === settle);
         if (acc) balance = parseFloat(acc.balance) || 0;
       }
-      
+
       finance.forEach(f => {
-        if (f.method === methodName) {
-          const amt = parseFloat(f.amount) || 0;
-          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') balance += amt;
-          else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') balance -= amt;
-        }
+        if (getSettlementKey(f.method) !== settle) return;
+        const amt = parseFloat(f.amount) || 0;
+        if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') balance += amt;
+        else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') balance -= amt;
       });
       return balance;
     }
@@ -414,7 +479,9 @@ const Utils = (() => {
       // Print & Export
       printArea, exportExcel, downloadCSV,
       // Misc
-      debounce, paginate, renderPaginationUI, getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange
+      debounce, paginate, renderPaginationUI,
+      getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange,
+      getSettlementKey, getPaymentMethodBucket, financeMatchesAccountCategory,
     };
 })();
 

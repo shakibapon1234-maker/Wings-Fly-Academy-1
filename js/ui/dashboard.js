@@ -42,10 +42,23 @@ const DashboardModule = (() => {
       : totalExpense;
     const rNetProfit = rTotalIncome - rTotalExpense;
 
-    // Account balances
-    const balances = { Cash: 0, Bank: 0, 'Mobile Banking': 0 };
-    accounts.forEach(a => { if (balances[a.type] !== undefined) balances[a.type] += Utils.safeNum(a.balance); });
-    const totalBalance = Object.values(balances).reduce((s, v) => s + v, 0);
+    // Account balances (opening + ledger by settlement bucket)
+    let cashOpen = 0, bankOpen = 0, mobileOpen = 0;
+    accounts.forEach(a => {
+      if (a.type === 'Cash') cashOpen += Utils.safeNum(a.balance);
+      else if (a.type === 'Bank_Detail') bankOpen += Utils.safeNum(a.balance);
+      else if (a.type === 'Mobile_Detail') mobileOpen += Utils.safeNum(a.balance);
+    });
+    const balances = { Cash: cashOpen, Bank: bankOpen, 'Mobile Banking': mobileOpen };
+    finance.forEach(f => {
+      const isPos = ['Income', 'Loan Receiving', 'Transfer In'].includes(f.type);
+      const amt = Utils.safeNum(f.amount) * (isPos ? 1 : -1);
+      const bucket = Utils.getPaymentMethodBucket(f.method, accounts);
+      if (bucket === 'cash') balances.Cash += amt;
+      else if (bucket === 'bank') balances.Bank += amt;
+      else if (bucket === 'mobile') balances['Mobile Banking'] += amt;
+    });
+    const totalBalance = balances.Cash + balances.Bank + balances['Mobile Banking'];
 
     const totalDue = students.reduce((s, st) => s + Math.max(0, Utils.safeNum(st.total_fee) - Utils.safeNum(st.paid)), 0);
     const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);

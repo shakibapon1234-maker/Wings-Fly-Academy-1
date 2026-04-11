@@ -38,9 +38,10 @@ const Accounts = (() => {
     finance.forEach(f => {
       const isPos = ['Income','Loan Receiving','Transfer In'].includes(f.type);
       const amt = Utils.safeNum(f.amount) * (isPos ? 1 : -1);
-      if (f.method === 'Cash') cashBal += amt;
-      else if (f.method === 'Bank') bankBal += amt;
-      else if (f.method === 'Mobile Banking') mobileBal += amt;
+      const bucket = Utils.getPaymentMethodBucket(f.method, accounts);
+      if (bucket === 'cash') cashBal += amt;
+      else if (bucket === 'bank') bankBal += amt;
+      else if (bucket === 'mobile') mobileBal += amt;
     });
 
     const totalAll = cashBal + bankBal + mobileBal;
@@ -97,7 +98,7 @@ const Accounts = (() => {
         </div>
       </div>
       <div id="acc-search-results-area" style="margin-bottom:20px;">
-        ${renderSearchResults(finance)}
+        ${renderSearchResults(finance, accounts)}
       </div>
 
       <!-- Internal Balance Transfer -->
@@ -232,10 +233,11 @@ const Accounts = (() => {
     `;
   }
 
-  function renderSearchResults(finance) {
+  function renderSearchResults(finance, accounts) {
     if (!searchResMethod && !searchResFrom && !searchResTo) return '';
-    let filtered = finance.filter(f => f.method === searchResMethod);
-    if (!searchResMethod) filtered = finance;
+    let filtered = searchResMethod
+      ? finance.filter(f => Utils.financeMatchesAccountCategory(f.method, searchResMethod, accounts))
+      : finance;
     if (searchResFrom) filtered = filtered.filter(f => f.date >= searchResFrom);
     if (searchResTo)   filtered = filtered.filter(f => f.date <= searchResTo);
     filtered = Utils.sortBy(filtered, 'date', 'desc');

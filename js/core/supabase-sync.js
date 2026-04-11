@@ -157,7 +157,14 @@ const SyncEngine = (() => {
   let syncInterval = null;
   let realtimeChannels = [];
   let _lastSyncTime = 0;
-  let _isSyncing = false;
+
+  // Serialize pull/push/syncAll so merge + batch upsert never interleave
+  let _opQueue = Promise.resolve();
+  function queueSyncOp(fn) {
+    const run = _opQueue.then(() => fn());
+    _opQueue = run.catch((e) => { console.error('[Sync] Queued op failed:', e); });
+    return run;
+  }
 
   // ── Status Badge ──────────────────────────────────────────
   function setStatus(state) {
@@ -175,10 +182,8 @@ const SyncEngine = (() => {
     el.innerHTML = `${s.icon} ${s.text}`;
   }
 
-  // ── Smart Pull with Conflict Resolution ───────────────────
-  async function pull() {
-    if (_isSyncing) return;
-    _isSyncing = true;
+  // ── Smart Pull with Conflict Resolution (core; run inside queue) ──
+  async function _pullCore() {
     setStatus('syncing');
 
     try {
@@ -227,9 +232,11 @@ const SyncEngine = (() => {
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
       setStatus('error');
-    } finally {
-      _isSyncing = false;
     }
+  }
+
+  function pull() {
+    return queueSyncOp(() => _pullCore());
   }
 
   // ── Merge Algorithm (timestamp-based) ─────────────────────
@@ -264,9 +271,8 @@ const SyncEngine = (() => {
   }
 
   // ── Push (all local data to cloud) ────────────────────────
-  async function push() {
-    if (_isSyncing) return;
-    _isSyncing = true;
+  async function _pushCore(options = {}) {
+    const silent = options.silent === true;
     setStatus('syncing');
 
     try {
@@ -301,14 +307,25 @@ const SyncEngine = (() => {
 
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
-      Utils.toast('Push to Cloud completed ✅', 'success');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push to Cloud completed ✅', 'success');
     } catch (e) {
       console.error('[Sync] Push failed:', e);
       setStatus('error');
-      Utils.toast('Push failed', 'error');
-    } finally {
-      _isSyncing = false;
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push failed', 'error');
     }
+  }
+
+  function push(options) {
+    return queueSyncOp(() => _pushCore(options));
+  }
+
+  /** Retry queue + pull; optional forcePush uploads all local rows before pull (full two-way sync). */
+  function syncAll(options = {}) {
+    return queueSyncOp(async () => {
+      await SupabaseSync.processRetryQueue();
+      if (options.forcePush) await _pushCore({ silent: true });
+      await _pullCore();
+    });
   }
 
   // ── Real-time Subscriptions ───────────────────────────────
@@ -433,8 +450,7 @@ const SyncEngine = (() => {
     window.addEventListener('online', () => {
       console.log('[Sync] Back online');
       setStatus('syncing');
-      pull().then(() => startRealtime());
-      SupabaseSync.processRetryQueue();
+      syncAll({ silent: true }).then(() => startRealtime());
     });
 
     window.addEventListener('offline', () => {
@@ -471,7 +487,7 @@ const SyncEngine = (() => {
   setupNetworkListeners();
 
   return {
-    pull, push,
+    pull, push, syncAll,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,
