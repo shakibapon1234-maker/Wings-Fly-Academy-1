@@ -1939,13 +1939,22 @@ const SettingsModule = (() => {
           Utils.toast('Legacy backup detected — converting...', 'info');
           imported = await importLegacyData(data, statusEl);
         } else {
+          const tableAliases = {
+            finance: DB.finance,
+            financeLedger: DB.finance,
+            ledger: DB.finance,
+            staff: DB.staff,
+            employees: DB.staff,
+          };
           for (const [tableName, rows] of Object.entries(data)) {
+            if (tableName === 'meta' || tableName === 'version' || tableName === 'exportedAt') continue;
             if (!Array.isArray(rows) || !rows.length) continue;
-            const existing = SupabaseSync.getAll(tableName);
+            const targetTable = tableAliases[tableName] || tableName;
+            const existing = SupabaseSync.getAll(targetTable);
             const existingIds = new Set(existing.map(r => r.id));
-            const newRows = rows.filter(r => r.id && !existingIds.has(r.id));
+            const newRows = rows.filter(r => r && r.id && !existingIds.has(r.id));
             if (newRows.length > 0) {
-              SupabaseSync.setAll(tableName, [...newRows, ...existing]);
+              SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
               imported += newRows.length;
             }
           }
@@ -1956,8 +1965,17 @@ const SettingsModule = (() => {
 
         if (imported > 0) {
           if (statusEl) statusEl.innerHTML += '<br>🔄 Pushing to cloud...';
-          await SyncEngine.push();
-          if (statusEl) statusEl.innerHTML += '<br>✅ Cloud sync complete!';
+          const pushResult = await SyncEngine.push({ silent: true });
+          if (pushResult?.ok) {
+            if (statusEl) statusEl.innerHTML += '<br>✅ Cloud sync complete!';
+            Utils.toast('Backup uploaded to Supabase ✅', 'success');
+          } else {
+            const errLine = pushResult?.error || 'Unknown error';
+            if (statusEl) {
+              statusEl.innerHTML += `<br>⚠️ Cloud upload failed (data is safe locally):<br><span style="color:var(--error);font-size:0.8rem">${String(errLine).replace(/</g, '&lt;')}</span><br><small>Open browser DevTools (F12) → Console for details. Often: missing Supabase table, column mismatch, or RLS blocking anonymous writes.</small>`;
+            }
+            Utils.toast('Import saved locally — cloud upload failed (see Data Management status)', 'warn');
+          }
         }
 
         logActivity('add', 'import', `Imported ${imported} records from JSON`);
@@ -2022,6 +2040,7 @@ const SettingsModule = (() => {
         type: f.type || 'Expense', method: f.method || 'Cash', category: f.category || '',
         description: f.description || '', amount: f.amount || 0, date: f.date || '',
         note: f.note || f.person || '',
+        person_name: f.person_name || f.person || '',
         created_at: f.createdAt || f.timestamp || new Date().toISOString(),
         updated_at: f.updatedAt || new Date().toISOString(),
       }));
@@ -2039,12 +2058,21 @@ const SettingsModule = (() => {
     }
     if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
       data.bankAccounts.forEach(b => {
-        accountEntries.push({ id: SupabaseSync.generateId(), type: 'Bank', balance: b.balance || b.amount || 0, name: b.name || b.bankName || '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        const nm = b.name || b.bankName || 'Bank';
+        accountEntries.push({
+          id: SupabaseSync.generateId(),
+          type: 'Bank_Detail',
+          name: nm,
+          balance: b.balance || b.amount || 0,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       });
     }
     if (data.mobileBanking) {
       const bal = typeof data.mobileBanking === 'object' ? (data.mobileBanking.balance || data.mobileBanking.amount || 0) : data.mobileBanking;
-      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile Banking', balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      const mbName = (typeof data.mobileBanking === 'object' && data.mobileBanking.name) ? data.mobileBanking.name : 'Mobile Banking';
+      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile_Detail', name: mbName, balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (accountEntries.length) {
       const existing = SupabaseSync.getAll(DB.accounts);

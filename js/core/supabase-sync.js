@@ -441,6 +441,64 @@ const SyncEngine = (() => {
     return Array.from(merged.values());
   }
 
+  function _sanitizeRowForDb(row) {
+    if (!row || typeof row !== 'object') return row;
+    const o = {};
+    for (const [k, v] of Object.entries(row)) {
+      if (v !== undefined) o[k] = v;
+    }
+    return o;
+  }
+
+  /** Upsert rows; on batch failure, binary-split to locate one bad row (schema/RLS/type errors). */
+  async function _upsertTableWithSplit(tableKey, rows) {
+    const clean = rows.map(_sanitizeRowForDb);
+    if (!clean.length) return { ok: true };
+
+    const tryBatch = async (batch) => {
+      const { error } = await client.from(tableKey).upsert(batch, { onConflict: 'id' });
+      return error || null;
+    };
+
+    async function divide(batch) {
+      if (!batch.length) return { ok: true };
+      const err = await tryBatch(batch);
+      if (!err) return { ok: true };
+      if (err.code === '42P01' || (err.message || '').includes('does not exist')) {
+        return {
+          ok: false,
+          error: `Table "${tableKey}" is missing in Supabase (create it or fix the name).`,
+          code: err.code,
+          table: tableKey,
+        };
+      }
+      if (batch.length === 1) {
+        const hint = err.hint ? ` ${err.hint}` : '';
+        const det = err.details ? ` (${err.details})` : '';
+        return {
+          ok: false,
+          error: `${err.message || 'Upsert failed'}${det}${hint}`,
+          code: err.code,
+          table: tableKey,
+          badRowId: batch[0].id,
+        };
+      }
+      const mid = Math.floor(batch.length / 2);
+      const left = await divide(batch.slice(0, mid));
+      if (!left.ok) return left;
+      return divide(batch.slice(mid));
+    }
+
+    for (let i = 0; i < clean.length; i += 50) {
+      const batch = clean.slice(i, i + 50);
+      const err = await tryBatch(batch);
+      if (!err) continue;
+      const drilled = await divide(batch);
+      if (!drilled.ok) return drilled;
+    }
+    return { ok: true };
+  }
+
   // ── Push (all local data to cloud) ────────────────────────
   async function _pushCore(options = {}) {
     const silent = options.silent === true;
@@ -450,20 +508,21 @@ const SyncEngine = (() => {
       for (const key of Object.values(TABLES)) {
         const raw = localStorage.getItem(`wfa_${key}`);
         if (!raw) continue;
-        const rows = JSON.parse(raw);
-        if (rows.length > 0) {
-          // Push in batches of 50 for large datasets
-          for (let i = 0; i < rows.length; i += 50) {
-            const batch = rows.slice(i, i + 50);
-            const { error } = await client.from(key).upsert(batch, { onConflict: 'id' });
-            if (error) {
-              if (error.code === '42P01') {
-                console.warn(`[Sync] Table "${key}" does not exist yet`);
-                break;
-              }
-              throw error;
-            }
-          }
+        let rows;
+        try {
+          rows = JSON.parse(raw);
+        } catch {
+          console.warn(`[Sync] Skip corrupt local JSON for ${key}`);
+          continue;
+        }
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+
+        const up = await _upsertTableWithSplit(key, rows);
+        if (!up.ok) {
+          const fullMsg = `[${up.table}] ${up.error}${up.badRowId != null ? ` (id: ${up.badRowId})` : ''}`;
+          const err = new Error(fullMsg);
+          err.pushDetail = up;
+          throw err;
         }
 
         // Push deletions
@@ -479,10 +538,18 @@ const SyncEngine = (() => {
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
       if (!silent && typeof Utils !== 'undefined') Utils.toast('Push to Cloud completed ✅', 'success');
+      return { ok: true };
     } catch (e) {
       console.error('[Sync] Push failed:', e);
       setStatus('error');
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push failed', 'error');
+      const msg = e?.message || String(e);
+      if (!silent && typeof Utils !== 'undefined') {
+        Utils.toast(
+          msg.length > 160 ? `Push failed: ${msg.slice(0, 157)}…` : `Push failed: ${msg}`,
+          'error'
+        );
+      }
+      return { ok: false, error: msg, detail: e?.pushDetail };
     }
   }
 
