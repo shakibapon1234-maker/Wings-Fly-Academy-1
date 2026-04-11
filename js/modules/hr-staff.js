@@ -6,12 +6,14 @@
 const HRStaff = (() => {
 
   let editingId = null;
+  let currentPage = 1;
+  let pageSize = 20;
 
   /* ─── Roles ─── */
   const ROLES = ['Instructor', 'Admin', 'Staff', 'Accountant', 'Receptionist', 'Driver', 'Guard'];
 
   function init() {
-    renderContent();
+    render();
   }
 
   function getStaff() {
@@ -29,7 +31,7 @@ const HRStaff = (() => {
   }
 
   /* ─── Render Main Content ─── */
-  function renderContent() {
+  function render() {
     const container = document.getElementById('hr-staff-content');
     if (!container) return;
 
@@ -41,49 +43,44 @@ const HRStaff = (() => {
 
     container.innerHTML = `
       <!-- Stats -->
-      <div class="stats-grid" style="margin-bottom:1.5rem;">
-        <div class="stat-card">
-          <div class="stat-icon" style="background:var(--accent-blue-glow)"><i class="fa fa-users"></i></div>
-          <div class="stat-info">
-            <div class="stat-value">${staffList.length}</div>
-            <div class="stat-label">Total Staff</div>
-          </div>
+      <div class="grid-4" style="margin-bottom:20px;">
+        <div class="stat-card glow-cyan">
+          <div class="stat-header">TOTAL STAFF</div>
+          <div class="stat-value">${staffList.length}</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-users"></i></div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:var(--accent-green-glow)"><i class="fa fa-circle-check"></i></div>
-          <div class="stat-info">
-            <div class="stat-value">${activeCount}</div>
-            <div class="stat-label">Active</div>
-          </div>
+        <div class="stat-card glow-green">
+          <div class="stat-header">ACTIVE</div>
+          <div class="stat-value">${activeCount}</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-circle-check"></i></div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:var(--accent-red-glow)"><i class="fa fa-circle-xmark"></i></div>
-          <div class="stat-info">
-            <div class="stat-value">${inactiveCount}</div>
-            <div class="stat-label">Inactive</div>
-          </div>
+        <div class="stat-card glow-red">
+          <div class="stat-header">INACTIVE</div>
+          <div class="stat-value">${inactiveCount}</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-circle-xmark"></i></div>
         </div>
-        <div class="stat-card">
-          <div class="stat-icon" style="background:var(--accent-gold-glow)"><i class="fa fa-sack-dollar"></i></div>
-          <div class="stat-info">
-            <div class="stat-value">৳${Utils.formatMoneyPlain(totalSalary)}</div>
-            <div class="stat-label">Monthly Salary Budget</div>
-          </div>
+        <div class="stat-card glow-gold">
+          <div class="stat-header">MONTHLY SALARY BUDGET</div>
+          <div class="stat-value">৳${Utils.formatMoneyPlain(totalSalary)}</div>
+          <div class="stat-icon-wrapper"><i class="fa fa-sack-dollar"></i></div>
         </div>
       </div>
 
       <!-- Filters & Search -->
-      <div class="filter-bar">
-        <input type="text" id="staff-search" placeholder="🔍 Name / Phone / Search ID..." oninput="HRStaff.applyFilter()" />
-        <select id="staff-role-filter" onchange="HRStaff.applyFilter()">
+      <div class="filter-bar" style="display:flex; flex-wrap:wrap; gap:10px; align-items:center;">
+        <input type="text" id="staff-search" placeholder="🔍 Name / Phone / Search ID..." oninput="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; min-width:200px;" />
+        <select id="staff-role-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Roles</option>
           ${ROLES.map(r => `<option value="${r}">${r}</option>`).join('')}
         </select>
-        <select id="staff-status-filter" onchange="HRStaff.applyFilter()">
+        <select id="staff-status-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Status</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
+        <button class="btn btn-primary" onclick="HRStaff.openAddModal()" style="margin-left:auto;">
+          <i class="fa fa-user-plus"></i> Add Staff
+        </button>
         <button class="btn-secondary" onclick="HRStaff.exportExcel()">
           <i class="fa fa-file-excel"></i> Excel
         </button>
@@ -93,12 +90,39 @@ const HRStaff = (() => {
       </div>
 
       <div class="table-wrapper" id="staff-table-wrapper">
-        ${renderTable(staffList)}
+        ${(() => {
+          const pageData = Utils.paginate(staffList, currentPage, pageSize);
+          return renderTable(pageData.items, (currentPage - 1) * pageSize) + 
+                 ((pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'HRStaff') : '');
+        })()}
       </div>
     `;
   }
 
-  function renderTable(data) {
+  function applyFilter() {
+    const q = (document.getElementById('staff-search')?.value || '').toLowerCase();
+    const r = document.getElementById('staff-role-filter')?.value || '';
+    const st = document.getElementById('staff-status-filter')?.value || '';
+    const all = getStaff();
+    const filtered = all.filter(s => {
+      const matchQ = (s.name||'').toLowerCase().includes(q) || (s.phone||'').includes(q) || (s.staffId||'').toLowerCase().includes(q);
+      const matchR = r ? s.role === r : true;
+      const matchSt = st ? s.status === st : true;
+      return matchQ && matchR && matchSt;
+    });
+    currentPage = 1;
+    const wrp = document.getElementById('staff-table-wrapper');
+    if (wrp) {
+      const pageData = Utils.paginate(filtered, currentPage, pageSize);
+      wrp.innerHTML = renderTable(pageData.items, (currentPage - 1) * pageSize) + 
+                      ((pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'HRStaff') : '');
+    }
+  }
+
+  function changePage(p) { currentPage = p; applyFilter(); }
+  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; applyFilter(); }
+
+  function renderTable(data, startIndex = 0) {
     if (!data.length) return `
       <div class="empty-state">
         <i class="fa fa-users" style="font-size:3rem;opacity:.3"></i>
@@ -109,6 +133,7 @@ const HRStaff = (() => {
       <table class="data-table" id="staff-print-table">
         <thead>
           <tr>
+            <th>#</th>
             <th>Staff ID</th>
             <th>Name</th>
             <th>Role</th>
@@ -121,8 +146,9 @@ const HRStaff = (() => {
           </tr>
         </thead>
         <tbody>
-          ${data.map(s => `
+          ${data.map((s, i) => `
             <tr>
+              <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
               <td><code>${s.staffId || '—'}</code></td>
               <td><strong>${s.name}</strong></td>
               <td><span class="badge badge-blue">${s.role}</span></td>
@@ -316,8 +342,9 @@ const HRStaff = (() => {
   }
 
   /* ─── Public API ─── */
-  return { init, renderContent, openAddModal, openEditModal,
-           saveStaff, toggleStatus, deleteStaff, applyFilter,
+  return { init, render, applyFilter, changePage, changePageSize,
+           openAddModal, openEditModal,
+           saveStaff, toggleStatus, deleteStaff,
            exportExcel, printList,
            getAll: () => getStaff() };
 
