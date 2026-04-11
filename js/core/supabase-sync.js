@@ -305,16 +305,19 @@ const SupabaseSync = (() => {
   }
 
   // ── Cloud Operations (fire-and-forget) ─────────────────────
+  // Columns Supabase auto-generates — never write these (400 Bad Request if sent)
+  const _AUTO_COLS = new Set(['created_at', 'updated_at']);
+
   function _sanitizeRecord(record, tableKey) {
     if (!record || typeof record !== 'object') return record;
-    // Re-use SyncEngine's TABLE_COLUMNS allowlist if available after init
     const allowedCols = (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && tableKey)
       ? SyncEngine.TABLE_COLUMNS[tableKey]
       : null;
     const o = {};
     for (const [k, v] of Object.entries(record)) {
       if (v === undefined) continue;
-      if (k.startsWith('_')) continue; // skip _device and other internal fields
+      if (k.startsWith('_')) continue;
+      if (_AUTO_COLS.has(k)) continue; // never write auto-generated columns
       if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }
@@ -515,75 +518,77 @@ const SyncEngine = (() => {
 
   // ── Per-table column allowlists ───────────────────────────
   // Only columns listed here will be sent to Supabase.
-  // Add or remove columns to match your actual Supabase table schema.
-  // If a table is NOT listed here, all non-underscore columns are sent (default behaviour).
+  // IMPORTANT: Do NOT include created_at or updated_at — Supabase auto-generates
+  // these as DEFAULT now() columns and rejects writes to them with a 400 error.
+  // If a table is NOT listed here, all non-underscore, non-timestamp columns are sent.
   const TABLE_COLUMNS = {
     settings: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'academy_name', 'academy_address', 'academy_phone', 'academy_email',
       'admin_password', 'currency', 'timezone', 'logo_url',
       'primary_color', 'theme',
     ],
     salary: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'staff_id', 'staff_name', 'month', 'year', 'amount',
       'bonus', 'deduction', 'net_salary', 'status', 'note', 'paid_date',
     ],
     students: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'name', 'student_id', 'phone', 'email', 'address', 'dob',
       'course', 'batch', 'enrollment_date', 'total_fee', 'paid', 'due',
       'status', 'photo_url', 'guardian_name', 'guardian_phone', 'note',
     ],
     finance_ledger: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'date', 'type', 'category', 'amount', 'description',
       'account_id', 'reference', 'note',
     ],
     accounts: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'name', 'type', 'balance', 'description', 'note',
     ],
     loans: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'person_name', 'type', 'amount', 'interest_rate', 'date',
       'due_date', 'paid', 'status', 'note',
     ],
     exams: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'student_id', 'student_name', 'course', 'batch', 'exam_date',
       'subject', 'marks', 'total_marks', 'grade', 'result', 'note',
     ],
     attendance: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'person_id', 'person_name', 'type', 'date', 'status', 'note',
     ],
     staff: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'name', 'role', 'phone', 'email', 'address', 'dob',
       'join_date', 'salary', 'status', 'photo_url', 'note',
     ],
     visitors: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'name', 'phone', 'purpose', 'host', 'visit_date', 'visit_time',
       'out_time', 'status', 'note',
     ],
     notices: [
-      'id', 'created_at', 'updated_at',
+      'id',
       'title', 'content', 'date', 'category', 'priority', 'author',
     ],
   };
+
+  // Columns Supabase auto-generates — never write these back
+  const SUPABASE_AUTO_COLS = new Set(['created_at', 'updated_at']);
 
   function _sanitizeRowForDb(row, tableKey) {
     if (!row || typeof row !== 'object') return row;
     const allowedCols = tableKey ? TABLE_COLUMNS[tableKey] : null;
     const o = {};
     for (const [k, v] of Object.entries(row)) {
-      // Skip undefined values and internal fields (e.g. _device) that
-      // are not real Supabase columns — they cause "column does not exist" errors
       if (v === undefined) continue;
       if (k.startsWith('_')) continue;
-      // If an allowlist exists for this table, only include known columns
+      if (SUPABASE_AUTO_COLS.has(k)) continue; // never write auto-generated columns
       if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }
