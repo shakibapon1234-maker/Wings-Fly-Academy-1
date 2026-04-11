@@ -174,43 +174,7 @@ const Finance = (() => {
   function updateCategoryDropdown(selectObj) {
     const catEl = document.getElementById('ff-category');
     if (!catEl) return;
-    const type    = selectObj.value;
-    const isLoan  = type === 'Loan Giving' || type === 'Loan Receiving';
-    const personGrp = document.getElementById('ff-person-group');
-    if (personGrp) personGrp.style.display = isLoan ? 'block' : 'none';
-
-    // Person dropdown type-aware filter
-    if (isLoan) {
-      const sel  = document.getElementById('ff-person-select');
-      const hint = document.getElementById('ff-hint-text');
-      if (sel) {
-        try {
-          const givenPersons    = JSON.parse(sel.dataset.given    || '[]');
-          const receivedPersons = JSON.parse(sel.dataset.received || '[]');
-          const allPersons      = JSON.parse(sel.dataset.all      || '[]');
-          let persons = [], hintMsg = '';
-          if (type === 'Loan Giving') {
-            const priority = receivedPersons;
-            const rest     = allPersons.filter(p => !priority.includes(p));
-            persons  = [...priority, ...rest];
-            hintMsg  = receivedPersons.length
-              ? `⬆ উপরের ${receivedPersons.length} জন আগে লোন দিয়েছিলেন`
-              : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
-          } else {
-            const priority = givenPersons;
-            const rest     = allPersons.filter(p => !priority.includes(p));
-            persons  = [...priority, ...rest];
-            hintMsg  = givenPersons.length
-              ? `⬆ উপরের ${givenPersons.length} জনকে আগে লোন দেওয়া হয়েছে`
-              : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
-          }
-          sel.innerHTML = `<option value="">-- পূর্বের নাম বেছে নিন --</option>`
-            + persons.map(p => `<option value="${p}">${p}</option>`).join('');
-          if (hint) hint.textContent = hintMsg;
-        } catch(e) {}
-      }
-    }
-
+    const type = selectObj.value;
     const categories = getCategories(type);
     catEl.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
   }
@@ -284,11 +248,7 @@ const Finance = (() => {
     const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
 
     // ── Loan person names for dropdown ────────────────────────
-    const allLoans        = SupabaseSync.getAll(DB.loans);
-    const givenPersons    = [...new Set(allLoans.filter(l=>l.type==='Loan Giving'   ||l.direction==='given'   ).map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
-    const receivedPersons = [...new Set(allLoans.filter(l=>l.type==='Loan Receiving'||l.direction==='received').map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
-    const allLoanPersons  = [...new Set(allLoans.map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
-
+    // (edit mode-এ Loan Giving/Receiving type দেখানোর জন্য রাখা হয়েছে)
     const isLoan = d.type==='Loan Giving' || d.type==='Loan Receiving';
 
     return `
@@ -296,13 +256,18 @@ const Finance = (() => {
         <div class="form-group">
           <label>Type <span class="req">*</span></label>
           <select id="ff-type" class="form-control" onchange="Finance.updateCategoryDropdown(this)">
-            <option value="Income"         ${d.type==='Income'?'selected':''}>Income</option>
-            <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense</option>
-            <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
-            <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>Loan Taken</option>
-            <option value="Transfer In"    ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
-            <option value="Transfer Out"   ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
+            <option value="Income"       ${d.type==='Income'?'selected':''}>Income</option>
+            <option value="Expense"      ${d.type==='Expense'?'selected':''}>Expense</option>
+            <option value="Transfer In"  ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
+            <option value="Transfer Out" ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
           </select>
+          <div style="font-size:.72rem;color:var(--text-muted);margin-top:4px;">
+            <i class="fa fa-info-circle"></i> লোন যোগ করতে
+            <a href="#" onclick="Utils.closeModal();App&&App.navigate&&App.navigate('loans');return false;"
+               style="color:var(--brand-primary);font-weight:700;text-decoration:none;">
+              Loans <i class="fa fa-arrow-right"></i>
+            </a> ট্যাবে যান
+          </div>
         </div>
         <div class="form-group">
           <label>Method <span class="req">*</span></label>
@@ -311,26 +276,6 @@ const Finance = (() => {
             ${Utils.getPaymentMethodsHTML(d.method)}
           </select>
           <div id="ff-bal-display" style="display:none;"></div>
-        </div>
-      </div>
-
-      <!-- Person Name (Loan type-এ দেখাবে) -->
-      <div id="ff-person-group" class="form-group" style="display:${isLoan?'block':'none'};">
-        <label>Person's Name <span class="req">*</span></label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="ff-person-select" class="form-control" style="flex:1; min-width:160px;"
-            onchange="Finance._onPersonSelect()"
-            data-given='${JSON.stringify(givenPersons)}'
-            data-received='${JSON.stringify(receivedPersons)}'
-            data-all='${JSON.stringify(allLoanPersons)}'>
-            <option value="">-- পূর্বের নাম বেছে নিন --</option>
-            ${allLoanPersons.map(p=>`<option value="${p}" ${(d.person_name===p)?'selected':''}>${p}</option>`).join('')}
-          </select>
-          <input id="ff-person" class="form-control" style="flex:1; min-width:160px;"
-            value="${d.person_name||''}" placeholder="অথবা নতুন নাম লিখুন" />
-        </div>
-        <div style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
-          <i class="fa fa-info-circle"></i> <span id="ff-hint-text">Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন</span>
         </div>
       </div>
 
@@ -409,11 +354,8 @@ const Finance = (() => {
     if (!method) { errEl.textContent = 'Please select a Payment Method.'; errEl.classList.remove('hidden'); return; }
     if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount.'; errEl.classList.remove('hidden'); return; }
 
-    const person = Utils.formVal('ff-person');
-    if ((type==='Loan Giving'||type==='Loan Receiving') && !person) { errEl.textContent='Person Name required for Loans'; errEl.classList.remove('hidden'); return; }
-
-    // Prevent negative balance for Expense / Transfer Out / Loan Giving
-    if (type === 'Expense' || type === 'Transfer Out' || type === 'Loan Giving') {
+    // Prevent negative balance for Expense / Transfer Out
+    if (type === 'Expense' || type === 'Transfer Out') {
       const available = Utils.getAccountBalance(method);
       if (amount > available) {
         errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
@@ -430,7 +372,6 @@ const Finance = (() => {
       amount,
       date:        Utils.formVal('ff-date') || Utils.today(),
       note:        Utils.formVal('ff-note'),
-      person_name: Utils.formVal('ff-person')
     };
 
     /* Loan Giving/Receiving → loans table এ আর insert করা হচ্ছে না
