@@ -470,7 +470,7 @@ const Students = (() => {
     const allFinance = SupabaseSync.getAll(DB.finance);
     const history = allFinance
        .filter(f => f.ref_id === id && f.category === 'Student Fee')
-       .sort((a,b) => new Date(a.date) - new Date(b.date)); // Chronological
+       .sort((a,b) => new Date(b.date) - new Date(a.date)); // Latest first
 
     let historyTableRows = '';
     if (history.length === 0) {
@@ -513,7 +513,7 @@ const Students = (() => {
             <option value="">Select Method...</option>
             ${Utils.getPaymentMethodsHTML()}
           </select>
-          <input id="pay-date" type="date" class="form-control hidden" value="${Utils.today()}" />
+          <input id="pay-date" type="date" class="form-control" style="max-width:170px" value="${Utils.today()}" />
           <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:6px; font-weight:700;" onclick="Students.savePayment('${id}')">
             + ADD & PRINT RECEIPT
           </button>

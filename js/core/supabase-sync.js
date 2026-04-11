@@ -30,6 +30,7 @@ const SupabaseSync = (() => {
     rows.unshift(record);
     setAll(table, rows);
     _logRecentChange(table, 'insert', record);
+    _logActivity('add', table, `Inserted ${_recycleDisplayName(table, record)} into ${_tableDisplayName(table)}`);
     _pushRecord(table, record);
     return record;
   }
@@ -41,6 +42,7 @@ const SupabaseSync = (() => {
       rows[idx] = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
+      _logActivity('edit', table, `Updated ${_recycleDisplayName(table, rows[idx])} in ${_tableDisplayName(table)}`);
       _pushRecord(table, rows[idx]);
     }
   }
@@ -53,6 +55,7 @@ const SupabaseSync = (() => {
     if (victim) {
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
+      _logActivity('delete', table, `Deleted ${_recycleDisplayName(table, victim)} from ${_tableDisplayName(table)}`);
     }
     _deleteFromCloud(table, id);
     // Track deletion for sync (tombstone so row does not reappear on pull)
@@ -82,6 +85,26 @@ const SupabaseSync = (() => {
       arr.unshift(entry);
       if (arr.length > 120) arr.length = 120;
       localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
+    } catch { /* ignore */ }
+  }
+
+  function _getActivityLogs() {
+    try { return JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); }
+    catch { return []; }
+  }
+
+  function _logActivity(action, type, description) {
+    try {
+      const logs = _getActivityLogs();
+      logs.unshift({
+        action,
+        type,
+        description,
+        user: 'Admin',
+        time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+      });
+      if (logs.length > 500) logs.length = 500;
+      localStorage.setItem('wfa_activity_log', JSON.stringify(logs));
     } catch { /* ignore */ }
   }
 
@@ -228,6 +251,7 @@ const SupabaseSync = (() => {
     localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
 
     _logRecentChange(table, 'insert', record);
+    _logActivity('add', table, `Restored ${_recycleDisplayName(table, record)} from recycle bin to ${_tableDisplayName(table)}`);
     window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
     return true;
   }
@@ -236,7 +260,10 @@ const SupabaseSync = (() => {
     const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
     if (!Array.isArray(bin) || index < 0 || index >= bin.length) return;
     const item = bin[index];
-    if (item?.table && item?.data?.id) untrackDeletion(item.table, item.data.id);
+    if (item?.table && item?.data?.id) {
+      untrackDeletion(item.table, item.data.id);
+      _logActivity('delete', item.table, `Permanently deleted ${item.name} from recycle bin`);
+    }
     bin.splice(index, 1);
     localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
   }
@@ -249,6 +276,7 @@ const SupabaseSync = (() => {
       });
     }
     localStorage.setItem(RECYCLE_BIN_KEY, '[]');
+    _logActivity('delete', 'system', 'Emptied recycle bin');
   }
 
   // ── Cloud Operations (fire-and-forget) ─────────────────────

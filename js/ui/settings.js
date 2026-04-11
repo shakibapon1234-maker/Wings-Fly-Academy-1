@@ -1448,7 +1448,6 @@ const SettingsModule = (() => {
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
         Utils.toast('Item restored and synced', 'success');
-        logActivity('add', 'restore', `Restored from recycle bin (index ${index})`);
         refreshModal();
         if (typeof App !== 'undefined' && App.updateNotifCount) App.updateNotifCount();
       } else {
