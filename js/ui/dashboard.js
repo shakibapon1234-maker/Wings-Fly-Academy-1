@@ -97,17 +97,22 @@ const DashboardModule = (() => {
     const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
     const loanIn   = loans.filter(l => l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
-    // Advance payments (pending/outstanding)
+    // Advance payments — all records with calculated fields
     const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch(e) { return []; } })();
-    const advances = advancesRaw.map(a => {
+    const advancesAll = advancesRaw.map(a => {
       const returned = (a.returns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-      return { ...a, _remaining: (parseFloat(a.amount) || 0) - returned };
-    }).filter(a => a._remaining > 0); // only pending ones
+      return { ...a, _returned: returned, _remaining: Math.max(0, (parseFloat(a.amount) || 0) - returned) };
+    });
+    const advances = advancesAll.filter(a => a._remaining > 0); // pending only (for top badge)
+    const advanceTotalGiven     = advancesAll.reduce((s, a) => s + (parseFloat(a.amount) || 0), 0);
+    const advanceTotalReturned  = advancesAll.reduce((s, a) => s + a._returned, 0);
+    const advanceTotalPending   = advancesAll.reduce((s, a) => s + a._remaining, 0);
 
     return {
       totalStudents, totalIncome, totalExpense, netProfit, totalBalance, totalDue, loanOut, loanIn,
       rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
-      students, finance, balances, notices, loans, settings, advances
+      students, finance, balances, notices, loans, settings, advances,
+      advancesAll, advanceTotalGiven, advanceTotalReturned, advanceTotalPending
     };
   }
 
@@ -288,7 +293,8 @@ const DashboardModule = (() => {
     const { totalStudents, totalIncome, totalExpense, netProfit,
             totalBalance, totalDue, loanOut, loanIn,
             rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
-            students, finance, balances, notices, loans, settings, advances } = getStats();
+            students, finance, balances, notices, loans, settings, advances,
+            advancesAll, advanceTotalGiven, advanceTotalReturned, advanceTotalPending } = getStats();
 
     const { runningBatch, expenseMonth } = settings;
     const monthly = getMonthlyRevenue(finance);
@@ -433,6 +439,61 @@ const DashboardModule = (() => {
           </div>
           ${renderNotices(notices)}
         </div>
+      </div>
+
+      <!-- Advance Payment Card -->
+      <div class="advance-dash-card animated-border-box mb-24" onclick="App.navigateTo('settings');setTimeout(()=>{if(typeof SettingsModule!=='undefined'){SettingsModule.showAccountsSubTab&&SettingsModule.showAccountsSubTab('advance');}},400)" style="cursor:pointer">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:20px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,rgba(255,170,0,0.2),rgba(255,71,87,0.15));border:1.5px solid rgba(255,170,0,0.4);display:flex;align-items:center;justify-content:center;font-size:1.1rem">💳</div>
+            <div>
+              <div style="font-size:.7rem;font-weight:800;color:#ffaa00;letter-spacing:1px;font-family:var(--font-ui)">ADVANCE PAYMENTS</div>
+              <div style="font-size:.72rem;color:rgba(255,255,255,0.4);margin-top:1px">${advancesAll.length} total record${advancesAll.length !== 1 ? 's' : ''}</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            ${advances.length > 0 ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,71,87,0.12);border:1px solid rgba(255,71,87,0.3);border-radius:20px;padding:4px 10px;font-size:.7rem;font-weight:700;color:#ff6b7a">
+              <span style="width:6px;height:6px;border-radius:50%;background:#ff6b7a;animation:adPulse 1.2s ease-in-out infinite"></span>
+              ${advances.length} PENDING
+            </span>` : `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.25);border-radius:20px;padding:4px 10px;font-size:.7rem;font-weight:700;color:#00ff88">✓ ALL CLEARED</span>`}
+            <span style="font-size:.75rem;color:rgba(255,255,255,0.3)"><i class="fa fa-arrow-right"></i></span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.18);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:.68rem;color:rgba(255,255,255,0.45);margin-bottom:6px;letter-spacing:.5px">TOTAL GIVEN</div>
+            <div style="font-size:1.15rem;font-weight:800;color:#ffaa00;font-family:var(--font-ui)">${Utils.takaEn(advanceTotalGiven)}</div>
+          </div>
+          <div style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.18);border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:.68rem;color:rgba(255,255,255,0.45);margin-bottom:6px;letter-spacing:.5px">RETURNED</div>
+            <div style="font-size:1.15rem;font-weight:800;color:#00ff88;font-family:var(--font-ui)">${Utils.takaEn(advanceTotalReturned)}</div>
+          </div>
+          <div style="background:${advanceTotalPending > 0 ? 'rgba(255,71,87,0.08)' : 'rgba(0,217,255,0.06)'};border:1px solid ${advanceTotalPending > 0 ? 'rgba(255,71,87,0.22)' : 'rgba(0,217,255,0.15)'};border-radius:12px;padding:14px;text-align:center">
+            <div style="font-size:.68rem;color:rgba(255,255,255,0.45);margin-bottom:6px;letter-spacing:.5px">PENDING</div>
+            <div style="font-size:1.15rem;font-weight:800;color:${advanceTotalPending > 0 ? '#ff6b7a' : '#00d9ff'};font-family:var(--font-ui)">${Utils.takaEn(advanceTotalPending)}</div>
+          </div>
+        </div>
+        ${advancesAll.length > 0 ? `
+        <div style="margin-top:14px;border-top:1px solid rgba(255,255,255,0.06);padding-top:14px;display:flex;flex-direction:column;gap:7px">
+          ${advancesAll.slice(0,3).map(a => `
+            <div style="display:flex;align-items:center;justify-content:space-between;font-size:.78rem">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:26px;height:26px;border-radius:50%;background:rgba(255,170,0,0.15);border:1px solid rgba(255,170,0,0.3);display:flex;align-items:center;justify-content:center;font-size:.65rem;color:#ffaa00;font-weight:700">
+                  ${(a.person||'?').charAt(0).toUpperCase()}
+                </div>
+                <span style="color:rgba(255,255,255,0.8);font-weight:600">${Utils.esc(a.person||'Unknown')}</span>
+                <span style="color:rgba(255,255,255,0.3);font-size:.7rem">${a.date ? new Date(a.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : ''}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <span style="color:rgba(255,255,255,0.45);font-size:.72rem">৳${(parseFloat(a.amount)||0).toLocaleString('en-IN')}</span>
+                <span style="font-weight:700;color:${a._remaining > 0 ? '#ff6b7a' : '#00ff88'};background:${a._remaining > 0 ? 'rgba(255,71,87,0.1)' : 'rgba(0,255,136,0.1)'};border:1px solid ${a._remaining > 0 ? 'rgba(255,71,87,0.25)' : 'rgba(0,255,136,0.25)'};border-radius:8px;padding:2px 8px;font-size:.7rem">
+                  ${a._remaining > 0 ? '৳' + a._remaining.toLocaleString('en-IN') + ' due' : '✓ Cleared'}
+                </span>
+              </div>
+            </div>
+          `).join('')}
+          ${advancesAll.length > 3 ? `<div style="text-align:center;font-size:.72rem;color:rgba(255,255,255,0.3);margin-top:4px">+${advancesAll.length - 3} more — click to view all</div>` : ''}
+        </div>` : `<div style="margin-top:14px;text-align:center;font-size:.8rem;color:rgba(255,255,255,0.25);padding:8px"><i class="fa fa-inbox" style="margin-right:6px"></i>No advance payments yet — click to add</div>`}
       </div>
 
       <!-- Loan Summary & Student Reminders -->

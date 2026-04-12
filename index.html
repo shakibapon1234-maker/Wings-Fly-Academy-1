@@ -41,25 +41,71 @@
 
 
   <div id="login-screen">
+    <!-- Floating particles -->
+    <div class="login-particles" id="login-particles"></div>
+    <!-- Plane SVG decoration -->
+    <div class="login-plane-deco" aria-hidden="true">
+      <svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 40 L180 20 L160 40 L180 60 Z" fill="rgba(0,217,255,0.07)" stroke="rgba(0,217,255,0.18)" stroke-width="1"/>
+        <path d="M140 30 L160 40 L140 50 Z" fill="rgba(0,217,255,0.12)"/>
+        <line x1="10" y1="40" x2="180" y2="40" stroke="rgba(0,217,255,0.06)" stroke-width="1" stroke-dasharray="4 6"/>
+      </svg>
+    </div>
+
     <div class="login-box">
-      <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'" />
-      <h1>Wings Fly Aviation Academy</h1>
-      <p class="bn">Login to Management System</p>
-      <form id="login-form">
-        <div class="form-group">
-          <label class="bn"><i class="fa fa-user"></i> Username</label>
-          <input type="text" id="login-username" placeholder="admin" autocomplete="username" />
+      <!-- Glow ring behind logo -->
+      <div class="login-logo-ring">
+        <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'" />
+      </div>
+
+      <h1 class="login-title">Wings Fly <span class="login-title-accent">Admin</span></h1>
+      <p class="login-subtitle">Aviation Academy Management System</p>
+
+      <form id="login-form" autocomplete="off">
+        <!-- Username -->
+        <div class="login-field-group">
+          <label class="login-label">USERNAME</label>
+          <div class="login-input-wrap">
+            <i class="fa fa-user login-input-icon"></i>
+            <input type="text" id="login-username" class="login-input" placeholder="Enter username" autocomplete="username" />
+            <span class="login-input-badge">👤</span>
+          </div>
         </div>
-        <div class="form-group" style="margin-bottom:16px">
-          <label class="bn"><i class="fa fa-lock"></i> Password</label>
-          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password" />
+
+        <!-- Password -->
+        <div class="login-field-group">
+          <label class="login-label">PASSWORD</label>
+          <div class="login-input-wrap">
+            <i class="fa fa-lock login-input-icon"></i>
+            <input type="password" id="login-password" class="login-input" placeholder="Enter password" autocomplete="current-password" />
+            <button type="button" class="login-eye-btn" id="login-eye-toggle" tabindex="-1" aria-label="Toggle password">
+              <i class="fa fa-eye" id="login-eye-icon"></i>
+            </button>
+          </div>
         </div>
-        <div id="login-error" class="hidden" style="color:var(--error);font-size:.85rem;margin-bottom:12px;text-align:center"></div>
-        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;font-size:1rem">
-          <i class="fa fa-sign-in-alt"></i> Login
+
+        <div id="login-error" class="hidden login-error-msg"></div>
+
+        <button type="submit" class="login-btn" id="login-submit-btn">
+          <span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span>
+          <div class="login-btn-shimmer"></div>
         </button>
       </form>
-      <div style="margin-top:20px;font-size:.75rem;color:var(--text-muted)">Wings Fly Aviation Academy © 2026</div>
+
+      <button type="button" class="login-forgot-link" onclick="LoginUI.showForgotModal()">
+        🔑 Forgot Password?
+      </button>
+
+      <div class="login-footer">Wings Fly Aviation Academy &copy; 2026</div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-pw-modal" class="login-modal-overlay hidden">
+      <div class="login-modal-box">
+        <button class="login-modal-close" onclick="LoginUI.closeForgotModal()">✕</button>
+        <h3 class="login-modal-title"><i class="fa fa-key"></i> Password Recovery</h3>
+        <div id="forgot-pw-body"></div>
+      </div>
     </div>
   </div>
 
@@ -337,31 +383,31 @@
   <!-- ════════════════════════════════════════
        JS — Load Order Matters
   ════════════════════════════════════════ -->
-  <!-- Core -->
-  <script src="js/core/supabase-config.js"></script>
-  <script src="js/core/supabase-sync.js"></script>
-  <script src="js/core/sync-guard.js"></script>
-  <script src="js/core/utils.js"></script>
-  <script src="js/core/app.js"></script>
+  <!-- Core (defer: page render block হয় না, order preserved) -->
+  <script src="js/core/supabase-config.js" defer></script>
+  <script src="js/core/supabase-sync.js" defer></script>
+  <script src="js/core/sync-guard.js" defer></script>
+  <script src="js/core/utils.js" defer></script>
+  <script src="js/core/app.js" defer></script>
 
   <!-- UI -->
-  <script src="js/ui/login.js"></script>
-  <script src="js/ui/dashboard.js"></script>
-  <script src="js/ui/settings.js"></script>
+  <script src="js/ui/login.js" defer></script>
+  <script src="js/ui/dashboard.js" defer></script>
+  <script src="js/ui/settings.js" defer></script>
 
   <!-- Modules -->
-  <script src="js/modules/students.js"></script>
-  <script src="js/modules/finance.js"></script>
-  <script src="js/modules/accounts.js"></script>
-  <script src="js/modules/loans.js"></script>
-  <script src="js/modules/exam.js"></script>
-  <script src="js/modules/attendance.js"></script>
-  <script src="js/modules/salary.js"></script>
-  <script src="js/modules/hr-staff.js"></script>
-  <script src="js/modules/visitors.js"></script>
-  <script src="js/modules/id-cards.js"></script>
-  <script src="js/modules/certificates.js"></script>
-  <script src="js/modules/notice-board.js"></script>
+  <script src="js/modules/students.js" defer></script>
+  <script src="js/modules/finance.js" defer></script>
+  <script src="js/modules/accounts.js" defer></script>
+  <script src="js/modules/loans.js" defer></script>
+  <script src="js/modules/exam.js" defer></script>
+  <script src="js/modules/attendance.js" defer></script>
+  <script src="js/modules/salary.js" defer></script>
+  <script src="js/modules/hr-staff.js" defer></script>
+  <script src="js/modules/visitors.js" defer></script>
+  <script src="js/modules/id-cards.js" defer></script>
+  <script src="js/modules/certificates.js" defer></script>
+  <script src="js/modules/notice-board.js" defer></script>
 
   <!-- PWA -->
   <script>
