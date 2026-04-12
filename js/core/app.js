@@ -10,6 +10,19 @@ const App = (() => {
     'visitors', 'id-cards', 'certificates', 'notice-board', 'settings'
   ];
 
+  // ── SHA-256 password hashing (settings.js এর মতো একই logic) ──────────
+  async function _hashPw(pw) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    } catch (e) {
+      let hash = 0;
+      for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
+      return 'fb_' + Math.abs(hash).toString(16);
+    }
+  }
+
   const TITLES = {
     dashboard:      'Welcome back, Admin!',
     students:       '👩‍🎓 Students',
@@ -77,7 +90,7 @@ const App = (() => {
     return permissions.includes(required);
   }
 
-  function login(username, password) {
+  async function login(username, password) {
     const settings = SupabaseSync.getAll(DB.settings)[0] || {};
     const correct = settings.admin_password || 'admin123';
     const normalizedUsername = String(username || '').trim();
@@ -93,7 +106,14 @@ const App = (() => {
 
     if (!normalizedUsername) return false;
 
-    const sub = getSubAccounts().find((s) => s.username === normalizedUsername && s.password === password);
+    // ── Sub-account login: hashed password compare ────────────────────
+    const inputHash = await _hashPw(password);
+    const sub = getSubAccounts().find((s) => {
+      if (s.username !== normalizedUsername) return false;
+      // Hashed password (new format) অথবা legacy plaintext (migration এ ধরা না পড়লে)
+      const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
+      return isHashed ? s.password === inputHash : s.password === password;
+    });
     if (sub) {
       localStorage.setItem('wfa_logged_in', 'true');
       localStorage.setItem('wfa_user_role', 'subaccount');
@@ -222,6 +242,7 @@ const App = (() => {
     switch (type) {
       case 'student':     navigateTo('students');  setTimeout(() => { if (typeof Students !== 'undefined') Students.openAddModal(); }, 200); break;
       case 'transaction': navigateTo('finance');   setTimeout(() => { if (typeof Finance !== 'undefined') Finance.openAddModal(); }, 200); break;
+      case 'loan':        navigateTo('loans');     setTimeout(() => { if (typeof Loans !== 'undefined') Loans.openAddModal(); }, 200); break;
       case 'exam':        navigateTo('exam');      setTimeout(() => { if (typeof Exam !== 'undefined') Exam.openRegModal(); }, 200); break;
       case 'visitor':     navigateTo('visitors');  setTimeout(() => { if (typeof VisitorsModule !== 'undefined') VisitorsModule.openAddModal(); }, 200); break;
     }
@@ -276,12 +297,15 @@ const App = (() => {
     // Login form
     const loginForm = document.getElementById('login-form');
     if (loginForm) {
-      loginForm.addEventListener('submit', (e) => {
+      loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const un = document.getElementById('login-username')?.value;
         const pw = document.getElementById('login-password')?.value;
         const errEl = document.getElementById('login-error');
-        const ok = login(un, pw);
+        const btnEl = loginForm.querySelector('button[type="submit"]');
+        if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Logging in...'; }
+        const ok = await login(un, pw);
+        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Login'; }
         if (!ok) {
           if (errEl) {
             errEl.textContent = 'Username or password incorrect!';

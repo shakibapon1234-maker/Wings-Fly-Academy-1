@@ -18,7 +18,23 @@ const SupabaseSync = (() => {
   }
 
   function setAll(table, rows) {
-    localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
+    try {
+      localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
+    } catch (e) {
+      // QuotaExceededError — storage limit পূর্ণ
+      if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
+        console.error('[Storage] localStorage quota exceeded for table:', table);
+        // User-কে visible warning দাও
+        const msg = `⚠️ Storage সীমা পূর্ণ! "${table}" data সংরক্ষণ করা যায়নি।\nSettings > Data Management থেকে পুরনো data মুছুন।`;
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast(msg, 'error');
+        } else {
+          alert(msg);
+        }
+      } else {
+        console.error('[Storage] setAll failed for table:', table, e);
+      }
+    }
   }
 
   function insert(table, record) {
@@ -409,6 +425,9 @@ const SupabaseSync = (() => {
     }
     return o;
   }
+
+  // Per-table set of columns Supabase has rejected (auto-stripped on retry)
+  const _badCols = {}; // table → Set of column names
 
   async function _pushRecord(table, record) {
     try {

@@ -1,17 +1,19 @@
 // ============================================================
 // Wings Fly Aviation Academy — Service Worker
 // ============================================================
-const CACHE_NAME = 'wfa-v2';
+const CACHE_NAME = 'wfa-v3';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
+  './manifest.json',
   './css/main.css',
   './css/attendance.css',
   './css/exam.css',
   './css/print.css',
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',
+  './js/core/sync-guard.js',
   './js/core/app.js',
   './js/core/utils.js',
   './js/ui/dashboard.js',
@@ -37,7 +39,17 @@ const STATIC_ASSETS = [
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS).catch(() => {}))
+    caches.open(CACHE_NAME).then((cache) => {
+      // addAll এর বদলে individual fetch — একটা fail করলে বাকিগুলো চলবে
+      return Promise.allSettled(
+        STATIC_ASSETS.map(url =>
+          fetch(url).then(res => {
+            if (!res.ok) throw new Error(`${url}: ${res.status}`);
+            return cache.put(url, res);
+          }).catch(err => console.warn('[SW] Cache miss:', err.message))
+        )
+      );
+    })
   );
   self.skipWaiting();
 });
@@ -45,15 +57,36 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => {
+        console.log('[SW] Deleting old cache:', k);
+        return caches.delete(k);
+      }))
     )
   );
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
-  // Network first, fallback to cache
+  // Supabase API calls — always network, never cache
+  if (e.request.url.includes('supabase.co')) {
+    return; // browser default
+  }
+  // Static assets — Network first, cache fallback
   e.respondWith(
-    fetch(e.request).catch(() => caches.match(e.request))
+    fetch(e.request)
+      .then(res => {
+        // Successful network response → cache-এ update করো
+        if (res.ok && e.request.method === 'GET') {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then(c => c.put(e.request, resClone));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        // Fallback: index.html দাও (SPA navigation এর জন্য)
+        if (e.request.mode === 'navigate') return caches.match('./index.html');
+        return new Response('Offline', { status: 503 });
+      }))
   );
 });

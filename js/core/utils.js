@@ -4,6 +4,20 @@
 
 const Utils = (() => {
 
+  // ── XSS Protection ─────────────────────────────────────────
+  // User input সরাসরি innerHTML এ বসানোর আগে এই function দিয়ে
+  // escape করতে হবে। যেমন: `<div>${Utils.esc(s.name)}</div>`
+  function esc(str) {
+    if (str === null || str === undefined) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .replace(/\//g, '&#x2F;');
+  }
+
   // ── Date Helpers ───────────────────────────────────────────
   function today() {
     return new Date().toISOString().split('T')[0];
@@ -453,6 +467,8 @@ const Utils = (() => {
       el,
       // Toast
       toast,
+      // XSS Protection
+      esc,
       // Modal
       openModal, closeModal, confirm,
       // Badges

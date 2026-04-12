@@ -816,6 +816,51 @@ const SettingsModule = (() => {
   function panelData() {
     return `
     <div class="settings-panel ${activeTab === 'data' ? 'active' : ''}" data-panel="data">
+      <!-- ── Storage Usage Indicator ──────────────────────────────── -->
+      <div class="settings-card" style="border-color:rgba(0,212,255,0.25);margin-bottom:14px" id="storage-usage-card">
+        <div class="settings-card-title"><i class="fa fa-hard-drive"></i> Local Storage Usage</div>
+        <div id="storage-usage-content" style="font-size:.88rem;color:var(--text-secondary)">
+          <i class="fa fa-spinner fa-spin"></i> Calculating...
+        </div>
+      </div>
+      <script>
+        (function() {
+          try {
+            let totalBytes = 0;
+            const breakdown = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              const val = localStorage.getItem(key) || '';
+              const bytes = (key.length + val.length) * 2; // UTF-16
+              totalBytes += bytes;
+              if (key.startsWith('wfa_')) breakdown.push({ key: key.replace('wfa_',''), bytes });
+            }
+            breakdown.sort((a,b) => b.bytes - a.bytes);
+            const usedKB  = (totalBytes / 1024).toFixed(1);
+            const limitKB = 5120; // 5MB estimate
+            const pct     = Math.min(100, Math.round(totalBytes / (limitKB * 1024) * 100));
+            const color   = pct >= 85 ? '#ff4757' : pct >= 60 ? '#ffa502' : '#00ff88';
+            const topItems = breakdown.slice(0, 5).map(b =>
+              '<div style="display:flex;justify-content:space-between;margin-top:4px">' +
+              '<span style="color:var(--text-muted)">' + b.key + '</span>' +
+              '<span style="font-family:monospace">' + (b.bytes/1024).toFixed(1) + ' KB</span></div>'
+            ).join('');
+            document.getElementById('storage-usage-content').innerHTML =
+              '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
+                '<span>Used: <strong style="color:' + color + '">' + usedKB + ' KB</strong></span>' +
+                '<span style="color:var(--text-muted)">~5 MB limit (' + pct + '%)</span>' +
+              '</div>' +
+              '<div style="background:rgba(255,255,255,0.05);border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px">' +
+                '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px;transition:width .4s"></div>' +
+              '</div>' +
+              (pct >= 85 ? '<div style="color:#ff4757;font-size:.82rem;margin-bottom:8px"><i class="fa fa-triangle-exclamation"></i> Storage প্রায় পূর্ণ! নিচে থেকে পুরনো data মুছুন।</div>' : '') +
+              '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px">Top usage by table:</div>' +
+              topItems;
+          } catch(e) {
+            document.getElementById('storage-usage-content').textContent = 'Storage info দেখা যাচ্ছে না।';
+          }
+        })();
+      </script>
       <div class="settings-card glow-cyan">
         <div class="settings-card-title"><i class="fa fa-floppy-disk"></i> Backup & Restore</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:16px">Save your data locally or restore from a file.</p>
@@ -3450,6 +3495,45 @@ ${expenseEntries.length > 0 ? `
      return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
   }
 
+  /* ── SHA-256 password hashing (Web Crypto API) ───────────────────────
+     Passwords কখনো plaintext সংরক্ষণ করা হবে না।
+     hashPassword(pw) → Promise<string> hex digest
+  ──────────────────────────────────────────────────────────────────── */
+  async function hashPassword(pw) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    } catch (e) {
+      // Fallback: simple obfuscation যদি Web Crypto না থাকে
+      console.warn('Web Crypto unavailable, using fallback');
+      let hash = 0;
+      for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
+      return 'fb_' + Math.abs(hash).toString(16);
+    }
+  }
+
+  /* Existing sub-accounts migrate করো (plaintext → hashed)
+     App load হওয়ার পরে একবার চলবে, তারপর আর দরকার নেই।
+  */
+  async function migratePasswordsToHash() {
+    const subs = getSubAccounts();
+    let changed = false;
+    for (let s of subs) {
+      // যদি hash না হয়ে থাকে (64-char hex নয়)
+      if (s.password && !/^[0-9a-f]{64}$/.test(s.password) && !s.password.startsWith('fb_')) {
+        s.password = await hashPassword(s.password);
+        changed = true;
+      }
+    }
+    if (changed) {
+      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      console.info('[Security] Sub-account passwords migrated to SHA-256 hashes.');
+    }
+  }
+  // Migration একবার চালাও
+  migratePasswordsToHash();
+
   function buildSubAccountsList(subs) {
      return `
         <table style="width:100%; text-align:left; border-collapse:collapse; font-size:0.85rem">
@@ -3477,12 +3561,16 @@ ${expenseEntries.length > 0 ? `
      `;
   }
 
-  function addSubAccount() {
+  async function addSubAccount() {
      const un = document.getElementById('sub-username')?.value?.trim();
      const pw = document.getElementById('sub-pw')?.value;
      
      if(!un || !pw) {
         if(typeof Utils !== 'undefined') Utils.toast('Username and Password required', 'error');
+        return;
+     }
+     if(pw.length < 6) {
+        if(typeof Utils !== 'undefined') Utils.toast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error');
         return;
      }
 
@@ -3511,9 +3599,12 @@ ${expenseEntries.length > 0 ? `
         return;
      }
 
+     // ── Password SHA-256 hash করে সংরক্ষণ ───────────────────────────
+     const hashedPw = await hashPassword(pw);
+
      subs.push({
         username: un,
-        password: pw, // In real app, hash this!
+        password: hashedPw,   // SHA-256 hashed — plaintext কখনো store হয় না
         permissions: permissions
      });
      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));

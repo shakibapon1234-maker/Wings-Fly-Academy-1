@@ -104,19 +104,19 @@ const Students = (() => {
   }
 
   function renderRows(rows, startIndex = 0) {
-    if (!rows.length) return Utils.noDataRow(12, 'No Student not found');
+    if (!rows.length) return Utils.noDataRow(12, 'No students found');
     return rows.map((s, i) => `
       <tr>
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
-        <td><span class="badge badge-primary">${s.student_id||'—'}</span></td>
+        <td><span class="badge badge-primary">${Utils.esc(s.student_id)||'—'}</span></td>
         <td>
-          <div style="font-weight:600">${s.name}</div>
-          ${s.email ? `<div style="font-size:0.75rem;color:var(--text-muted)">${s.email}</div>` : ''}
+          <div style="font-weight:600">${Utils.esc(s.name)}</div>
+          ${s.email ? `<div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(s.email)}</div>` : ''}
         </td>
-        <td>${s.phone||'—'}</td>
-        <td>${s.course||'—'}</td>
-        <td>${s.batch||'—'}</td>
-        <td>${s.session||'—'}</td>
+        <td>${Utils.esc(s.phone)||'—'}</td>
+        <td>${Utils.esc(s.course)||'—'}</td>
+        <td>${Utils.esc(s.batch)||'—'}</td>
+        <td>${Utils.esc(s.session)||'—'}</td>
         <td style="font-family:var(--font-en)">${Utils.takaEn(s.total_fee)}</td>
         <td class="ledger-income">${Utils.takaEn(s.paid)}</td>
         <td class="${Utils.safeNum(s.due)>0?'ledger-expense':''}">${Utils.takaEn(s.due)}</td>
@@ -447,7 +447,7 @@ const Students = (() => {
         <i class="fa fa-print"></i> PRINT RECEIPT
       </button>
       
-      <button class="action-btn-glow btn-grey" onclick="Utils.toast('Reminder set for ${s.name}', 'success')">
+      <button class="action-btn-glow btn-grey" onclick="Students.setReminder('${id}','${s.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">
         <i class="fa fa-bell"></i> SET REMINDER
       </button>
       
@@ -1003,6 +1003,57 @@ const Students = (() => {
     Utils.exportExcel(rows, 'students', 'Student');
   }
 
+  /* ── SET REMINDER — Notice Board-এ auto-entry ──────────────────────
+     Student-এর জন্য reminder সেট করলে Notice Board-এ একটি entry তৈরি হয়।
+     Admin পরে Notice Board গিয়ে দেখতে পাবেন।
+  ─────────────────────────────────────────────────────────────────── */
+  function setReminder(id, name) {
+    Utils.openModal('<i class="fa fa-bell"></i> Set Reminder', `
+      <div class="form-group">
+        <label>Student</label>
+        <input class="form-control" value="${name}" disabled />
+      </div>
+      <div class="form-group">
+        <label>Reminder Note <span class="req">*</span></label>
+        <textarea id="reminder-note" class="form-control" rows="3" placeholder="যেমন: ফি বাকি আছে, নথিপত্র জমা দিতে হবে..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Remind Date</label>
+        <input type="date" id="reminder-date" class="form-control" value="${Utils.today()}" />
+      </div>
+      <div id="reminder-err" class="form-error hidden"></div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Students._saveReminder('${id}','${name.replace(/'/g,"\\'")}')">
+          <i class="fa fa-bell"></i> Save Reminder
+        </button>
+      </div>
+    `);
+  }
+
+  function _saveReminder(id, name) {
+    const note = (document.getElementById('reminder-note')?.value || '').trim();
+    const date = document.getElementById('reminder-date')?.value || Utils.today();
+    if (!note) {
+      const e = document.getElementById('reminder-err');
+      if (e) { e.textContent = 'Reminder note লিখুন'; e.classList.remove('hidden'); }
+      return;
+    }
+    // Notice Board-এ entry তৈরি করো
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      SupabaseSync.insert(DB.notices || 'notices', {
+        title:   `🔔 Reminder: ${name}`,
+        message: note,
+        date:    date,
+        type:    'reminder',
+        student_id: id,
+        created_by: localStorage.getItem('wfa_user_name') || 'admin',
+      });
+    }
+    Utils.closeModal();
+    Utils.toast(`Reminder saved for ${name} — Notice Board-এ যোগ হয়েছে ✓`, 'success');
+  }
+
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
@@ -1011,7 +1062,8 @@ const Students = (() => {
     deleteStudent, exportExcel,
     printHistory,
     printReceipt,
-    deletePayment
+    deletePayment,
+    setReminder, _saveReminder
   };
 
 })();
