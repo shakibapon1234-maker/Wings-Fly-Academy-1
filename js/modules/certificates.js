@@ -240,7 +240,7 @@ const CertificatesModule = (() => {
                 ${(s.name || '?')[0].toUpperCase()}
               </div>
               <div style="flex:1;">
-                <div style="font-weight:600; color:var(--text);">${s.name || 'Unknown'}</div>
+                <div style="font-weight:600; color:var(--text);">${Utils.esc(s.name || "Unknown")}</div>
                 <div style="font-size:0.82rem; color:var(--text-muted);">${s.studentId || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
               </div>
             </div>

@@ -176,7 +176,7 @@ const Exam = (() => {
           <label>Student <span class="req">*</span></label>
           <select id="ef-student" class="form-control" onchange="Exam.onStudentSelect()">
             <option value="">-- Select Student --</option>
-            ${students.map(s => `<option value="${s.id}" data-name="${s.name}" data-sid="${s.student_id}" data-batch="${s.batch}" data-session="${s.session}">${s.name} (${s.student_id || ''})</option>`).join('')}
+            ${students.map(s => `<option value="${s.id}" data-name="${Utils.esc(s.name)}" data-sid="${Utils.esc(s.student_id)}" data-batch="${Utils.esc(s.batch)}" data-session="${Utils.esc(s.session)}">${Utils.esc(s.name)} (${Utils.esc(s.student_id || '')})</option>`).join('')}
           </select>
         </div>
         <div class="form-group">

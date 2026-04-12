@@ -82,8 +82,8 @@ const VisitorsModule = (() => {
                 <tr>
                   <td style="white-space:nowrap; color:var(--text-muted); font-size:0.85rem;"><i class="fa fa-calendar-day" style="margin-right:4px;"></i>${Utils.formatDateEN(v.visitDate)}</td>
                   <td>
-                    <div style="font-weight:700; color:#fff; font-size:1rem;">${v.name}</div>
-                    <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${v.phone}</div>
+                    <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
                   </td>
                   <td style="font-weight:600; color:#00d4ff;">${v.interestedCourse || '-'}</td>
                   <td>${statusBadge}</td>

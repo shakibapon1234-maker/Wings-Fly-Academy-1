@@ -57,7 +57,7 @@ const IDCardsModule = (() => {
 
       <!-- Name -->
       <div style="text-align:center;padding:0 10px;flex-shrink:0;">
-        <div style="color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;line-height:1.2;">${person.name || 'N/A'}</div>
+        <div style="color:#ffffff;font-size:13px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;line-height:1.2;">${Utils.esc(person.name || "N/A")}</div>
       </div>
 
       <!-- Role badge -->
@@ -121,7 +121,7 @@ const IDCardsModule = (() => {
   function printCard(person, type) {
     const html = buildCardHTML(person, type);
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ID Card - ${person.name}</title>
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>ID Card - ${Utils.esc(person.name)}</title>
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a1628;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     @media print{body{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A6 landscape;margin:5mm;}}</style>
     </head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
@@ -167,7 +167,7 @@ const IDCardsModule = (() => {
                 ${(s.name || '?')[0].toUpperCase()}
               </div>
               <div style="flex:1;">
-                <div style="font-weight:600; color:var(--text);">${s.name || 'Unknown'}</div>
+                <div style="font-weight:600; color:var(--text);">${Utils.esc(s.name || "Unknown")}</div>
                 <div style="font-size:0.82rem; color:var(--text-muted);">${s.studentId || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
               </div>
             </div>

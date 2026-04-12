@@ -42,7 +42,7 @@
 
   <div id="login-screen">
     <div class="login-box">
-      <img src="assets/logo.jpg.jpeg" alt="Wings Fly" onerror="this.style.display='none'" />
+      <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'" />
       <h1>Wings Fly Aviation Academy</h1>
       <p class="bn">Login to Management System</p>
       <form id="login-form">
@@ -71,7 +71,7 @@
     <!-- ── SIDEBAR ── -->
     <aside id="sidebar">
       <div class="sidebar-logo">
-        <img src="assets/logo.jpg.jpeg" alt="logo" onerror="this.style.display='none'" />
+        <img src="assets/logo.jpg" alt="logo" onerror="this.style.display='none'" />
         <div class="logo-text">
           <span class="logo-title">Wings Fly</span>
           <span class="academy-name bn">Aviation Academy</span>
@@ -163,15 +163,15 @@
         </div>
         <div class="topbar-actions">
           <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
-          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Notifications" onclick="App.navigateTo('students')">
+          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Due Payments" onclick="App.navigateTo('finance')">
             <i class="fa fa-bell"></i>
             <span id="notif-count" class="badge badge-error" style="font-size:.6rem;padding:1px 5px;display:none;position:relative;top:-6px;left:-4px">0</span>
           </button>
-          <button class="btn btn-sm btn-ghost" style="display:flex; align-items:center; gap:8px;" title="Profile">
+          <button class="btn btn-sm btn-ghost" id="btn-logout" style="display:flex; align-items:center; gap:8px;" title="Logout" onclick="App.logout()">
             <div style="background:rgba(0,212,255,0.2); color:#00d4ff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; border:1px solid rgba(0,212,255,0.3);">A</div>
             <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.2;">
               <span style="font-size:0.8rem; font-weight:700; color:#fff;">Admin</span>
-              <span style="font-size:0.65rem; color:var(--text-muted);">User <i class="fa fa-chevron-down" style="font-size:0.6rem; margin-left:4px;"></i></span>
+              <span style="font-size:0.65rem; color:var(--text-muted);"><i class="fa fa-sign-out" style="font-size:0.6rem; margin-right:3px;"></i>Logout</span>
             </div>
           </button>
         </div>

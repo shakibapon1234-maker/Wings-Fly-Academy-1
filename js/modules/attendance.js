@@ -45,9 +45,8 @@ const Attendance = (() => {
     // এখন SupabaseSync দিয়েই সব হবে — আলাদা localStorage নয়
     // records array-টা SupabaseSync-এ আছে, তাই শুধু dispatchEvent করো
     // (individual insert/update ইতিমধ্যে SupabaseSync এ হয়ে গেছে)
-    try {
-      localStorage.setItem('wf_attendance', JSON.stringify(records)); // legacy fallback
-    } catch { /* ignore */ }
+    // SupabaseSync-এ insert/update ইতিমধ্যে হয়ে গেছে — আলাদা localStorage write দরকার নেই
+    try { /* no-op: legacy localStorage write removed */ } catch { /* ignore */ }
   }
 
   function today() {
@@ -264,11 +263,11 @@ const Attendance = (() => {
                 const status = existingRec?.status || '';
                 const eid = s.student_id || s.id;
                 return `
-                <tr data-entity-id="${eid}" data-name="${s.name}" data-batch="${s.batch || ''}">
+                <tr data-entity-id="${eid}" data-name="${Utils.esc(s.name)}" data-batch="${s.batch || ''}">
                   <td style="text-align:center;color:var(--text-muted)">${i + 1}</td>
                   <td><span class="badge badge-primary">${eid}</span></td>
-                  <td><strong>${s.name}</strong></td>
-                  <td style="color:var(--text-secondary)">${s.phone || '—'}</td>
+                  <td><strong>${Utils.esc(s.name)}</strong></td>
+                  <td style="color:var(--text-secondary)">${Utils.esc(s.phone || '—')}</td>
                   <td>
                     <div class="att-status-group">
                       ${['Present', 'Absent', 'Late', 'Leave'].map(st => `
@@ -553,7 +552,7 @@ const Attendance = (() => {
           const pct = total ? Math.round(((e.Present + e.Late) / total) * 100) : 0;
           return `<tr>
             <td style="text-align:center">${i + 1}</td>
-            <td><strong>${e.name}</strong></td>
+            <td><strong>${Utils.esc(e.name)}</strong></td>
             <td style="color:#00ff88;font-weight:700">${e.Present}</td>
             <td style="color:#ff4757;font-weight:700">${e.Absent}</td>
             <td style="color:#ffd700;font-weight:700">${e.Late}</td>
@@ -655,7 +654,7 @@ const Attendance = (() => {
           const total = e.Present + e.Absent + e.Late + e.Leave;
           const pct = total ? Math.round(((e.Present + e.Late) / total) * 100) : 0;
           return `<tr>
-            <td>${i+1}</td><td><strong>${e.name}</strong></td>
+            <td>${i+1}</td><td><strong>${Utils.esc(e.name)}</strong></td>
             <td style="color:#00ff88;font-weight:700">${e.Present}</td>
             <td style="color:#ff4757;font-weight:700">${e.Absent}</td>
             <td style="color:#ffd700;font-weight:700">${e.Late}</td>
@@ -741,7 +740,7 @@ const Attendance = (() => {
             <tbody>${students.map((s, i) => `
               <tr>
                 <td style="text-align:center">${i + 1}</td>
-                <td><strong>${s.name}</strong></td>
+                <td><strong>${Utils.esc(s.name)}</strong></td>
                 <td style="font-size:0.7rem;color:var(--text-muted)">${s.course || '—'}</td>
                 ${showDays.map(() => `<td style="border:1px solid rgba(0,212,255,0.12);min-height:26px;"></td>`).join('')}
                 <td style="border:1px solid rgba(0,212,255,0.12);"></td>
@@ -765,7 +764,7 @@ const Attendance = (() => {
             <tbody>${students.map((s, i) => `
               <tr>
                 <td style="text-align:center">${i + 1}</td>
-                <td><strong>${s.name}</strong></td>
+                <td><strong>${Utils.esc(s.name)}</strong></td>
                 <td style="font-size:0.65rem;color:var(--text-muted)">${s.course || '—'}</td>
                 <td style="font-size:0.62rem;color:var(--text-muted)">${s.student_id || ''}</td>
                 ${days.map(() => `<td style="border:1px solid rgba(0,212,255,0.1);"></td>`).join('')}
@@ -790,7 +789,7 @@ const Attendance = (() => {
             <tbody>${students.map((s, i) => `
               <tr>
                 <td style="text-align:center">${i + 1}</td>
-                <td><strong>${s.name}</strong></td>
+                <td><strong>${Utils.esc(s.name)}</strong></td>
                 <td style="font-size:0.65rem;color:var(--text-muted)">${s.course || '—'}</td>
                 ${days.map(() => `<td style="border:1px solid rgba(0,212,255,0.08);"></td>`).join('')}
                 <td style="border:1px solid rgba(0,255,136,0.2);"></td>
@@ -816,7 +815,7 @@ const Attendance = (() => {
               <tr style="height:42px">
                 <td style="text-align:center">${i + 1}</td>
                 <td style="font-size:0.78rem;color:var(--text-muted)">${s.student_id || ''}</td>
-                <td><strong>${s.name}</strong></td>
+                <td><strong>${Utils.esc(s.name)}</strong></td>
                 <td style="font-size:0.78rem;color:var(--text-secondary)">${s.course || '—'}</td>
                 <td style="border-bottom:1px dotted rgba(0,212,255,0.25)"></td>
                 <td style="border-bottom:1px dotted rgba(0,212,255,0.25)"></td>
@@ -864,7 +863,7 @@ const Attendance = (() => {
       tableBody = students.map((s, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td style="font-weight:700;">${s.name}</td>
+          <td style="font-weight:700;">${Utils.esc(s.name)}</td>
           <td style="font-size:9px;color:#555;">${s.course || '—'}</td>
           ${showDays.map(() => `<td></td>`).join('')}
           <td></td>
@@ -882,7 +881,7 @@ const Attendance = (() => {
       tableBody = students.map((s, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td style="font-weight:700;">${s.name}</td>
+          <td style="font-weight:700;">${Utils.esc(s.name)}</td>
           <td style="font-size:8px;color:#555;">${s.course || '—'}</td>
           <td style="font-size:8px;color:#777;">${s.student_id || ''}</td>
           ${days.map(() => `<td></td>`).join('')}
@@ -901,7 +900,7 @@ const Attendance = (() => {
       tableBody = students.map((s, i) => `
         <tr>
           <td style="text-align:center;">${i + 1}</td>
-          <td style="font-weight:700;">${s.name}</td>
+          <td style="font-weight:700;">${Utils.esc(s.name)}</td>
           <td style="font-size:8px;color:#555;">${s.course || '—'}</td>
           ${days.map(() => `<td></td>`).join('')}
           <td></td><td></td>
@@ -920,7 +919,7 @@ const Attendance = (() => {
         <tr style="height:38px;">
           <td style="text-align:center;">${i + 1}</td>
           <td style="font-size:9px;color:#555;">${s.student_id || ''}</td>
-          <td style="font-weight:700;">${s.name}</td>
+          <td style="font-weight:700;">${Utils.esc(s.name)}</td>
           <td style="font-size:9px;color:#444;">${s.course || '—'}</td>
           <td style="border-bottom:1px dotted #bbb;"></td>
           <td style="border-bottom:1px dotted #bbb;"></td>
@@ -1102,7 +1101,7 @@ const Attendance = (() => {
       const bg    = s.status === 'P' ? '#f0fdf4' : s.status === 'A' ? '#fef2f2' : s.status === 'Late' ? '#fffbeb' : '#eff6ff';
       return `<tr style="background:${s.status !== '—' ? bg : '#fff'}">
         <td style="text-align:center;color:#777;">${s.num}</td>
-        <td style="font-weight:700;">${s.name}</td>
+        <td style="font-weight:700;">${Utils.esc(s.name)}</td>
         <td style="font-size:9px;color:#555;">${s.sid}</td>
         <td style="font-size:9px;color:#444;">${s.course}</td>
         <td style="text-align:center;font-weight:800;color:${color};font-size:11px;">${s.status}</td>

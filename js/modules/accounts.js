@@ -168,7 +168,7 @@ const Accounts = (() => {
               bankDetails.map((b, i) => `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
                 <td style="padding:12px;">${i+1}</td>
-                <td style="padding:12px; font-weight:700;">${b.name||'—'}</td>
+                <td style="padding:12px; font-weight:700;">${Utils.esc(b.name||"—")}</td>
                 <td style="padding:12px; color:var(--text-secondary);">${b.branch||'—'}</td>
                 <td style="padding:12px;"> <span style="background:rgba(0,212,255,0.1); color:#00d4ff; padding:4px 10px; border-radius:20px; font-size:0.75rem; border:1px solid rgba(0,212,255,0.2);">${b.bankName||'—'}</span> </td>
                 <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${b.accountNo||'—'}</td>
@@ -204,7 +204,7 @@ const Accounts = (() => {
               mobileDetails.map((m, i) => `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
                 <td style="padding:12px;">${i+1}</td>
-                <td style="padding:12px; font-weight:700;">${m.name||'—'}</td>
+                <td style="padding:12px; font-weight:700;">${Utils.esc(m.name||"—")}</td>
                 <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${m.accountNo||'—'}</td>
                 <td style="padding:12px; text-align:right; color:#00ff88; font-weight:700; font-family:var(--font-en); text-shadow:0 0 5px rgba(0,255,136,0.3);">${Utils.takaEn(m.balance)}</td>
                 <td style="padding:12px; text-align:center;">

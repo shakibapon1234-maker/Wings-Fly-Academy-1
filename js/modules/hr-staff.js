@@ -153,9 +153,9 @@ const HRStaff = (() => {
             <tr>
               <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
               <td><code>${s.staffId || '—'}</code></td>
-              <td><strong>${s.name}</strong></td>
+              <td><strong>${Utils.esc(s.name)}</strong></td>
               <td><span class="badge badge-blue">${s.role}</span></td>
-              <td>${s.phone || '—'}</td>
+              <td>${Utils.esc(s.phone || "—")}</td>
               <td>${s.email || '—'}</td>
               <td>৳${Utils.formatMoneyPlain(s.salary || 0)}</td>
               <td>${s.joiningDate ? Utils.formatDate(s.joiningDate) : '—'}</td>

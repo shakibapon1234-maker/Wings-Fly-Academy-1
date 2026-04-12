@@ -64,7 +64,8 @@ const NoticeBoardModule = (() => {
     
     if (!banner || !textEl) return;
 
-    textEl.innerHTML = (notice.text || notice.title || '').replace(/\n/g, '<br/>');
+    const _nt = Utils.esc(notice.text || notice.title || '');
+    textEl.innerHTML = _nt.replace(/\n/g, '<br/>');
     
     // Style based on type
     const type = notice.type || 'warning';
@@ -159,7 +160,7 @@ const NoticeBoardModule = (() => {
         ${isRunning ? 
           `<div class="text-center mb-4 p-4 rounded-3" style="border:1px solid #4ade80; background:rgba(34, 197, 94, 0.1);">
              <h4 class="text-success"><i class="fa fa-check-circle"></i> A Notice is currently Active</h4>
-             <p class="mt-2 text-white">"${activeNotice.text || activeNotice.title}"</p>
+             <p class="mt-2 text-white">"${Utils.esc(activeNotice.text || activeNotice.title)}"</p>
              <p class="text-muted small">Expires at: ${new Date(activeNotice.expiresAt).toLocaleString()}</p>
              <button class="btn btn-danger mt-3" onclick="NoticeBoardModule.deleteActive()"><i class="fa fa-trash"></i> Disable Notice</button>
            </div>`

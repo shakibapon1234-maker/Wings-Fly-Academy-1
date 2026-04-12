@@ -283,6 +283,30 @@ const App = (() => {
     const hamburger = document.getElementById('btn-hamburger');
     if (hamburger) hamburger.addEventListener('click', toggleSidebar);
 
+    // Global Search
+    const searchInput = document.getElementById('global-search');
+    if (searchInput) {
+      searchInput.addEventListener('input', Utils.debounce((e) => {
+        const q = e.target.value.trim().toLowerCase();
+        if (!q) return;
+        const allStudents = (window.DB && DB.getAll ? DB.getAll('students') : []);
+        const matched = allStudents.filter(s =>
+          (s.name || '').toLowerCase().includes(q) ||
+          (s.student_id || '').toLowerCase().includes(q) ||
+          (s.phone || '').toLowerCase().includes(q)
+        );
+        if (matched.length > 0) {
+          navigateTo('students');
+          setTimeout(() => {
+            const sInput = document.getElementById('student-search');
+            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
+          }, 300);
+        } else {
+          Utils.toast('"' + Utils.esc(e.target.value) + '" — কোনো student পাওয়া যায়নি', 'info');
+        }
+      }, 400));
+    }
+
     // Logout
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) logoutBtn.addEventListener('click', logout);
