@@ -356,17 +356,18 @@ const SyncGuard = (() => {
 
   // ── Init ─────────────────────────────────────────────────
   function init() {
-    // Run audit shortly after page load
+    // Wait 12s for initial Supabase pull to finish before first audit
+    // (pull takes ~3-5s; 12s gives real-time subscriptions time to settle too)
     setTimeout(() => {
       runFullAudit();
-    }, 3500);
+    }, 12000);
 
-    // Re-run audit every 5 minutes
+    // Re-run audit every 10 minutes
     setInterval(() => {
       runFullAudit();
-    }, 5 * 60 * 1000);
+    }, 10 * 60 * 1000);
 
-    // Update badge on page load
+    // Update badge on page load (from previous session's log)
     _updateBadge();
 
     console.log('[SyncGuard] Initialized ✅');

@@ -413,14 +413,32 @@ const SupabaseSync = (() => {
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
-      const clean = _sanitizeRecord(record, table);
+      // Apply known bad cols for this table
+      let clean = _sanitizeRecord(record, table);
+      if (_badCols && _badCols[table]) {
+        clean = { ...clean };
+        _badCols[table].forEach(c => delete clean[c]);
+      }
       const { error } = await client.from(table).upsert([clean], { onConflict: 'id' });
-      if (error) throw error;
+      if (error) {
+        // Auto-strip bad column and retry once
+        const msg = (error.message || '') + (error.details || '');
+        const m = msg.match(/column[^"]*"([^"]+)"/i) || msg.match(/named\s+"([^"]+)"/i);
+        if (m && m[1]) {
+          const badCol = m[1];
+          if (!_badCols[table]) _badCols[table] = new Set();
+          _badCols[table].add(badCol);
+          delete clean[badCol];
+          console.warn(`[Sync] _pushRecord: auto-skip "${badCol}" in "${table}", retrying...`);
+          const { error: retryErr } = await client.from(table).upsert([clean], { onConflict: 'id' });
+          if (!retryErr) { SyncEngine.setStatus('synced'); return; }
+        }
+        throw error;
+      }
       SyncEngine.setStatus('synced');
     } catch (e) {
       console.warn('[Sync] Push record failed:', e);
       SyncEngine.setStatus('error');
-      // Queue for retry
       _queueRetry(table, record);
     }
   }
@@ -795,9 +813,22 @@ const SyncEngine = (() => {
     return o;
   }
 
-  /** Upsert rows; on batch failure, binary-split to locate one bad row (schema/RLS/type errors). */
+  /** Upsert rows with smart column-error recovery.
+   *  If Supabase returns 400 "column X does not exist", we strip X from
+   *  the allowlist, save a per-table badCols set, and retry.
+   */
+  const _badCols = {}; // table → Set of columns Supabase rejected
+
   async function _upsertTableWithSplit(tableKey, rows) {
-    const clean = rows.map(r => _sanitizeRowForDb(r, tableKey));
+    // Apply known bad cols before even trying
+    const _applyBadCols = (row) => {
+      if (!_badCols[tableKey] || _badCols[tableKey].size === 0) return row;
+      const o = { ...row };
+      _badCols[tableKey].forEach(c => delete o[c]);
+      return o;
+    };
+
+    const clean = rows.map(r => _applyBadCols(_sanitizeRowForDb(r, tableKey)));
     if (!clean.length) return { ok: true };
 
     const tryBatch = async (batch) => {
@@ -805,31 +836,46 @@ const SyncEngine = (() => {
       return error || null;
     };
 
+    // Extract bad column name from Supabase error message
+    // e.g. 'Could not find the public.loans column named "interest_rate"'
+    const _extractBadCol = (err) => {
+      if (!err) return null;
+      const msg = (err.message || '') + (err.details || '') + (err.hint || '');
+      const m = msg.match(/column[^"]*"([^"]+)"/i) || msg.match(/named\s+"([^"]+)"/i);
+      return m ? m[1] : null;
+    };
+
     async function divide(batch) {
       if (!batch.length) return { ok: true };
       const err = await tryBatch(batch);
       if (!err) return { ok: true };
+
+      // Table missing entirely
       if (err.code === '42P01' || (err.message || '').includes('does not exist') || (err.message || '').includes('relation')) {
         missingTables.add(tableKey);
-        return {
-          ok: false,
-          error: `Table "${tableKey}" is missing or unavailable in Supabase.`,
-          code: err.code,
-          table: tableKey,
-        };
+        return { ok: false, error: `Table "${tableKey}" missing in Supabase.`, code: err.code, table: tableKey };
       }
+
+      // Column not found (400) — strip it and retry automatically
+      const badCol = _extractBadCol(err);
+      if (badCol && (err.code === 'PGRST204' || err.code === '42703' || String(err.code) === '400' || (err.message||'').includes('column'))) {
+        if (!_badCols[tableKey]) _badCols[tableKey] = new Set();
+        if (!_badCols[tableKey].has(badCol)) {
+          _badCols[tableKey].add(badCol);
+          console.warn(`[Sync] Auto-skip column "${badCol}" in table "${tableKey}" (not in Supabase schema)`);
+          // Retry with bad col removed
+          const fixed = batch.map(r => { const o = { ...r }; delete o[badCol]; return o; });
+          return divide(fixed);
+        }
+      }
+
       if (batch.length === 1) {
         const hint = err.hint ? ` ${err.hint}` : '';
-        const det = err.details ? ` (${err.details})` : '';
-        return {
-          ok: false,
-          error: `${err.message || 'Upsert failed'}${det}${hint}`,
-          code: err.code,
-          table: tableKey,
-          badRowId: batch[0].id,
-        };
+        const det  = err.details ? ` (${err.details})` : '';
+        return { ok: false, error: `${err.message || 'Upsert failed'}${det}${hint}`, code: err.code, table: tableKey, badRowId: batch[0].id };
       }
-      const mid = Math.floor(batch.length / 2);
+
+      const mid  = Math.floor(batch.length / 2);
       const left = await divide(batch.slice(0, mid));
       if (!left.ok) return left;
       return divide(batch.slice(mid));
