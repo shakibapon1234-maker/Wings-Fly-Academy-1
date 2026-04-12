@@ -153,92 +153,128 @@ const NoticeBoardModule = (() => {
   function render() {
     const container = document.getElementById('notice-board-content');
     if (!container) return;
-
-    // Refresh context
     refreshActiveNotice();
 
+    const allNotices = (window.DB && DB.notices) ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0)) : [];
     const isRunning = activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now();
+    const typeColors = { warning:'#f59e0b', info:'#3b82f6', danger:'#ef4444', success:'#22c55e' };
+    const typeIcons  = { warning:'⚠️', info:'ℹ️', danger:'🚨', success:'✅' };
 
     container.innerHTML = `
-      <div class="card" style="max-width:800px; margin:0 auto; padding:30px;">
-        <h3 class="mb-4 text-center text-primary" style="font-weight:700;"><i class="fa fa-bullhorn"></i> Global Notice Board</h3>
-        
-        ${isRunning ? 
-          `<div class="text-center mb-4 p-4 rounded-3" style="border:1px solid #4ade80; background:rgba(34, 197, 94, 0.1);">
-             <h4 class="text-success"><i class="fa fa-check-circle"></i> A Notice is currently Active</h4>
-             <p class="mt-2 text-white">"${Utils.esc(activeNotice.text || activeNotice.title)}"</p>
-             <p class="text-muted small">Expires at: ${new Date(activeNotice.expiresAt).toLocaleString()}</p>
-             <button class="btn btn-danger mt-3" onclick="NoticeBoardModule.deleteActive()"><i class="fa fa-trash"></i> Disable Notice</button>
-           </div>`
-          : 
-          `<div class="text-center mb-4 p-4 rounded-3" style="border:1px solid #64748b; background:rgba(100, 116, 139, 0.1);">
-             <h5 class="text-muted"><i class="fa fa-info-circle"></i> No notice is currently active.</h5>
-           </div>`
-        }
+      <div style="max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
 
-        <div style="">
-          <div class="form-group mb-3">
-            <label>Notice Content</label>
-            <textarea id="noticeTextInput" class="form-control" rows="3" placeholder="Type your notice here..." oninput="document.getElementById('noticeCharCount').innerText = this.value.length"></textarea>
-            <div class="text-end text-muted small mt-1"><span id="noticeCharCount">0</span> characters</div>
+        <!-- Active Notice Status -->
+        <div style="background:${isRunning ? 'rgba(34,197,94,0.08)' : 'rgba(100,116,139,0.07)'};border:1.5px solid ${isRunning ? 'rgba(74,222,128,0.4)' : 'rgba(100,116,139,0.25)'};border-radius:14px;padding:18px 22px">
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:1.3rem">${isRunning ? '🟢' : '⚫'}</span>
+              <div>
+                <div style="font-size:.88rem;font-weight:700;color:${isRunning ? '#4ade80' : 'rgba(255,255,255,0.4)'}">
+                  ${isRunning ? 'নোটিশ এখন চালু আছে' : 'কোনো নোটিশ চালু নেই'}
+                </div>
+                ${isRunning ? `<div style="font-size:.78rem;color:rgba(255,255,255,0.5);margin-top:3px">"${Utils.esc(activeNotice.text||activeNotice.title||'')}" — <span id="nb-countdown-inline"></span></div>` : ''}
+              </div>
+            </div>
+            ${isRunning ? `<button onclick="NoticeBoardModule.deleteActive()" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;padding:7px 16px;border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:600"><i class="fa fa-ban" style="margin-right:6px"></i>নোটিশ বন্ধ করুন</button>` : ''}
           </div>
-
-          <div class="row">
-            <div class="col-md-6 form-group mb-3">
-              <label>Notice Type (Color)</label>
-              <select id="noticeTypeSelect" class="form-control" onchange="NoticeBoardModule.previewNotice()">
-                <option value="warning">Warning (Orange)</option>
-                <option value="info">Information (Blue)</option>
-                <option value="danger">Urgent (Red)</option>
-                <option value="success">Success (Green)</option>
-              </select>
-            </div>
-            <div class="col-md-6 form-group mb-3">
-              <label>Duration</label>
-              <select id="noticeDurationSelect" class="form-control" onchange="NoticeBoardModule.toggleCustom()">
-                <option value="30">30 Minutes</option>
-                <option value="60">1 Hour</option>
-                <option value="360">6 Hours</option>
-                <option value="720" selected>12 Hours</option>
-                <option value="1440">1 Day</option>
-                <option value="4320">3 Days</option>
-                <option value="custom">Custom...</option>
-              </select>
-            </div>
-          </div>
-
-          <div id="customDurationRow" class="row mb-3" style="display:none; background:rgba(0,0,0,0.2); padding:10px; border-radius:8px;">
-            <div class="col-4">
-              <label class="small">Days</label>
-              <input type="number" id="customDays" class="form-control" min="0" value="0">
-            </div>
-            <div class="col-4">
-              <label class="small">Hours</label>
-              <input type="number" id="customHours" class="form-control" min="0" value="0">
-            </div>
-            <div class="col-4">
-              <label class="small">Minutes</label>
-              <input type="number" id="customMinutes" class="form-control" min="0" value="0">
-            </div>
-          </div>
-
-          <div class="form-actions mt-4" style="justify-content:center; gap:15px;">
-            <button class="btn btn-secondary" onclick="NoticeBoardModule.previewNotice()"><i class="fa fa-eye"></i> Preview Banner</button>
-            <button class="btn btn-primary" onclick="NoticeBoardModule.publish()"><i class="fa fa-paper-plane"></i> Publish Global Notice</button>
-          </div>
-
-          <!-- Preview Area -->
-          <div id="noticePreviewArea" class="mt-4" style="display:none; padding:15px; border:1px dashed #64748b; border-radius:8px;">
-            <h6 class="text-muted text-center mb-3">Banner Preview</h6>
-            <div id="noticePreviewBanner" style="padding:12px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center;">
-              <span id="noticePreviewIcon" style="margin-right:10px; font-size:1.2rem;"></span>
-              <span id="noticePreviewText" style="flex-grow:1; display:inline-block; font-size:1rem;"></span>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Publish New Notice -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:20px 22px">
+          <div style="font-size:.9rem;font-weight:700;color:#00d9ff;margin-bottom:14px"><i class="fa fa-paper-plane" style="margin-right:7px"></i>নতুন নোটিশ প্রকাশ করুন</div>
+          <div style="margin-bottom:12px">
+            <label style="font-size:.78rem;color:rgba(255,255,255,0.5);margin-bottom:5px;display:block">নোটিশের টেক্সট</label>
+            <textarea id="noticeTextInput" class="form-control" rows="3" placeholder="নোটিশ লিখুন..." oninput="document.getElementById('noticeCharCount').innerText = this.value.length" style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+            <div style="text-align:right;font-size:.72rem;color:rgba(255,255,255,0.3);margin-top:3px"><span id="noticeCharCount">0</span> characters</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+            <div>
+              <label style="font-size:.78rem;color:rgba(255,255,255,0.5);margin-bottom:5px;display:block">নোটিশের ধরন</label>
+              <select id="noticeTypeSelect" class="form-control" onchange="NoticeBoardModule.previewNotice()">
+                <option value="warning">⚠️ Warning (Orange)</option>
+                <option value="info">ℹ️ Information (Blue)</option>
+                <option value="danger">🚨 Urgent (Red)</option>
+                <option value="success">✅ Success (Green)</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:.78rem;color:rgba(255,255,255,0.5);margin-bottom:5px;display:block">মেয়াদ</label>
+              <select id="noticeDurationSelect" class="form-control" onchange="NoticeBoardModule.toggleCustom()">
+                <option value="30">30 মিনিট</option>
+                <option value="60">১ ঘন্টা</option>
+                <option value="360">৬ ঘন্টা</option>
+                <option value="720" selected>১২ ঘন্টা</option>
+                <option value="1440">১ দিন</option>
+                <option value="4320">৩ দিন</option>
+                <option value="custom">কাস্টম...</option>
+              </select>
+            </div>
+          </div>
+          <div id="customDurationRow" style="display:none;background:rgba(0,0,0,0.2);padding:12px;border-radius:8px;margin-bottom:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+              <div><label style="font-size:.75rem;color:rgba(255,255,255,0.4)">দিন</label><input type="number" id="customDays" class="form-control" min="0" value="0"></div>
+              <div><label style="font-size:.75rem;color:rgba(255,255,255,0.4)">ঘন্টা</label><input type="number" id="customHours" class="form-control" min="0" value="0"></div>
+              <div><label style="font-size:.75rem;color:rgba(255,255,255,0.4)">মিনিট</label><input type="number" id="customMinutes" class="form-control" min="0" value="0"></div>
+            </div>
+          </div>
+          <div id="noticePreviewArea" style="display:none;margin-bottom:12px;padding:12px;border:1px dashed rgba(255,255,255,0.15);border-radius:8px">
+            <div style="font-size:.72rem;color:rgba(255,255,255,0.35);margin-bottom:8px;text-align:center">প্রিভিউ</div>
+            <div id="noticePreviewBanner" style="padding:10px 16px;border-radius:10px;font-weight:bold;text-align:center">
+              <span id="noticePreviewIcon" style="margin-right:8px;font-size:1rem"></span>
+              <span id="noticePreviewText" style="font-size:.9rem"></span>
+            </div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button onclick="NoticeBoardModule.previewNotice()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem"><i class="fa fa-eye" style="margin-right:6px"></i>প্রিভিউ</button>
+            <button onclick="NoticeBoardModule.publish()" style="background:linear-gradient(135deg,#00a8f0,#1a5cff);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-paper-plane" style="margin-right:6px"></i>প্রকাশ করুন</button>
+          </div>
+        </div>
+
+        <!-- All Notices List -->
+        ${allNotices.length > 0 ? `
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 22px">
+          <div style="font-size:.88rem;font-weight:700;color:rgba(255,255,255,0.6);margin-bottom:14px"><i class="fa fa-list" style="margin-right:7px"></i>সব নোটিশ (${allNotices.length} টি)</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            ${allNotices.map(n => {
+              const expired = new Date(n.expiresAt).getTime() < Date.now();
+              const tc = typeColors[n.type||'warning'] || '#f59e0b';
+              const ti = typeIcons[n.type||'warning'] || '⚠️';
+              return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;flex-wrap:wrap">
+                <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                  <span style="font-size:1rem;flex-shrink:0">${ti}</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:.85rem;color:rgba(255,255,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${Utils.esc(n.text||n.title||'')}</div>
+                    <div style="font-size:.72rem;color:rgba(255,255,255,0.35);margin-top:3px">
+                      ${expired ? '<span style="color:#f87171">মেয়াদ শেষ</span>' : '<span style="color:#4ade80">চালু</span>'} —
+                      মেয়াদ: ${new Date(n.expiresAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+                <button onclick="NoticeBoardModule.deleteNoticeById('${n.id}')" title="Delete permanently"
+                  style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.35);color:#f87171;padding:6px 12px;border-radius:7px;cursor:pointer;font-size:.78rem;font-weight:600;flex-shrink:0">
+                  <i class="fa fa-trash" style="margin-right:4px"></i>মুছুন
+                </button>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
+
       </div>
     `;
+
+    // Start inline countdown for active notice
+    if (isRunning && activeNotice) {
+      const _tick = () => {
+        const el = document.getElementById('nb-countdown-inline');
+        if (!el) return;
+        const rem = new Date(activeNotice.expiresAt).getTime() - Date.now();
+        if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; return; }
+        const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
+        el.textContent = `${h>0?h+'h ':''} ${m}m ${s}s বাকি`;
+      };
+      _tick();
+      const _iv = setInterval(() => { if (!document.getElementById('nb-countdown-inline')) { clearInterval(_iv); return; } _tick(); }, 1000);
+    }
   }
 
   // ── UI ACTIONS ──────────────────────────────────────────
@@ -335,6 +371,18 @@ const NoticeBoardModule = (() => {
     render();
   }
 
+  function deleteNoticeById(id) {
+    if (!id) return;
+    if (!window.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?')) return;
+    SupabaseSync.remove(DB.notices, id);
+    if (activeNotice && activeNotice.id === id) {
+      activeNotice = null;
+      hideBanner();
+    }
+    Utils.toast('নোটিশ মুছে গেছে', 'success');
+    render();
+  }
+
   async function deleteActive() {
     const ok = await Utils.confirm('Are you sure you want to disable the active notice?', 'Disable Notice');
     if (!ok) return;
@@ -363,7 +411,7 @@ const NoticeBoardModule = (() => {
   // Override refreshActiveNotice to respect dismissed state
   const _origRefresh = refreshActiveNotice;
 
-  return { init, render, toggleCustom, previewNotice, publish, deleteActive, openAddModal, dismissBanner };
+  return { init, render, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
 })();
 
 // Hook into App init sequence

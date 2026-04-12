@@ -303,13 +303,31 @@ const DashboardModule = (() => {
       <!-- Running Batch Overview -->
       <div class="dash-section-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
         <span><i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW${runningBatch ? ` <span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}</span>
-        ${advances.length > 0 ? `
-        <div onclick="App.navigateTo('settings')" style="cursor:pointer; display:flex; align-items:center; gap:8px; background:linear-gradient(90deg,rgba(255,170,0,0.12),rgba(255,71,87,0.1)); border:1px solid rgba(255,170,0,0.35); border-radius:30px; padding:6px 14px; box-shadow:0 0 12px rgba(255,170,0,0.15); transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 0 20px rgba(255,170,0,0.35)'" onmouseout="this.style.boxShadow='0 0 12px rgba(255,170,0,0.15)'">
-          <i class="fa fa-money-bill-transfer" style="color:#ffaa00; font-size:0.85rem;"></i>
-          <span style="font-size:0.75rem; font-weight:700; color:#ffaa00; letter-spacing:0.5px;">PENDING ADVANCES:</span>
-          <span style="font-size:0.85rem; font-weight:800; color:#fff; font-family:var(--font-ui);">৳${advances.reduce((s,a)=>s+a._remaining,0).toLocaleString('en-IN')}</span>
-          <span style="font-size:0.72rem; color:rgba(255,255,255,0.55);">${advances.length} person${advances.length>1?'s':''}</span>
-        </div>` : ''}
+      </div>
+
+      <!-- Pending Advances Badge — always shown above stat cards, like the screenshot -->
+      <div onclick="App.navigateTo('settings');setTimeout(()=>{if(typeof SettingsModule!=='undefined'){SettingsModule.showAccountsSubTab&&SettingsModule.showAccountsSubTab('advance');}},400)"
+        style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+               background:linear-gradient(90deg,rgba(255,170,0,0.10),rgba(255,71,87,0.07));
+               border:1px solid rgba(255,170,0,${advances.length>0?'0.42':'0.18'});
+               border-radius:40px;padding:7px 18px;margin-bottom:14px;
+               box-shadow:0 0 ${advances.length>0?'16px':'4px'} rgba(255,170,0,${advances.length>0?'0.16':'0.05'});
+               transition:box-shadow 0.2s,border-color 0.2s;"
+        onmouseover="this.style.boxShadow='0 0 28px rgba(255,170,0,0.30)'"
+        onmouseout="this.style.boxShadow='0 0 ${advances.length>0?16:4}px rgba(255,170,0,${advances.length>0?0.16:0.05})'">
+        <div style="display:flex;align-items:center;gap:10px">
+          <i class="fa fa-money-bill-transfer" style="color:#ffaa00;font-size:0.9rem;"></i>
+          <span style="font-size:0.75rem;font-weight:700;color:#ffaa00;letter-spacing:0.8px;">PENDING ADVANCES:</span>
+          <span style="font-size:0.92rem;font-weight:800;color:#fff;font-family:var(--font-ui);">৳${advances.reduce((s,a)=>s+a._remaining,0).toLocaleString('en-IN')}</span>
+          <span style="font-size:0.72rem;color:rgba(255,255,255,0.5);">${advances.length} person${advances.length!==1?'s':''}</span>
+        </div>
+        ${advances.length > 0
+          ? `<span style="display:inline-flex;align-items:center;gap:5px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.35);border-radius:20px;padding:3px 10px;font-size:.7rem;font-weight:700;color:#ff6b7a">
+               <span style="width:6px;height:6px;border-radius:50%;background:#ff6b7a;animation:adPulse 1.2s ease-in-out infinite"></span>
+               ${advances.length} PENDING
+             </span>`
+          : `<span style="font-size:.72rem;color:#00ff88;font-weight:600">✓ All Cleared</span>`
+        }
       </div>
 
       <div class="stat-grid grid-5">

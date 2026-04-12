@@ -1201,34 +1201,126 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelKeepRecord() {
     const notes = getKeepRecords();
+    const tags  = [...new Set(notes.flatMap(n => n.tags || []))].filter(Boolean);
+    const colorMap = { red:'#ff4757', green:'#00ff88', blue:'#00d9ff', yellow:'#ffd700', purple:'#b537f2', orange:'#ff6b35' };
+    const bgMap    = { red:'rgba(255,71,87,0.10)', green:'rgba(0,255,136,0.08)', blue:'rgba(0,217,255,0.08)', yellow:'rgba(255,215,0,0.08)', purple:'rgba(181,55,242,0.10)', orange:'rgba(255,107,53,0.10)' };
+    const borderMap = { red:'rgba(255,71,87,0.30)', green:'rgba(0,255,136,0.25)', blue:'rgba(0,217,255,0.25)', yellow:'rgba(255,215,0,0.25)', purple:'rgba(181,55,242,0.30)', orange:'rgba(255,107,53,0.25)' };
+
     return `
     <div class="settings-panel ${activeTab === 'keeprecord' ? 'active' : ''}" data-panel="keeprecord">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <div class="settings-card-title" style="color:var(--success);margin-bottom:0"><i class="fa fa-flag"></i> KEEP RECORD</div>
-        <button class="btn btn-success btn-sm" onclick="SettingsModule.addNote()"><i class="fa fa-plus"></i> ADD NOTE</button>
-      </div>
+      <div class="settings-card glow-purple" style="padding:0;overflow:hidden">
 
-      <div id="notes-container">
-        ${notes.length === 0 ?
-          `<div class="no-data" style="padding:60px 20px">
-            <i class="fa fa-flag" style="font-size:2.5rem;color:var(--error);opacity:.5;display:block;margin-bottom:12px"></i>
-            কোনো নোট পাওয়া যায়নি<br>
-            <span style="color:var(--success);font-size:.82rem">নতুন নোট যোগ করতে উপরের বাটনে ক্লিক করুন</span>
-          </div>` :
-          notes.map((n, i) => `
-            <div class="note-card">
-              <button class="note-delete" onclick="SettingsModule.deleteNote(${i})"><i class="fa fa-xmark"></i></button>
-              <div class="note-title">${n.title || 'Untitled'}</div>
-              <div class="note-content">${n.content || ''}</div>
-              <div class="note-date">${n.date || ''}</div>
-            </div>
-          `).join('')
-        }
+        <!-- Header -->
+        <div style="padding:20px 22px 16px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <div>
+            <div class="settings-card-title" style="margin-bottom:3px;color:#b537f2"><i class="fa fa-bookmark"></i> KEEP RECORD</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">ব্যক্তিগত নোট ও রেকর্ড — তারিখ অনুযায়ী সেভ থাকে</div>
+          </div>
+          <button class="btn btn-sm" onclick="SettingsModule.addNote()"
+            style="background:linear-gradient(135deg,#b537f2,#7c3aed);color:#fff;border:none;padding:9px 18px;border-radius:25px;font-weight:700;font-size:.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 0 16px rgba(181,55,242,0.4)">
+            <i class="fa fa-plus"></i> + নতুন নোট
+          </button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div style="padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,0.15)">
+          <input type="date" id="kr-date-filter" class="form-control" style="width:160px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
+          <select id="kr-tag-filter" class="form-control" style="width:140px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()">
+            <option value="">সব ট্যাগ</option>
+            ${tags.map(t => `<option value="${t}">${t}</option>`).join('')}
+          </select>
+          <div style="flex:1;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px">
+            <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.82rem"></i>
+            <input type="text" id="kr-search" placeholder="সার্চ করুন..." style="background:none;border:none;outline:none;color:#fff;font-size:.85rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterNotes()" />
+          </div>
+          <button onclick="SettingsModule.clearNoteFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.55);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.8rem">✕ ক্লিয়ার</button>
+        </div>
+
+        <!-- Notes Grid -->
+        <div id="kr-notes-grid" style="padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;max-height:520px;overflow-y:auto">
+          ${notes.length === 0
+            ? `<div style="grid-column:1/-1;text-align:center;padding:60px 20px">
+                <i class="fa fa-flag" style="font-size:2.5rem;color:#b537f2;opacity:.4;display:block;margin-bottom:14px"></i>
+                <div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">কোনো নোট পাওয়া যায়নি</div>
+                <div style="color:#00ff88;font-size:.82rem">নতুন নোট যোগ করতে উপরের বাটনে ক্লিক করুন</div>
+              </div>`
+            : notes.map((n, i) => {
+                const c = n.color || 'blue';
+                const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
+                return `
+                <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+                  ${n.pinned ? '<div style="position:absolute;top:10px;right:38px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}
+                  <button onclick="SettingsModule.deleteNote(${i})" title="Delete" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
+                  <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
+                  ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
+                  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
+                    <div style="display:flex;gap:5px;flex-wrap:wrap">
+                      ${(n.tags||[]).map(t=>`<span style="font-size:.68rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);border-radius:10px;padding:2px 8px">${Utils.esc(t)}</span>`).join('')}
+                    </div>
+                    <span style="font-size:.7rem;color:rgba(255,255,255,0.3)">${n.date||''}</span>
+                  </div>
+                </div>`;
+              }).join('')
+          }
+        </div>
+
+        ${notes.length > 0 ? `<div style="padding:10px 22px 14px;border-top:1px solid rgba(255,255,255,0.05);text-align:right;font-size:.75rem;color:var(--text-muted)">${notes.length} টি নোট সংরক্ষিত</div>` : ''}
       </div>
     </div>`;
   }
 
+  function filterNotes() {
+    const dateVal   = document.getElementById('kr-date-filter')?.value || '';
+    const tagVal    = document.getElementById('kr-tag-filter')?.value || '';
+    const searchVal = (document.getElementById('kr-search')?.value || '').toLowerCase();
+    const colorMap  = { red:'#ff4757', green:'#00ff88', blue:'#00d9ff', yellow:'#ffd700', purple:'#b537f2', orange:'#ff6b35' };
+    const bgMap     = { red:'rgba(255,71,87,0.10)', green:'rgba(0,255,136,0.08)', blue:'rgba(0,217,255,0.08)', yellow:'rgba(255,215,0,0.08)', purple:'rgba(181,55,242,0.10)', orange:'rgba(255,107,53,0.10)' };
+    const borderMap = { red:'rgba(255,71,87,0.30)', green:'rgba(0,255,136,0.25)', blue:'rgba(0,217,255,0.25)', yellow:'rgba(255,215,0,0.25)', purple:'rgba(181,55,242,0.30)', orange:'rgba(255,107,53,0.25)' };
+
+    let notes = getKeepRecords();
+    if (dateVal) notes = notes.filter(n => n.date && n.date.startsWith(dateVal));
+    if (tagVal)  notes = notes.filter(n => (n.tags||[]).includes(tagVal));
+    if (searchVal) notes = notes.filter(n =>
+      (n.title||'').toLowerCase().includes(searchVal) ||
+      (n.content||'').toLowerCase().includes(searchVal)
+    );
+
+    const grid = document.getElementById('kr-notes-grid');
+    if (!grid) return;
+    if (notes.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fa fa-search" style="font-size:1.8rem;opacity:.3;display:block;margin-bottom:10px"></i>কোনো নোট পাওয়া যায়নি</div>`;
+      return;
+    }
+    const allNotes = getKeepRecords();
+    grid.innerHTML = notes.map(n => {
+      const i = allNotes.findIndex(x => x.date === n.date && x.title === n.title);
+      const c = n.color || 'blue';
+      const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
+      return `
+        <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+          ${n.pinned ? '<div style="position:absolute;top:10px;right:38px;font-size:.75rem;color:#ffd700">📌</div>' : ''}
+          <button onclick="SettingsModule.deleteNote(${i})" title="Delete" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
+          <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
+          ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
+            <div style="display:flex;gap:5px;flex-wrap:wrap">
+              ${(n.tags||[]).map(t=>`<span style="font-size:.68rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);border-radius:10px;padding:2px 8px">${Utils.esc(t)}</span>`).join('')}
+            </div>
+            <span style="font-size:.7rem;color:rgba(255,255,255,0.3)">${n.date||''}</span>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function clearNoteFilters() {
+    const d = document.getElementById('kr-date-filter'); if(d) d.value = '';
+    const t = document.getElementById('kr-tag-filter');  if(t) t.value = '';
+    const s = document.getElementById('kr-search');      if(s) s.value = '';
+    filterNotes();
+  }
+
   // ════════════════════════════════════════════════════════════════
+  // TAB 9: BATCH PROFIT  // ════════════════════════════════════════════════════════════════
   // TAB 9: BATCH PROFIT REPORT
   // ════════════════════════════════════════════════════════════════
   function panelBatchProfit() {
@@ -2256,35 +2348,61 @@ ${expenseEntries.length > 0 ? `
   }
 
   function addNote() {
-    Utils.openModal('📝 Add Note', `
-      <div class="form-group mb-12">
-        <label>Title</label>
-        <input id="note-title" class="form-control" placeholder="Note title..." />
+    openSettingsInternalModal('📝 নতুন নোট যোগ করুন', `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">টাইটেল <span style="color:#ff4757">*</span></label>
+          <input id="note-title" class="form-control" placeholder="নোটের টাইটেল..." style="width:100%;box-sizing:border-box" />
+        </div>
+        <div>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">রঙ বেছে নিন</label>
+          <select id="note-color" class="form-control" style="width:100%;box-sizing:border-box">
+            <option value="blue">🔵 নীল</option>
+            <option value="green">🟢 সবুজ</option>
+            <option value="purple">🟣 বেগুনি</option>
+            <option value="yellow">🟡 হলুদ</option>
+            <option value="red">🔴 লাল</option>
+            <option value="orange">🟠 কমলা</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group mb-12">
-        <label>Content</label>
-        <textarea id="note-content" class="form-control" rows="4" placeholder="Write your note..."></textarea>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">বিস্তারিত / কনটেন্ট</label>
+        <textarea id="note-content" class="form-control" rows="4" placeholder="নোট লিখুন..." style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
       </div>
-      <div class="form-actions">
-        <button class="btn btn-ghost" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn btn-success" onclick="SettingsModule.saveNote()"><i class="fa fa-check"></i> Save Note</button>
+      <div style="margin-bottom:16px">
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">ট্যাগ (comma দিয়ে আলাদা করুন)</label>
+        <input id="note-tags" class="form-control" placeholder="যেমন: গুরুত্বপূর্ণ, ফাইন্যান্স, স্টাফ" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <input type="checkbox" id="note-pin" style="width:16px;height:16px;cursor:pointer" />
+        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">📌 উপরে পিন করুন</label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">বাতিল</button>
+        <button onclick="SettingsModule.saveNote()" style="background:linear-gradient(135deg,#b537f2,#7c3aed);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-check" style="margin-right:6px"></i>সেভ করুন</button>
       </div>
     `);
   }
 
   function saveNote() {
-    const title = document.getElementById('note-title')?.value?.trim();
+    const title   = document.getElementById('note-title')?.value?.trim();
     const content = document.getElementById('note-content')?.value?.trim();
-    if (!title && !content) { Utils.toast('Write something', 'error'); return; }
+    const color   = document.getElementById('note-color')?.value || 'blue';
+    const tagsRaw = document.getElementById('note-tags')?.value || '';
+    const pinned  = document.getElementById('note-pin')?.checked || false;
+    if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
+    const tags = tagsRaw.split(',').map(t=>t.trim()).filter(Boolean);
     const notes = getKeepRecords();
-    notes.unshift({
-      title: title || 'Untitled',
-      content: content || '',
-      date: new Date().toLocaleString(),
-    });
+    const entry = { title: title||'Untitled', content: content||'', color, tags, pinned, date: new Date().toLocaleDateString('en-GB') };
+    if (pinned) notes.unshift(entry);
+    else {
+      const pinEnd = notes.findLastIndex(n => n.pinned);
+      notes.splice(pinEnd + 1, 0, entry);
+    }
     localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
-    Utils.closeModal();
-    Utils.toast('Note saved', 'success');
+    closeSettingsInternalModal();
+    Utils.toast('নোট সেভ হয়েছে ✓', 'success');
     logActivity('add', 'note', `Added note: ${title}`);
     refreshModal();
   }
@@ -2293,7 +2411,7 @@ ${expenseEntries.length > 0 ? `
     const notes = getKeepRecords();
     notes.splice(index, 1);
     localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
-    Utils.toast('Note deleted', 'info');
+    Utils.toast('নোট মুছে গেছে', 'info');
     refreshModal();
   }
 
@@ -3654,7 +3772,7 @@ ${expenseEntries.length > 0 ? `
     addCategory, removeCategory,
     clearActivityLog, logActivity,
     restoreItem, permanentDelete, emptyRecycleBin,
-    addNote, saveNote, deleteNote,
+    addNote, saveNote, deleteNote, filterNotes, clearNoteFilters,
     renderBatchReport,
     printBatchReport,
     exportBatchReportExcel,
