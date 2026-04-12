@@ -683,6 +683,279 @@ const Students = (() => {
   }
 
   /* ══════════════════════════════════════════
+     PRINT RECEIPT (Single Payment / Full Summary)
+  ══════════════════════════════════════════ */
+  function printReceipt(id) {
+    const s = SupabaseSync.getById(DB.students, id);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const academyName  = cfg.academy_name  || 'Wings Fly Aviation Academy';
+    const academyPhone = cfg.academy_phone || '';
+    const academyEmail = cfg.academy_email || '';
+    const academyAddr  = cfg.academy_address|| '';
+    const logoUrl      = cfg.logo_url       || '';
+
+    const allFinance = SupabaseSync.getAll(DB.finance);
+    const payments   = allFinance
+      .filter(f => f.ref_id === id && f.category === 'Student Fee')
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const totalFee  = Utils.safeNum(s.total_fee);
+    const totalPaid = Utils.safeNum(s.paid);
+    const totalDue  = Utils.safeNum(s.due);
+    const paidPct   = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
+
+    const receiptNo = `RCP-${s.student_id}-${Date.now().toString().slice(-5)}`;
+    const printDate = Utils.formatDate(Utils.today());
+
+    let runningBalance = 0;
+    const paymentRows = payments.length === 0
+      ? `<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">No payment records found</td></tr>`
+      : payments.map((f, i) => {
+          runningBalance += Utils.safeNum(f.amount);
+          const remaining = totalFee - runningBalance;
+          return `
+          <tr style="border-bottom:1px solid #e8e8e8; ${i % 2 === 0 ? 'background:#fafafa;' : ''}">
+            <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${i + 1}</td>
+            <td style="padding:8px 10px;">${Utils.formatDate(f.date)}</td>
+            <td style="padding:8px 10px;text-align:center;">
+              <span style="background:#e8f4f8;color:#0077aa;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">${f.method || 'Cash'}</span>
+            </td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;color:#1a7a1a;">৳${Utils.safeNum(f.amount).toLocaleString('en-IN')}</td>
+            <td style="padding:8px 10px;text-align:right;color:${remaining > 0 ? '#cc3300' : '#1a7a1a'};font-weight:600;">
+              ৳${remaining.toLocaleString('en-IN')}
+            </td>
+          </tr>`;
+        }).join('');
+
+    const logoHtml = logoUrl
+      ? `<img src="${logoUrl}" style="height:64px;max-width:160px;object-fit:contain;" alt="Logo" />`
+      : `<div style="width:64px;height:64px;background:linear-gradient(135deg,#1a3a6b,#0099cc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.8rem;">✈</div>`;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Payment Receipt — ${s.name}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background:#f0f2f5; display:flex; justify-content:center; padding:20px; }
+  .receipt { width:794px; background:#fff; border-radius:8px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.12); }
+
+  /* Header */
+  .receipt-header { background:linear-gradient(135deg, #1a3a6b 0%, #0099cc 100%); color:#fff; padding:24px 32px; display:flex; align-items:center; gap:20px; }
+  .academy-info h1 { font-size:1.4rem; font-weight:800; letter-spacing:0.5px; }
+  .academy-info p  { font-size:0.8rem; opacity:0.85; margin-top:3px; }
+
+  /* Receipt Title Bar */
+  .receipt-title-bar { background:#f7a800; color:#1a1a1a; padding:10px 32px; display:flex; justify-content:space-between; align-items:center; }
+  .receipt-title-bar h2 { font-size:1.1rem; font-weight:800; letter-spacing:2px; text-transform:uppercase; }
+  .receipt-title-bar span { font-size:0.85rem; font-weight:700; }
+
+  /* Student Info */
+  .student-section { padding:20px 32px; border-bottom:2px dashed #e0e0e0; }
+  .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px 24px; }
+  .info-item { display:flex; flex-direction:column; }
+  .info-label { font-size:0.7rem; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:2px; }
+  .info-value { font-size:0.95rem; font-weight:600; color:#1a1a1a; }
+
+  /* Fee Summary */
+  .fee-summary { padding:16px 32px; background:#f8fbff; border-bottom:2px dashed #e0e0e0; display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+  .fee-box { text-align:center; background:#fff; border-radius:8px; padding:12px; border:1.5px solid #e0e0e0; }
+  .fee-box .f-label { font-size:0.7rem; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:4px; }
+  .fee-box .f-value { font-size:1.2rem; font-weight:800; }
+  .fee-box.total  .f-value { color:#1a3a6b; }
+  .fee-box.paid   .f-value { color:#1a7a1a; }
+  .fee-box.due    .f-value { color:#cc3300; }
+
+  /* Progress Bar */
+  .progress-section { padding:12px 32px; border-bottom:2px dashed #e0e0e0; }
+  .progress-label { display:flex; justify-content:space-between; font-size:0.8rem; color:#555; margin-bottom:6px; font-weight:600; }
+  .progress-bar { height:10px; background:#e8e8e8; border-radius:10px; overflow:hidden; }
+  .progress-fill { height:100%; border-radius:10px; background:linear-gradient(90deg, #1a7a1a, #4caf50); transition:width 0.3s; }
+
+  /* Installment Table */
+  .table-section { padding:16px 32px; }
+  .table-section h3 { font-size:0.85rem; font-weight:800; color:#1a3a6b; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; border-left:4px solid #0099cc; padding-left:10px; }
+  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+  thead tr { background:linear-gradient(90deg, #1a3a6b, #0077aa); color:#fff; }
+  thead th { padding:10px 10px; font-weight:700; letter-spacing:0.5px; text-align:left; }
+  thead th:last-child, thead th:nth-child(4) { text-align:right; }
+  thead th:first-child { text-align:center; }
+
+  /* Footer */
+  .receipt-footer { padding:16px 32px; border-top:2px dashed #e0e0e0; display:flex; justify-content:space-between; align-items:flex-end; background:#fafafa; }
+  .footer-note { font-size:0.75rem; color:#888; max-width:340px; line-height:1.5; }
+  .signature-box { text-align:center; }
+  .sig-line { width:160px; border-top:1.5px solid #555; margin:0 auto 4px; }
+  .sig-label { font-size:0.72rem; color:#555; font-weight:600; }
+
+  .status-paid   { background:#e8f8ee; color:#1a7a1a; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; border:1.5px solid #a8dbb8; }
+  .status-partial{ background:#fff8e8; color:#cc7700; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; border:1.5px solid #f7c97a; }
+  .status-unpaid { background:#fdecea; color:#cc3300; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:700; border:1.5px solid #f5b8b0; }
+
+  @media print {
+    body { background:#fff; padding:0; }
+    .receipt { box-shadow:none; border-radius:0; }
+    .no-print { display:none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="receipt">
+
+  <!-- Header -->
+  <div class="receipt-header">
+    ${logoHtml}
+    <div class="academy-info" style="flex:1;">
+      <h1>${academyName}</h1>
+      <p>${[academyPhone, academyEmail, academyAddr].filter(Boolean).join(' &nbsp;|&nbsp; ')}</p>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:0.7rem;opacity:0.8;margin-bottom:3px;">RECEIPT NO.</div>
+      <div style="font-size:0.9rem;font-weight:800;letter-spacing:1px;">${receiptNo}</div>
+      <div style="font-size:0.75rem;opacity:0.8;margin-top:4px;">Date: ${printDate}</div>
+    </div>
+  </div>
+
+  <!-- Title Bar -->
+  <div class="receipt-title-bar">
+    <h2>✦ Fee Payment Receipt ✦</h2>
+    <span>${totalDue <= 0
+      ? '<span class="status-paid">● FULLY PAID</span>'
+      : totalPaid > 0
+        ? '<span class="status-partial">◑ PARTIALLY PAID</span>'
+        : '<span class="status-unpaid">○ UNPAID</span>'
+    }</span>
+  </div>
+
+  <!-- Student Info -->
+  <div class="student-section">
+    <div class="info-grid">
+      <div class="info-item">
+        <span class="info-label">Student Name</span>
+        <span class="info-value">${s.name}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Student ID</span>
+        <span class="info-value">${s.student_id || '—'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Course</span>
+        <span class="info-value">${s.course || '—'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Batch / Session</span>
+        <span class="info-value">${[s.batch, s.session].filter(Boolean).join(' / ') || '—'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Phone</span>
+        <span class="info-value">${s.phone || '—'}</span>
+      </div>
+      <div class="info-item">
+        <span class="info-label">Admission Date</span>
+        <span class="info-value">${Utils.formatDate(s.admission_date)}</span>
+      </div>
+      ${s.father_name ? `<div class="info-item"><span class="info-label">Father's Name</span><span class="info-value">${s.father_name}</span></div>` : ''}
+      ${s.address ? `<div class="info-item"><span class="info-label">Address</span><span class="info-value">${s.address}</span></div>` : ''}
+    </div>
+  </div>
+
+  <!-- Fee Summary Boxes -->
+  <div class="fee-summary">
+    <div class="fee-box total">
+      <div class="f-label">Total Course Fee</div>
+      <div class="f-value">৳${totalFee.toLocaleString('en-IN')}</div>
+    </div>
+    <div class="fee-box paid">
+      <div class="f-label">Total Paid</div>
+      <div class="f-value">৳${totalPaid.toLocaleString('en-IN')}</div>
+    </div>
+    <div class="fee-box due">
+      <div class="f-label">Outstanding Due</div>
+      <div class="f-value">৳${totalDue.toLocaleString('en-IN')}</div>
+    </div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>Payment Progress</span>
+      <span>${paidPct}% Completed (${payments.length} installment${payments.length !== 1 ? 's' : ''})</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" style="width:${paidPct}%"></div>
+    </div>
+  </div>
+
+  <!-- Installment Table -->
+  <div class="table-section">
+    <h3>Installment Payment History</h3>
+    <table>
+      <thead>
+        <tr>
+          <th style="text-align:center;width:40px">#</th>
+          <th>Payment Date</th>
+          <th style="text-align:center">Method</th>
+          <th style="text-align:right">Amount Paid</th>
+          <th style="text-align:right">Remaining Due</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${paymentRows}
+        ${payments.length > 0 ? `
+        <tr style="background:#f0f6ff; font-weight:800; border-top:2px solid #1a3a6b;">
+          <td colspan="3" style="padding:10px 10px;color:#1a3a6b;text-align:right;">TOTAL PAID:</td>
+          <td style="padding:10px 10px;text-align:right;color:#1a7a1a;font-size:1rem;">৳${totalPaid.toLocaleString('en-IN')}</td>
+          <td style="padding:10px 10px;text-align:right;color:${totalDue > 0 ? '#cc3300' : '#1a7a1a'};font-size:1rem;">৳${totalDue.toLocaleString('en-IN')}</td>
+        </tr>` : ''}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <div class="receipt-footer">
+    <div class="footer-note">
+      <strong>Note:</strong> This is a computer-generated receipt.<br/>
+      Please retain this for your records. For queries, contact the academy office.
+      ${s.note ? `<br/><em>Remark: ${s.note}</em>` : ''}
+    </div>
+    <div class="signature-box">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorized Signature</div>
+      <div style="font-size:0.7rem;color:#aaa;margin-top:2px;">${academyName}</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="no-print" style="text-align:center;margin-top:20px;">
+  <button onclick="window.print()" style="background:linear-gradient(90deg,#1a3a6b,#0099cc);color:#fff;border:none;padding:12px 36px;border-radius:6px;font-size:1rem;font-weight:700;cursor:pointer;margin-right:12px;">
+    🖨 Print Receipt
+  </button>
+  <button onclick="window.close()" style="background:#eee;color:#333;border:none;padding:12px 24px;border-radius:6px;font-size:1rem;font-weight:600;cursor:pointer;">
+    ✕ Close
+  </button>
+</div>
+</body>
+</html>`;
+
+    const win = window.open('', '_blank', 'width=860,height=900');
+    if (!win) { Utils.toast('Popup blocked! Please allow popups.', 'error'); return; }
+    win.document.write(html);
+    win.document.close();
+  }
+
+  /* ══════════════════════════════════════════
+     PRINT HISTORY (Payment History Table Only)
+  ══════════════════════════════════════════ */
+  function printHistory(id) {
+    // Full receipt covers history too — reuse printReceipt
+    printReceipt(id);
+  }
+
+  /* ══════════════════════════════════════════
      DELETE
   ══════════════════════════════════════════ */
   async function deleteStudent(id) {
@@ -724,8 +997,9 @@ const Students = (() => {
     openAddModal, openEditModal, openPayModal, openManageAction,
     calcDue, saveStudent, savePayment,
     deleteStudent, exportExcel,
-    printHistory: (id) => Utils.toast('Feature pending', 'info'),
-    printReceipt: (id) => Utils.toast('Feature pending', 'info')
+    printHistory,
+    printReceipt,
+    deletePayment
   };
 
 })();
