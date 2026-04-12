@@ -17,19 +17,48 @@ const SupabaseSync = (() => {
     return getAll(table).find(r => r.id === id) || null;
   }
 
+  // localStorage ব্যবহার কতটুকু হচ্ছে তা KB তে দেখায়
+  function _storageUsageKB() {
+    let total = 0;
+    for (const key in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+        total += (localStorage[key].length + key.length) * 2;
+      }
+    }
+    return Math.round(total / 1024);
+  }
+
+  // Quota পূর্ণ হলে activity log ও recent changes ছেঁটে জায়গা করে
+  function _freeUpStorage() {
+    try {
+      const logKey = 'wfa_activity_log';
+      const log = JSON.parse(localStorage.getItem(logKey) || '[]');
+      if (log.length > 50) localStorage.setItem(logKey, JSON.stringify(log.slice(-50)));
+      const rcKey = 'wfa_recent_changes';
+      const rc = JSON.parse(localStorage.getItem(rcKey) || '[]');
+      if (rc.length > 20) localStorage.setItem(rcKey, JSON.stringify(rc.slice(-20)));
+      console.warn('[Storage] Auto-purged old logs. Usage:', _storageUsageKB(), 'KB');
+      return true;
+    } catch { return false; }
+  }
+
   function setAll(table, rows) {
     try {
       localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
     } catch (e) {
-      // QuotaExceededError — storage limit পূর্ণ
       if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
-        console.error('[Storage] localStorage quota exceeded for table:', table);
-        // User-কে visible warning দাও
-        const msg = `⚠️ Storage সীমা পূর্ণ! "${table}" data সংরক্ষণ করা যায়নি।\nSettings > Data Management থেকে পুরনো data মুছুন।`;
-        if (typeof Utils !== 'undefined' && Utils.toast) {
-          Utils.toast(msg, 'error');
-        } else {
-          alert(msg);
+        console.warn('[Storage] Quota exceeded for:', table, '— trying auto-purge...');
+        _freeUpStorage();
+        try {
+          localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
+          if (typeof Utils !== 'undefined' && Utils.toast) {
+            Utils.toast(`⚠️ Storage ভর্তি হচ্ছে (${_storageUsageKB()} KB)। Settings থেকে পুরনো data মুছুন।`, 'warn');
+          }
+        } catch {
+          console.error('[Storage] CRITICAL: Cannot save even after purge. Usage:', _storageUsageKB(), 'KB');
+          const msg = `❌ Storage সর্বোচ্চ সীমা পুরণ! "${table}" data সর্কষণ বিফল।\nSettings > Data Management থেকে পুরনো data মুছুন।`;
+          if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(msg, 'error');
+          else alert(msg);
         }
       } else {
         console.error('[Storage] setAll failed for table:', table, e);

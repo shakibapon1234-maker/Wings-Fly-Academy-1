@@ -283,26 +283,70 @@ const App = (() => {
     const hamburger = document.getElementById('btn-hamburger');
     if (hamburger) hamburger.addEventListener('click', toggleSidebar);
 
-    // Global Search
+    // Global Search — searches students, staff, visitors, finance
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
       searchInput.addEventListener('input', Utils.debounce((e) => {
         const q = e.target.value.trim().toLowerCase();
         if (!q) return;
-        const allStudents = (window.DB && DB.getAll ? DB.getAll('students') : []);
-        const matched = allStudents.filter(s =>
+
+        // Students
+        const allStudents = SupabaseSync.getAll(DB.students) || [];
+        const matchedStudents = allStudents.filter(s =>
           (s.name || '').toLowerCase().includes(q) ||
           (s.student_id || '').toLowerCase().includes(q) ||
           (s.phone || '').toLowerCase().includes(q)
         );
-        if (matched.length > 0) {
+
+        // Staff
+        const allStaff = SupabaseSync.getAll(DB.staff) || [];
+        const matchedStaff = allStaff.filter(s =>
+          (s.name || '').toLowerCase().includes(q) ||
+          (s.phone || '').toLowerCase().includes(q) ||
+          (s.designation || '').toLowerCase().includes(q)
+        );
+
+        // Visitors
+        const allVisitors = SupabaseSync.getAll(DB.visitors) || [];
+        const matchedVisitors = allVisitors.filter(v =>
+          (v.name || '').toLowerCase().includes(q) ||
+          (v.phone || '').toLowerCase().includes(q) ||
+          (v.purpose || '').toLowerCase().includes(q)
+        );
+
+        // Finance
+        const allFinance = SupabaseSync.getAll(DB.finance) || [];
+        const matchedFinance = allFinance.filter(f =>
+          (f.description || '').toLowerCase().includes(q) ||
+          (f.category || '').toLowerCase().includes(q)
+        );
+
+        if (matchedStudents.length > 0) {
           navigateTo('students');
           setTimeout(() => {
             const sInput = document.getElementById('student-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
           }, 300);
+        } else if (matchedStaff.length > 0) {
+          navigateTo('hr-staff');
+          setTimeout(() => {
+            const sInput = document.getElementById('staff-search');
+            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
+          }, 300);
+        } else if (matchedVisitors.length > 0) {
+          navigateTo('visitors');
+          setTimeout(() => {
+            const sInput = document.getElementById('visitor-search');
+            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
+          }, 300);
+        } else if (matchedFinance.length > 0) {
+          navigateTo('finance');
+          setTimeout(() => {
+            const sInput = document.getElementById('finance-search');
+            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
+          }, 300);
         } else {
-          Utils.toast('"' + Utils.esc(e.target.value) + '" — কোনো student পাওয়া যায়নি', 'info');
+          Utils.toast('"' + Utils.esc(e.target.value) + '" — কোথাও পাওয়া যায়নি', 'info');
         }
       }, 400));
     }
@@ -356,10 +400,13 @@ const App = (() => {
     if (themeBtn) {
       themeBtn.addEventListener('click', () => {
         const current = document.documentElement.getAttribute('data-theme');
-        const next = current === 'dark' ? 'light' : 'dark';
+        // Cycle: light → dark → neon-space → light
+        const themeOrder = ['light', 'dark', 'neon-space'];
+        const idx = themeOrder.indexOf(current);
+        const next = themeOrder[(idx + 1) % themeOrder.length];
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('wfa_theme', next);
-        themeBtn.textContent = next === 'dark' ? '☀️' : '🌙';
+        themeBtn.textContent = next === 'dark' ? '☀️' : next === 'neon-space' ? '✨' : '🌙';
       });
     }
 
@@ -383,7 +430,7 @@ const App = (() => {
     const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeBtn = document.getElementById('btn-theme-toggle');
-    if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+    if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : savedTheme === 'neon-space' ? '✨' : '🌙';
 
     bindEvents();
 
