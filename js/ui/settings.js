@@ -100,6 +100,7 @@ const SettingsModule = (() => {
       { id: 'batchprofit',   icon: 'fa-chart-column',        label: 'Batch Profit Report' },
       { id: 'accounts-mgmt', icon: 'fa-briefcase',           label: 'Accounts Management' },
       { id: 'monitor',       icon: 'fa-chart-line',          label: 'Monitor' },
+      { id: 'syncguard',     icon: 'fa-shield-halved',       label: 'Sync Guard' },
     ];
     return tabs.map(t => `
       <button class="settings-tab ${activeTab === t.id ? 'active' : ''}"
@@ -125,6 +126,7 @@ const SettingsModule = (() => {
       ${panelBatchProfit()}
       ${panelAccountsMgmt()}
       ${panelMonitor()}
+      ${panelSyncGuard()}
     `;
   }
 
@@ -139,6 +141,10 @@ const SettingsModule = (() => {
     document.querySelectorAll('.settings-panel').forEach(p => {
       p.classList.toggle('active', p.dataset.panel === tab);
     });
+    // Auto-render SyncGuard panel when tab is activated
+    if (tab === 'syncguard' && typeof SyncGuard !== 'undefined') {
+      setTimeout(() => SyncGuard.renderPanel('syncguard-panel'), 50);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2118,6 +2124,30 @@ ${expenseEntries.length > 0 ? `
     activeTab = savedTab;
     switchTab(savedTab);
   }
+
+  // ─── SyncGuard Panel ──────────────────────────────────────────
+  function panelSyncGuard() {
+    return `
+    <div class="settings-panel ${activeTab === 'syncguard' ? 'active' : ''}" data-panel="syncguard">
+      <div class="settings-card glow-red">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-shield-halved"></i> SYNC GUARD — Payment &amp; Data Integrity</div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="SyncGuard.runFullAudit();setTimeout(()=>SyncGuard.renderPanel('syncguard-panel'),200)">
+            <i class="fa fa-rotate"></i> Re-Audit
+          </button>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">
+          Finance ledger, Loan, Transfer এবং Account Balance স্বয়ংক্রিয়ভাবে পরীক্ষা করে।
+          Sync conflict বা balance mismatch হলে সাথে সাথে alert পাঠায় এবং এখানে log করে।
+        </p>
+        <div id="syncguard-panel">
+          <div style="text-align:center;padding:20px;color:var(--text-muted)">Loading audit...</div>
+        </div>
+      </div>
+    </div>
+    `;
+  }
+
 
   // ─── Activity Log ─────────────────────────────────────────────
   function getActivityLogs() {

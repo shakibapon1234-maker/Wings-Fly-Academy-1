@@ -132,6 +132,10 @@
 
       <div class="sidebar-footer">
         <div id="sync-status" class="sync-badge synced">☁️ Synced</div>
+        <div id="syncguard-badge" onclick="SettingsModule && SettingsModule.openModal && SettingsModule.openModal(); setTimeout(()=>SettingsModule.switchTab('syncguard'),100)"
+          style="display:none;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.5);color:#ff4757;border-radius:20px;padding:3px 10px;font-size:0.75rem;font-weight:700;cursor:pointer;align-items:center;gap:5px;white-space:nowrap">
+          ⚠️ <span id="syncguard-count">0</span> Alert
+        </div>
         <div style="display:flex;gap:6px;margin-top:8px">
           <button class="btn btn-sm btn-outline" style="flex:1;color:#fff;border-color:rgba(255,255,255,.2)" id="btn-sync-now" title="Sync Now">
             <i class="fa fa-rotate"></i> Sync
@@ -336,6 +340,7 @@
   <!-- Core -->
   <script src="js/core/supabase-config.js"></script>
   <script src="js/core/supabase-sync.js"></script>
+  <script src="js/core/sync-guard.js"></script>
   <script src="js/core/utils.js"></script>
   <script src="js/core/app.js"></script>
 

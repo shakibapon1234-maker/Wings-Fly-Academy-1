@@ -460,19 +460,36 @@ const SupabaseSync = (() => {
    * updateAccountBalance — Finance/Loan/Payment যেকোনো transaction-এর পর
    * সংশ্লিষ্ট account-এর balance স্বয়ংক্রিয়ভাবে আপডেট করে।
    *
-   * লজিক:
-   *   Income / Loan Receiving / Transfer In  → balance বাড়ে (+)
-   *   Expense / Loan Giving / Transfer Out   → balance কমে (-)
-   *   Loan Giving/Receiving → account থেকে সরাসরি যোগ/বিয়োগ হয়
-   *   Advance Payment → income হিসেবে গণ্য (balance বাড়ে)
+   * ── Race-condition safe ──────────────────────────────────────────────
+   * একটি _balanceLock ব্যবহার করে যাতে একই সময়ে দুটো call একই account
+   * পরিবর্তন করতে না পারে। প্রতিটি call শেষ হওয়ার পর পরবর্তীটি শুরু হয়।
    *
    * @param {string} methodName  — Cash | Bank নাম | Mobile নাম
    * @param {number} amount      — positive amount
    * @param {'in'|'out'} direction — 'in' = balance বাড়ে, 'out' = কমে
    */
+  const _balanceLocks = {}; // per-account locks
+
   function updateAccountBalance(methodName, amount, direction) {
+    if (!methodName || !amount || amount <= 0) return;
+
+    // Per-account serialized lock — prevents concurrent writes to same account
+    const lockKey = methodName;
+    if (!_balanceLocks[lockKey]) _balanceLocks[lockKey] = Promise.resolve();
+
+    _balanceLocks[lockKey] = _balanceLocks[lockKey].then(() => {
+      return _updateBalanceCore(methodName, amount, direction);
+    }).catch(e => {
+      console.warn('[Sync] updateAccountBalance lock failed:', e);
+      SyncGuard && SyncGuard.report('balance_lock_error', { methodName, amount, direction, error: e?.message });
+    });
+
+    return _balanceLocks[lockKey];
+  }
+
+  function _updateBalanceCore(methodName, amount, direction) {
     try {
-      if (!methodName || !amount || amount <= 0) return;
+      // Re-read accounts fresh each time (prevents stale-read race condition)
       const accounts = getAll('accounts');
       let accountIdx = -1;
 
@@ -485,7 +502,6 @@ const SupabaseSync = (() => {
       }
 
       if (accountIdx === -1) {
-        // Cash account না থাকলে create করো
         if (methodName === 'Cash') {
           const newAcc = {
             id: generateId(),
@@ -497,15 +513,23 @@ const SupabaseSync = (() => {
           };
           accounts.push(newAcc);
           setAll('accounts', accounts);
-          _pushRecord('accounts', newAcc);
+          return _pushRecord('accounts', newAcc);
         }
         return;
       }
 
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
-      const newBal = direction === 'in'
-        ? currentBal + amount
-        : currentBal - amount;
+      const newBal = direction === 'in' ? currentBal + amount : currentBal - amount;
+
+      // Guard: warn if balance goes negative unexpectedly
+      if (newBal < 0) {
+        SyncGuard && SyncGuard.report('negative_balance', {
+          account: methodName,
+          before: currentBal,
+          change: direction === 'in' ? +amount : -amount,
+          after: newBal,
+        });
+      }
 
       accounts[accountIdx] = {
         ...accounts[accountIdx],
@@ -513,9 +537,10 @@ const SupabaseSync = (() => {
         updated_at: new Date().toISOString(),
       };
       setAll('accounts', accounts);
-      _pushRecord('accounts', accounts[accountIdx]);
+      return _pushRecord('accounts', accounts[accountIdx]);
     } catch (e) {
-      console.warn('[Sync] updateAccountBalance failed:', e);
+      console.warn('[Sync] _updateBalanceCore failed:', e);
+      SyncGuard && SyncGuard.report('balance_update_error', { methodName, amount, direction, error: e?.message });
     }
   }
 
@@ -630,9 +655,10 @@ const SyncEngine = (() => {
     return queueSyncOp(() => _pullCore(opts));
   }
 
-  // ── Merge Algorithm (timestamp-based) ─────────────────────
+  // ── Merge Algorithm (timestamp-based + conflict detection) ──
   function mergeRows(localRows, cloudRows, deletedIds) {
     const merged = new Map();
+    const conflicts = [];
 
     // Start with cloud data
     cloudRows.forEach(row => {
@@ -643,20 +669,30 @@ const SyncEngine = (() => {
 
     // Merge local data — local wins if newer
     localRows.forEach(row => {
-      if (deletedIds.includes(row.id)) return; // skip deleted
+      if (deletedIds.includes(row.id)) return;
       const existing = merged.get(row.id);
       if (!existing) {
         merged.set(row.id, row);
       } else {
-        // Compare updated_at timestamps
-        const localTime  = new Date(row.updated_at || 0).getTime();
-        const cloudTime  = new Date(existing.updated_at || 0).getTime();
-        if (localTime > cloudTime) {
-          merged.set(row.id, row); // local is newer
+        const localTime = new Date(row.updated_at || 0).getTime();
+        const cloudTime = new Date(existing.updated_at || 0).getTime();
+        const diff = Math.abs(localTime - cloudTime);
+
+        // Conflict: two different devices edited same row within 10 seconds
+        if (diff < 10_000 && row._device && existing._device && row._device !== existing._device) {
+          conflicts.push({ id: row.id, localTime, cloudTime, localDevice: row._device, cloudDevice: existing._device });
         }
-        // else: cloud is newer, keep cloud version
+
+        if (localTime > cloudTime) {
+          merged.set(row.id, row);
+        }
       }
     });
+
+    // Report conflicts to SyncGuard
+    if (conflicts.length > 0 && typeof SyncGuard !== 'undefined') {
+      conflicts.forEach(c => SyncGuard.report('merge_conflict', c));
+    }
 
     return Array.from(merged.values());
   }

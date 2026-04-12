@@ -368,30 +368,43 @@ const Finance = (() => {
     };
 
     /* ── Account Balance স্বয়ংক্রিয় আপডেট ──────────────────────────
-       Income / Transfer In           → account balance বাড়ে (+)
-       Expense / Transfer Out         → account balance কমে (-)
-       Loan Giving / Receiving        → loans.js নিজেই handle করে (এখানে নয়)
+       Income                     → balance বাড়ে (+) — income হিসেবে count হয়
+       Expense                    → balance কমে (-)  — expense হিসেবে count হয়
+       Transfer In / Transfer Out → balance move হয়, কিন্তু income/expense নয়
+       Loan Giving / Receiving    → loans.js handle করে — এখানে SKIP
        ─────────────────────────────────────────────────────────────── */
-    const isIncome  = type === 'Income'  || type === 'Transfer In';
-    const isExpense = type === 'Expense' || type === 'Transfer Out';
+    const isRealIncome  = type === 'Income';
+    const isRealExpense = type === 'Expense';
+    const isXferIn      = type === 'Transfer In';
+    const isXferOut     = type === 'Transfer Out';
+    const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
+
+    // Helper: account balance direction for this type
+    function _balanceDir(t) {
+      if (t === 'Income' || t === 'Transfer In')   return 'in';
+      if (t === 'Expense' || t === 'Transfer Out') return 'out';
+      return null; // Loan types: skip
+    }
 
     if (editingId) {
-      // Edit করলে — পুরনো entry-র effect reverse করে নতুন apply করো
       const oldEntry = SupabaseSync.getById(DB.finance, editingId);
-      if (oldEntry && oldEntry.method) {
-        const wasIncome  = oldEntry.type === 'Income'  || oldEntry.type === 'Transfer In';
-        const wasExpense = oldEntry.type === 'Expense' || oldEntry.type === 'Transfer Out';
-        if (wasIncome)  SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), 'out'); // reverse
-        if (wasExpense) SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), 'in');  // reverse
+      if (oldEntry && oldEntry.method && !oldEntry._isLoan) {
+        const oldDir = _balanceDir(oldEntry.type);
+        const reverseDir = oldDir === 'in' ? 'out' : oldDir === 'out' ? 'in' : null;
+        if (reverseDir) SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
       }
       SupabaseSync.update(DB.finance, editingId, record);
-      if (isIncome)  SupabaseSync.updateAccountBalance(method, amount, 'in');
-      if (isExpense) SupabaseSync.updateAccountBalance(method, amount, 'out');
+      if (!isLoanType) {
+        const newDir = _balanceDir(type);
+        if (newDir) SupabaseSync.updateAccountBalance(method, amount, newDir);
+      }
       Utils.toast('Transaction updated ✓','success');
     } else {
       SupabaseSync.insert(DB.finance, record);
-      if (isIncome)  SupabaseSync.updateAccountBalance(method, amount, 'in');
-      if (isExpense) SupabaseSync.updateAccountBalance(method, amount, 'out');
+      if (!isLoanType) {
+        const newDir = _balanceDir(type);
+        if (newDir) SupabaseSync.updateAccountBalance(method, amount, newDir);
+      }
       Utils.toast('Transaction added ✓','success');
     }
 
@@ -429,10 +442,10 @@ const Finance = (() => {
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      const wasIncome  = entry.type === 'Income'  || entry.type === 'Transfer In';
-      const wasExpense = entry.type === 'Expense' || entry.type === 'Transfer Out';
-      if (wasIncome)  SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), 'out');
-      if (wasExpense) SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), 'in');
+      // Transfer In/Out ও balance reverse হয়, কিন্তু Loan type হলে loans.js handle করে
+      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in' };
+      const reverseDir = dirMap[entry.type];
+      if (reverseDir) SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
     }
     SupabaseSync.remove(DB.finance, id); // RecycleBin-এ যাবে
     Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');
