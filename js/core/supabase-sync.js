@@ -643,6 +643,11 @@ const SyncEngine = (() => {
             missingTables.add(key);
             continue;
           }
+          // 400 / permission errors — table exists but schema mismatch or RLS issue; skip & warn
+          if (String(error.code) === '400' || error.code === 'PGRST301' || error.status === 400) {
+            console.warn(`[Sync] Pull skipped for "${key}" (HTTP 400 — schema or RLS issue):`, error.message);
+            continue;
+          }
           throw error;
         }
 
