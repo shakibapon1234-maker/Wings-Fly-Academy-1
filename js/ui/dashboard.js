@@ -97,10 +97,17 @@ const DashboardModule = (() => {
     const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
     const loanIn   = loans.filter(l => l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
+    // Advance payments (pending/outstanding)
+    const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch(e) { return []; } })();
+    const advances = advancesRaw.map(a => {
+      const returned = (a.returns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+      return { ...a, _remaining: (parseFloat(a.amount) || 0) - returned };
+    }).filter(a => a._remaining > 0); // only pending ones
+
     return {
       totalStudents, totalIncome, totalExpense, netProfit, totalBalance, totalDue, loanOut, loanIn,
       rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
-      students, finance, balances, notices, loans, settings
+      students, finance, balances, notices, loans, settings, advances
     };
   }
 
@@ -281,16 +288,22 @@ const DashboardModule = (() => {
     const { totalStudents, totalIncome, totalExpense, netProfit,
             totalBalance, totalDue, loanOut, loanIn,
             rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
-            students, finance, balances, notices, loans, settings } = getStats();
+            students, finance, balances, notices, loans, settings, advances } = getStats();
 
     const { runningBatch, expenseMonth } = settings;
     const monthly = getMonthlyRevenue(finance);
 
     container.innerHTML = `
       <!-- Running Batch Overview -->
-      <div class="dash-section-title">
-        <i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW
-        ${runningBatch ? `<span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}
+      <div class="dash-section-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <span><i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW${runningBatch ? ` <span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}</span>
+        ${advances.length > 0 ? `
+        <div onclick="App.navigateTo('settings')" style="cursor:pointer; display:flex; align-items:center; gap:8px; background:linear-gradient(90deg,rgba(255,170,0,0.12),rgba(255,71,87,0.1)); border:1px solid rgba(255,170,0,0.35); border-radius:30px; padding:6px 14px; box-shadow:0 0 12px rgba(255,170,0,0.15); transition:box-shadow 0.2s;" onmouseover="this.style.boxShadow='0 0 20px rgba(255,170,0,0.35)'" onmouseout="this.style.boxShadow='0 0 12px rgba(255,170,0,0.15)'">
+          <i class="fa fa-money-bill-transfer" style="color:#ffaa00; font-size:0.85rem;"></i>
+          <span style="font-size:0.75rem; font-weight:700; color:#ffaa00; letter-spacing:0.5px;">PENDING ADVANCES:</span>
+          <span style="font-size:0.85rem; font-weight:800; color:#fff; font-family:var(--font-ui);">৳${advances.reduce((s,a)=>s+a._remaining,0).toLocaleString('en-IN')}</span>
+          <span style="font-size:0.72rem; color:rgba(255,255,255,0.55);">${advances.length} person${advances.length>1?'s':''}</span>
+        </div>` : ''}
       </div>
 
       <div class="stat-grid grid-5">
@@ -325,9 +338,9 @@ const DashboardModule = (() => {
         <div class="stat-card animated-glow glow-purple">
           <div class="stat-header">NET PROFIT/LOSS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-calculator"></i></div>
-          <div class="stat-value counter-val" data-target="${Utils.takaEn(rNetProfit)}">0</div>
-          <div class="stat-subtext">${rNetProfit >= 0 ? 'Net Profit' : 'Net Loss'}</div>
-          <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.12);color:${rNetProfit>=0?'#00ff88':'#ff4757'};border-color:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Critical'}</div>
+          <div class="stat-value counter-val" style="color:${rNetProfit>=0?'var(--success)':'#ff4757'}; text-shadow:0 0 10px ${rNetProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'};" data-target="${Utils.takaEn(Math.abs(rNetProfit))}">0</div>
+          <div class="stat-subtext" style="color:${rNetProfit>=0?'#00ff88':'#ff4757'}; font-weight:700; font-size:0.8rem; letter-spacing:0.5px;">${rNetProfit >= 0 ? '▲ Net Profit' : '▼ Net Loss'}</div>
+          <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.12);color:${rNetProfit>=0?'#00ff88':'#ff4757'};border-color:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Loss'}</div>
         </div>
 
         <!-- Account Balance -->
@@ -369,8 +382,8 @@ const DashboardModule = (() => {
 
         <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
           <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">NET PROFIT/LOSS</div>
-          <div class="stat-value" style="font-size:1.6rem; font-weight:800; color:${netProfit>=0?'var(--success)':'var(--error)'}; text-shadow:0 0 10px ${netProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(netProfit)}</div>
-          <div class="stat-subtext" style="color:var(--brand-primary)">${netProfit>=0?'Net Profit':'Net Loss'}</div>
+          <div class="stat-value" style="font-size:1.6rem; font-weight:800; color:${netProfit>=0?'var(--success)':'#ff4757'}; text-shadow:0 0 10px ${netProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(Math.abs(netProfit))}</div>
+          <div class="stat-subtext" style="color:${netProfit>=0?'#00ff88':'#ff4757'}; font-weight:700; font-size:0.78rem; letter-spacing:0.5px;">${netProfit>=0?'▲ Net Profit':'▼ Net Loss'}</div>
         </div>
 
         <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">

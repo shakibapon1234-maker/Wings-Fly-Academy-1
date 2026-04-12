@@ -151,20 +151,20 @@ const Salary = (() => {
 
       <!-- Stats Bar -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:32px;">
-        <div style="border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
+        <div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7); box-shadow:0 2px 12px rgba(0,0,0,0.4);">
           <div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTH / YEAR</div>
           <input type="month" id="salary-month-picker" value="${cm}" onchange="Salary.renderContent()"
             style="background:transparent; border:none; color:#fff; font-size:1.1rem; width:100%; outline:none;" />
         </div>
-        <div style="border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
+        <div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7); box-shadow:0 2px 12px rgba(0,0,0,0.4);">
           <div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTHLY BUDGET</div>
           <div style="font-size:1.6rem; font-weight:800; color:#00d4ff;">৳${Utils.formatMoneyPlain(totalBudget)}</div>
         </div>
-        <div style="border:1px solid rgba(0,255,136,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
+        <div style="border:1px solid rgba(0,255,136,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7); box-shadow:0 2px 12px rgba(0,0,0,0.4);">
           <div style="font-size:.75rem; color:#00ff88; text-transform:uppercase; font-weight:700; margin-bottom:8px;">PAID AMOUNT</div>
           <div style="font-size:1.6rem; font-weight:800; color:#00ff88;">৳${Utils.formatMoneyPlain(totalPaid)}</div>
         </div>
-        <div style="border:1px solid rgba(255,71,87,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
+        <div style="border:1px solid rgba(255,71,87,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7); box-shadow:0 2px 12px rgba(0,0,0,0.4);">
           <div style="font-size:.75rem; color:#ff4757; text-transform:uppercase; font-weight:700; margin-bottom:8px;">DUE AMOUNT</div>
           <div style="font-size:1.6rem; font-weight:800; color:#ff4757;">৳${Utils.formatMoneyPlain(totalDue)}</div>
         </div>
@@ -190,11 +190,11 @@ const Salary = (() => {
           const due_amt  = net - paid_amt;
 
           return `
-          <div class="salary-card" style="background:var(--bg-secondary); border:1px solid rgba(255,255,255,0.05); border-radius:12px; padding:20px; position:relative; overflow:hidden;">
+          <div class="salary-card" style="background:linear-gradient(135deg, rgba(10,14,35,0.97), rgba(18,10,45,0.97)); border:1px solid rgba(0,212,255,0.18); border-radius:14px; padding:20px; position:relative; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(0,212,255,0.06), inset 0 1px 0 rgba(255,255,255,0.04);">
             <!-- Card Header -->
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px;">
               <div style="display:flex; align-items:center; gap:12px;">
-                <div style="width:40px; height:40px; border-radius:50%; background:rgba(0,212,255,0.1); display:flex; align-items:center; justify-content:center;">
+                <div style="width:40px; height:40px; border-radius:50%; background:rgba(0,212,255,0.15); border:1px solid rgba(0,212,255,0.2); display:flex; align-items:center; justify-content:center;">
                   <i class="fa fa-user" style="color:#00d4ff;"></i>
                 </div>
                 <div>
@@ -230,15 +230,15 @@ const Salary = (() => {
 
             <!-- Financials -->
             <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px;">
-              <div style="text-align:center; background:rgba(255,255,255,0.04); padding:10px 6px; border-radius:8px;">
+              <div style="text-align:center; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.07); padding:10px 6px; border-radius:8px;">
                 <div style="font-size:.62rem; color:var(--text-muted); text-transform:uppercase; margin-bottom:4px; letter-spacing:.5px;">NET SALARY</div>
                 <div style="font-weight:700; color:#fff; font-size:.95rem;">৳${Utils.formatMoneyPlain(net)}</div>
               </div>
-              <div style="text-align:center; background:rgba(0,255,136,0.06); padding:10px 6px; border-radius:8px;">
+              <div style="text-align:center; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.12); padding:10px 6px; border-radius:8px;">
                 <div style="font-size:.62rem; color:#00ff88; text-transform:uppercase; margin-bottom:4px; letter-spacing:.5px;">PAID</div>
                 <div style="font-weight:700; color:#00ff88; font-size:.95rem;">৳${Utils.formatMoneyPlain(paid_amt)}</div>
               </div>
-              <div style="text-align:center; background:${due_amt > 0 ? 'rgba(255,170,0,0.1)' : 'rgba(255,255,255,0.04)'}; padding:10px 6px; border-radius:8px;">
+              <div style="text-align:center; background:${due_amt > 0 ? 'rgba(255,170,0,0.12)' : 'rgba(255,255,255,0.06)'}; border:1px solid ${due_amt > 0 ? 'rgba(255,170,0,0.18)' : 'rgba(255,255,255,0.07)'}; padding:10px 6px; border-radius:8px;">
                 <div style="font-size:.62rem; color:${due_amt > 0 ? '#ffb703' : 'var(--text-muted)'}; text-transform:uppercase; margin-bottom:4px; letter-spacing:.5px;">DUE</div>
                 <div style="font-weight:700; color:${due_amt > 0 ? '#ffb703' : '#fff'}; font-size:.95rem;">৳${Utils.formatMoneyPlain(due_amt)}</div>
               </div>
@@ -263,7 +263,7 @@ const Salary = (() => {
                 <span>Payment Progress</span>
                 <span style="font-weight:700; color:${r.paid ? '#00ff88' : 'var(--text-muted)'};">${r.paid ? '100%' : '0%'}</span>
               </div>
-              <div style="height:4px; width:100%; background:rgba(255,255,255,0.1); border-radius:2px;">
+              <div style="height:4px; width:100%; background:rgba(255,255,255,0.07); border-radius:2px;">
                 <div style="height:100%; border-radius:2px; background:${r.paid ? '#00ff88' : 'rgba(255,255,255,0.1)'}; width:${r.paid ? '100' : '0'}%; transition:width .4s;"></div>
               </div>
             </div>

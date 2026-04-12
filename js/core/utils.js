@@ -107,7 +107,7 @@ const Utils = (() => {
     bodyEl.innerHTML = bodyHTML;
 
     if (box) {
-      box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '760px' : '560px';
+      box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '720px' : sizeClass === 'modal-xl' ? '860px' : '560px';
       
       // Dynamic PowerPoint-style Entrance Animations
       box.classList.remove('anim-slide-left', 'anim-slide-right', 'anim-drop-spin', 'anim-zoom-in', 'anim-fade-up', 'anim-slide-down');

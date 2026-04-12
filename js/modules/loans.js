@@ -122,14 +122,14 @@ const Loans = (() => {
 
   function openAddModal() {
     editingId = null;
-    Utils.openModal('<i class="fa fa-hand-holding-dollar"></i> New Loan', formHTML());
+    Utils.openModal('<i class="fa fa-hand-holding-dollar"></i> New Loan', formHTML(), 'modal-lg');
   }
 
   function openEditModal(id) {
     const l = SupabaseSync.getById(DB.loans, id);
     if (!l) return;
     editingId = id;
-    Utils.openModal('<i class="fa fa-pen"></i> Loan Edit', formHTML(l));
+    Utils.openModal('<i class="fa fa-pen"></i> Loan Edit', formHTML(l), 'modal-lg');
   }
 
   function formHTML(d={}) {
@@ -165,95 +165,160 @@ const Loans = (() => {
     const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
 
     return `
-      <div class="form-row">
-        <div class="form-group">
-          <label>Loan Type <span class="req">*</span></label>
-          <select id="lf-direction" class="form-control" onchange="Loans._onTypeChange()">
-            <option value="Loan Giving"    ${(l=>l.type==='Loan Giving'||l.direction==='given')(d)?'selected':''}>আমি দিয়েছি (Loan Given)</option>
-            <option value="Loan Receiving" ${(l=>l.type==='Loan Receiving'||l.direction==='received')(d)?'selected':''}>আমি নিয়েছি (Loan Taken)</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Payment Method <span class="req">*</span></label>
-          <select id="lf-method" class="form-control" onchange="Utils.onPaymentMethodChange && Utils.onPaymentMethodChange(this, 'lf-bal-display')">
-            <option value="">Select Method</option>
-            ${Utils.getPaymentMethodsHTML(d.method)}
-          </select>
-          <div id="lf-bal-display" style="display:none;"></div>
-        </div>
-      </div>
+      <style>
+        .lf-wrap { display:flex; flex-direction:column; gap:16px; }
+        .lf-section-title {
+          font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+          color:var(--brand-primary); margin-bottom:10px; padding-bottom:6px;
+          border-bottom:1px solid rgba(0,212,255,0.15);
+          display:flex; align-items:center; gap:6px;
+        }
+        .lf-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .lf-field { display:flex; flex-direction:column; gap:5px; }
+        .lf-label {
+          font-size:0.7rem; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;
+          color:var(--text-muted);
+        }
+        .lf-label .req { color:#ff4d6d; margin-left:2px; }
+        .lf-input, .lf-select, .lf-textarea {
+          background:rgba(255,255,255,0.04); border:1px solid rgba(0,212,255,0.2);
+          border-radius:8px; color:var(--text-primary); font-size:0.88rem;
+          padding:10px 13px; transition:border-color 0.2s,box-shadow 0.2s;
+          outline:none; width:100%; box-sizing:border-box;
+        }
+        .lf-input:focus, .lf-select:focus, .lf-textarea:focus {
+          border-color:rgba(0,212,255,0.6);
+          box-shadow:0 0 0 3px rgba(0,212,255,0.1),0 0 12px rgba(0,212,255,0.12);
+        }
+        .lf-input::placeholder,.lf-textarea::placeholder { color:rgba(255,255,255,0.22); }
+        .lf-select { cursor:pointer; }
+        .lf-amount-wrap { position:relative; }
+        .lf-taka {
+          position:absolute; left:12px; top:50%; transform:translateY(-50%);
+          color:var(--brand-primary); font-weight:700; font-size:0.9rem; pointer-events:none;
+        }
+        .lf-amount-wrap .lf-input { padding-left:28px; }
+        .lf-date-row { display:flex; gap:6px; }
+        .lf-date-row .lf-select:first-child  { flex:0 0 72px; }
+        .lf-date-row .lf-select:nth-child(2) { flex:1; }
+        .lf-date-row .lf-select:last-child   { flex:0 0 94px; }
+        .lf-person-row { display:flex; gap:8px; align-items:stretch; }
+        .lf-person-row .lf-select { flex:1; min-width:0; }
+        .lf-person-row .lf-input  { flex:1; min-width:0; }
+        .lf-hint { font-size:0.7rem; color:var(--text-muted); margin-top:4px; }
+        .lf-save-btn {
+          flex:1; padding:13px; border:none; border-radius:10px; cursor:pointer;
+          font-size:0.95rem; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+          background:linear-gradient(90deg,#00d4ff,#7b2ff7); color:#fff;
+          box-shadow:0 0 20px rgba(0,212,255,0.3),0 0 40px rgba(123,47,247,0.2);
+          transition:filter 0.2s,transform 0.1s;
+        }
+        .lf-save-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+        .lf-cancel-btn {
+          padding:11px 20px; border:1px solid rgba(255,255,255,0.15); border-radius:10px;
+          background:transparent; color:var(--text-muted); font-size:0.88rem; cursor:pointer;
+        }
+        .lf-cancel-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text-primary); }
+        .lf-actions { display:flex; gap:10px; align-items:center; }
+      </style>
 
-      <!-- Person Name: type-aware dropdown + manual input -->
-      <div class="form-group">
-        <label>Person's Name <span class="req">*</span></label>
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <select id="lf-person-select" class="form-control" style="flex:1; min-width:160px;"
-            onchange="Loans._onPersonSelect()"
-            data-given='${JSON.stringify(givenPersons)}'
-            data-received='${JSON.stringify(receivedPersons)}'
-            data-all='${JSON.stringify(allPersons)}'>
-            <option value="">-- পূর্বের নাম বেছে নিন --</option>
-            ${allPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
-          </select>
-          <input id="lf-person" class="form-control" style="flex:1; min-width:160px;" value="${d.person_name||d.person||''}" placeholder="অথবা নতুন নাম লিখুন" />
-        </div>
-        <div id="lf-person-hint" style="font-size:.72rem; color:var(--text-muted); margin-top:4px;">
-          <i class="fa fa-info-circle"></i> <span id="lf-hint-text">Dropdown থেকে বেছে নিন অথবা নতুন নাম লিখুন</span>
-        </div>
-      </div>
-
-      <div class="form-row">
-        <div class="form-group">
-          <label>Amount (৳) <span class="req">*</span></label>
-          <input id="lf-amount" type="number" class="form-control" value="${d.amount||''}" placeholder="0" min="1" />
-        </div>
-        <div class="form-group">
-          <label>Date <span class="req">*</span></label>
-          <div style="display:flex; gap:6px;">
-            <select id="lf-date-dd" class="form-control" style="flex:0 0 70px;" onchange="Loans._syncDate()">
-              ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
-            </select>
-            <select id="lf-date-mm" class="form-control" style="flex:1;" onchange="Loans._syncDate()">
-              ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
-            </select>
-            <select id="lf-date-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Loans._syncDate()">
-              ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
-            </select>
+      <div class="lf-wrap">
+        <div>
+          <div class="lf-section-title"><i class="fa fa-hand-holding-dollar"></i> Loan Details</div>
+          <div class="lf-grid-2" style="margin-bottom:12px;">
+            <div class="lf-field">
+              <label class="lf-label">Loan Type <span class="req">*</span></label>
+              <select id="lf-direction" class="lf-select" onchange="Loans._onTypeChange()">
+                <option value="Loan Giving"    ${(l=>l.type==='Loan Giving'||l.direction==='given')(d)?'selected':''}>I Gave (Loan Given)</option>
+                <option value="Loan Receiving" ${(l=>l.type==='Loan Receiving'||l.direction==='received')(d)?'selected':''}>I Received (Loan Taken)</option>
+              </select>
+            </div>
+            <div class="lf-field">
+              <label class="lf-label">Payment Method <span class="req">*</span></label>
+              <select id="lf-method" class="lf-select" onchange="Utils.onPaymentMethodChange && Utils.onPaymentMethodChange(this, 'lf-bal-display')">
+                <option value="">Select Method</option>
+                ${Utils.getPaymentMethodsHTML(d.method)}
+              </select>
+              <div id="lf-bal-display" style="display:none;"></div>
+            </div>
           </div>
-          <input type="hidden" id="lf-date" value="${yyyy}-${mm}-${dd}" />
-        </div>
-      </div>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Status</label>
-          <select id="lf-status" class="form-control">
-            <option value="Outstanding" ${(d.status||'Outstanding')==='Outstanding'?'selected':''}>Outstanding (Due)</option>
-            <option value="Paid"        ${d.status==='Paid'?'selected':''}>Settled / Paid</option>
-          </select>
+          <div class="lf-field" style="margin-bottom:12px;">
+            <label class="lf-label">Person's Name <span class="req">*</span></label>
+            <div class="lf-person-row">
+              <select id="lf-person-select" class="lf-select"
+                onchange="Loans._onPersonSelect()"
+                data-given='${JSON.stringify(givenPersons)}'
+                data-received='${JSON.stringify(receivedPersons)}'
+                data-all='${JSON.stringify(allPersons)}'>
+                <option value="">-- Select existing person --</option>
+                ${allPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
+              </select>
+              <input id="lf-person" class="lf-input" value="${d.person_name||d.person||''}" placeholder="Or enter new name" />
+            </div>
+            <div class="lf-hint">
+              <i class="fa fa-info-circle"></i> <span id="lf-hint-text">Select from dropdown or enter a new name</span>
+            </div>
+          </div>
+
+          <div class="lf-grid-2" style="margin-bottom:12px;">
+            <div class="lf-field">
+              <label class="lf-label">Amount (৳) <span class="req">*</span></label>
+              <div class="lf-amount-wrap">
+                <span class="lf-taka">৳</span>
+                <input id="lf-amount" type="number" class="lf-input" value="${d.amount||''}" placeholder="0" min="1" />
+              </div>
+            </div>
+            <div class="lf-field">
+              <label class="lf-label">Date <span class="req">*</span></label>
+              <div class="lf-date-row">
+                <select id="lf-date-dd" class="lf-select" onchange="Loans._syncDate()">
+                  ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+                </select>
+                <select id="lf-date-mm" class="lf-select" onchange="Loans._syncDate()">
+                  ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+                </select>
+                <select id="lf-date-yyyy" class="lf-select" onchange="Loans._syncDate()">
+                  ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+                </select>
+              </div>
+              <input type="hidden" id="lf-date" value="${yyyy}-${mm}-${dd}" />
+            </div>
+          </div>
+
+          <div class="lf-grid-2" style="margin-bottom:12px;">
+            <div class="lf-field">
+              <label class="lf-label">Status</label>
+              <select id="lf-status" class="lf-select">
+                <option value="Outstanding" ${(d.status||'Outstanding')==='Outstanding'?'selected':''}>Outstanding (Due)</option>
+                <option value="Paid"        ${d.status==='Paid'?'selected':''}>Settled / Paid</option>
+              </select>
+            </div>
+          </div>
+          <div class="lf-field">
+            <label class="lf-label">Notes</label>
+            <textarea id="lf-note" class="lf-input lf-textarea" rows="2" style="resize:vertical;">${d.note||''}</textarea>
+          </div>
         </div>
-      </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea id="lf-note" class="form-control" rows="2">${d.note||''}</textarea>
-      </div>
-      <div id="lf-error" class="form-error hidden"></div>
-      <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Loans.saveLoan()"><i class="fa fa-floppy-disk"></i> Save</button>
+
+        <div id="lf-error" class="form-error hidden"></div>
+        <div class="lf-actions">
+          <button class="lf-cancel-btn" onclick="Utils.closeModal()">Cancel</button>
+          <button class="lf-save-btn" onclick="Loans.saveLoan()">
+            <i class="fa fa-floppy-disk" style="margin-right:7px;"></i> Save Loan
+          </button>
+        </div>
       </div>
       <script>
-        // Form render হওয়ার পরে type-aware dropdown trigger করো
         (function() {
           setTimeout(function() {
-            if (typeof Loans !== 'undefined' && Loans._onTypeChange) {
-              Loans._onTypeChange();
-            }
+            if (typeof Loans !== 'undefined' && Loans._onTypeChange) Loans._onTypeChange();
           }, 50);
         })();
       </script>
     `;
   }
+
 
   /* Person dropdown select করলে text input এ নাম বসাও */
   function _onPersonSelect() {
@@ -286,7 +351,7 @@ const Loans = (() => {
         persons = [...priority, ...rest];
         hintMsg = receivedPersons.length
           ? `⬆ উপরের ${receivedPersons.length} জন আগে লোন দিয়েছিলেন (ফেরত দেওয়ার সময়)`
-          : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+          : 'Enter a new name or select from dropdown';
       } else {
         // আমি নিচ্ছি → যাদেরকে আগে দিয়েছিলাম তাদের নাম suggest করো
         const priority = givenPersons;
@@ -294,16 +359,16 @@ const Loans = (() => {
         persons = [...priority, ...rest];
         hintMsg = givenPersons.length
           ? `⬆ উপরের ${givenPersons.length} জনকে আগে লোন দেওয়া হয়েছে`
-          : 'নতুন নাম লিখুন অথবা dropdown থেকে বেছে নিন';
+          : 'Enter a new name or select from dropdown';
       }
     } catch(e) {
       persons = [];
-      hintMsg = 'নতুন নাম লিখুন';
+      hintMsg = 'Enter a new name';
     }
 
     // Dropdown rebuild
     const currentVal = sel.value;
-    sel.innerHTML = `<option value="">-- পূর্বের নাম বেছে নিন --</option>`
+    sel.innerHTML = `<option value="">-- Select existing person --</option>`
       + persons.map(p => `<option value="${p}" ${currentVal===p?'selected':''}>${p}</option>`).join('');
 
     if (hint) hint.textContent = hintMsg;

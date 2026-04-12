@@ -222,18 +222,17 @@ const Finance = (() => {
   ══════════════════════════════════════════ */
   function openAddModal(prefill={}) {
     editingId = null;
-    Utils.openModal('<i class="fa fa-plus"></i> New Transaction', formHTML(prefill));
+    Utils.openModal('<i class="fa fa-plus"></i> New Transaction', formHTML(prefill), 'modal-lg');
   }
 
   function openEditModal(id) {
     const f = SupabaseSync.getById(DB.finance, id);
     if (!f) return;
     editingId = id;
-    Utils.openModal('<i class="fa fa-pen"></i> Transaction Edit', formHTML(f));
+    Utils.openModal('<i class="fa fa-pen"></i> Transaction Edit', formHTML(f), 'modal-lg');
   }
 
   function formHTML(d={}) {
-    // ── Date parts ────────────────────────────────────────────
     const dateStr  = (d.date || Utils.today()).split('T')[0];
     const dateParts = dateStr.split('-');
     const yyyy = dateParts[0] || String(new Date().getFullYear());
@@ -247,76 +246,138 @@ const Finance = (() => {
     const currentYear = new Date().getFullYear();
     const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
 
-    // ── Loan person names for dropdown ────────────────────────
-    // (edit mode-এ Loan Giving/Receiving type দেখানোর জন্য রাখা হয়েছে)
-    const isLoan = d.type==='Loan Giving' || d.type==='Loan Receiving';
-
     return `
-      <div class="form-row">
-        <div class="form-group">
-          <label>Type <span class="req">*</span></label>
-          <select id="ff-type" class="form-control" onchange="Finance.updateCategoryDropdown(this)">
-            <option value="Income"       ${d.type==='Income'?'selected':''}>Income</option>
-            <option value="Expense"      ${d.type==='Expense'?'selected':''}>Expense</option>
-            <option value="Transfer In"  ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
-            <option value="Transfer Out" ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Method <span class="req">*</span></label>
-          <select id="ff-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'ff-bal-display')">
-            <option value="">Select Method</option>
-            ${Utils.getPaymentMethodsHTML(d.method)}
-          </select>
-          <div id="ff-bal-display" style="display:none;"></div>
-        </div>
-      </div>
+      <style>
+        .ff-wrap { display:flex; flex-direction:column; gap:16px; }
+        .ff-section-title {
+          font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+          color:var(--brand-primary); margin-bottom:10px; padding-bottom:6px;
+          border-bottom:1px solid rgba(0,212,255,0.15);
+          display:flex; align-items:center; gap:6px;
+        }
+        .ff-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .ff-field { display:flex; flex-direction:column; gap:5px; }
+        .ff-label {
+          font-size:0.7rem; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;
+          color:var(--text-muted);
+        }
+        .ff-label .req { color:#ff4d6d; margin-left:2px; }
+        .ff-input, .ff-select {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(0,212,255,0.2);
+          border-radius:8px; color:var(--text-primary);
+          font-size:0.88rem; padding:10px 13px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          outline:none; width:100%; box-sizing:border-box;
+        }
+        .ff-input:focus, .ff-select:focus {
+          border-color:rgba(0,212,255,0.6);
+          box-shadow:0 0 0 3px rgba(0,212,255,0.1), 0 0 12px rgba(0,212,255,0.12);
+        }
+        .ff-input::placeholder { color:rgba(255,255,255,0.22); }
+        .ff-select { cursor:pointer; }
+        .ff-amount-wrap { position:relative; }
+        .ff-taka {
+          position:absolute; left:12px; top:50%; transform:translateY(-50%);
+          color:var(--brand-primary); font-weight:700; font-size:0.9rem; pointer-events:none;
+        }
+        .ff-amount-wrap .ff-input { padding-left:28px; }
+        .ff-date-row { display:flex; gap:6px; }
+        .ff-date-row .ff-select:first-child  { flex:0 0 72px; }
+        .ff-date-row .ff-select:nth-child(2) { flex:1; }
+        .ff-date-row .ff-select:last-child   { flex:0 0 94px; }
+        .ff-save-btn {
+          width:100%; padding:13px; border:none; border-radius:10px; cursor:pointer;
+          font-size:0.95rem; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+          background:linear-gradient(90deg,#00d4ff,#7b2ff7); color:#fff;
+          box-shadow:0 0 20px rgba(0,212,255,0.3),0 0 40px rgba(123,47,247,0.2);
+          transition:filter 0.2s,transform 0.1s;
+        }
+        .ff-save-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+        .ff-cancel-btn {
+          padding:11px 20px; border:1px solid rgba(255,255,255,0.15); border-radius:10px;
+          background:transparent; color:var(--text-muted); font-size:0.88rem; cursor:pointer;
+        }
+        .ff-cancel-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text-primary); }
+        .ff-actions { display:flex; gap:10px; align-items:center; }
+        .ff-actions .ff-save-btn { flex:1; }
+      </style>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label>Category</label>
-          <select id="ff-category" class="form-control">
-            ${getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category === c ? 'selected' : ''}>${c}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Date <span class="req">*</span></label>
-          <div style="display:flex; gap:6px;">
-            <select id="ff-date-dd" class="form-control" style="flex:0 0 70px;" onchange="Finance._syncDate()">
-              ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
-            </select>
-            <select id="ff-date-mm" class="form-control" style="flex:1;" onchange="Finance._syncDate()">
-              ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
-            </select>
-            <select id="ff-date-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Finance._syncDate()">
-              ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
-            </select>
+      <div class="ff-wrap">
+        <div>
+          <div class="ff-section-title"><i class="fa fa-money-bill-wave"></i> Transaction Details</div>
+          <div class="ff-grid-2" style="margin-bottom:12px;">
+            <div class="ff-field">
+              <label class="ff-label">Type <span class="req">*</span></label>
+              <select id="ff-type" class="ff-select" onchange="Finance.updateCategoryDropdown(this)">
+                <option value="Income"       ${d.type==='Income'?'selected':''}>Income (+)</option>
+                <option value="Expense"      ${d.type==='Expense'?'selected':''}>Expense (-)</option>
+                <option value="Transfer In"  ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
+                <option value="Transfer Out" ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
+              </select>
+            </div>
+            <div class="ff-field">
+              <label class="ff-label">Payment Method <span class="req">*</span></label>
+              <select id="ff-method" class="ff-select" onchange="Utils.onPaymentMethodChange(this,'ff-bal-display')">
+                <option value="">Select Payment Method</option>
+                ${Utils.getPaymentMethodsHTML(d.method)}
+              </select>
+              <div id="ff-bal-display" style="display:none;"></div>
+            </div>
           </div>
-          <input type="hidden" id="ff-date" value="${yyyy}-${mm}-${dd}" />
+          <div class="ff-grid-2" style="margin-bottom:12px;">
+            <div class="ff-field">
+              <label class="ff-label">Category</label>
+              <select id="ff-category" class="ff-select">
+                ${getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}
+              </select>
+            </div>
+            <div class="ff-field">
+              <label class="ff-label">Date <span class="req">*</span></label>
+              <div class="ff-date-row">
+                <select id="ff-date-dd" class="ff-select" onchange="Finance._syncDate()">
+                  ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+                </select>
+                <select id="ff-date-mm" class="ff-select" onchange="Finance._syncDate()">
+                  ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+                </select>
+                <select id="ff-date-yyyy" class="ff-select" onchange="Finance._syncDate()">
+                  ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+                </select>
+              </div>
+              <input type="hidden" id="ff-date" value="${yyyy}-${mm}-${dd}" />
+            </div>
+          </div>
+          <div class="ff-field" style="margin-bottom:12px;">
+            <label class="ff-label">Description</label>
+            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction details..." />
+          </div>
+          <div class="ff-grid-2">
+            <div class="ff-field">
+              <label class="ff-label">Amount (৳) <span class="req">*</span></label>
+              <div class="ff-amount-wrap">
+                <span class="ff-taka">৳</span>
+                <input id="ff-amount" type="number" class="ff-input" value="${d.amount||''}" placeholder="0" />
+              </div>
+            </div>
+            <div class="ff-field">
+              <label class="ff-label">Notes</label>
+              <input id="ff-note" class="ff-input" value="${d.note||''}" placeholder="Optional notes" />
+            </div>
+          </div>
         </div>
-      </div>
 
-      <div class="form-group">
-        <label>Description</label>
-        <input id="ff-description" class="form-control" value="${d.description||''}" placeholder="Transaction details" />
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Amount (৳) <span class="req">*</span></label>
-          <input id="ff-amount" type="number" class="form-control" value="${d.amount||''}" placeholder="0" />
+        <div id="ff-error" class="form-error hidden"></div>
+        <div class="ff-actions">
+          <button class="ff-cancel-btn" onclick="Utils.closeModal()">Cancel</button>
+          <button class="ff-save-btn" onclick="Finance.saveEntry()">
+            <i class="fa fa-floppy-disk" style="margin-right:7px;"></i> Save Transaction
+          </button>
         </div>
-        <div class="form-group">
-          <label>Notes</label>
-          <input id="ff-note" class="form-control" value="${d.note||''}" placeholder="Optional" />
-        </div>
-      </div>
-      <div id="ff-error" class="form-error hidden"></div>
-      <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Finance.saveEntry()"><i class="fa fa-floppy-disk"></i> Save</button>
       </div>
     `;
   }
+
 
   /* Date sync — DD/MM/YYYY dropdowns → hidden input */
   function _syncDate() {

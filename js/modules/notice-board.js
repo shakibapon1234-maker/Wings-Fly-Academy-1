@@ -20,10 +20,11 @@ const NoticeBoardModule = (() => {
     if (document.getElementById('noticeBoardBanner')) return;
     
     const bannerHTML = `
-      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:0; right:0; z-index:9000; padding:12px; margin:10px 20px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center;">
-        <span class="notice-icon" style="margin-right:10px; font-size:1.2rem;"></span>
+      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:0; right:0; z-index:9000; padding:12px 16px; margin:10px 20px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center; align-items:center;">
+        <span class="notice-icon" style="margin-right:10px; font-size:1.2rem; flex-shrink:0;"></span>
         <span id="noticeBannerText" style="flex-grow:1; margin-right:15px; display:inline-block; font-size:1rem;"></span>
-        <span id="noticeBannerCountdown" style="background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:30px; font-size:0.85rem; font-family:monospace;"></span>
+        <span id="noticeBannerCountdown" style="background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:30px; font-size:0.85rem; font-family:monospace; flex-shrink:0; margin-right:10px;"></span>
+        <button onclick="NoticeBoardModule.dismissBanner()" title="Close notice" style="flex-shrink:0; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.3); color:#fff; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:0.85rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; transition:background 0.2s;" onmouseover="this.style.background='rgba(0,0,0,0.5)'" onmouseout="this.style.background='rgba(0,0,0,0.25)'">✕</button>
       </div>
     `;
     document.body.insertAdjacentHTML('afterbegin', bannerHTML);
@@ -51,6 +52,11 @@ const NoticeBoardModule = (() => {
     }
 
     if (activeNotice) {
+      // Don't re-show if user dismissed in this session
+      try {
+        const dismissed = sessionStorage.getItem('noticeDismissed');
+        if (dismissed && dismissed === String(activeNotice.id || '1')) return;
+      } catch(e) {}
       showBanner(activeNotice);
     }
   }
@@ -347,7 +353,17 @@ const NoticeBoardModule = (() => {
      document.getElementById('noticeTextInput')?.focus();
   }
 
-  return { init, render, toggleCustom, previewNotice, publish, deleteActive, openAddModal };
+  // ── DISMISS BANNER (close without disabling the notice) ────────────────
+  function dismissBanner() {
+    hideBanner();
+    // Store dismiss in sessionStorage so it doesn't re-show until page reload
+    try { sessionStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
+  }
+
+  // Override refreshActiveNotice to respect dismissed state
+  const _origRefresh = refreshActiveNotice;
+
+  return { init, render, toggleCustom, previewNotice, publish, deleteActive, openAddModal, dismissBanner };
 })();
 
 // Hook into App init sequence

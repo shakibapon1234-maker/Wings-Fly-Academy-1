@@ -181,107 +181,229 @@ const Students = (() => {
     const all = SupabaseSync.getAll(DB.students);
     const newId = Utils.generateStudentId(all.map(s => s.student_id));
     const today = Utils.today();
-    
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-user-graduate"></i> Add Student', `
-      <div class="form-row">
-        <div class="form-group">
-          <label>Student ID <span class="req">*</span></label>
-          <input id="sf-sid" class="form-control" value="${newId}" />
+      <style>
+        .sf-modal-wrap { display:flex; flex-direction:column; gap:0; }
+        .sf-section { margin-bottom:20px; }
+        .sf-section-title {
+          font-size:0.7rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
+          color:var(--brand-primary); margin-bottom:10px; padding-bottom:6px;
+          border-bottom:1px solid rgba(0,212,255,0.15);
+          display:flex; align-items:center; gap:6px;
+        }
+        .sf-section-title i { font-size:0.75rem; }
+        .sf-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+        .sf-grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; }
+        .sf-field { display:flex; flex-direction:column; gap:5px; }
+        .sf-label {
+          font-size:0.72rem; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;
+          color:var(--text-muted);
+        }
+        .sf-label .req { color:#ff4d6d; margin-left:2px; }
+        .sf-input {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(0,212,255,0.2);
+          border-radius:8px;
+          color: var(--text-primary);
+          font-size:0.88rem;
+          padding:10px 13px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          outline:none;
+          width:100%;
+          box-sizing:border-box;
+        }
+        .sf-input:focus {
+          border-color: rgba(0,212,255,0.6);
+          box-shadow: 0 0 0 3px rgba(0,212,255,0.1), 0 0 12px rgba(0,212,255,0.15);
+        }
+        .sf-input::placeholder { color: rgba(255,255,255,0.25); }
+        .sf-select {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(0,212,255,0.2);
+          border-radius:8px;
+          color: var(--text-primary);
+          font-size:0.88rem;
+          padding:10px 13px;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          outline:none;
+          width:100%;
+          box-sizing:border-box;
+          cursor:pointer;
+        }
+        .sf-select:focus {
+          border-color: rgba(0,212,255,0.6);
+          box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+        }
+        .sf-readonly {
+          background: rgba(0,212,255,0.05) !important;
+          border-color: rgba(0,212,255,0.1) !important;
+          color: var(--brand-primary) !important;
+          font-weight:700;
+          cursor:default;
+        }
+        .sf-amount-wrap { position:relative; }
+        .sf-taka {
+          position:absolute; left:12px; top:50%; transform:translateY(-50%);
+          color:var(--brand-primary); font-weight:700; font-size:0.9rem; pointer-events:none;
+        }
+        .sf-amount-wrap .sf-input { padding-left:28px; }
+        .sf-due-field .sf-input {
+          background: rgba(255,77,109,0.08) !important;
+          border-color: rgba(255,77,109,0.25) !important;
+          color: #ff4d6d !important;
+          font-weight:700;
+        }
+        .sf-save-btn {
+          width:100%; padding:13px; border:none; border-radius:10px; cursor:pointer;
+          font-size:0.95rem; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+          background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+          color:#fff;
+          box-shadow: 0 0 20px rgba(0,212,255,0.3), 0 0 40px rgba(123,47,247,0.2);
+          transition: filter 0.2s, transform 0.1s;
+          margin-top:6px;
+        }
+        .sf-save-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
+        .sf-cancel-btn {
+          padding:11px 20px; border:1px solid rgba(255,255,255,0.15); border-radius:10px;
+          background:transparent; color:var(--text-muted); font-size:0.88rem; cursor:pointer;
+          transition:border-color 0.2s;
+        }
+        .sf-cancel-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text-primary); }
+        .sf-actions { display:flex; gap:10px; align-items:center; margin-top:4px; }
+        .sf-actions .sf-save-btn { flex:1; margin-top:0; }
+      </style>
+
+      <div class="sf-modal-wrap">
+
+        <!-- SECTION: Basic Info -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-id-card"></i> Student Information</div>
+          <div class="sf-grid-2" style="margin-bottom:12px;">
+            <div class="sf-field">
+              <label class="sf-label">Student ID <span class="req">*</span></label>
+              <input id="sf-sid" class="sf-input sf-readonly" value="${newId}" readonly />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Admission Date</label>
+              <input id="sf-date" type="date" class="sf-input" value="${today}" />
+            </div>
+          </div>
+          <div class="sf-grid-2" style="margin-bottom:12px;">
+            <div class="sf-field">
+              <label class="sf-label">Full Name <span class="req">*</span></label>
+              <input id="sf-name" class="sf-input" placeholder="Student's full name" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Phone Number <span class="req">*</span></label>
+              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" />
+            </div>
+          </div>
+          <div class="sf-grid-2">
+            <div class="sf-field">
+              <label class="sf-label">Email</label>
+              <input id="sf-email" type="email" class="sf-input" placeholder="email@example.com" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Father's Name</label>
+              <input id="sf-father" class="sf-input" placeholder="Father's name" />
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label>Admission Date</label>
-          <input id="sf-date" type="date" class="form-control" value="${today}" />
+
+        <!-- SECTION: Course -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-graduation-cap"></i> Course & Batch</div>
+          <div class="sf-grid-3">
+            <div class="sf-field">
+              <label class="sf-label">Course <span class="req">*</span></label>
+              <input id="sf-course" class="sf-input" list="course-list" placeholder="Select or type" />
+              <datalist id="course-list">
+                ${courses.map(c => `<option value="${c}">`).join('')}
+              </datalist>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Batch <span class="req">*</span></label>
+              <input id="sf-batch" class="sf-input" placeholder="e.g.: Batch-12" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Session</label>
+              <input id="sf-session" class="sf-input" placeholder="e.g.: 2024-25" />
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION: Fee -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-money-bill-wave"></i> Fee & Payment</div>
+          <div class="sf-grid-3" style="margin-bottom:12px;">
+            <div class="sf-field">
+              <label class="sf-label">Total Fee (৳) <span class="req">*</span></label>
+              <div class="sf-amount-wrap">
+                <span class="sf-taka">৳</span>
+                <input id="sf-total-fee" type="number" class="sf-input" placeholder="0" oninput="Students.calcDue()" />
+              </div>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Paid (৳)</label>
+              <div class="sf-amount-wrap">
+                <span class="sf-taka">৳</span>
+                <input id="sf-paid" type="number" class="sf-input" placeholder="0" value="0" oninput="Students.calcDue()" />
+              </div>
+            </div>
+            <div class="sf-field sf-due-field">
+              <label class="sf-label">Due (৳)</label>
+              <div class="sf-amount-wrap">
+                <span class="sf-taka" style="color:#ff4d6d;">৳</span>
+                <input id="sf-due" type="number" class="sf-input" placeholder="0" readonly />
+              </div>
+            </div>
+          </div>
+          <div class="sf-field">
+            <label class="sf-label">Payment Method <span class="req">*</span></label>
+            <select id="sf-method" class="sf-select" onchange="Utils.onPaymentMethodChange(this, 'sf-bal-display')">
+              <option value="">Select Payment Method...</option>
+              ${Utils.getPaymentMethodsHTML()}
+            </select>
+            <div id="sf-bal-display" style="display:none;"></div>
+          </div>
+        </div>
+
+        <!-- SECTION: Other -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-circle-info"></i> Additional Info</div>
+          <div class="sf-grid-2" style="margin-bottom:12px;">
+            <div class="sf-field">
+              <label class="sf-label">Address</label>
+              <input id="sf-address" class="sf-input" placeholder="Present address" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Status</label>
+              <select id="sf-status" class="sf-select">
+                <option value="Active">Active</option>
+                <option value="Inactive">Inactive</option>
+              </select>
+            </div>
+          </div>
+          <div class="sf-field">
+            <label class="sf-label">Notes</label>
+            <textarea id="sf-note" class="sf-input" rows="2" placeholder="Any special remarks..." style="resize:vertical; min-height:60px;"></textarea>
+          </div>
+        </div>
+
+        <div id="sf-error" class="form-error hidden" style="margin-bottom:8px;"></div>
+        <div class="sf-actions">
+          <button class="sf-cancel-btn" onclick="Utils.closeModal()">Cancel</button>
+          <button class="sf-save-btn" onclick="Students.saveStudent()">
+            <i class="fa fa-floppy-disk" style="margin-right:7px;"></i> Save Student
+          </button>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Full Name <span class="req">*</span></label>
-          <input id="sf-name" class="form-control" placeholder="Student Name" />
-        </div>
-        <div class="form-group">
-          <label>Phone Number <span class="req">*</span></label>
-          <input id="sf-phone" class="form-control" placeholder="01XXXXXXXXX" />
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Email</label>
-          <input id="sf-email" type="email" class="form-control" placeholder="email@example.com" />
-        </div>
-        <div class="form-group">
-          <label>Father Name</label>
-          <input id="sf-father" class="form-control" placeholder="Father Name" />
-        </div>
-      </div>
-      <div class="form-row-3">
-        <div class="form-group">
-          <label>Course <span class="req">*</span></label>
-          <input id="sf-course" class="form-control" list="course-list" placeholder="Course Name" />
-          <datalist id="course-list">
-            ${courses.map(c => `<option value="${c}">`).join('')}
-          </datalist>
-        </div>
-        <div class="form-group">
-          <label>Batch <span class="req">*</span></label>
-          <input id="sf-batch" class="form-control" placeholder="e.g.: Batch-12" />
-        </div>
-        <div class="form-group">
-          <label>Session</label>
-          <input id="sf-session" class="form-control" placeholder="e.g.: 2024-25" />
-        </div>
-      </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Total Fee (৳) <span class="req">*</span></label>
-          <input id="sf-total-fee" type="number" class="form-control" placeholder="0" oninput="Students.calcDue()" />
-        </div>
-        <div class="form-group">
-          <label>Paid (৳)</label>
-          <input id="sf-paid" type="number" class="form-control" placeholder="0" value="0" oninput="Students.calcDue()" />
-        </div>
-      </div>
-      <div class="form-row-3">
-        <div class="form-group">
-          <label>Due (৳)</label>
-          <input id="sf-due" type="number" class="form-control" placeholder="0" readonly style="background:var(--bg-surface)" />
-        </div>
-        <div class="form-group" style="grid-column: span 2">
-          <label>Payment Method <span class="req">*</span></label>
-          <select id="sf-method" class="form-control" onchange="Utils.onPaymentMethodChange(this, 'sf-bal-display')">
-            <option value="">Select Method...</option>
-            ${Utils.getPaymentMethodsHTML()}
-          </select>
-          <div id="sf-bal-display" style="display:none;"></div>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>Address</label>
-          <input id="sf-address" class="form-control" placeholder="Present Address" />
-        </div>
-        <div class="form-group">
-          <label>Status</label>
-          <select id="sf-status" class="form-control">
-            <option value="Active">Active</option>
-            <option value="Inactive">Inactive</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-group">
-        <label>Notes</label>
-        <textarea id="sf-note" class="form-control" rows="2" placeholder="Any special remarks…"></textarea>
-      </div>
-      <div id="sf-error" class="form-error hidden"></div>
-      <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Students.saveStudent()"><i class="fa fa-floppy-disk"></i> Save</button>
-      </div>
-    `);
+    `, 'modal-lg');
   }
+
 
   /* ══════════════════════════════════════════
      EDIT MODAL
