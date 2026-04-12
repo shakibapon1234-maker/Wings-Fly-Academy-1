@@ -1159,68 +1159,638 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelBatchProfit() {
     const students = SupabaseSync.getAll(DB.students);
-    const finance = SupabaseSync.getAll(DB.finance);
-    const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
+    const finance  = SupabaseSync.getAll(DB.finance);
+    const batches  = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
+
+    // Default date range: last 30 days
+    const today    = new Date().toISOString().split('T')[0];
+    const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 
     return `
     <div class="settings-panel ${activeTab === 'batchprofit' ? 'active' : ''}" data-panel="batchprofit">
       <div class="settings-card glow-red">
-        <div class="settings-card-title"><i class="fa fa-chart-column"></i> BATCH PROFIT REPORT</div>
-        <div class="form-group mb-12">
-          <label class="settings-label">Select Batch</label>
-          <select id="batch-profit-select" class="form-control" style="max-width:300px" onchange="SettingsModule.renderBatchReport()">
-            <option value="">-- All Batches --</option>
-            ${batches.map(b => `<option value="${b}">Batch ${b}</option>`).join('')}
-          </select>
+        <div class="settings-card-title" style="font-size:1.1rem;margin-bottom:16px">
+          <i class="fa fa-chart-line"></i> Generate Batch Wise Profit &amp; Loss
         </div>
-        <div id="batch-profit-content">${buildBatchReport(students, finance, '')}</div>
+
+        <!-- Filter Row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+          <div class="form-group" style="margin:0">
+            <label class="settings-label">SELECT BATCH</label>
+            <select id="bp-batch" class="form-control">
+              <option value="">Choose Batch...</option>
+              ${batches.map(b => `<option value="${b}">${b}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="settings-label">EXPENSE START DATE</label>
+            <input type="date" id="bp-start" class="form-control" value="${monthAgo}" />
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="settings-label">EXPENSE END DATE</label>
+            <input type="date" id="bp-end" class="form-control" value="${today}" />
+          </div>
+        </div>
+
+        <!-- Previous Balance row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;align-items:flex-end;">
+          <div class="form-group" style="margin:0">
+            <label class="settings-label">PREVIOUS BALANCE / PROFIT / DUE (MANUAL)</label>
+            <div style="display:flex;align-items:center;gap:0;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;">
+              <span style="padding:10px 14px;font-size:1rem;color:var(--brand-primary);font-weight:700;border-right:1px solid rgba(255,255,255,0.1);">৳</span>
+              <input type="number" id="bp-prev" class="form-control" value="0" placeholder="0.00"
+                style="border:none;background:transparent;border-radius:0;flex:1;" />
+            </div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">পূর্বের কোনো ডিউ বা জমানো লাভ থাকলে লিখুন</div>
+          </div>
+          <div>
+            <button onclick="SettingsModule.renderBatchReport()"
+              style="width:100%;padding:14px 24px;background:linear-gradient(90deg,#00d9ff,#b537f2);color:#fff;border:none;border-radius:10px;font-size:1rem;font-weight:800;cursor:pointer;letter-spacing:0.5px;transition:filter 0.2s;"
+              onmouseover="this.style.filter='brightness(1.15)'" onmouseout="this.style.filter=''">
+              <i class="fa fa-calculator"></i>&nbsp; GENERATE PROFIT REPORT
+            </button>
+          </div>
+        </div>
+
+        <!-- Report Output Area -->
+        <div id="bp-report-area">
+          <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
+            <i class="fa fa-chart-bar" style="font-size:3rem;opacity:0.25;display:block;margin-bottom:12px;"></i>
+            Select criteria and click generate to view report
+          </div>
+        </div>
       </div>
     </div>`;
   }
 
   function renderBatchReport() {
-    const batch = document.getElementById('batch-profit-select')?.value || '';
+    const batch   = document.getElementById('bp-batch')?.value || '';
+    const start   = document.getElementById('bp-start')?.value || '';
+    const end     = document.getElementById('bp-end')?.value || '';
+    const prevBal = parseFloat(document.getElementById('bp-prev')?.value || 0) || 0;
+
     const students = SupabaseSync.getAll(DB.students);
-    const finance = SupabaseSync.getAll(DB.finance);
-    const container = document.getElementById('batch-profit-content');
-    if (container) container.innerHTML = buildBatchReport(students, finance, batch);
+    const finance  = SupabaseSync.getAll(DB.finance);
+    const container = document.getElementById('bp-report-area');
+    if (container) container.innerHTML = buildBatchReport(students, finance, batch, start, end, prevBal);
   }
 
-  function buildBatchReport(students, finance, selectedBatch) {
-    const filtered = selectedBatch ? students.filter(s => s.batch === selectedBatch) : students;
-    const totalIncome = filtered.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
-    const batchExpense = finance
-      .filter(f => f.type === 'Expense' && (!selectedBatch || f.batch === selectedBatch))
-      .reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
-    const netProfit = totalIncome - batchExpense;
+  function buildBatchReport(students, finance, selectedBatch, startDate, endDate, prevBalance) {
+    prevBalance = parseFloat(prevBalance) || 0;
+
+    // ── Students filtered by batch ──
+    const batchStudents = selectedBatch
+      ? students.filter(s => s.batch === selectedBatch)
+      : students;
+
+    // Get student IDs for finance lookup
+    const studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
+
+    // ── Income: from student fees (finance entries for these students) ──
+    const incomeEntries = finance.filter(f => {
+      if (f.type !== 'Income' || f.category !== 'Student Fee') return false;
+      // Match by ref_id (student DB id) or ref_id = student_id
+      const matchById = studentIds.has(f.ref_id);
+      const matchByStuId = batchStudents.some(s => s.student_id === f.ref_id);
+      const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
+      return (matchById || matchByStuId) && inRange;
+    });
+
+    // Also count direct paid from student records
+    const totalStudentFee  = batchStudents.reduce((s, st) => s + (parseFloat(st.total_fee) || 0), 0);
+    const totalCollected   = batchStudents.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
+    const totalDue         = batchStudents.reduce((s, st) => s + (parseFloat(st.due) || 0), 0);
+
+    // ── Expenses: by date range (batch-tagged or general) ──
+    const expenseEntries = finance.filter(f => {
+      if (f.type !== 'Expense') return false;
+      const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
+      if (!inRange) return false;
+      if (!selectedBatch) return true;
+      // Include expenses tagged to this batch OR untagged general expenses
+      return !f.batch || f.batch === selectedBatch;
+    });
+
+    const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+
+    // ── Other Income (non-student) in date range ──
+    const otherIncomeEntries = finance.filter(f => {
+      if (f.type !== 'Income' || f.category === 'Student Fee') return false;
+      const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
+      return inRange;
+    });
+    const otherIncome = otherIncomeEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+
+    const grossIncome = totalCollected + otherIncome;
+    const netProfit   = grossIncome - totalExpense + prevBalance;
+    const isProfit    = netProfit >= 0;
+
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const academyName = cfg.academy_name || 'Wings Fly Aviation Academy';
+    const reportDate  = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    // ── Expense breakdown by category ──
+    const expCats = {};
+    expenseEntries.forEach(f => {
+      const cat = f.category || 'General';
+      if (!expCats[cat]) expCats[cat] = 0;
+      expCats[cat] += parseFloat(f.amount) || 0;
+    });
+
+    // ── Store data for export ──
+    window._bpReportData = {
+      batch: selectedBatch || 'All Batches', startDate, endDate, prevBalance,
+      batchStudents, expenseEntries, otherIncomeEntries,
+      totalStudentFee, totalCollected, totalDue, totalExpense, otherIncome, grossIncome, netProfit,
+      academyName, reportDate
+    };
 
     return `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0">
-        <div class="diag-stat-box green"><div class="label">Total Income</div><div class="value">৳${totalIncome.toLocaleString()}</div></div>
-        <div class="diag-stat-box red"><div class="label">Total Expense</div><div class="value">৳${batchExpense.toLocaleString()}</div></div>
-        <div class="diag-stat-box ${netProfit >= 0 ? 'green' : 'red'}"><div class="label">Net Profit</div><div class="value">৳${netProfit.toLocaleString()}</div></div>
+      <!-- Action Buttons -->
+      <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+        <button onclick="SettingsModule.printBatchReport()"
+          style="padding:9px 20px;background:linear-gradient(90deg,#1a3a6b,#0099cc);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
+          <i class="fa fa-print"></i> প্রিন্ট রিপোর্ট
+        </button>
+        <button onclick="SettingsModule.exportBatchReportExcel()"
+          style="padding:9px 20px;background:linear-gradient(90deg,#1a7a1a,#4caf50);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
+          <i class="fa fa-file-excel"></i> Excel Export
+        </button>
+        <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);align-self:center;">
+          রিপোর্ট তৈরি: ${reportDate} &nbsp;|&nbsp; ${selectedBatch || 'সকল Batch'}
+          ${startDate ? ` &nbsp;|&nbsp; ${startDate} → ${endDate}` : ''}
+        </span>
       </div>
-      <div style="color:var(--error);font-size:1.1rem;font-weight:800;text-align:right;margin-bottom:12px">Grand Total: ৳${netProfit.toLocaleString()}</div>
-      <div class="table-wrapper">
-        <table>
-          <thead><tr><th>#</th><th>Student</th><th>Batch</th><th>Total Fee</th><th>Paid</th><th>Due</th></tr></thead>
-          <tbody>
-            ${filtered.length === 0 ? '<tr><td colspan="6" class="no-data">No data</td></tr>' :
-              filtered.map((s, i) => `
+
+      <!-- KPI Summary Cards -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
+        ${bpCard('fa-users', '#00d9ff', 'মোট ছাত্র', batchStudents.length, '')}
+        ${bpCard('fa-money-bill-wave', '#ffd700', 'মোট কোর্স ফি', '৳' + totalStudentFee.toLocaleString('en-IN'), '')}
+        ${bpCard('fa-circle-check', '#00ff88', 'সংগৃহীত ফি', '৳' + totalCollected.toLocaleString('en-IN'), 'green')}
+        ${bpCard('fa-circle-xmark', '#ff4757', 'বাকি ডিউ', '৳' + totalDue.toLocaleString('en-IN'), 'red')}
+        ${bpCard('fa-receipt', '#ff9a00', 'মোট খরচ', '৳' + totalExpense.toLocaleString('en-IN'), 'orange')}
+        ${bpCard(isProfit ? 'fa-trending-up' : 'fa-trending-down', isProfit ? '#00ff88' : '#ff4757',
+          isProfit ? 'নিট মুনাফা' : 'নিট ক্ষতি',
+          '৳' + Math.abs(netProfit).toLocaleString('en-IN'),
+          isProfit ? 'green' : 'red')}
+      </div>
+
+      <!-- P&L Summary Box -->
+      <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:18px;margin-bottom:20px;">
+        <div style="font-weight:800;color:var(--brand-primary);font-size:0.9rem;letter-spacing:1px;margin-bottom:14px;border-left:4px solid var(--brand-primary);padding-left:10px;">
+          📊 লাভ-ক্ষতি হিসাব সারাংশ (P&amp;L Statement)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <!-- Income Side -->
+          <div>
+            <div style="font-weight:700;color:#00ff88;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(0,255,136,0.2);padding-bottom:6px;">
+              ✦ আয় (Income)
+            </div>
+            ${plRow('ছাত্রদের ফি সংগ্রহ', totalCollected, '#00ff88')}
+            ${otherIncome > 0 ? plRow('অন্যান্য আয়', otherIncome, '#00ff88') : ''}
+            ${prevBalance !== 0 ? plRow('পূর্ববর্তী ব্যালেন্স', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
+            <div style="border-top:1.5px solid rgba(0,255,136,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
+              <span style="color:#fff;">মোট আয়</span>
+              <span style="color:#00ff88;">৳${grossIncome.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+          <!-- Expense Side -->
+          <div>
+            <div style="font-weight:700;color:#ff4757;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(255,71,87,0.2);padding-bottom:6px;">
+              ✦ ব্যয় (Expense)
+            </div>
+            ${Object.entries(expCats).map(([cat, amt]) => plRow(cat, amt, '#ff9a00')).join('')}
+            ${Object.keys(expCats).length === 0 ? `<div style="color:var(--text-muted);font-size:0.8rem;padding:8px 0;">এই তারিখ সীমায় কোনো ব্যয় নেই</div>` : ''}
+            <div style="border-top:1.5px solid rgba(255,71,87,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
+              <span style="color:#fff;">মোট ব্যয়</span>
+              <span style="color:#ff4757;">৳${totalExpense.toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Net Result -->
+        <div style="margin-top:16px;padding:14px 20px;background:${isProfit ? 'rgba(0,255,136,0.1)' : 'rgba(255,71,87,0.1)'};border:2px solid ${isProfit ? 'rgba(0,255,136,0.4)' : 'rgba(255,71,87,0.4)'};border-radius:10px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:1.05rem;font-weight:800;color:#fff;">${isProfit ? '✅ নিট মুনাফা (Net Profit)' : '❌ নিট ক্ষতি (Net Loss)'}</span>
+          <span style="font-size:1.4rem;font-weight:900;color:${isProfit ? '#00ff88' : '#ff4757'};">
+            ${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}
+          </span>
+        </div>
+      </div>
+
+      <!-- Student-wise Table -->
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:800;color:var(--brand-primary);font-size:0.85rem;letter-spacing:1px;margin-bottom:10px;border-left:4px solid var(--brand-primary);padding-left:10px;">
+          👨‍🎓 ছাত্র ভিত্তিক বিবরণ
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>ছাত্রের নাম</th>
+                <th>Student ID</th>
+                <th>Batch</th>
+                <th>কোর্স</th>
+                <th>মোট ফি</th>
+                <th>পরিশোধিত</th>
+                <th>বাকি</th>
+                <th>অবস্থা</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${batchStudents.length === 0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:16px;">কোনো ছাত্র পাওয়া যায়নি</td></tr>' :
+                batchStudents.map((s, i) => {
+                  const fee  = parseFloat(s.total_fee) || 0;
+                  const paid = parseFloat(s.paid) || 0;
+                  const due  = parseFloat(s.due) || Math.max(0, fee - paid);
+                  const pct  = fee > 0 ? Math.round((paid / fee) * 100) : 0;
+                  return `<tr>
+                    <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
+                    <td><strong>${s.name || '—'}</strong></td>
+                    <td><span class="badge badge-primary">${s.student_id || '—'}</span></td>
+                    <td>${s.batch || '—'}</td>
+                    <td style="font-size:0.82rem;color:var(--text-secondary);">${s.course || '—'}</td>
+                    <td style="font-weight:700;color:var(--brand-primary);">৳${fee.toLocaleString('en-IN')}</td>
+                    <td style="font-weight:700;color:#00ff88;">৳${paid.toLocaleString('en-IN')}</td>
+                    <td style="font-weight:700;color:${due > 0 ? '#ff4757' : 'var(--text-muted)'};">৳${due.toLocaleString('en-IN')}</td>
+                    <td>
+                      <div style="display:flex;align-items:center;gap:6px;">
+                        <div style="width:50px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
+                          <div style="width:${pct}%;height:100%;background:${pct>=100?'#00ff88':pct>=50?'#ffd700':'#ff4757'};border-radius:3px;"></div>
+                        </div>
+                        <span style="font-size:0.75rem;font-weight:700;color:${pct>=100?'#00ff88':pct>=50?'#ffd700':'#ff4757'}">${pct}%</span>
+                      </div>
+                    </td>
+                  </tr>`;
+                }).join('')
+              }
+            </tbody>
+            ${batchStudents.length > 0 ? `
+            <tfoot>
+              <tr style="background:rgba(0,0,0,0.4);font-weight:800;">
+                <td colspan="5" style="text-align:right;padding:10px;color:var(--brand-primary);letter-spacing:0.5px;">মোট সারাংশ:</td>
+                <td style="color:#ffd700;padding:10px;">৳${totalStudentFee.toLocaleString('en-IN')}</td>
+                <td style="color:#00ff88;padding:10px;">৳${totalCollected.toLocaleString('en-IN')}</td>
+                <td style="color:#ff4757;padding:10px;">৳${totalDue.toLocaleString('en-IN')}</td>
+                <td></td>
+              </tr>
+            </tfoot>` : ''}
+          </table>
+        </div>
+      </div>
+
+      <!-- Expense Detail Table -->
+      ${expenseEntries.length > 0 ? `
+      <div>
+        <div style="font-weight:800;color:#ff9a00;font-size:0.85rem;letter-spacing:1px;margin-bottom:10px;border-left:4px solid #ff9a00;padding-left:10px;">
+          💸 খরচের বিস্তারিত (${startDate || '—'} থেকে ${endDate || '—'})
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th><th>তারিখ</th><th>বিবরণ</th><th>ক্যাটাগরি</th><th>পদ্ধতি</th><th style="text-align:right;">পরিমাণ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${expenseEntries.sort((a,b) => a.date > b.date ? 1 : -1).map((f, i) => `
                 <tr>
-                  <td>${i + 1}</td>
-                  <td>${s.name || '—'}</td>
-                  <td>${s.batch || '—'}</td>
-                  <td style="color:var(--brand-primary)">৳${(parseFloat(s.total_fee) || 0).toLocaleString()}</td>
-                  <td style="color:var(--success)">৳${(parseFloat(s.paid) || 0).toLocaleString()}</td>
-                  <td style="color:var(--error)">৳${(parseFloat(s.due || (s.total_fee - s.paid)) || 0).toLocaleString()}</td>
+                  <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
+                  <td>${f.date || '—'}</td>
+                  <td>${f.description || '—'}</td>
+                  <td><span class="badge badge-secondary">${f.category || 'General'}</span></td>
+                  <td>${f.method || '—'}</td>
+                  <td style="text-align:right;font-weight:700;color:#ff9a00;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
                 </tr>
-              `).join('')
-            }
-          </tbody>
-        </table>
-      </div>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(0,0,0,0.4);font-weight:800;">
+                <td colspan="5" style="text-align:right;padding:10px;color:#ff9a00;">মোট খরচ:</td>
+                <td style="text-align:right;color:#ff4757;padding:10px;">৳${totalExpense.toLocaleString('en-IN')}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>` : ''}
     `;
+  }
+
+  function bpCard(icon, color, label, value, glow) {
+    const glowMap = { green: 'rgba(0,255,136,0.15)', red: 'rgba(255,71,87,0.15)', orange: 'rgba(255,154,0,0.15)' };
+    const bg = glowMap[glow] || 'rgba(0,0,0,0.25)';
+    return `
+      <div style="background:${bg};border:1px solid ${color}30;border-radius:10px;padding:14px;text-align:center;">
+        <i class="fa ${icon}" style="color:${color};font-size:1.2rem;margin-bottom:8px;display:block;"></i>
+        <div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">${label}</div>
+        <div style="font-size:1.15rem;font-weight:900;color:${color};">${value}</div>
+      </div>`;
+  }
+
+  function plRow(label, amount, color) {
+    return `
+      <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+        <span style="color:var(--text-secondary);font-size:0.83rem;">${label}</span>
+        <span style="font-weight:700;color:${color};font-size:0.83rem;">৳${(parseFloat(amount)||0).toLocaleString('en-IN')}</span>
+      </div>`;
+  }
+
+  function printBatchReport() {
+    const d = window._bpReportData;
+    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('আগে রিপোর্ট Generate করুন', 'warn'); return; }
+
+    const { batch, startDate, endDate, prevBalance,
+            batchStudents, expenseEntries,
+            totalStudentFee, totalCollected, totalDue,
+            totalExpense, otherIncome, grossIncome, netProfit,
+            academyName, reportDate } = d;
+
+    const isProfit = netProfit >= 0;
+
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const logoUrl = cfg.logo_url || '';
+    const logoHtml = logoUrl
+      ? `<img src="${logoUrl}" style="height:56px;object-fit:contain;" />`
+      : `<div style="width:56px;height:56px;background:linear-gradient(135deg,#1a3a6b,#0099cc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#fff;">✈</div>`;
+
+    const expCats = {};
+    expenseEntries.forEach(f => {
+      const cat = f.category || 'General';
+      if (!expCats[cat]) expCats[cat] = 0;
+      expCats[cat] += parseFloat(f.amount) || 0;
+    });
+
+    const html = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8"/>
+<title>Batch Profit Report — ${batch}</title>
+<style>
+  @page { size: A4 portrait; margin: 14mm 12mm; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; color:#111; background:#fff; }
+
+  .header { display:flex; align-items:center; gap:14px; border-bottom:3px solid #1a3a6b; padding-bottom:10px; margin-bottom:14px; }
+  .header-info h1 { font-size:15px; font-weight:900; color:#1a3a6b; letter-spacing:0.5px; }
+  .header-info .sub { font-size:8.5px; color:#555; margin-top:2px; }
+  .header-meta { text-align:right; font-size:8.5px; color:#555; margin-left:auto; }
+  .header-meta .big { font-size:12px; font-weight:800; color:#1a3a6b; }
+
+  .title-bar { background:#1a3a6b; color:#fff; padding:8px 14px; border-radius:5px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; }
+  .title-bar h2 { font-size:11px; font-weight:800; letter-spacing:1px; }
+
+  .kpi-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px; }
+  .kpi-box { border-radius:8px; padding:10px; text-align:center; }
+  .kpi-box .k-label { font-size:7.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.7px; margin-bottom:4px; }
+  .kpi-box .k-value { font-size:14px; font-weight:900; }
+  .kpi-income  { background:#f0fdf4; border:1.5px solid #86efac; color:#15803d; }
+  .kpi-expense { background:#fef2f2; border:1.5px solid #fca5a5; color:#b91c1c; }
+  .kpi-profit  { background:#f0fdf4; border:2px solid #16a34a; color:#15803d; }
+  .kpi-loss    { background:#fef2f2; border:2px solid #dc2626; color:#b91c1c; }
+  .kpi-blue    { background:#eff6ff; border:1.5px solid #93c5fd; color:#1d4ed8; }
+  .kpi-yellow  { background:#fefce8; border:1.5px solid #fde047; color:#854d0e; }
+  .kpi-orange  { background:#fff7ed; border:1.5px solid #fdba74; color:#c2410c; }
+
+  .pl-section { border:1.5px solid #e0e0e0; border-radius:8px; padding:12px; margin-bottom:14px; }
+  .pl-title { font-size:10px; font-weight:800; color:#1a3a6b; margin-bottom:8px; border-left:3px solid #1a3a6b; padding-left:8px; }
+  .pl-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .pl-col-title { font-weight:700; font-size:9px; text-transform:uppercase; letter-spacing:0.5px; padding-bottom:5px; border-bottom:1.5px solid #e0e0e0; margin-bottom:6px; }
+  .pl-row { display:flex; justify-content:space-between; padding:3px 0; border-bottom:1px solid #f0f0f0; font-size:9px; }
+  .pl-total { display:flex; justify-content:space-between; padding:6px 0 0; font-weight:800; font-size:10px; border-top:2px solid #1a3a6b; margin-top:4px; }
+  .pl-net { margin-top:10px; padding:10px 14px; border-radius:7px; display:flex; justify-content:space-between; align-items:center; }
+  .pl-net-profit { background:#f0fdf4; border:2px solid #86efac; }
+  .pl-net-loss   { background:#fef2f2; border:2px solid #fca5a5; }
+  .pl-net .label { font-weight:800; font-size:11px; }
+  .pl-net .amount { font-weight:900; font-size:15px; }
+
+  table { width:100%; border-collapse:collapse; font-size:9px; margin-bottom:14px; }
+  thead tr { background:#1a3a6b; color:#fff; }
+  thead th { padding:6px 5px; font-weight:700; border:1px solid #0d2a55; text-align:left; }
+  tbody tr { border-bottom:1px solid #e5e7eb; }
+  tbody tr:nth-child(even) { background:#f7f9ff; }
+  tbody td { padding:5px; border:1px solid #e5e7eb; }
+  tfoot tr { background:#f0f0f0; }
+  tfoot td { padding:6px 5px; font-weight:800; border:1px solid #ddd; }
+
+  .section-title { font-size:9.5px; font-weight:800; color:#1a3a6b; border-left:3px solid #0099cc; padding-left:7px; margin-bottom:7px; }
+  .footer { margin-top:16px; display:flex; justify-content:space-between; border-top:1px solid #ccc; padding-top:10px; }
+  .sig-box { text-align:center; }
+  .sig-line { width:130px; border-top:1.5px solid #333; margin:0 auto 3px; }
+  .sig-label { font-size:8px; color:#555; font-weight:600; }
+  .badge { display:inline-block; padding:1px 6px; border-radius:10px; font-size:7.5px; font-weight:700; }
+  .badge-blue { background:#dbeafe; color:#1d4ed8; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  ${logoHtml}
+  <div class="header-info">
+    <h1>${academyName}</h1>
+    <div class="sub">BATCH WISE PROFIT &amp; LOSS REPORT</div>
+  </div>
+  <div class="header-meta">
+    <div class="big">Batch: ${batch}</div>
+    ${startDate ? `<div>Expense Period: ${startDate} → ${endDate}</div>` : ''}
+    ${prevBalance !== 0 ? `<div>পূর্ব ব্যালেন্স: ৳${prevBalance.toLocaleString('en-IN')}</div>` : ''}
+    <div>Report Date: ${reportDate}</div>
+  </div>
+</div>
+
+<!-- Title Bar -->
+<div class="title-bar">
+  <h2>✦ লাভ-ক্ষতি হিসাব — ${batch} ✦</h2>
+  <span style="font-size:8px;">${batchStudents.length} জন ছাত্র</span>
+</div>
+
+<!-- KPI Row -->
+<div class="kpi-row">
+  <div class="kpi-box kpi-blue"><div class="k-label">মোট ছাত্র</div><div class="k-value">${batchStudents.length}</div></div>
+  <div class="kpi-box kpi-yellow"><div class="k-label">মোট কোর্স ফি</div><div class="k-value">৳${totalStudentFee.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-income"><div class="k-label">সংগৃহীত ফি</div><div class="k-value">৳${totalCollected.toLocaleString('en-IN')}</div></div>
+</div>
+<div class="kpi-row">
+  <div class="kpi-box kpi-expense"><div class="k-label">বকেয়া ডিউ</div><div class="k-value">৳${totalDue.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-orange"><div class="k-label">মোট খরচ</div><div class="k-value">৳${totalExpense.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box ${isProfit ? 'kpi-profit' : 'kpi-loss'}"><div class="k-label">${isProfit ? 'নিট মুনাফা' : 'নিট ক্ষতি'}</div><div class="k-value">${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}</div></div>
+</div>
+
+<!-- P&L Statement -->
+<div class="pl-section">
+  <div class="pl-title">📊 লাভ-ক্ষতি হিসাব (P&amp;L Statement)</div>
+  <div class="pl-grid">
+    <div>
+      <div class="pl-col-title" style="color:#15803d;">আয় (Income)</div>
+      <div class="pl-row"><span>ছাত্র ফি সংগ্রহ</span><span style="color:#15803d;font-weight:700;">৳${totalCollected.toLocaleString('en-IN')}</span></div>
+      ${otherIncome > 0 ? `<div class="pl-row"><span>অন্যান্য আয়</span><span style="color:#15803d;font-weight:700;">৳${otherIncome.toLocaleString('en-IN')}</span></div>` : ''}
+      ${prevBalance !== 0 ? `<div class="pl-row"><span>পূর্ব ব্যালেন্স</span><span style="font-weight:700;color:${prevBalance >= 0 ? '#15803d' : '#b91c1c'};">৳${prevBalance.toLocaleString('en-IN')}</span></div>` : ''}
+      <div class="pl-total"><span>মোট আয়</span><span style="color:#15803d;">৳${grossIncome.toLocaleString('en-IN')}</span></div>
+    </div>
+    <div>
+      <div class="pl-col-title" style="color:#b91c1c;">ব্যয় (Expense)</div>
+      ${Object.entries(expCats).map(([cat, amt]) =>
+        `<div class="pl-row"><span>${cat}</span><span style="color:#c2410c;font-weight:700;">৳${amt.toLocaleString('en-IN')}</span></div>`
+      ).join('')}
+      ${Object.keys(expCats).length === 0 ? '<div class="pl-row" style="color:#aaa;">কোনো ব্যয় নেই</div>' : ''}
+      <div class="pl-total"><span>মোট ব্যয়</span><span style="color:#b91c1c;">৳${totalExpense.toLocaleString('en-IN')}</span></div>
+    </div>
+  </div>
+  <div class="pl-net ${isProfit ? 'pl-net-profit' : 'pl-net-loss'}">
+    <span class="label">${isProfit ? '✅ নিট মুনাফা (Net Profit)' : '❌ নিট ক্ষতি (Net Loss)'}</span>
+    <span class="amount" style="color:${isProfit ? '#15803d' : '#b91c1c'};">${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}</span>
+  </div>
+</div>
+
+<!-- Student Table -->
+<div class="section-title">👨‍🎓 ছাত্র ভিত্তিক বিবরণ</div>
+<table>
+  <thead><tr>
+    <th style="width:24px;text-align:center">#</th>
+    <th>নাম</th>
+    <th>Student ID</th>
+    <th>Batch</th>
+    <th>কোর্স</th>
+    <th style="text-align:right">মোট ফি</th>
+    <th style="text-align:right">পরিশোধিত</th>
+    <th style="text-align:right">বাকি</th>
+  </tr></thead>
+  <tbody>
+    ${batchStudents.map((s, i) => {
+      const fee  = parseFloat(s.total_fee) || 0;
+      const paid = parseFloat(s.paid) || 0;
+      const due  = parseFloat(s.due) || Math.max(0, fee - paid);
+      return `<tr>
+        <td style="text-align:center;color:#777;">${i + 1}</td>
+        <td style="font-weight:700;">${s.name || '—'}</td>
+        <td><span class="badge badge-blue">${s.student_id || '—'}</span></td>
+        <td>${s.batch || '—'}</td>
+        <td style="color:#555;">${s.course || '—'}</td>
+        <td style="text-align:right;font-weight:700;color:#1d4ed8;">৳${fee.toLocaleString('en-IN')}</td>
+        <td style="text-align:right;font-weight:700;color:#15803d;">৳${paid.toLocaleString('en-IN')}</td>
+        <td style="text-align:right;font-weight:700;color:${due > 0 ? '#b91c1c' : '#555'};">৳${due.toLocaleString('en-IN')}</td>
+      </tr>`;
+    }).join('')}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5" style="text-align:right;color:#1a3a6b;">মোট:</td>
+      <td style="text-align:right;color:#1d4ed8;">৳${totalStudentFee.toLocaleString('en-IN')}</td>
+      <td style="text-align:right;color:#15803d;">৳${totalCollected.toLocaleString('en-IN')}</td>
+      <td style="text-align:right;color:#b91c1c;">৳${totalDue.toLocaleString('en-IN')}</td>
+    </tr>
+  </tfoot>
+</table>
+
+${expenseEntries.length > 0 ? `
+<!-- Expense Table -->
+<div class="section-title">💸 খরচের বিস্তারিত</div>
+<table>
+  <thead><tr>
+    <th style="width:24px;text-align:center">#</th>
+    <th>তারিখ</th>
+    <th>বিবরণ</th>
+    <th>ক্যাটাগরি</th>
+    <th>পদ্ধতি</th>
+    <th style="text-align:right">পরিমাণ</th>
+  </tr></thead>
+  <tbody>
+    ${expenseEntries.sort((a,b)=>a.date>b.date?1:-1).map((f, i) => `
+      <tr>
+        <td style="text-align:center;color:#777;">${i + 1}</td>
+        <td>${f.date || '—'}</td>
+        <td>${f.description || '—'}</td>
+        <td>${f.category || 'General'}</td>
+        <td>${f.method || '—'}</td>
+        <td style="text-align:right;font-weight:700;color:#c2410c;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
+      </tr>
+    `).join('')}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="5" style="text-align:right;color:#b91c1c;">মোট খরচ:</td>
+      <td style="text-align:right;color:#b91c1c;">৳${totalExpense.toLocaleString('en-IN')}</td>
+    </tr>
+  </tfoot>
+</table>` : ''}
+
+<!-- Footer -->
+<div class="footer">
+  <div style="font-size:8px;color:#888;">${academyName}<br/>এটি একটি অফিসিয়াল আর্থিক রিপোর্ট।</div>
+  <div style="display:flex;gap:40px;">
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">হিসাবরক্ষক</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">অধ্যক্ষ / কর্তৃপক্ষ</div></div>
+  </div>
+</div>
+
+</body></html>`;
+
+    const win = window.open('', '_blank', 'width=860,height=960');
+    if (!win) { if (typeof Utils !== 'undefined') Utils.toast('Popup blocked!', 'error'); return; }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
+  }
+
+  function exportBatchReportExcel() {
+    const d = window._bpReportData;
+    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('আগে রিপোর্ট Generate করুন', 'warn'); return; }
+
+    const { batch, batchStudents, expenseEntries, totalStudentFee, totalCollected, totalDue, totalExpense, netProfit } = d;
+
+    // Sheet 1: Student Summary
+    const studentRows = batchStudents.map((s, i) => ({
+      '#': i + 1,
+      'নাম': s.name || '',
+      'Student ID': s.student_id || '',
+      'Batch': s.batch || '',
+      'কোর্স': s.course || '',
+      'মোট ফি': parseFloat(s.total_fee) || 0,
+      'পরিশোধিত': parseFloat(s.paid) || 0,
+      'বাকি': parseFloat(s.due) || Math.max(0, (parseFloat(s.total_fee)||0) - (parseFloat(s.paid)||0)),
+      'ভর্তির তারিখ': s.admission_date || '',
+      'অবস্থা': s.status || 'Active',
+    }));
+
+    // Totals row
+    studentRows.push({
+      '#': '', 'নাম': '— মোট —', 'Student ID': '', 'Batch': '', 'কোর্স': '',
+      'মোট ফি': totalStudentFee, 'পরিশোধিত': totalCollected, 'বাকি': totalDue,
+      'ভর্তির তারিখ': '', 'অবস্থা': ''
+    });
+
+    // Sheet 2: Expenses
+    const expenseRows = expenseEntries.map((f, i) => ({
+      '#': i + 1,
+      'তারিখ': f.date || '',
+      'বিবরণ': f.description || '',
+      'ক্যাটাগরি': f.category || 'General',
+      'পদ্ধতি': f.method || '',
+      'পরিমাণ (৳)': parseFloat(f.amount) || 0,
+    }));
+    expenseRows.push({ '#': '', 'তারিখ': '— মোট খরচ —', 'বিবরণ': '', 'ক্যাটাগরি': '', 'পদ্ধতি': '', 'পরিমাণ (৳)': totalExpense });
+
+    // Sheet 3: P&L Summary
+    const summaryRows = [
+      { 'বিবরণ': 'মোট ছাত্র', 'পরিমাণ (৳)': batchStudents.length },
+      { 'বিবরণ': 'মোট কোর্স ফি', 'পরিমাণ (৳)': totalStudentFee },
+      { 'বিবরণ': 'সংগৃহীত ফি (Income)', 'পরিমাণ (৳)': totalCollected },
+      { 'বিবরণ': 'বকেয়া ডিউ', 'পরিমাণ (৳)': totalDue },
+      { 'বিবরণ': 'মোট খরচ (Expense)', 'পরিমাণ (৳)': totalExpense },
+      { 'বিবরণ': 'পূর্ব ব্যালেন্স', 'পরিমাণ (৳)': d.prevBalance },
+      { 'বিবরণ': netProfit >= 0 ? 'নিট মুনাফা' : 'নিট ক্ষতি', 'পরিমাণ (৳)': netProfit },
+    ];
+
+    if (typeof XLSX !== 'undefined') {
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), 'ছাত্র বিবরণ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows), 'খরচের বিবরণ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'P&L সারাংশ');
+      XLSX.writeFile(wb, `batch-profit-${batch}-${new Date().toISOString().split('T')[0]}.xlsx`);
+      if (typeof Utils !== 'undefined') Utils.toast('Excel Export সম্পন্ন ✓', 'success');
+    } else {
+      if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -2931,6 +3501,8 @@ const SettingsModule = (() => {
     restoreItem, permanentDelete, emptyRecycleBin,
     addNote, saveNote, deleteNote,
     renderBatchReport,
+    printBatchReport,
+    exportBatchReportExcel,
     showAccountsSubTab,
     addAdvancePayment, saveAdvancePayment, deleteAdvance,
     openReturnAdvanceModal, saveReturnAdvance, viewAdvanceLedger,
