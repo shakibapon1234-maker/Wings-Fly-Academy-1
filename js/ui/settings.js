@@ -153,8 +153,8 @@ const SettingsModule = (() => {
   const THEMES = [
     {
       id: 'neon-space',
-      name: 'Neon Space Dark',
-      desc: 'Deep navy + Cyan + Purple — Default cyberpunk theme',
+      name: 'Default Theme (Neon)',
+      desc: 'Deep navy + Cyan + Purple — Default app cyberpunk theme',
       emoji: '🚀',
       colors: ['#0a0e27', '#00d9ff', '#b537f2', '#00ff88'],
       bg: 'linear-gradient(135deg, #0a0e27 0%, #0f0a28 100%)',
@@ -263,7 +263,7 @@ const SettingsModule = (() => {
   ];
 
   function panelTheme() {
-    const currentTheme   = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const currentTheme   = localStorage.getItem('wfa_theme') || 'neon-space';
     const currentSidebar = localStorage.getItem(`wfa_sidebar_${currentTheme}`) || 'glass';
 
     return `
@@ -459,7 +459,7 @@ const SettingsModule = (() => {
   }
 
   function applySidebarStyle(styleId) {
-    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
     localStorage.setItem(`wfa_sidebar_${themeId}`, styleId);
     _applySidebarClass(styleId);
     // Refresh only the sidebar style section
@@ -509,7 +509,7 @@ const SettingsModule = (() => {
   }
 
   function saveCustomSidebarColors() {
-    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     
     const settings = {
@@ -524,7 +524,7 @@ const SettingsModule = (() => {
   }
   
   function resetCustomSidebarColors() {
-    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     localStorage.removeItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
     refreshModal();
@@ -534,7 +534,7 @@ const SettingsModule = (() => {
   }
 
   function applyCardPreset(presetId) {
-    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
     localStorage.setItem(`wfa_card_theme_${themeId}`, presetId);
     _applyColorOverrides();
     refreshModal();
@@ -546,7 +546,7 @@ const SettingsModule = (() => {
   // ── Inject globally custom style block ──
   
   function _applyColorOverrides() {
-    const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+    const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
     const styleId = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
     const cardPresetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || 'navy';
     
@@ -610,7 +610,7 @@ const SettingsModule = (() => {
     
     // Auto-resolve preset if missing
     if (!presetId) {
-       const themeId = localStorage.getItem('wfa_theme') || 'aurora-wave';
+       const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
        presetId = localStorage.getItem(`wfa_card_theme_${themeId}`) || _getDefaultPresetForTheme(themeId);
     }
 
@@ -3571,7 +3571,7 @@ window.SettingsModule = SettingsModule;
 
 // ── Restore saved theme + sidebar + colors on page load ──────────────
 (function restoreThemeOnLoad() {
-  const savedTheme = localStorage.getItem('wfa_theme') || 'aurora-wave';
+  const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
   const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald','aurora-wave'];
   allThemeIds.forEach(id => document.body.classList.remove(`theme-${id}`));
   document.body.classList.add(`theme-${savedTheme}`);
