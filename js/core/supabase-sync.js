@@ -378,16 +378,32 @@ const SupabaseSync = (() => {
   // Columns Supabase auto-generates — never write these (400 Bad Request if sent)
   const _AUTO_COLS = new Set(['created_at', 'updated_at']);
 
+  // Embedded allowlist — independent of SyncEngine init order
+  const _TABLE_COLS = {
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','currency','timezone','logo_url','primary_color','theme'],
+    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
+    finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
+    accounts:      ['id','name','type','balance','description','note'],
+    loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note'],
+    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
+    attendance:    ['id','person_id','person_name','type','date','status','note'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
+    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note'],
+    notices:       ['id','title','content','date','category','priority','author'],
+  };
+
   function _sanitizeRecord(record, tableKey) {
     if (!record || typeof record !== 'object') return record;
-    const allowedCols = (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && tableKey)
-      ? SyncEngine.TABLE_COLUMNS[tableKey]
-      : null;
+    // Use embedded allowlist first; fallback to SyncEngine if available
+    const allowedCols = _TABLE_COLS[tableKey]
+      || (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && SyncEngine.TABLE_COLUMNS[tableKey])
+      || null;
     const o = {};
     for (const [k, v] of Object.entries(record)) {
       if (v === undefined) continue;
-      if (k.startsWith('_')) continue;
-      if (_AUTO_COLS.has(k)) continue; // never write auto-generated columns
+      if (k.startsWith('_')) continue;          // strip internal flags (_isLoan, _device, etc.)
+      if (_AUTO_COLS.has(k)) continue;           // never write auto-generated columns
       if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }

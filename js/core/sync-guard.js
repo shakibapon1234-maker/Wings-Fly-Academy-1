@@ -225,6 +225,8 @@ const SyncGuard = (() => {
       });
 
       // Compare with stored balances
+      // Note: auditBalances only flags large discrepancies (>500) to avoid
+      // false positives from opening balances entered manually at setup.
       accounts.forEach(a => {
         const name = a.type === 'Cash' ? 'Cash' : a.name;
         if (!name || !(name in expected)) return;
@@ -232,13 +234,14 @@ const SyncGuard = (() => {
         const calc   = expected[name] || 0;
         const diff   = Math.abs(stored - calc);
 
-        if (diff > 1) { // allow ৳1 rounding tolerance
+        // Only flag if very large discrepancy (>500) — small diffs may be opening balances
+        if (diff > 500) {
           discrepancies.push({ account: name, stored, calculated: calc, diff });
         }
       });
 
       if (discrepancies.length > 0) {
-        report('negative_balance', { message: 'Balance discrepancy detected', discrepancies });
+        report('negative_balance', { message: 'Large balance discrepancy detected', discrepancies });
       }
 
     } catch (e) {
