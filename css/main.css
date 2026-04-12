@@ -1461,51 +1461,61 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
 .login-box {
   position: relative;
   z-index: 2;
-  background: linear-gradient(160deg, rgba(4,12,40,0.97) 0%, rgba(2,8,30,0.99) 100%);
-  border: 1px solid rgba(0,140,255,0.35);
+  background: linear-gradient(160deg, rgba(2,6,22,0.98) 0%, rgba(1,4,16,0.99) 100%);
+  border: 1px solid rgba(0,120,255,0.25);
   border-radius: 28px;
   padding: 52px 46px 44px;
   width: 100%;
   max-width: 460px;
   box-shadow:
-    0 0 0 1px rgba(0,100,255,0.08),
-    0 0 40px rgba(0,100,255,0.25),
-    0 0 90px rgba(0,80,255,0.12),
-    0 0 160px rgba(0,60,200,0.10),
-    0 40px 80px rgba(0,0,0,0.8);
+    0 0 0 1px rgba(0,80,200,0.06),
+    0 0 50px rgba(0,80,200,0.22),
+    0 0 100px rgba(0,60,180,0.10),
+    0 50px 100px rgba(0,0,0,0.90);
   text-align: center;
-  backdrop-filter: blur(32px);
+  backdrop-filter: blur(40px);
   animation: loginBoxAppear 0.6s cubic-bezier(0.22,1,0.36,1) both;
+  overflow: hidden;
 }
 
-/* Animated top highlight line */
+/* Left side glow line */
 .login-box::before {
   content: '';
   position: absolute;
-  top: 0; left: 15%; right: 15%;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0,180,255,0.9), rgba(80,160,255,0.7), transparent);
-  border-radius: 50%;
-  animation: topLineGlow 3s ease-in-out infinite alternate;
+  top: 15%; bottom: 15%;
+  left: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(0,140,255,0.8), rgba(0,200,255,0.9), rgba(0,140,255,0.8), transparent);
+  border-radius: 2px;
+  animation: sideGlowPulse 3s ease-in-out infinite alternate;
+  box-shadow: 0 0 12px rgba(0,160,255,0.8), 0 0 24px rgba(0,120,255,0.5);
 }
-@keyframes topLineGlow {
-  from { opacity: 0.5; left: 15%; right: 15%; }
-  to   { opacity: 1;   left: 8%;  right: 8%; }
-}
-
-/* Inner glow ring */
+/* Right side glow line */
 .login-box::after {
   content: '';
   position: absolute;
-  inset: -1px;
-  border-radius: 29px;
-  background: linear-gradient(135deg,
-    rgba(0,160,255,0.22) 0%,
-    transparent 40%,
-    transparent 60%,
-    rgba(0,100,255,0.15) 100%);
-  z-index: -1;
+  top: 15%; bottom: 15%;
+  right: 0;
+  width: 2px;
+  background: linear-gradient(180deg, transparent, rgba(0,100,220,0.6), rgba(0,160,255,0.8), rgba(0,100,220,0.6), transparent);
+  border-radius: 2px;
+  animation: sideGlowPulse 3s ease-in-out infinite alternate-reverse;
+  box-shadow: 0 0 12px rgba(0,140,255,0.7), 0 0 20px rgba(0,100,200,0.4);
   pointer-events: none;
+}
+@keyframes sideGlowPulse {
+  from { opacity: 0.5; transform: scaleY(0.85); }
+  to   { opacity: 1;   transform: scaleY(1.05); }
+}
+
+/* Top highlight line */
+.login-box-inner-top {
+  position: absolute;
+  top: 0; left: 15%; right: 15%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,180,255,0.7), rgba(80,160,255,0.5), transparent);
+  pointer-events: none;
+  z-index: 10;
 }
 
 @keyframes loginBoxAppear {
@@ -1518,26 +1528,36 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   position: relative;
   display: inline-block;
   margin-bottom: 22px;
-  filter: drop-shadow(0 0 24px rgba(0,140,255,0.70)) drop-shadow(0 0 48px rgba(0,80,255,0.40));
 }
+/* Orbit dot that goes around */
 .login-logo-ring::before {
   content: '';
   position: absolute;
-  inset: -8px;
+  inset: -10px;
   border-radius: 50%;
-  background: conic-gradient(from 0deg, #0066ff, #00c8ff, #0044cc, #00aaff, #0066ff);
-  animation: spinRing 4s linear infinite;
-  z-index: -1;
+  border: 1.5px solid transparent;
+  background: transparent;
+  border-top-color: rgba(0,160,255,0.9);
+  border-right-color: rgba(0,120,255,0.5);
+  animation: loginLogoOrbit 2.5s linear infinite;
+  z-index: 2;
+  box-shadow: 0 0 10px rgba(0,160,255,0.6);
 }
+/* Outer slow orbit ring */
 .login-logo-ring::after {
   content: '';
   position: absolute;
-  inset: -3px;
+  inset: -16px;
   border-radius: 50%;
-  background: #020c28;
-  z-index: -1;
+  border: 1px solid rgba(0,100,255,0.25);
+  border-left-color: rgba(0,180,255,0.5);
+  animation: loginLogoOrbit 5s linear infinite reverse;
+  z-index: 1;
 }
-@keyframes spinRing { to { transform: rotate(360deg); } }
+@keyframes loginLogoOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
 .login-logo-ring img {
   display: block;
   height: 80px;
@@ -1545,8 +1565,16 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   border-radius: 50%;
   object-fit: cover;
   position: relative;
-  z-index: 1;
-  border: 2px solid rgba(0,160,255,0.3);
+  z-index: 3;
+  border: 2px solid rgba(0,140,255,0.35);
+  box-shadow:
+    0 0 20px rgba(0,120,255,0.50),
+    0 0 40px rgba(0,80,255,0.25);
+  animation: logoSpin 15s linear infinite;
+}
+@keyframes loginLogoOrbit {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
 }
 
 /* ── TYPOGRAPHY ─────────────────────────────────────────────── */
@@ -1583,9 +1611,9 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   display: block;
   font-size: 0.68rem;
   font-weight: 800;
-  color: rgba(80,160,255,0.85);
+  color: rgba(60,140,255,0.75);
   letter-spacing: 1.5px;
-  margin-bottom: 8px;
+  margin-bottom: 7px;
   font-family: var(--font-ui);
   text-transform: uppercase;
 }
@@ -1606,61 +1634,58 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
 .login-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(0,60,180,0.08);
-  border: 1.5px solid rgba(0,100,255,0.20);
-  border-radius: 12px;
-  color: #e8f4ff;
-  font-size: 0.95rem;
-  padding: 14px 50px 14px 44px;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(0,80,180,0.30);
+  border-radius: 10px;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.90rem;
+  padding: 13px 16px;
   outline: none;
   transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
   font-family: var(--font-ui);
 }
-.login-input::placeholder { color: rgba(100,160,255,0.28); }
-.login-input:focus {
-  border-color: rgba(0,140,255,0.75);
-  background: rgba(0,80,255,0.10);
-  box-shadow:
-    0 0 0 3px rgba(0,100,255,0.14),
-    0 0 24px rgba(0,100,255,0.12),
-    inset 0 1px 0 rgba(0,160,255,0.08);
+.login-input-clean {
+  background: rgba(0,0,0,0.60);
+  border: 1px solid rgba(0,70,160,0.28);
 }
-.login-input:focus + .login-input-icon,
-.login-input-wrap:focus-within .login-input-icon {
-  color: rgba(0,160,255,0.85);
+.login-input::placeholder {
+  color: rgba(255,255,255,0.20);
+  font-size: 0.85rem;
+}
+.login-input:focus {
+  border-color: rgba(0,130,255,0.65);
+  background: rgba(0,30,80,0.50);
+  box-shadow:
+    0 0 0 2px rgba(0,100,255,0.12),
+    0 0 18px rgba(0,100,255,0.10);
+  color: #fff;
 }
 .login-input-badge {
-  position: absolute;
-  right: 14px;
-  font-size: 1rem;
-  pointer-events: none;
-  opacity: 0.45;
-  line-height: 1;
+  display: none;
 }
 .login-eye-btn {
   position: absolute;
-  right: 11px;
+  right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0,100,255,0.10);
-  border: 1px solid rgba(0,140,255,0.22);
-  border-radius: 8px;
+  background: rgba(0,80,180,0.12);
+  border: 1px solid rgba(0,100,220,0.20);
+  border-radius: 7px;
   cursor: pointer;
-  color: rgba(0,160,255,0.65);
-  font-size: 0.88rem;
+  color: rgba(0,140,255,0.55);
+  font-size: 0.85rem;
   padding: 5px 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s, background 0.2s, border-color 0.2s;
-  height: 30px;
-  width: 34px;
+  transition: color 0.2s, background 0.2s;
+  height: 28px;
+  width: 32px;
   z-index: 2;
 }
 .login-eye-btn:hover {
-  color: #40b0ff;
-  background: rgba(0,140,255,0.20);
-  border-color: rgba(0,180,255,0.50);
+  color: #60b8ff;
+  background: rgba(0,120,255,0.18);
 }
 
 /* ── ERROR ───────────────────────────────────────────────────── */

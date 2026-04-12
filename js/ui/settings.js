@@ -2886,61 +2886,97 @@ ${expenseEntries.length > 0 ? `
     const finance = snapshot.finance || {};
     const accountList = accounts.list || [];
     const grandTotal = accounts.totalBalance || 0;
+    const snapshotTime = snapshot.recordedAt
+      ? new Date(snapshot.recordedAt).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : (item.date || '—');
 
-    // Account balance cards (like screenshot)
+    const typeBadgeColor = item.type === 'Delete' ? '#ff4757' : item.type === 'Update' ? '#ffaa00' : '#00ff88';
+    const typeBgColor   = item.type === 'Delete' ? 'rgba(255,71,87,0.12)' : item.type === 'Update' ? 'rgba(255,170,0,0.12)' : 'rgba(0,255,136,0.12)';
+    const typeBorderColor = item.type === 'Delete' ? 'rgba(255,71,87,0.30)' : item.type === 'Update' ? 'rgba(255,170,0,0.30)' : 'rgba(0,255,136,0.30)';
+
+    // Account balance cards
     const accountCards = accountList.length > 0
       ? accountList.map(a => {
-          const isMobile = (a.type || '').toLowerCase().includes('mobile') || (a.name || '').toLowerCase().includes('bkash') || (a.name || '').toLowerCase().includes('nagad') || (a.name || '').toLowerCase().includes('rocket');
-          const icon = isMobile ? '📱' : '🏦';
-          const glowColor = a.balance > 0 ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
-          const balColor = a.balance > 0 ? '#f0c040' : 'rgba(255,255,255,0.4)';
-          return `<div style="padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 0 10px ${glowColor}">
-            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">
-              <span>${icon}</span><span>${Utils.esc(a.name)}</span>
+          const isMobile = ['mobile','bkash','nagad','rocket','bikash'].some(k => (a.name||'').toLowerCase().includes(k) || (a.type||'').toLowerCase().includes(k));
+          const isBank   = (a.type||'').toLowerCase().includes('bank');
+          const icon     = isMobile ? '📱' : isBank ? '🏦' : '💵';
+          const hasBalance = a.balance > 0;
+          const borderCol  = hasBalance ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.08)';
+          const glowCol    = hasBalance ? '0 0 18px rgba(0,212,255,0.12)' : 'none';
+          const valColor   = hasBalance ? '#f0c040' : 'rgba(255,255,255,0.35)';
+          return `<div style="padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid ${borderCol};border-radius:12px;box-shadow:${glowCol};min-width:0">
+            <div style="font-size:.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-weight:600">
+              <span style="font-size:.85rem">${icon}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Utils.esc(a.name)}</span>
             </div>
-            <div style="font-size:1.3rem;font-weight:800;color:${balColor}">${Utils.takaEn(a.balance)}</div>
+            <div style="font-size:1.25rem;font-weight:900;color:${valColor};font-family:var(--font-ui)">${Utils.takaEn(a.balance)}</div>
           </div>`;
         }).join('')
-      : `<div style="color:var(--text-muted);font-size:.85rem;padding:10px">No account data in this snapshot.</div>`;
+      : `<div style="color:var(--text-muted);font-size:.85rem;padding:16px;text-align:center;grid-column:1/-1"><i class="fa fa-circle-info" style="margin-right:6px"></i>No account data in this snapshot.</div>`;
 
-    const summaryRows = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+    // Net profit
+    const netProfit = (finance.totalIncome || 0) - (finance.totalExpense || 0);
+    const profitColor = netProfit >= 0 ? '#00ff88' : '#ff4757';
+
+    Utils.openModal(
+      `<span style="display:inline-flex;align-items:center;gap:8px">
+        <i class="fa fa-camera" style="color:#00d9ff"></i>
+        <span>Monitor — Account Balances</span>
+      </span>`,
+      `
+      <!-- Snapshot header bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:rgba(0,212,255,0.9);font-weight:700">
+          <i class="fa fa-camera" style="font-size:.8rem"></i>
+          <span>Balance Snapshot — ${snapshotTime} — Latest Change</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="background:${typeBgColor};border:1px solid ${typeBorderColor};color:${typeBadgeColor};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '—'}</span>
+          <span style="font-size:.75rem;color:rgba(255,255,255,0.45)">${Utils.esc(item.category || '—')}</span>
+          ${item.person ? `<span style="font-size:.75rem;color:rgba(255,255,255,0.35)">• ${Utils.esc(item.person)}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Account balance grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">
         ${accountCards}
       </div>
-      <div style="text-align:right;font-size:1.1rem;font-weight:800;color:#f0c040;margin-bottom:18px;padding:10px 14px;background:rgba(240,192,64,0.07);border-radius:8px;border:1px solid rgba(240,192,64,0.2)">
-        Grand Total: ${Utils.takaEn(grandTotal)}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">👨‍🎓 Students</div>
-          <div style="font-size:1.3rem;font-weight:700">${students.totalStudents || 0}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">💰 Due</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(students.totalDue || 0)}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📈 Income</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#00ff88">${Utils.takaEn(finance.totalIncome || 0)}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📉 Expense</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(finance.totalExpense || 0)}</div>
-        </div>
-      </div>
-    `;
 
-    const snapshotTime = snapshot.recordedAt ? new Date(snapshot.recordedAt).toLocaleString() : (item.date || '—');
-    Utils.openModal(`<i class="fa fa-camera" style="color:#00d9ff;margin-right:8px"></i> Balance Snapshot — ${snapshotTime} — ${item.type || 'Transaction'}`, `
-      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:14px">
-        <span class="badge badge-success" style="margin-right:8px">${item.type || '—'}</span>
-        ${Utils.esc(item.category || '—')} — ${Utils.esc(item.person || 'N/A')}
-      </p>
-      ${summaryRows}
-      <div style="font-size:.78rem;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.08);padding-top:10px">
+      <!-- Grand total -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:18px">
+        <div style="padding:10px 20px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.25);border-radius:10px;font-size:1.05rem;font-weight:900;color:#f0c040;font-family:var(--font-ui)">
+          Grand Total: ${Utils.takaEn(grandTotal)}
+        </div>
+      </div>
+
+      <!-- Dashboard summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+        <div style="padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
+          <div style="font-size:1.4rem;font-weight:900;color:#00e5ff">${students.totalStudents || 0}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(0,255,136,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Income</div>
+          <div style="font-size:1.1rem;font-weight:900;color:#00ff88">${Utils.takaEn(finance.totalIncome || 0)}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(255,71,87,0.06);border:1px solid rgba(255,71,87,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(255,71,87,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Expense</div>
+          <div style="font-size:1.1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(finance.totalExpense || 0)}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(${netProfit>=0?'0,255,136':'255,71,87'},0.06);border:1px solid rgba(${netProfit>=0?'0,255,136':'255,71,87'},0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:${profitColor};opacity:.7;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Net P/L</div>
+          <div style="font-size:1.1rem;font-weight:900;color:${profitColor}">${Utils.takaEn(netProfit)}</div>
+        </div>
+      </div>
+
+      <!-- Recent changes list hint -->
+      <div style="font-size:.75rem;color:rgba(255,255,255,0.30);padding:10px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
+        <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
         লাস্ট ১০টা data change/save এখানে দেখাবে। যেকোনো row তে ক্লিক করলে উপরে সেই সময়কার Account Balance Snapshot দেখাবে।
       </div>
-    `, 'modal-lg');
+      `,
+      'modal-lg'
+    );
   }
 
   // ─── Diagnostic Functions ─────────────────────────────────────
