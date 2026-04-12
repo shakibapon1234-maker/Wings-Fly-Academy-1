@@ -8,18 +8,18 @@ const LoginUI = (() => {
   function spawnParticles() {
     const container = document.getElementById('login-particles');
     if (!container) return;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 35; i++) {
       const p = document.createElement('div');
       p.className = 'login-particle';
-      const size = Math.random() * 3 + 1;
-      const isPurple = Math.random() > 0.6;
+      const size = Math.random() * 3.5 + 1;
+      const isLight = Math.random() > 0.5;
       p.style.cssText = `
         width:${size}px;height:${size}px;
         left:${Math.random() * 100}%;bottom:-10px;
-        animation-duration:${Math.random() * 10 + 8}s;
-        animation-delay:${Math.random() * 12}s;
-        background:${isPurple ? 'rgba(181,55,242,0.7)' : 'rgba(0,217,255,0.65)'};
-        box-shadow:0 0 ${size*3}px ${isPurple ? 'rgba(181,55,242,0.6)' : 'rgba(0,217,255,0.6)'};
+        animation-duration:${Math.random() * 12 + 9}s;
+        animation-delay:${Math.random() * 14}s;
+        background:${isLight ? 'rgba(0,160,255,0.75)' : 'rgba(0,80,220,0.65)'};
+        box-shadow:0 0 ${size*4}px ${isLight ? 'rgba(0,160,255,0.65)' : 'rgba(0,100,255,0.55)'};
       `;
       container.appendChild(p);
     }

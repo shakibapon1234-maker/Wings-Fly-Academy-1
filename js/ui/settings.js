@@ -2442,34 +2442,57 @@ ${expenseEntries.length > 0 ? `
   // ─── Advance Payments & Investments ───────────────────────────
   function addAdvancePayment() {
     openSettingsInternalModal('💰 Add Advance Payment', `
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Person Name <span style="color:#ff4757">*</span></label>
-        <input id="adv-person" class="form-control" placeholder="e.g. Shakib" style="width:100%;box-sizing:border-box" />
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
-          <input id="adv-amount" type="number" class="form-control" placeholder="0" />
+      <div style="background:linear-gradient(135deg,rgba(0,255,136,0.06),rgba(0,212,255,0.04));border:1px solid rgba(0,255,136,0.15);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,255,136,0.18),rgba(0,212,255,0.12));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(0,255,136,0.25)">
+          <i class="fa fa-money-bill-wave" style="color:#00ff88;font-size:1.1rem"></i>
         </div>
         <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
-          <input id="adv-date" type="date" class="form-control" value="${Utils.today()}" />
+          <div style="font-size:.78rem;font-weight:800;color:#00ff88;letter-spacing:.8px">NEW ADVANCE</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,0.4);margin-top:2px">Record a salary or operational advance payment</div>
         </div>
       </div>
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Payment Method <span style="color:#ff4757">*</span></label>
-        <select id="adv-method" class="form-control" style="width:100%">
-          <option value="">Select Method</option>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Person Name <span style="color:#ff4757">*</span></label>
+        <div style="position:relative">
+          <i class="fa fa-user" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.4);font-size:.82rem;pointer-events:none"></i>
+          <input id="adv-person" class="form-control" placeholder="e.g. Shakib" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <div style="position:relative">
+            <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.4);font-size:.82rem;pointer-events:none"></i>
+            <input id="adv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Date <span style="color:#ff4757">*</span></label>
+          <input id="adv-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Payment Method <span style="color:#ff4757">*</span></label>
+        <select id="adv-method" class="form-control" style="width:100%;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)">
+          <option value="">— Select Method —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
-      <div style="margin-bottom:20px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
-        <input id="adv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+
+      <div style="margin-bottom:22px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
+        <div style="position:relative">
+          <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.3);font-size:.82rem;pointer-events:none"></i>
+          <input id="adv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
       </div>
+
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
-        <button onclick="SettingsModule.saveAdvancePayment()" style="background:linear-gradient(135deg,#00ff88,#00cc6e);color:#000;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.55);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cancel</button>
+        <button onclick="SettingsModule.saveAdvancePayment()" style="background:linear-gradient(135deg,#00cc6e,#00ff88);color:#000;font-weight:900;padding:10px 24px;border-radius:10px;cursor:pointer;border:none;font-size:.88rem;letter-spacing:.5px;box-shadow:0 4px 18px rgba(0,255,136,0.35);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 24px rgba(0,255,136,0.50)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 18px rgba(0,255,136,0.35)'"><i class="fa fa-check" style="margin-right:6px"></i>Save Advance</button>
       </div>
     `);
   }
@@ -2626,34 +2649,57 @@ ${expenseEntries.length > 0 ? `
 
   function addInvestment() {
     openSettingsInternalModal('📈 Add Investment', `
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Investor / Source <span style="color:#ff4757">*</span></label>
-        <input id="inv-source" class="form-control" placeholder="e.g. Rahim, Company XYZ" style="width:100%;box-sizing:border-box" />
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
-          <input id="inv-amount" type="number" class="form-control" placeholder="0" />
+      <div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.05));border:1px solid rgba(168,85,247,0.20);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.22),rgba(124,58,237,0.15));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(168,85,247,0.30)">
+          <i class="fa fa-chart-line" style="color:#c084fc;font-size:1.1rem"></i>
         </div>
         <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
-          <input id="inv-date" type="date" class="form-control" value="${Utils.today()}" />
+          <div style="font-size:.78rem;font-weight:800;color:#c084fc;letter-spacing:.8px">NEW INVESTMENT</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,0.4);margin-top:2px">Record incoming capital from investors or partners</div>
         </div>
       </div>
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Deposit To (Account) <span style="color:#ff4757">*</span></label>
-        <select id="inv-method" class="form-control" style="width:100%">
-          <option value="">Select Account</option>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Investor / Source <span style="color:#ff4757">*</span></label>
+        <div style="position:relative">
+          <i class="fa fa-building" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.45);font-size:.82rem;pointer-events:none"></i>
+          <input id="inv-source" class="form-control" placeholder="e.g. Rahim, Company XYZ" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <div style="position:relative">
+            <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.45);font-size:.82rem;pointer-events:none"></i>
+            <input id="inv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Date <span style="color:#ff4757">*</span></label>
+          <input id="inv-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Deposit To (Account) <span style="color:#ff4757">*</span></label>
+        <select id="inv-method" class="form-control" style="width:100%;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)">
+          <option value="">— Select Account —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
-      <div style="margin-bottom:20px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
-        <input id="inv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+
+      <div style="margin-bottom:22px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
+        <div style="position:relative">
+          <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.35);font-size:.82rem;pointer-events:none"></i>
+          <input id="inv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
       </div>
+
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
-        <button onclick="SettingsModule.saveInvestment()" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.55);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cancel</button>
+        <button onclick="SettingsModule.saveInvestment()" style="background:linear-gradient(135deg,#9333ea,#a855f7);color:#fff;font-weight:900;padding:10px 24px;border-radius:10px;cursor:pointer;border:none;font-size:.88rem;letter-spacing:.5px;box-shadow:0 4px 18px rgba(168,85,247,0.40);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 24px rgba(168,85,247,0.55)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 18px rgba(168,85,247,0.40)'"><i class="fa fa-check" style="margin-right:6px"></i>Save Investment</button>
       </div>
     `);
   }
