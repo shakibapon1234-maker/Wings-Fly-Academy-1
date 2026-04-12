@@ -592,7 +592,7 @@ const Students = (() => {
     } else {
       SupabaseSync.insert(DB.students, record);
       
-      // If there's an initial payment during admission, log it!
+      // If there's an initial payment during admission, log it + update balance!
       if (paid > 0) {
         const method = Utils.formVal('sf-method');
         if (method) {
@@ -606,6 +606,8 @@ const Students = (() => {
             note:        record.note,
             ref_id:      record.student_id,
           });
+          // Account balance-এ যোগ করো
+          SupabaseSync.updateAccountBalance(method, paid, 'in');
         }
       }
       Utils.toast('New student added ✓', 'success');
@@ -657,6 +659,9 @@ const Students = (() => {
       ref_id:      studentId,
     });
 
+    // Account balance-এ যোগ করো (Income → 'in')
+    SupabaseSync.updateAccountBalance(method, amount, 'in');
+
     Utils.toast('Payment added ✓', 'success');
     Utils.closeModal();
     render();
@@ -675,6 +680,11 @@ const Students = (() => {
       const newPaid = Math.max(0, Utils.safeNum(student.paid) - Utils.safeNum(payment.amount));
       const newDue  = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
       SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+    }
+
+    // Account balance reverse করো (Income ছিল → 'out' করো)
+    if (payment.method) {
+      SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out');
     }
 
     SupabaseSync.remove(DB.finance, paymentId);

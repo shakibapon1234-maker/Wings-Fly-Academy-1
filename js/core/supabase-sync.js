@@ -272,6 +272,76 @@ const SupabaseSync = (() => {
     untrackDeletion(table, record.id);
     await _pushRecord(table, record);
 
+    // ── Account Balance স্বয়ংক্রিয় Restore ──────────────────────────
+    // যখন ডিলিট হয়েছিল তখন balance reverse হয়েছিল।
+    // এখন restore হচ্ছে, তাই balance আবার original দিকে ফিরিয়ে দাও।
+    try {
+      const r = record;
+      const amount = parseFloat(r.amount) || 0;
+      const method = r.method || '';
+
+      if (method && amount > 0) {
+        if (table === 'finance_ledger') {
+          // Income / Transfer In ছিল → restore-এ আবার 'in'
+          // Expense / Transfer Out ছিল → restore-এ আবার 'out'
+          // Loan entries (_isLoan) → loans.js নিজেই handle করে, এড়িয়ে যাও
+          if (!r._isLoan) {
+            const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
+            const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
+            if (isIncome)  updateAccountBalance(method, amount, 'in');
+            if (isExpense) updateAccountBalance(method, amount, 'out');
+
+            // Student fee payment restore হলে student-এর paid/due ও ঠিক করো
+            if (isIncome && r.category === 'Student Fee' && r.ref_id) {
+              const students = getAll('students');
+              const sIdx = students.findIndex(s => s.id === r.ref_id);
+              if (sIdx !== -1) {
+                const s = students[sIdx];
+                const newPaid = (parseFloat(s.paid) || 0) + amount;
+                const newDue  = Math.max(0, (parseFloat(s.total_fee) || 0) - newPaid);
+                students[sIdx] = { ...s, paid: newPaid, due: newDue, updated_at: new Date().toISOString() };
+                setAll('students', students);
+                await _pushRecord('students', students[sIdx]);
+              }
+            }
+          }
+        } else if (table === 'loans') {
+          // Loan Given restore → account থেকে টাকা আবার বের হয় = 'out'
+          // Loan Received restore → account-এ টাকা আবার আসে = 'in'
+          const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
+          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in');
+
+          // Linked finance entry-ও restore করো (loans.js এ _isLoan flag দিয়ে insert হয়েছিল)
+          // RecycleBin-এ linked finance entry আলাদা item হিসেবে থাকতে পারে,
+          // কিন্তু _linkedFinanceId দিয়ে সরাসরি restore করা নিরাপদ
+          if (r._linkedFinanceId) {
+            const allBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+            const linkedIdx = allBin.findIndex(b => b?.data?.id === r._linkedFinanceId);
+            if (linkedIdx !== -1) {
+              // Linked finance item restore (balance update ছাড়া — loan-এ already হয়েছে)
+              const linkedRecord = {
+                ...allBin[linkedIdx].data,
+                updated_at: new Date().toISOString(),
+                _device: _deviceId(),
+              };
+              const finRows = getAll('finance_ledger');
+              const fIdx = finRows.findIndex(f => f.id === linkedRecord.id);
+              if (fIdx >= 0) finRows[fIdx] = linkedRecord;
+              else finRows.unshift(linkedRecord);
+              setAll('finance_ledger', finRows);
+              untrackDeletion('finance_ledger', linkedRecord.id);
+              await _pushRecord('finance_ledger', linkedRecord);
+              allBin.splice(linkedIdx, 1);
+              localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(allBin));
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Restore] Balance update failed:', e);
+    }
+    // ─────────────────────────────────────────────────────────────────
+
     bin.splice(index, 1);
     localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
 
@@ -342,8 +412,13 @@ const SupabaseSync = (() => {
   async function _deleteFromCloud(table, id) {
     try {
       const { client } = window.SUPABASE_CONFIG;
-      await client.from(table).delete().eq('id', id);
-    } catch (e) { console.warn('[Sync] Delete from cloud failed:', e); }
+      const { error } = await client.from(table).delete().eq('id', id);
+      if (error) throw error;
+    } catch (e) {
+      console.warn('[Sync] Delete from cloud failed — queued for retry:', e);
+      // Delete-ও retry queue-এ রাখো যাতে offline হলেও পরে execute হয়
+      _queueRetry(table, { id, _deleteOnly: true });
+    }
   }
 
   // ── Retry Queue for offline operations ─────────────────────
@@ -363,9 +438,15 @@ const SupabaseSync = (() => {
       const remaining = [];
       for (const item of queue) {
         try {
-          const clean = _sanitizeRecord(item.record, item.table);
-          const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
-          if (error) throw error;
+          // Delete-only entry হলে upsert নয়, delete করো
+          if (item.record && item.record._deleteOnly === true) {
+            const { error } = await client.from(item.table).delete().eq('id', item.record.id);
+            if (error) throw error;
+          } else {
+            const clean = _sanitizeRecord(item.record, item.table);
+            const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
+            if (error) throw error;
+          }
         } catch { remaining.push(item); }
       }
       localStorage.setItem('wfa_retry_queue', JSON.stringify(remaining));
@@ -375,10 +456,74 @@ const SupabaseSync = (() => {
     } catch { /* ignore */ }
   }
 
+  /**
+   * updateAccountBalance — Finance/Loan/Payment যেকোনো transaction-এর পর
+   * সংশ্লিষ্ট account-এর balance স্বয়ংক্রিয়ভাবে আপডেট করে।
+   *
+   * লজিক:
+   *   Income / Loan Receiving / Transfer In  → balance বাড়ে (+)
+   *   Expense / Loan Giving / Transfer Out   → balance কমে (-)
+   *   Loan Giving/Receiving → account থেকে সরাসরি যোগ/বিয়োগ হয়
+   *   Advance Payment → income হিসেবে গণ্য (balance বাড়ে)
+   *
+   * @param {string} methodName  — Cash | Bank নাম | Mobile নাম
+   * @param {number} amount      — positive amount
+   * @param {'in'|'out'} direction — 'in' = balance বাড়ে, 'out' = কমে
+   */
+  function updateAccountBalance(methodName, amount, direction) {
+    try {
+      if (!methodName || !amount || amount <= 0) return;
+      const accounts = getAll('accounts');
+      let accountIdx = -1;
+
+      if (methodName === 'Cash') {
+        accountIdx = accounts.findIndex(a => a.type === 'Cash');
+      } else {
+        accountIdx = accounts.findIndex(a =>
+          (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') && a.name === methodName
+        );
+      }
+
+      if (accountIdx === -1) {
+        // Cash account না থাকলে create করো
+        if (methodName === 'Cash') {
+          const newAcc = {
+            id: generateId(),
+            type: 'Cash',
+            name: 'Cash',
+            balance: direction === 'in' ? amount : -amount,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          accounts.push(newAcc);
+          setAll('accounts', accounts);
+          _pushRecord('accounts', newAcc);
+        }
+        return;
+      }
+
+      const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
+      const newBal = direction === 'in'
+        ? currentBal + amount
+        : currentBal - amount;
+
+      accounts[accountIdx] = {
+        ...accounts[accountIdx],
+        balance: newBal,
+        updated_at: new Date().toISOString(),
+      };
+      setAll('accounts', accounts);
+      _pushRecord('accounts', accounts[accountIdx]);
+    } catch (e) {
+      console.warn('[Sync] updateAccountBalance failed:', e);
+    }
+  }
+
   return {
     getAll, getById, setAll, insert, update, remove, generateId,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
+    updateAccountBalance,
   };
 })();
 window.SupabaseSync = SupabaseSync;
@@ -543,6 +688,9 @@ const SyncEngine = (() => {
       'id',
       'date', 'type', 'category', 'amount', 'description',
       'account_id', 'reference', 'note',
+      'method',        // payment method — Cash / Bank / Mobile (Supabase-এ save হবে)
+      'person_name',   // Loan-এর ক্ষেত্রে person name
+      'ref_id',        // student ref (student payment-এ ব্যবহার হয়)
     ],
     accounts: [
       'id',

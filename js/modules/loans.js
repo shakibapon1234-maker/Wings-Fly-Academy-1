@@ -375,6 +375,15 @@ const Loans = (() => {
         _isLoan:     true,           // flag — Finance UI এ আলাদাভাবে show করতে
       });
 
+      // ── Account balance আপডেট ──────────────────────────────────────
+      // Loan Given (আমি দিলাম) → account থেকে টাকা বের হয় = 'out'
+      // Loan Received (আমি নিলাম) → account-এ টাকা আসে = 'in'
+      if (type === 'Loan Giving') {
+        SupabaseSync.updateAccountBalance(method, amount, 'out');
+      } else {
+        SupabaseSync.updateAccountBalance(method, amount, 'in');
+      }
+
       Utils.toast('Loan Added ✓', 'success');
     }
 
@@ -417,6 +426,18 @@ const Loans = (() => {
 
     // ── Loan remove ───────────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id);
+
+    // ── Account balance reverse করো ───────────────────────────────────
+    // Loan Given ছিল → টাকা বের হয়েছিল → এখন ফেরত দাও = 'in'
+    // Loan Received ছিল → টাকা এসেছিল → এখন ফেরত নাও = 'out'
+    if (record.method && record.amount) {
+      const wasGiven = record.type === 'Loan Giving' || record.direction === 'given';
+      SupabaseSync.updateAccountBalance(
+        record.method,
+        Utils.safeNum(record.amount),
+        wasGiven ? 'in' : 'out'
+      );
+    }
 
     // ── Linked Finance entry-ও remove করো ────────────────────────────
     if (linkedFinanceId) {

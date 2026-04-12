@@ -367,15 +367,31 @@ const Finance = (() => {
       note:        Utils.formVal('ff-note'),
     };
 
-    /* Loan Giving/Receiving → loans table এ আর insert করা হচ্ছে না
-       কারণ loans.js নিজেই DB.loans এ insert করে এবং
-       account balance track এর জন্য DB.finance এ Loan type entry রাখা হয় */
+    /* ── Account Balance স্বয়ংক্রিয় আপডেট ──────────────────────────
+       Income / Transfer In           → account balance বাড়ে (+)
+       Expense / Transfer Out         → account balance কমে (-)
+       Loan Giving / Receiving        → loans.js নিজেই handle করে (এখানে নয়)
+       ─────────────────────────────────────────────────────────────── */
+    const isIncome  = type === 'Income'  || type === 'Transfer In';
+    const isExpense = type === 'Expense' || type === 'Transfer Out';
 
     if (editingId) {
+      // Edit করলে — পুরনো entry-র effect reverse করে নতুন apply করো
+      const oldEntry = SupabaseSync.getById(DB.finance, editingId);
+      if (oldEntry && oldEntry.method) {
+        const wasIncome  = oldEntry.type === 'Income'  || oldEntry.type === 'Transfer In';
+        const wasExpense = oldEntry.type === 'Expense' || oldEntry.type === 'Transfer Out';
+        if (wasIncome)  SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), 'out'); // reverse
+        if (wasExpense) SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), 'in');  // reverse
+      }
       SupabaseSync.update(DB.finance, editingId, record);
+      if (isIncome)  SupabaseSync.updateAccountBalance(method, amount, 'in');
+      if (isExpense) SupabaseSync.updateAccountBalance(method, amount, 'out');
       Utils.toast('Transaction updated ✓','success');
     } else {
       SupabaseSync.insert(DB.finance, record);
+      if (isIncome)  SupabaseSync.updateAccountBalance(method, amount, 'in');
+      if (isExpense) SupabaseSync.updateAccountBalance(method, amount, 'out');
       Utils.toast('Transaction added ✓','success');
     }
 
@@ -410,8 +426,16 @@ const Finance = (() => {
   async function deleteEntry(id) {
     const ok = await Utils.confirm('Delete this transaction?','Delete Transaction');
     if (!ok) return;
-    SupabaseSync.remove(DB.finance, id);
-    Utils.toast('Transaction deleted','info');
+    // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
+    const entry = SupabaseSync.getById(DB.finance, id);
+    if (entry && entry.method && !entry._isLoan) {
+      const wasIncome  = entry.type === 'Income'  || entry.type === 'Transfer In';
+      const wasExpense = entry.type === 'Expense' || entry.type === 'Transfer Out';
+      if (wasIncome)  SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), 'out');
+      if (wasExpense) SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), 'in');
+    }
+    SupabaseSync.remove(DB.finance, id); // RecycleBin-এ যাবে
+    Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');
     render();
   }
 
