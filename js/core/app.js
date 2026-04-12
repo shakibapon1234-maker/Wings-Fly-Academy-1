@@ -100,7 +100,7 @@ const App = (() => {
       localStorage.setItem('wfa_user_role', 'admin');
       localStorage.setItem('wfa_user_name', 'admin');
       localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
-      showApp();
+      showApp(true);
       return true;
     }
 
@@ -119,7 +119,7 @@ const App = (() => {
       localStorage.setItem('wfa_user_role', 'subaccount');
       localStorage.setItem('wfa_user_name', sub.username);
       localStorage.setItem('wfa_user_permissions', JSON.stringify(sub.permissions || []));
-      showApp();
+      showApp(true);
       return true;
     }
 
@@ -143,12 +143,15 @@ const App = (() => {
     if (appEl) appEl.style.display = 'none';
   }
 
-  function showApp() {
+  function showApp(fromLogin = false) {
     const loginEl = document.getElementById('login-screen');
     const appEl = document.getElementById('app-wrapper');
     if (loginEl) loginEl.style.display = 'none';
     if (appEl) appEl.style.display = 'flex';
-    navigateTo('dashboard');
+    // Fresh login → always go to dashboard; refresh → restore last section
+    const lastSection = sessionStorage.getItem('wfa_last_section');
+    const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;
+    navigateTo(target);
     SyncEngine.startAutoSync();
   }
 
@@ -179,6 +182,9 @@ const App = (() => {
 
     currentSection = section;
 
+    // Save to sessionStorage so refresh restores last tab
+    sessionStorage.setItem('wfa_last_section', section);
+
     // Hide all sections
     SECTIONS.forEach(s => {
       const el = document.getElementById(`section-${s}`);
@@ -191,7 +197,12 @@ const App = (() => {
       target.style.display = 'block';
       target.classList.add('section-enter');
       setTimeout(() => target.classList.remove('section-enter'), 400);
+      // Reset scroll to top when switching tabs
+      target.scrollTop = 0;
     }
+    // Also reset main content scroll
+    const mainContent = document.getElementById('main-content');
+    if (mainContent) mainContent.scrollTop = 0;
 
     // Update nav
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -435,7 +446,7 @@ const App = (() => {
     bindEvents();
 
     if (isLoggedIn()) {
-      showApp();
+      showApp(false);
     } else {
       showLogin();
     }

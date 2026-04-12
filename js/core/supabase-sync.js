@@ -147,9 +147,11 @@ const SupabaseSync = (() => {
       const accountBalance = accounts.reduce((sum, row) => sum + Number(row.balance || 0), 0);
       const totalIncome = finance.filter(f => String(f.type).toLowerCase() === 'income').reduce((sum, row) => sum + Number(row.amount || 0), 0);
       const totalExpense = finance.filter(f => String(f.type).toLowerCase() === 'expense').reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      // Individual account snapshots (name + balance)
+      const accountList = accounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
       return {
         students: { totalStudents, totalFee, totalPaid, totalDue },
-        accounts: { count: accounts.length, totalBalance: accountBalance },
+        accounts: { count: accounts.length, totalBalance: accountBalance, list: accountList },
         finance: { totalIncome, totalExpense },
         recordedAt: new Date().toISOString(),
       };

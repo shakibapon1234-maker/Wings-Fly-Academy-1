@@ -2720,50 +2720,61 @@ ${expenseEntries.length > 0 ? `
     const students = snapshot.students || {};
     const accounts = snapshot.accounts || {};
     const finance = snapshot.finance || {};
-    const rows = `
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Students</div>
-          <div style="font-size:1.4rem;font-weight:700">${students.totalStudents || 0}</div>
-        </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Total Fee</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalFee || 0)}</div>
-        </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Paid</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalPaid || 0)}</div>
-        </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Due</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(students.totalDue || 0)}</div>
-        </div>
+    const accountList = accounts.list || [];
+    const grandTotal = accounts.totalBalance || 0;
+
+    // Account balance cards (like screenshot)
+    const accountCards = accountList.length > 0
+      ? accountList.map(a => {
+          const isMobile = (a.type || '').toLowerCase().includes('mobile') || (a.name || '').toLowerCase().includes('bkash') || (a.name || '').toLowerCase().includes('nagad') || (a.name || '').toLowerCase().includes('rocket');
+          const icon = isMobile ? '📱' : '🏦';
+          const glowColor = a.balance > 0 ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
+          const balColor = a.balance > 0 ? '#f0c040' : 'rgba(255,255,255,0.4)';
+          return `<div style="padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 0 10px ${glowColor}">
+            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">
+              <span>${icon}</span><span>${Utils.esc(a.name)}</span>
+            </div>
+            <div style="font-size:1.3rem;font-weight:800;color:${balColor}">${Utils.takaEn(a.balance)}</div>
+          </div>`;
+        }).join('')
+      : `<div style="color:var(--text-muted);font-size:.85rem;padding:10px">No account data in this snapshot.</div>`;
+
+    const summaryRows = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+        ${accountCards}
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(160px,1fr));gap:12px;margin-bottom:16px">
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Accounts</div>
-          <div style="font-size:1.4rem;font-weight:700">${accounts.count || 0}</div>
+      <div style="text-align:right;font-size:1.1rem;font-weight:800;color:#f0c040;margin-bottom:18px;padding:10px 14px;background:rgba(240,192,64,0.07);border-radius:8px;border:1px solid rgba(240,192,64,0.2)">
+        Grand Total: ${Utils.takaEn(grandTotal)}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
+        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">👨‍🎓 Students</div>
+          <div style="font-size:1.3rem;font-weight:700">${students.totalStudents || 0}</div>
         </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Account Balance</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(accounts.totalBalance || 0)}</div>
+        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">💰 Due</div>
+          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(students.totalDue || 0)}</div>
         </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Income</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(finance.totalIncome || 0)}</div>
+        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📈 Income</div>
+          <div style="font-size:1.3rem;font-weight:700;color:#00ff88">${Utils.takaEn(finance.totalIncome || 0)}</div>
         </div>
-        <div style="padding:14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px">Expense</div>
-          <div style="font-size:1.4rem;font-weight:700">${Utils.takaEn(finance.totalExpense || 0)}</div>
+        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
+          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📉 Expense</div>
+          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(finance.totalExpense || 0)}</div>
         </div>
       </div>
     `;
 
-    Utils.openModal(`Snapshot for ${item.type || 'Transaction'} — ${item.category || 'Unknown'}`, `
-      <p style="font-size:.88rem;color:var(--text-muted);margin-bottom:8px">Saved at ${item.date || '—'} — ${item.person || 'N/A'} / ${item.item || 'Record'}</p>
-      ${rows}
-      <div style="font-size:.85rem;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
-        This snapshot shows the dashboard-like totals saved when the transaction was logged locally.
+    const snapshotTime = snapshot.recordedAt ? new Date(snapshot.recordedAt).toLocaleString() : (item.date || '—');
+    Utils.openModal(`<i class="fa fa-camera" style="color:#00d9ff;margin-right:8px"></i> Balance Snapshot — ${snapshotTime} — ${item.type || 'Transaction'}`, `
+      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:14px">
+        <span class="badge badge-success" style="margin-right:8px">${item.type || '—'}</span>
+        ${Utils.esc(item.category || '—')} — ${Utils.esc(item.person || 'N/A')}
+      </p>
+      ${summaryRows}
+      <div style="font-size:.78rem;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.08);padding-top:10px">
+        লাস্ট ১০টা data change/save এখানে দেখাবে। যেকোনো row তে ক্লিক করলে উপরে সেই সময়কার Account Balance Snapshot দেখাবে।
       </div>
     `, 'modal-lg');
   }
