@@ -7,6 +7,7 @@ const SettingsModule = (() => {
 
   let activeTab = 'general';
   let isOpen = false;
+  let _syncListener = null; // wfa:synced listener reference — closeModal-এ remove করার জন্য
 
   // ─── MODAL OPEN / CLOSE ───────────────────────────────────────
   function openModal() {
@@ -21,12 +22,34 @@ const SettingsModule = (() => {
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
+
+    // ── Real-time Activity Log refresh ────────────────────────────
+    // Settings panel খোলা থাকলে যেকোনো কাজ করলে activity log ও
+    // অন্যান্য tabs real-time-এ আপডেট হবে
+    if (_syncListener) {
+      window.removeEventListener('wfa:synced', _syncListener);
+    }
+    _syncListener = () => {
+      const panel = document.getElementById('settings-overlay');
+      if (!panel) return;
+      // শুধু active tab re-render করো — পুরো modal rebuild করলে scroll/focus হারায়
+      const savedTab = activeTab;
+      panel.innerHTML = buildModalHTML();
+      activeTab = savedTab;
+      switchTab(savedTab);
+    };
+    window.addEventListener('wfa:synced', _syncListener);
   }
 
   function closeModal() {
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
     overlay.classList.add('closing');
+    // sync listener সরিয়ে দাও — modal বন্ধ হলে আর দরকার নেই
+    if (_syncListener) {
+      window.removeEventListener('wfa:synced', _syncListener);
+      _syncListener = null;
+    }
     setTimeout(() => {
       overlay.remove();
       document.body.style.overflow = '';

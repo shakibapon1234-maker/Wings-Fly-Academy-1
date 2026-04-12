@@ -17,15 +17,37 @@ const Attendance = (() => {
   }
 
   function load() {
-    try { records = JSON.parse(localStorage.getItem('wf_attendance') || '[]'); }
-    catch { records = []; }
+    // SupabaseSync থেকে লোড করো — আগের wf_attendance key থেকে migrate করো যদি থাকে
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined' && DB.attendance) {
+      records = SupabaseSync.getAll(DB.attendance) || [];
+      // Legacy migration: পুরনো wf_attendance key থেকে এক বারের জন্য migrate
+      const legacy = localStorage.getItem('wf_attendance');
+      if (legacy && records.length === 0) {
+        try {
+          const legacyRecords = JSON.parse(legacy) || [];
+          if (legacyRecords.length > 0) {
+            legacyRecords.forEach(r => {
+              if (!r.id) r.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+              SupabaseSync.insert(DB.attendance, r);
+            });
+            records = SupabaseSync.getAll(DB.attendance) || [];
+            localStorage.removeItem('wf_attendance'); // migrate হয়ে গেলে পুরনোটা সরাও
+          }
+        } catch { /* ignore */ }
+      }
+    } else {
+      try { records = JSON.parse(localStorage.getItem('wf_attendance') || '[]'); }
+      catch { records = []; }
+    }
   }
 
   function save() {
-    localStorage.setItem('wf_attendance', JSON.stringify(records));
-    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined' && DB.attendance) {
-      SupabaseSync.push?.('attendance', records);
-    }
+    // এখন SupabaseSync দিয়েই সব হবে — আলাদা localStorage নয়
+    // records array-টা SupabaseSync-এ আছে, তাই শুধু dispatchEvent করো
+    // (individual insert/update ইতিমধ্যে SupabaseSync এ হয়ে গেছে)
+    try {
+      localStorage.setItem('wf_attendance', JSON.stringify(records)); // legacy fallback
+    } catch { /* ignore */ }
   }
 
   function today() {
@@ -462,12 +484,31 @@ const Attendance = (() => {
       const batch = row.dataset.batch || '';
 
       // Remove existing record for same date+entity
-      records = records.filter(r => !(r.date === date && r.entityId === entityId && r.type === 'student'));
-      records.push({
-        id: typeof Utils !== 'undefined' ? Utils.generateId() : Date.now().toString(),
+      const existingIdx = records.findIndex(r => r.date === date && r.entityId === entityId && r.type === 'student');
+      const newRecord = {
+        id: existingIdx >= 0 ? records[existingIdx].id : (typeof Utils !== 'undefined' ? Utils.generateId() : Date.now().toString(36) + Math.random().toString(36).slice(2)),
         date, type: 'student', entityId, entityName, batch, status,
-        createdAt: new Date().toISOString(),
-      });
+        createdAt: existingIdx >= 0 ? (records[existingIdx].createdAt || new Date().toISOString()) : new Date().toISOString(),
+        person_id: entityId,
+        person_name: entityName,
+        note: '',
+      };
+
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined' && DB.attendance) {
+        if (existingIdx >= 0) {
+          // আগের record আপডেট করো
+          SupabaseSync.update(DB.attendance, newRecord.id, newRecord);
+          records[existingIdx] = newRecord;
+        } else {
+          // নতুন insert
+          SupabaseSync.insert(DB.attendance, newRecord);
+          records.push(newRecord);
+        }
+      } else {
+        // Fallback: SupabaseSync নেই
+        records = records.filter(r => !(r.date === date && r.entityId === entityId && r.type === 'student'));
+        records.push(newRecord);
+      }
       count++;
     });
 

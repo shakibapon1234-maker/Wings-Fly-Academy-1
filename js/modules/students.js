@@ -25,7 +25,9 @@ const Students = (() => {
     const all      = SupabaseSync.getAll(DB.students);
     const batches  = [...new Set(all.map(s => s.batch).filter(Boolean))].sort();
     const courses  = [...new Set(all.map(s => s.course).filter(Boolean))].sort();
-    const filtered = applyFilters(all);
+    // admission_date desc — user-দেওয়া তারিখ অনুযায়ী সর্বশেষ সবার উপরে
+    const sorted   = Utils.sortBy(all, 'admission_date', 'desc');
+    const filtered = applyFilters(sorted);
 
     /* Summary row */
     const totalFee  = filtered.reduce((s,r) => s + Utils.safeNum(r.total_fee), 0);
