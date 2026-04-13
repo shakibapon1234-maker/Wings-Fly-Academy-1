@@ -229,7 +229,7 @@ const App = (() => {
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
-        case 'students':      if (typeof Students !== 'undefined')           Students.render(); break;
+        case 'students':      if (typeof Students !== 'undefined')           { Students.resetFilters(); Students.render(); } break;
         case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
         case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
         case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;

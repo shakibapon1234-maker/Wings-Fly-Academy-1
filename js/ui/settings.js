@@ -2442,34 +2442,57 @@ ${expenseEntries.length > 0 ? `
   // ─── Advance Payments & Investments ───────────────────────────
   function addAdvancePayment() {
     openSettingsInternalModal('💰 Add Advance Payment', `
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Person Name <span style="color:#ff4757">*</span></label>
-        <input id="adv-person" class="form-control" placeholder="e.g. Shakib" style="width:100%;box-sizing:border-box" />
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
-          <input id="adv-amount" type="number" class="form-control" placeholder="0" />
+      <div style="background:linear-gradient(135deg,rgba(0,255,136,0.06),rgba(0,212,255,0.04));border:1px solid rgba(0,255,136,0.15);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,255,136,0.18),rgba(0,212,255,0.12));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(0,255,136,0.25)">
+          <i class="fa fa-money-bill-wave" style="color:#00ff88;font-size:1.1rem"></i>
         </div>
         <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
-          <input id="adv-date" type="date" class="form-control" value="${Utils.today()}" />
+          <div style="font-size:.78rem;font-weight:800;color:#00ff88;letter-spacing:.8px">NEW ADVANCE</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,0.4);margin-top:2px">Record a salary or operational advance payment</div>
         </div>
       </div>
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Payment Method <span style="color:#ff4757">*</span></label>
-        <select id="adv-method" class="form-control" style="width:100%">
-          <option value="">Select Method</option>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Person Name <span style="color:#ff4757">*</span></label>
+        <div style="position:relative">
+          <i class="fa fa-user" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.4);font-size:.82rem;pointer-events:none"></i>
+          <input id="adv-person" class="form-control" placeholder="e.g. Shakib" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <div style="position:relative">
+            <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.4);font-size:.82rem;pointer-events:none"></i>
+            <input id="adv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Date <span style="color:#ff4757">*</span></label>
+          <input id="adv-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Payment Method <span style="color:#ff4757">*</span></label>
+        <select id="adv-method" class="form-control" style="width:100%;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)">
+          <option value="">— Select Method —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
-      <div style="margin-bottom:20px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
-        <input id="adv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+
+      <div style="margin-bottom:22px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
+        <div style="position:relative">
+          <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.3);font-size:.82rem;pointer-events:none"></i>
+          <input id="adv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+        </div>
       </div>
+
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
-        <button onclick="SettingsModule.saveAdvancePayment()" style="background:linear-gradient(135deg,#00ff88,#00cc6e);color:#000;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.55);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cancel</button>
+        <button onclick="SettingsModule.saveAdvancePayment()" style="background:linear-gradient(135deg,#00cc6e,#00ff88);color:#000;font-weight:900;padding:10px 24px;border-radius:10px;cursor:pointer;border:none;font-size:.88rem;letter-spacing:.5px;box-shadow:0 4px 18px rgba(0,255,136,0.35);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 24px rgba(0,255,136,0.50)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 18px rgba(0,255,136,0.35)'"><i class="fa fa-check" style="margin-right:6px"></i>Save Advance</button>
       </div>
     `);
   }
@@ -2626,34 +2649,57 @@ ${expenseEntries.length > 0 ? `
 
   function addInvestment() {
     openSettingsInternalModal('📈 Add Investment', `
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Investor / Source <span style="color:#ff4757">*</span></label>
-        <input id="inv-source" class="form-control" placeholder="e.g. Rahim, Company XYZ" style="width:100%;box-sizing:border-box" />
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Amount (৳) <span style="color:#ff4757">*</span></label>
-          <input id="inv-amount" type="number" class="form-control" placeholder="0" />
+      <div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.05));border:1px solid rgba(168,85,247,0.20);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
+        <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.22),rgba(124,58,237,0.15));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(168,85,247,0.30)">
+          <i class="fa fa-chart-line" style="color:#c084fc;font-size:1.1rem"></i>
         </div>
         <div>
-          <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Date <span style="color:#ff4757">*</span></label>
-          <input id="inv-date" type="date" class="form-control" value="${Utils.today()}" />
+          <div style="font-size:.78rem;font-weight:800;color:#c084fc;letter-spacing:.8px">NEW INVESTMENT</div>
+          <div style="font-size:.72rem;color:rgba(255,255,255,0.4);margin-top:2px">Record incoming capital from investors or partners</div>
         </div>
       </div>
-      <div style="margin-bottom:12px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Deposit To (Account) <span style="color:#ff4757">*</span></label>
-        <select id="inv-method" class="form-control" style="width:100%">
-          <option value="">Select Account</option>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Investor / Source <span style="color:#ff4757">*</span></label>
+        <div style="position:relative">
+          <i class="fa fa-building" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.45);font-size:.82rem;pointer-events:none"></i>
+          <input id="inv-source" class="form-control" placeholder="e.g. Rahim, Company XYZ" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
+          <div style="position:relative">
+            <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.45);font-size:.82rem;pointer-events:none"></i>
+            <input id="inv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Date <span style="color:#ff4757">*</span></label>
+          <input id="inv-date" type="date" class="form-control" value="${Utils.today()}" style="border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Deposit To (Account) <span style="color:#ff4757">*</span></label>
+        <select id="inv-method" class="form-control" style="width:100%;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)">
+          <option value="">— Select Account —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
-      <div style="margin-bottom:20px">
-        <label style="font-size:.85rem;color:var(--text-secondary);margin-bottom:6px;display:block">Note</label>
-        <input id="inv-note" class="form-control" placeholder="Optional" style="width:100%;box-sizing:border-box" />
+
+      <div style="margin-bottom:22px">
+        <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
+        <div style="position:relative">
+          <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.35);font-size:.82rem;pointer-events:none"></i>
+          <input id="inv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+        </div>
       </div>
+
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;padding:8px 18px;border-radius:8px;cursor:pointer">Cancel</button>
-        <button onclick="SettingsModule.saveInvestment()" style="background:linear-gradient(135deg,#a855f7,#7c3aed);color:#fff;font-weight:800;padding:8px 22px;border-radius:8px;cursor:pointer;border:none"><i class="fa fa-check"></i> Save</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.55);padding:10px 20px;border-radius:10px;cursor:pointer;font-size:.85rem;transition:all .2s" onmouseover="this.style.background='rgba(255,255,255,0.09)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">Cancel</button>
+        <button onclick="SettingsModule.saveInvestment()" style="background:linear-gradient(135deg,#9333ea,#a855f7);color:#fff;font-weight:900;padding:10px 24px;border-radius:10px;cursor:pointer;border:none;font-size:.88rem;letter-spacing:.5px;box-shadow:0 4px 18px rgba(168,85,247,0.40);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 6px 24px rgba(168,85,247,0.55)'" onmouseout="this.style.transform='none';this.style.boxShadow='0 4px 18px rgba(168,85,247,0.40)'"><i class="fa fa-check" style="margin-right:6px"></i>Save Investment</button>
       </div>
     `);
   }
@@ -2840,61 +2886,97 @@ ${expenseEntries.length > 0 ? `
     const finance = snapshot.finance || {};
     const accountList = accounts.list || [];
     const grandTotal = accounts.totalBalance || 0;
+    const snapshotTime = snapshot.recordedAt
+      ? new Date(snapshot.recordedAt).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : (item.date || '—');
 
-    // Account balance cards (like screenshot)
+    const typeBadgeColor = item.type === 'Delete' ? '#ff4757' : item.type === 'Update' ? '#ffaa00' : '#00ff88';
+    const typeBgColor   = item.type === 'Delete' ? 'rgba(255,71,87,0.12)' : item.type === 'Update' ? 'rgba(255,170,0,0.12)' : 'rgba(0,255,136,0.12)';
+    const typeBorderColor = item.type === 'Delete' ? 'rgba(255,71,87,0.30)' : item.type === 'Update' ? 'rgba(255,170,0,0.30)' : 'rgba(0,255,136,0.30)';
+
+    // Account balance cards
     const accountCards = accountList.length > 0
       ? accountList.map(a => {
-          const isMobile = (a.type || '').toLowerCase().includes('mobile') || (a.name || '').toLowerCase().includes('bkash') || (a.name || '').toLowerCase().includes('nagad') || (a.name || '').toLowerCase().includes('rocket');
-          const icon = isMobile ? '📱' : '🏦';
-          const glowColor = a.balance > 0 ? 'rgba(0,217,255,0.15)' : 'rgba(255,255,255,0.04)';
-          const balColor = a.balance > 0 ? '#f0c040' : 'rgba(255,255,255,0.4)';
-          return `<div style="padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 0 10px ${glowColor}">
-            <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:6px;display:flex;align-items:center;gap:6px">
-              <span>${icon}</span><span>${Utils.esc(a.name)}</span>
+          const isMobile = ['mobile','bkash','nagad','rocket','bikash'].some(k => (a.name||'').toLowerCase().includes(k) || (a.type||'').toLowerCase().includes(k));
+          const isBank   = (a.type||'').toLowerCase().includes('bank');
+          const icon     = isMobile ? '📱' : isBank ? '🏦' : '💵';
+          const hasBalance = a.balance > 0;
+          const borderCol  = hasBalance ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.08)';
+          const glowCol    = hasBalance ? '0 0 18px rgba(0,212,255,0.12)' : 'none';
+          const valColor   = hasBalance ? '#f0c040' : 'rgba(255,255,255,0.35)';
+          return `<div style="padding:14px 16px;background:rgba(255,255,255,0.04);border:1px solid ${borderCol};border-radius:12px;box-shadow:${glowCol};min-width:0">
+            <div style="font-size:.72rem;color:rgba(255,255,255,0.45);margin-bottom:8px;display:flex;align-items:center;gap:6px;font-weight:600">
+              <span style="font-size:.85rem">${icon}</span>
+              <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${Utils.esc(a.name)}</span>
             </div>
-            <div style="font-size:1.3rem;font-weight:800;color:${balColor}">${Utils.takaEn(a.balance)}</div>
+            <div style="font-size:1.25rem;font-weight:900;color:${valColor};font-family:var(--font-ui)">${Utils.takaEn(a.balance)}</div>
           </div>`;
         }).join('')
-      : `<div style="color:var(--text-muted);font-size:.85rem;padding:10px">No account data in this snapshot.</div>`;
+      : `<div style="color:var(--text-muted);font-size:.85rem;padding:16px;text-align:center;grid-column:1/-1"><i class="fa fa-circle-info" style="margin-right:6px"></i>No account data in this snapshot.</div>`;
 
-    const summaryRows = `
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:16px">
+    // Net profit
+    const netProfit = (finance.totalIncome || 0) - (finance.totalExpense || 0);
+    const profitColor = netProfit >= 0 ? '#00ff88' : '#ff4757';
+
+    Utils.openModal(
+      `<span style="display:inline-flex;align-items:center;gap:8px">
+        <i class="fa fa-camera" style="color:#00d9ff"></i>
+        <span>Monitor — Account Balances</span>
+      </span>`,
+      `
+      <!-- Snapshot header bar -->
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:rgba(0,212,255,0.9);font-weight:700">
+          <i class="fa fa-camera" style="font-size:.8rem"></i>
+          <span>Balance Snapshot — ${snapshotTime} — Latest Change</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="background:${typeBgColor};border:1px solid ${typeBorderColor};color:${typeBadgeColor};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '—'}</span>
+          <span style="font-size:.75rem;color:rgba(255,255,255,0.45)">${Utils.esc(item.category || '—')}</span>
+          ${item.person ? `<span style="font-size:.75rem;color:rgba(255,255,255,0.35)">• ${Utils.esc(item.person)}</span>` : ''}
+        </div>
+      </div>
+
+      <!-- Account balance grid -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">
         ${accountCards}
       </div>
-      <div style="text-align:right;font-size:1.1rem;font-weight:800;color:#f0c040;margin-bottom:18px;padding:10px 14px;background:rgba(240,192,64,0.07);border-radius:8px;border:1px solid rgba(240,192,64,0.2)">
-        Grand Total: ${Utils.takaEn(grandTotal)}
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:10px">
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">👨‍🎓 Students</div>
-          <div style="font-size:1.3rem;font-weight:700">${students.totalStudents || 0}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">💰 Due</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(students.totalDue || 0)}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📈 Income</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#00ff88">${Utils.takaEn(finance.totalIncome || 0)}</div>
-        </div>
-        <div style="padding:12px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:10px">
-          <div style="font-size:.75rem;color:var(--text-muted);margin-bottom:5px">📉 Expense</div>
-          <div style="font-size:1.3rem;font-weight:700;color:#ff6b7a">${Utils.takaEn(finance.totalExpense || 0)}</div>
-        </div>
-      </div>
-    `;
 
-    const snapshotTime = snapshot.recordedAt ? new Date(snapshot.recordedAt).toLocaleString() : (item.date || '—');
-    Utils.openModal(`<i class="fa fa-camera" style="color:#00d9ff;margin-right:8px"></i> Balance Snapshot — ${snapshotTime} — ${item.type || 'Transaction'}`, `
-      <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:14px">
-        <span class="badge badge-success" style="margin-right:8px">${item.type || '—'}</span>
-        ${Utils.esc(item.category || '—')} — ${Utils.esc(item.person || 'N/A')}
-      </p>
-      ${summaryRows}
-      <div style="font-size:.78rem;color:var(--text-muted);border-top:1px solid rgba(255,255,255,0.08);padding-top:10px">
+      <!-- Grand total -->
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:18px">
+        <div style="padding:10px 20px;background:rgba(240,192,64,0.08);border:1px solid rgba(240,192,64,0.25);border-radius:10px;font-size:1.05rem;font-weight:900;color:#f0c040;font-family:var(--font-ui)">
+          Grand Total: ${Utils.takaEn(grandTotal)}
+        </div>
+      </div>
+
+      <!-- Dashboard summary cards -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+        <div style="padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
+          <div style="font-size:1.4rem;font-weight:900;color:#00e5ff">${students.totalStudents || 0}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(0,255,136,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Income</div>
+          <div style="font-size:1.1rem;font-weight:900;color:#00ff88">${Utils.takaEn(finance.totalIncome || 0)}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(255,71,87,0.06);border:1px solid rgba(255,71,87,0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:rgba(255,71,87,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Expense</div>
+          <div style="font-size:1.1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(finance.totalExpense || 0)}</div>
+        </div>
+        <div style="padding:12px 14px;background:rgba(${netProfit>=0?'0,255,136':'255,71,87'},0.06);border:1px solid rgba(${netProfit>=0?'0,255,136':'255,71,87'},0.18);border-radius:10px;text-align:center">
+          <div style="font-size:.68rem;color:${profitColor};opacity:.7;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Net P/L</div>
+          <div style="font-size:1.1rem;font-weight:900;color:${profitColor}">${Utils.takaEn(netProfit)}</div>
+        </div>
+      </div>
+
+      <!-- Recent changes list hint -->
+      <div style="font-size:.75rem;color:rgba(255,255,255,0.30);padding:10px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
+        <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
         লাস্ট ১০টা data change/save এখানে দেখাবে। যেকোনো row তে ক্লিক করলে উপরে সেই সময়কার Account Balance Snapshot দেখাবে।
       </div>
-    `, 'modal-lg');
+      `,
+      'modal-lg'
+    );
   }
 
   // ─── Diagnostic Functions ─────────────────────────────────────
