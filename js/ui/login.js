@@ -4,42 +4,58 @@
 
 const LoginUI = (() => {
 
-  /* ── Safe helpers ─────────────────────────────────────────── */
+  /* ── Safe helpers ─────────────────────────────────────── */
   function _getSettings() {
-    // Primary: try SupabaseSync in-memory DB
+    // Helper: pick best settings row from parsed value (array or object)
+    function _bestRow(parsed) {
+      if (!parsed) return null;
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      return rows.find(r => r && r.security_question) ||
+             rows.find(r => r && r.admin_password) ||
+             (rows[0] && Object.keys(rows[0]).length > 0 ? rows[0] : null);
+    }
+
+    // Primary: try SupabaseSync in-memory DB (works right after save without reload)
     try {
       const sync = window.SupabaseSync;
       const db   = window.DB;
       if (sync && db && db.settings) {
-        const row = sync.getAll(db.settings)[0];
-        if (row && Object.keys(row).length > 0) return row;
+        const row = _bestRow(sync.getAll(db.settings));
+        if (row) return row;
       }
     } catch (e) { /* ignore */ }
 
-    // Fallback: scan localStorage for any wfa_ settings store
+    // Direct: try the known localStorage key 'wfa_settings' first (fastest after reload)
+    try {
+      const raw = localStorage.getItem('wfa_settings');
+      if (raw) {
+        const row = _bestRow(JSON.parse(raw));
+        if (row) return row;
+      }
+    } catch (e) { /* ignore */ }
+
+    // Fallback: scan all localStorage keys containing 'setting'
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (!key) continue;
-        // SupabaseSync stores tables as JSON arrays under keys like "wfa_settings" or similar
         if (key.toLowerCase().includes('setting')) {
-          const raw = localStorage.getItem(key);
-          if (!raw) continue;
-          const parsed = JSON.parse(raw);
-          // Could be array or object
-          const row = Array.isArray(parsed) ? parsed[0] : parsed;
-          if (row && (row.security_question || row.admin_password)) return row;
+          try {
+            const raw = localStorage.getItem(key);
+            if (!raw) continue;
+            const row = _bestRow(JSON.parse(raw));
+            if (row && (row.security_question || row.admin_password)) return row;
+          } catch(e2) { /* skip */ }
         }
       }
-      // Broader scan: any wfa_ key that has security_question
+      // Broader scan: any wfa_ key that has security_question anywhere in its rows
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (!key || !key.startsWith('wfa_')) continue;
         try {
           const raw = localStorage.getItem(key);
           if (!raw) continue;
-          const parsed = JSON.parse(raw);
-          const row = Array.isArray(parsed) ? parsed[0] : parsed;
+          const row = _bestRow(JSON.parse(raw));
           if (row && row.security_question) return row;
         } catch(e2) { /* skip */ }
       }
