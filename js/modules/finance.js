@@ -490,6 +490,21 @@ const Finance = (() => {
       person_name: entry.person_name || '',
     };
     SupabaseSync.insert(DB.finance, record);
+
+    // ── Account balance স্বয়ংক্রিয় আপডেট ──────────────────────────
+    // Expense → balance কমে (out), Income → বাড়ে (in)
+    // Transfer In/Out → Accounts module নিজে handle করে, এখানে skip
+    const dirMap = {
+      'Expense':      'out',
+      'Income':       'in',
+      'Transfer Out': 'out',
+      'Transfer In':  'in',
+    };
+    const dir = dirMap[record.type];
+    if (dir && record.method && record.amount > 0) {
+      SupabaseSync.updateAccountBalance(record.method, record.amount, dir);
+    }
+
     // If Finance tab is currently visible, re-render
     try { render(); } catch { /* ignore if not mounted */ }
   }
