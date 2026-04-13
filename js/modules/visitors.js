@@ -12,7 +12,7 @@ const VisitorsModule = (() => {
   }
 
   function getRecords() {
-    return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visitDate', 'desc');
+    return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
   }
 
   function render() {
@@ -80,14 +80,14 @@ const VisitorsModule = (() => {
 
                 return `
                 <tr>
-                  <td style="white-space:nowrap; color:var(--text-muted); font-size:0.85rem;"><i class="fa fa-calendar-day" style="margin-right:4px;"></i>${Utils.formatDateEN(v.visitDate)}</td>
+                  <td style="white-space:nowrap; color:var(--text-muted); font-size:0.85rem;"><i class="fa fa-calendar-day" style="margin-right:4px;"></i>${Utils.formatDateEN(v.visit_date || v.visitDate)}</td>
                   <td>
                     <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
                   </td>
-                  <td style="font-weight:600; color:#00d4ff;">${v.interestedCourse || '-'}</td>
+                  <td style="font-weight:600; color:#00d4ff;">${v.interested_course || '-'}</td>
                   <td>${statusBadge}</td>
-                  <td><span style="font-size:0.8rem; color:${v.followUpDate ? '#ffb703' : 'var(--text-muted)'}">${v.followUpDate ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.followUpDate) : '-'}</span></td>
+                  <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px;" onclick="VisitorsModule.openEditModal('${v.id}')"><i class="fa fa-pen"></i> Edit</button>
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 10px;" onclick="VisitorsModule.deleteRecord('${v.id}')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
@@ -133,7 +133,7 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Course Interested</label>
-          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${r?.interestedCourse || ''}" />
+          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${r?.interested_course || ''}" />
         </div>
         <div class="form-group">
           <label>Status <span class="req">*</span></label>
@@ -148,11 +148,11 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Visit Date</label>
-          <input type="date" id="vis-vdate" class="form-control" value="${r?.visitDate || Utils.today()}" />
+          <input type="date" id="vis-vdate" class="form-control" value="${r?.visit_date || Utils.today()}" />
         </div>
         <div class="form-group">
           <label>Follow-up Date</label>
-          <input type="date" id="vis-fdate" class="form-control" value="${r?.followUpDate || Utils.today()}" />
+          <input type="date" id="vis-fdate" class="form-control" value="${r?.follow_up_date || ''}" />
         </div>
       </div>
 
@@ -180,10 +180,10 @@ const VisitorsModule = (() => {
     const data = {
       name,
       phone,
-      interestedCourse: document.getElementById('vis-course')?.value.trim() || '',
+      interested_course: document.getElementById('vis-course')?.value.trim() || '',
       status: document.getElementById('vis-status')?.value || 'Interested',
-      visitDate: document.getElementById('vis-vdate')?.value || Utils.today(),
-      followUpDate: document.getElementById('vis-fdate')?.value || '',
+      visit_date: document.getElementById('vis-vdate')?.value || Utils.today(),
+      follow_up_date: document.getElementById('vis-fdate')?.value || '',
       remarks: document.getElementById('vis-remarks')?.value.trim() || '',
       createdAt: new Date().toISOString()
     };

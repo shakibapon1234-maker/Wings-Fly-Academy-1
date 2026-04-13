@@ -944,6 +944,47 @@ const SettingsModule = (() => {
         <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
       </div>
 
+      <!-- Supabase Cloud Auth -->
+      <div class="settings-card" style="margin-top:16px; border: 1px solid rgba(0,212,255,0.2)">
+        <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('supabase-auth-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down,i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">
+          <div style="display:flex; gap:12px; align-items:center">
+            <div style="width:40px; height:40px; border-radius:8px; background:rgba(0,212,255,0.08); display:flex; align-items:center; justify-content:center; font-size:1.2rem; border:1px solid rgba(0,212,255,0.2)">
+              <i class="fa fa-cloud-arrow-up" style="color:#00d4ff"></i>
+            </div>
+            <div>
+              <div style="font-weight:700; font-size:1.05rem; color:#fff">🔐 Supabase Cloud Login</div>
+              <div style="font-size:0.8rem; color:#00d4ff">Secure sync-এর জন্য Supabase account credentials</div>
+            </div>
+          </div>
+          <i class="fa fa-caret-down" style="color:#00d4ff"></i>
+        </div>
+        <div id="supabase-auth-body" class="hidden" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px">
+          <div style="background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:.82rem; color:#aaa; line-height:1.6">
+            <strong style="color:#00d4ff">সেটআপ গাইড:</strong><br>
+            ১. Supabase Dashboard → Authentication → Users → Add user করুন<br>
+            ২. সেই email ও password এখানে সংরক্ষণ করুন<br>
+            ৩. <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px">supabase/rls_policies_secure.sql</code> SQL Editor-এ run করুন<br>
+            ৪. পরবর্তী login থেকে RLS-secure sync চালু হবে ✅
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+            <div class="form-group" style="flex:1;min-width:200px">
+              <label>Supabase Email</label>
+              <input type="email" id="supa-email" class="form-control" placeholder="you@example.com" value="${cfg.supabase_email || ''}" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:200px">
+              <label>Supabase Password</label>
+              <input type="password" id="supa-pass" class="form-control" placeholder="Supabase user password" />
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
+            <span style="font-size:.78rem; color:${cfg.supabase_email ? '#00ff88' : '#666'}">
+              ${cfg.supabase_email ? '✅ Configured: ' + cfg.supabase_email : '⚠️ Not configured — running in open-access mode'}
+            </span>
+            <button class="btn btn-accent" onclick="SettingsModule.saveSupabaseAuth()">💾 Save & Connect</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Secret Recovery Question -->
       <div class="settings-card glow-purple" style="margin-top:16px; border: 1px solid rgba(181, 55, 242, 0.2)">
          <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('recovery-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down, i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">
@@ -3112,11 +3153,34 @@ ${expenseEntries.length > 0 ? `
     const confirmPw = document.getElementById('set-confirm-pw')?.value;
     const current = cfg.admin_password || 'admin123';
 
-    if (oldPw !== current) { Utils.toast('Current password incorrect!', 'error'); return; }
+    // Compare: support both legacy plaintext and new hashed format
+    const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+    const _hashPw = async (pw) => {
+      try {
+        const enc = new TextEncoder();
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
+        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      } catch {
+        let h = 0;
+        for (let i = 0; i < pw.length; i++) { h = ((h << 5) - h) + pw.charCodeAt(i); h |= 0; }
+        return 'fb_' + Math.abs(h).toString(16);
+      }
+    };
+
+    // Verify old password
+    let oldOk = false;
+    if (_isHashed(current)) {
+      oldOk = (await _hashPw(oldPw)) === current;
+    } else {
+      oldOk = oldPw === current;
+    }
+
+    if (!oldOk) { Utils.toast('Current password incorrect!', 'error'); return; }
     if (!newPw || newPw.length < 4) { Utils.toast('New password must be at least 4 characters', 'error'); return; }
     if (newPw !== confirmPw) { Utils.toast('Passwords do not match!', 'error'); return; }
 
-    cfg.admin_password = newPw;
+    // Store SHA-256 hash — never plaintext
+    cfg.admin_password = await _hashPw(newPw);
     cfg.id = cfg.id || SupabaseSync.generateId();
     saveConfig(cfg);
     logActivity('edit', 'security', 'Password changed');
@@ -3158,8 +3222,20 @@ ${expenseEntries.length > 0 ? `
   function exportAllData() {
     const allData = {};
     for (const [key, tableName] of Object.entries(DB)) {
-      allData[tableName] = SupabaseSync.getAll(tableName);
+      let rows = SupabaseSync.getAll(tableName);
+      // Security: admin_password, security_answer — backup থেকে বাদ দাও
+      if (tableName === 'settings') {
+        rows = rows.map(r => {
+          const safe = { ...r };
+          delete safe.admin_password;
+          delete safe.security_answer;
+          return safe;
+        });
+      }
+      allData[tableName] = rows;
     }
+    allData._exportedAt = new Date().toISOString();
+    allData._version = '2';
     const json = JSON.stringify(allData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3168,8 +3244,8 @@ ${expenseEntries.length > 0 ? `
     a.download = `wfa_backup_${typeof Utils !== 'undefined' ? Utils.today() : new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    logActivity('add', 'backup', 'Exported all data');
-    Utils.toast('All data exported ✅', 'success');
+    logActivity('add', 'backup', 'Exported all data (password fields excluded)');
+    Utils.toast('All data exported ✅ (password fields excluded for security)', 'success');
   }
 
   // ── Data Migration ────────────────────────────────────────────
@@ -3702,6 +3778,42 @@ ${expenseEntries.length > 0 ? `
      refreshModal();
   }
 
+  // ── Supabase Auth credentials save ────────────────────────────
+  function saveSupabaseAuth() {
+    const email = document.getElementById('supa-email')?.value?.trim();
+    const pass  = document.getElementById('supa-pass')?.value;
+
+    if (!email || !email.includes('@')) {
+      Utils.toast('Valid email required', 'error'); return;
+    }
+    if (!pass || pass.length < 6) {
+      Utils.toast('Password must be at least 6 characters', 'error'); return;
+    }
+
+    const cfg = getConfig();
+    cfg.supabase_email    = email;
+    // Note: password stored locally only — never pushed to Supabase settings table
+    // (settings.js sanitizeRecord already strips it via _TABLE_COLS allowlist)
+    cfg.supabase_password = pass;
+    saveConfig(cfg);
+
+    // Immediately try signing in so session is live
+    if (window.SupabaseAuth) {
+      SupabaseAuth.signIn(email, pass)
+        .then(() => {
+          logActivity('edit', 'security', 'Supabase Auth credentials saved & signed in');
+          Utils.toast('Cloud credentials saved ✅ Supabase sign-in successful', 'success');
+        })
+        .catch(err => {
+          logActivity('edit', 'security', 'Supabase Auth credentials saved (sign-in failed)');
+          Utils.toast(`Credentials saved, but sign-in failed: ${err.message}`, 'warn');
+        });
+    } else {
+      logActivity('edit', 'security', 'Supabase Auth credentials saved');
+      Utils.toast('Cloud credentials saved ✅', 'success');
+    }
+  }
+
   function getSubAccounts() {
      return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
   }
@@ -3843,7 +3955,7 @@ ${expenseEntries.length > 0 ? `
   return {
     render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
-    saveRecoverySettings, addSubAccount, deleteSubAccount,
+    saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,

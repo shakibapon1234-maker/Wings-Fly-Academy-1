@@ -216,14 +216,15 @@ const LoginUI = (() => {
       return;
     }
     if (given === correct) {
-      const pw = settings.admin_password || 'admin123';
+      // SECURITY: পাসওয়ার্ড কখনো দেখানো হবে না — শুধু reset করতে বলো
       result.innerHTML = `
         <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);
                     border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
           <i class="fa fa-check-circle" style="margin-right:6px"></i>
-          Correct! Your password is:
-          <strong style="font-family:monospace;letter-spacing:1px;color:#fff;font-size:1rem;
-                         display:block;margin-top:6px;word-break:break-all">${pw}</strong>
+          Correct answer! For security, your password cannot be displayed.
+          <div style="margin-top:8px;font-size:.82rem;color:#aaa">
+            Please go to <strong style="color:#fff">Settings → Change Password</strong> to set a new password.
+          </div>
         </div>`;
     } else {
       result.innerHTML = `<span style="color:#ff6b7a">
@@ -248,14 +249,16 @@ const LoginUI = (() => {
       result.innerHTML = `<span style="color:#ff6b7a">Please enter the master PIN.</span>`;
       return;
     }
-    if (given === masterPin) {
+    // Support hashed password — check both
+    const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+    const match = _isHashed(masterPin) ? false : (given === masterPin); // hashed → can't verify plaintext
+
+    if (match) {
       result.innerHTML = `
         <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);
                     border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
           <i class="fa fa-check-circle" style="margin-right:6px"></i>
-          Verified! Your current password is:
-          <strong style="font-family:monospace;letter-spacing:1px;color:#fff;font-size:1rem;
-                         display:block;margin-top:6px;word-break:break-all">${masterPin}</strong>
+          Verified! You can now change your password in <strong style="color:#fff">Settings → Change Password</strong>.
         </div>`;
     } else {
       result.innerHTML = `<span style="color:#ff6b7a">

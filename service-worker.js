@@ -1,7 +1,9 @@
 // ============================================================
 // Wings Fly Aviation Academy — Service Worker
+// Cache version: update BUILD_DATE when deploying new code
 // ============================================================
-const CACHE_NAME = 'wfa-v3';
+const BUILD_DATE = '2026-04-14'; // ← code update করলে এই date বদলান
+const CACHE_NAME = `wfa-v3-${BUILD_DATE}`;
 
 const STATIC_ASSETS = [
   './',

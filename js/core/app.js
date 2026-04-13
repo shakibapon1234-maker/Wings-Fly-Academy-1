@@ -42,6 +42,32 @@ const App = (() => {
 
   let currentSection = 'dashboard';
 
+  // ── Session Timeout (30 মিনিট idle = auto-logout) ───────────
+  const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+  let _sessionTimer = null;
+
+  function _resetSessionTimer() {
+    if (!isLoggedIn()) return;
+    clearTimeout(_sessionTimer);
+    _sessionTimer = setTimeout(() => {
+      if (isLoggedIn()) {
+        Utils.toast('Session expired — please log in again', 'warn');
+        setTimeout(logout, 1500);
+      }
+    }, SESSION_TIMEOUT_MS);
+  }
+
+  function _startSessionWatcher() {
+    ['click', 'keydown', 'mousemove', 'touchstart', 'scroll'].forEach(evt => {
+      document.addEventListener(evt, _resetSessionTimer, { passive: true });
+    });
+    _resetSessionTimer();
+  }
+
+  function _stopSessionWatcher() {
+    clearTimeout(_sessionTimer);
+  }
+
   // ── Auth ───────────────────────────────────────────────────
   function isLoggedIn() {
     return localStorage.getItem('wfa_logged_in') === 'true';
@@ -92,16 +118,44 @@ const App = (() => {
 
   async function login(username, password) {
     const settings = SupabaseSync.getAll(DB.settings)[0] || {};
-    const correct = settings.admin_password || 'admin123';
+    const stored = settings.admin_password || 'admin123';
     const normalizedUsername = String(username || '').trim();
 
-    if ((normalizedUsername === 'admin' || normalizedUsername === '') && password === correct) {
-      localStorage.setItem('wfa_logged_in', 'true');
-      localStorage.setItem('wfa_user_role', 'admin');
-      localStorage.setItem('wfa_user_name', 'admin');
-      localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
-      showApp(true);
-      return true;
+    // Check admin login
+    if (normalizedUsername === 'admin' || normalizedUsername === '') {
+      const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+      let adminOk = false;
+      if (_isHashed(stored)) {
+        // Stored as SHA-256 hash — compare hash
+        adminOk = (await _hashPw(password)) === stored;
+      } else {
+        // Legacy: plaintext — compare directly (will be hashed on next password change)
+        adminOk = password === stored;
+      }
+      if (adminOk) {
+        localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_user_role', 'admin');
+        localStorage.setItem('wfa_user_name', 'admin');
+        localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+
+        // ── Supabase Auth sign-in (RLS secure mode) ─────────────────
+        // Settings-এ supabase_email সেট থাকলে Supabase-এও login করো
+        // এতে RLS policy কাজ করবে। না থাকলে local-only mode-এ চলবে।
+        const supabaseEmail = settings.supabase_email;
+        const supabasePass  = settings.supabase_password;
+        if (supabaseEmail && supabasePass && window.SupabaseAuth) {
+          try {
+            await SupabaseAuth.signIn(supabaseEmail, supabasePass);
+            console.log('[Auth] Supabase sign-in successful ✅');
+          } catch (e) {
+            console.warn('[Auth] Supabase sign-in failed (offline or not configured):', e.message);
+            // Local login তবু সফল — offline mode-এ কাজ চলবে
+          }
+        }
+
+        showApp(true);
+        return true;
+      }
     }
 
     if (!normalizedUsername) return false;
@@ -131,6 +185,9 @@ const App = (() => {
     localStorage.removeItem('wfa_user_role');
     localStorage.removeItem('wfa_user_name');
     localStorage.removeItem('wfa_user_permissions');
+    // Supabase Auth sign-out (RLS session পরিষ্কার করো)
+    if (window.SupabaseAuth) SupabaseAuth.signOut().catch(() => {});
+    _stopSessionWatcher();
     showLogin();
     SyncEngine.stopAutoSync();
   }
@@ -153,6 +210,7 @@ const App = (() => {
     const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;
     navigateTo(target);
     SyncEngine.startAutoSync();
+    _startSessionWatcher();
   }
 
   // ── Navigation ────────────────────────────────────────────

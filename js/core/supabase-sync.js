@@ -462,7 +462,7 @@ const SupabaseSync = (() => {
 
   // Embedded allowlist — independent of SyncEngine init order
   const _TABLE_COLS = {
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
     salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -471,7 +471,7 @@ const SupabaseSync = (() => {
     exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
-    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interestedCourse','visitDate','followUpDate','remarks'],
+    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
     notices:       ['id','title','content','date','category','priority','author'],
   };
 
@@ -830,7 +830,9 @@ const SyncEngine = (() => {
     settings: [
       'id',
       'academy_name', 'academy_address', 'academy_phone', 'academy_email',
-      'admin_password', 'currency', 'timezone', 'logo_url',
+      // NOTE: admin_password, security_answer, supabase_email, supabase_password
+      // এগুলো intentionally বাদ — Supabase-এ push হবে না (local only)
+      'currency', 'timezone', 'logo_url',
       'primary_color', 'theme',
       'monthly_target', 'running_batch', 'expense_start_date', 'expense_end_date',
     ],
@@ -880,7 +882,7 @@ const SyncEngine = (() => {
       'id',
       'name', 'phone', 'purpose', 'host', 'visit_date', 'visit_time',
       'out_time', 'status', 'note',
-      'interestedCourse', 'visitDate', 'followUpDate', 'remarks',
+      'interested_course', 'follow_up_date', 'remarks',
     ],
     notices: [
       'id',
