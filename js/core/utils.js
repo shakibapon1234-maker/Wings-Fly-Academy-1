@@ -396,16 +396,25 @@ const Utils = (() => {
 
       let h = opt('Cash', 'Cash');
 
+      // Deduplicate by name — একই নামে একাধিক entry থাকলে শুধু প্রথমটা নেওয়া হবে
+      const seenNames = new Set();
+
       const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
       banks.forEach(b => {
         const name = b.name.trim();
-        h += opt(name, name);
+        if (!seenNames.has(name.toLowerCase())) {
+          seenNames.add(name.toLowerCase());
+          h += opt(name, name);
+        }
       });
 
       const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
       mobiles.forEach(m => {
         const name = m.name.trim();
-        h += opt(name, name);
+        if (!seenNames.has(name.toLowerCase())) {
+          seenNames.add(name.toLowerCase());
+          h += opt(name, name);
+        }
       });
 
       return h;
