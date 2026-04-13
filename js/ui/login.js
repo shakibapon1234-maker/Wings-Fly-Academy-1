@@ -4,7 +4,51 @@
 
 const LoginUI = (() => {
 
-  /* Floating particle generator */
+  /* ── Safe helpers ─────────────────────────────────────────── */
+  function _getSettings() {
+    // Primary: try SupabaseSync in-memory DB
+    try {
+      const sync = window.SupabaseSync;
+      const db   = window.DB;
+      if (sync && db && db.settings) {
+        const row = sync.getAll(db.settings)[0];
+        if (row && Object.keys(row).length > 0) return row;
+      }
+    } catch (e) { /* ignore */ }
+
+    // Fallback: scan localStorage for any wfa_ settings store
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key) continue;
+        // SupabaseSync stores tables as JSON arrays under keys like "wfa_settings" or similar
+        if (key.toLowerCase().includes('setting')) {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          // Could be array or object
+          const row = Array.isArray(parsed) ? parsed[0] : parsed;
+          if (row && (row.security_question || row.admin_password)) return row;
+        }
+      }
+      // Broader scan: any wfa_ key that has security_question
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (!key || !key.startsWith('wfa_')) continue;
+        try {
+          const raw = localStorage.getItem(key);
+          if (!raw) continue;
+          const parsed = JSON.parse(raw);
+          const row = Array.isArray(parsed) ? parsed[0] : parsed;
+          if (row && row.security_question) return row;
+        } catch(e2) { /* skip */ }
+      }
+    } catch (e) { /* ignore */ }
+
+    return {};
+  }
+
+  /* ── Floating particle generator ──────────────────────────── */
   function spawnParticles() {
     const container = document.getElementById('login-particles');
     if (!container) return;
@@ -25,7 +69,7 @@ const LoginUI = (() => {
     }
   }
 
-  /* Eye toggle */
+  /* ── Eye toggle ───────────────────────────────────────────── */
   function initEyeToggle() {
     const toggle  = document.getElementById('login-eye-toggle');
     const pwInput = document.getElementById('login-password');
@@ -38,48 +82,102 @@ const LoginUI = (() => {
     });
   }
 
-  /* Forgot password modal */
+  /* ── Forgot password modal ────────────────────────────────── */
   function showForgotModal() {
     const modal = document.getElementById('forgot-pw-modal');
     const body  = document.getElementById('forgot-pw-body');
     if (!modal || !body) return;
 
-    const settings = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
+    const settings = _getSettings();
     const qMap = {
-      pet: "What is the name of your first pet?",
-      city: "In what city were you born?",
-      school: "What is the name of your first school?",
-      childhood: "What was your childhood nickname?"
+      pet:       'What is the name of your first pet?',
+      city:      'In what city were you born?',
+      school:    'What is the name of your first school?',
+      childhood: 'What was your childhood nickname?'
     };
     const question = qMap[settings.security_question || ''] || '';
 
     if (!question) {
-      body.innerHTML = `<div style="color:rgba(255,255,255,0.55);font-size:.85rem;text-align:center;padding:10px 0">
-        <i class="fa fa-triangle-exclamation" style="color:#ffaa00;font-size:1.4rem;display:block;margin-bottom:10px"></i>
-        No security question configured.<br/>Contact your administrator.
-      </div>`;
+      /* ── No security question configured yet ── */
+      body.innerHTML = `
+        <div style="text-align:center;padding:4px 0 12px">
+          <div style="width:52px;height:52px;border-radius:50%;background:rgba(255,170,0,0.12);
+                      border:1px solid rgba(255,170,0,0.35);display:inline-flex;align-items:center;
+                      justify-content:center;margin-bottom:12px">
+            <i class="fa fa-triangle-exclamation" style="color:#ffaa00;font-size:1.3rem"></i>
+          </div>
+          <div style="font-weight:700;color:#fff;font-size:.95rem;margin-bottom:6px">
+            No Recovery Question Set
+          </div>
+          <div style="color:rgba(255,255,255,0.45);font-size:.8rem;line-height:1.55;margin-bottom:18px">
+            A security question has not been configured yet.<br/>
+            Set one up inside <strong style="color:#00d9ff">Settings &rarr; Security</strong> after logging in.
+          </div>
+        </div>
+
+        <div style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.18);
+                    border-radius:10px;padding:14px 16px;margin-bottom:16px">
+          <div style="font-size:.78rem;color:#00d9ff;font-weight:700;letter-spacing:.4px;margin-bottom:8px">
+            <i class="fa fa-key" style="margin-right:6px;opacity:.8"></i>MASTER PIN RECOVERY
+          </div>
+          <div style="font-size:.8rem;color:rgba(255,255,255,0.5);margin-bottom:12px;line-height:1.5">
+            Enter the master PIN (current admin password) to confirm your identity and reveal it.
+          </div>
+          <div style="position:relative">
+            <input type="password" id="master-pin-input" placeholder="Enter master PIN"
+              onkeydown="if(event.key==='Enter')LoginUI.checkMasterPin()"
+              style="width:100%;box-sizing:border-box;background:rgba(0,0,0,0.35);
+                     border:1.5px solid rgba(0,217,255,0.22);border-radius:10px;
+                     color:#fff;font-size:.9rem;padding:11px 44px 11px 14px;
+                     outline:none;font-family:var(--font-ui);" />
+            <i class="fa fa-eye" id="master-pin-eye"
+               style="position:absolute;right:13px;top:50%;transform:translateY(-50%);
+                      color:rgba(0,217,255,0.5);cursor:pointer;font-size:.85rem"
+               onclick="const p=document.getElementById('master-pin-input');
+                        p.type=p.type==='password'?'text':'password';
+                        document.getElementById('master-pin-eye').className=
+                        p.type==='password'?'fa fa-eye':'fa fa-eye-slash';"></i>
+          </div>
+          <div id="master-pin-result" style="min-height:24px;margin-top:10px;font-size:.8rem;text-align:center"></div>
+          <button onclick="LoginUI.checkMasterPin()" style="
+            margin-top:10px;width:100%;background:linear-gradient(90deg,#0055cc,#0099ff);
+            border:none;border-radius:10px;color:#fff;font-weight:800;padding:12px;
+            cursor:pointer;font-size:.88rem;letter-spacing:.4px;font-family:var(--font-ui);
+          "><i class="fa fa-unlock-keyhole"></i>&nbsp; Verify PIN</button>
+        </div>
+
+        <div style="text-align:center;font-size:.75rem;color:rgba(255,255,255,0.25)">
+          Default master PIN is
+          <code style="color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.06);
+                       padding:1px 6px;border-radius:4px">admin123</code>
+          if it has never been changed
+        </div>`;
     } else {
+      /* ── Security question configured — show it ── */
       body.innerHTML = `
         <p style="font-size:.82rem;color:rgba(255,255,255,0.5);margin-bottom:14px;line-height:1.5">
-          Answer your security question to view your password hint.
+          Answer your security question to view your password.
         </p>
-        <div style="background:rgba(0,217,255,0.07);border:1px solid rgba(0,217,255,0.22);border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.83rem;color:#00d9ff;">
+        <div style="background:rgba(0,217,255,0.07);border:1px solid rgba(0,217,255,0.22);
+                    border-radius:10px;padding:12px 14px;margin-bottom:14px;font-size:.83rem;color:#00d9ff;">
           <i class="fa fa-circle-question" style="margin-right:6px;opacity:.7"></i>${question}
         </div>
-        <input type="text" id="forgot-answer-input" placeholder="Your answer" style="
-          width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
-          border:1.5px solid rgba(0,217,255,0.22);border-radius:10px;
-          color:#fff;font-size:.9rem;padding:11px 14px;outline:none;
-          margin-bottom:14px;font-family:var(--font-ui);
-        "/>
+        <input type="text" id="forgot-answer-input" placeholder="Your answer"
+          onkeydown="if(event.key==='Enter')LoginUI.checkSecurityAnswer()"
+          style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
+                 border:1.5px solid rgba(0,217,255,0.22);border-radius:10px;
+                 color:#fff;font-size:.9rem;padding:11px 14px;outline:none;
+                 margin-bottom:14px;font-family:var(--font-ui);" />
         <div id="forgot-result" style="min-height:28px;margin-bottom:10px;font-size:.83rem;text-align:center"></div>
         <button onclick="LoginUI.checkSecurityAnswer()" style="
           width:100%;background:linear-gradient(90deg,#00a8f0,#1565ff);border:none;
           border-radius:10px;color:#fff;font-weight:800;padding:13px;cursor:pointer;
           font-size:.9rem;letter-spacing:.5px;font-family:var(--font-ui);
-        "><i class="fa fa-unlock-keyhole"></i> Verify Answer</button>`;
+        "><i class="fa fa-unlock-keyhole"></i>&nbsp; Verify Answer</button>`;
     }
+
     modal.classList.remove('hidden');
+    setTimeout(() => { const f = body.querySelector('input'); if (f) f.focus(); }, 120);
   }
 
   function closeForgotModal() {
@@ -87,36 +185,85 @@ const LoginUI = (() => {
     if (m) m.classList.add('hidden');
   }
 
+  /* ── Security-question verify ─────────────────────────────── */
   function checkSecurityAnswer() {
     const input  = document.getElementById('forgot-answer-input');
     const result = document.getElementById('forgot-result');
     if (!input || !result) return;
-    const settings = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
+
+    const settings = _getSettings();
     const correct  = (settings.security_answer || '').trim().toLowerCase();
     const given    = (input.value || '').trim().toLowerCase();
-    if (!given) { result.innerHTML = `<span style="color:#ff6b7a">Please enter your answer.</span>`; return; }
+
+    if (!given) {
+      result.innerHTML = `<span style="color:#ff6b7a">Please enter your answer.</span>`;
+      return;
+    }
     if (given === correct) {
       const pw = settings.admin_password || 'admin123';
-      result.innerHTML = `<div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
-        <i class="fa fa-check-circle" style="margin-right:6px"></i>
-        Correct! Password: <strong style="font-family:monospace;letter-spacing:1px;color:#fff;font-size:1rem">${pw}</strong>
-      </div>`;
+      result.innerHTML = `
+        <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);
+                    border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
+          <i class="fa fa-check-circle" style="margin-right:6px"></i>
+          Correct! Your password is:
+          <strong style="font-family:monospace;letter-spacing:1px;color:#fff;font-size:1rem;
+                         display:block;margin-top:6px;word-break:break-all">${pw}</strong>
+        </div>`;
     } else {
-      result.innerHTML = `<span style="color:#ff6b7a"><i class="fa fa-xmark" style="margin-right:4px"></i>Incorrect. Try again.</span>`;
+      result.innerHTML = `<span style="color:#ff6b7a">
+        <i class="fa fa-xmark" style="margin-right:4px"></i>Incorrect answer. Try again.
+      </span>`;
       input.style.borderColor = 'rgba(255,71,87,0.6)';
       setTimeout(() => { input.style.borderColor = 'rgba(0,217,255,0.22)'; }, 1500);
     }
   }
 
-  /* Init */
+  /* ── Master PIN verify (fallback when no security question) ── */
+  function checkMasterPin() {
+    const input  = document.getElementById('master-pin-input');
+    const result = document.getElementById('master-pin-result');
+    if (!input || !result) return;
+
+    const settings  = _getSettings();
+    const masterPin = settings.admin_password || 'admin123';
+    const given     = (input.value || '').trim();
+
+    if (!given) {
+      result.innerHTML = `<span style="color:#ff6b7a">Please enter the master PIN.</span>`;
+      return;
+    }
+    if (given === masterPin) {
+      result.innerHTML = `
+        <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);
+                    border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
+          <i class="fa fa-check-circle" style="margin-right:6px"></i>
+          Verified! Your current password is:
+          <strong style="font-family:monospace;letter-spacing:1px;color:#fff;font-size:1rem;
+                         display:block;margin-top:6px;word-break:break-all">${masterPin}</strong>
+        </div>`;
+    } else {
+      result.innerHTML = `<span style="color:#ff6b7a">
+        <i class="fa fa-xmark" style="margin-right:4px"></i>Incorrect PIN. Try again.
+      </span>`;
+      input.style.borderColor = 'rgba(255,71,87,0.6)';
+      setTimeout(() => { input.style.borderColor = 'rgba(0,217,255,0.22)'; }, 1500);
+    }
+  }
+
+  /* ── Init ─────────────────────────────────────────────────── */
   function init() {
     spawnParticles();
     initEyeToggle();
-    setTimeout(() => { const u = document.getElementById('login-username'); if (u) u.focus(); }, 350);
+    setTimeout(() => {
+      const u = document.getElementById('login-username');
+      if (u) u.focus();
+    }, 350);
     const modal = document.getElementById('forgot-pw-modal');
-    if (modal) modal.addEventListener('click', (e) => { if (e.target === modal) closeForgotModal(); });
+    if (modal) modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeForgotModal();
+    });
   }
 
   document.addEventListener('DOMContentLoaded', init);
-  return { showForgotModal, closeForgotModal, checkSecurityAnswer };
+  return { showForgotModal, closeForgotModal, checkSecurityAnswer, checkMasterPin };
 })();

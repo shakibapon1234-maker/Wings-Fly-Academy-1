@@ -163,8 +163,24 @@ const NoticeBoardModule = (() => {
     container.innerHTML = `
       <div style="max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:18px">
 
+        <!-- Window Header with Close Button -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0 2px">
+          <div style="font-size:1.05rem;font-weight:700;color:#fff;display:flex;align-items:center;gap:9px">
+            <i class="fa fa-bullhorn" style="color:#00d9ff"></i> নোটিশ বোর্ড
+          </div>
+          <button onclick="App.navigateTo('dashboard')" title="নোটিশ বোর্ড বন্ধ করুন"
+            style="background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.22);
+                   color:#fff;width:36px;height:36px;border-radius:50%;cursor:pointer;
+                   font-size:1rem;display:inline-flex;align-items:center;justify-content:center;
+                   transition:background 0.2s,border-color 0.2s"
+            onmouseover="this.style.background='rgba(239,68,68,0.3)';this.style.borderColor='rgba(239,68,68,0.6)'"
+            onmouseout="this.style.background='rgba(255,255,255,0.08)';this.style.borderColor='rgba(255,255,255,0.22)'">
+            <i class="fa fa-xmark"></i>
+          </button>
+        </div>
+
         <!-- Active Notice Status -->
-        <div style="background:${isRunning ? 'rgba(34,197,94,0.08)' : 'rgba(100,116,139,0.07)'};border:1.5px solid ${isRunning ? 'rgba(74,222,128,0.4)' : 'rgba(100,116,139,0.25)'};border-radius:14px;padding:18px 22px">
+        <div style="background:${isRunning ? 'rgba(0,60,20,0.55)' : 'rgba(10,15,35,0.75)'};border:1.5px solid ${isRunning ? 'rgba(74,222,128,0.4)' : 'rgba(100,116,139,0.35)'};border-radius:14px;padding:18px 22px">
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
             <div style="display:flex;align-items:center;gap:10px">
               <span style="font-size:1.3rem">${isRunning ? '🟢' : '⚫'}</span>
@@ -180,7 +196,7 @@ const NoticeBoardModule = (() => {
         </div>
 
         <!-- Publish New Notice -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.09);border-radius:14px;padding:20px 22px">
+        <div style="background:rgba(10,15,40,0.80);border:1px solid rgba(0,217,255,0.18);border-radius:14px;padding:20px 22px">
           <div style="font-size:.9rem;font-weight:700;color:#00d9ff;margin-bottom:14px"><i class="fa fa-paper-plane" style="margin-right:7px"></i>নতুন নোটিশ প্রকাশ করুন</div>
           <div style="margin-bottom:12px">
             <label style="font-size:.78rem;color:rgba(255,255,255,0.5);margin-bottom:5px;display:block">নোটিশের টেক্সট</label>
@@ -232,14 +248,14 @@ const NoticeBoardModule = (() => {
 
         <!-- All Notices List -->
         ${allNotices.length > 0 ? `
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:14px;padding:18px 22px">
+        <div style="background:rgba(10,15,40,0.80);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:18px 22px">
           <div style="font-size:.88rem;font-weight:700;color:rgba(255,255,255,0.6);margin-bottom:14px"><i class="fa fa-list" style="margin-right:7px"></i>সব নোটিশ (${allNotices.length} টি)</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             ${allNotices.map(n => {
               const expired = new Date(n.expiresAt).getTime() < Date.now();
               const tc = typeColors[n.type||'warning'] || '#f59e0b';
               const ti = typeIcons[n.type||'warning'] || '⚠️';
-              return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:12px 14px;flex-wrap:wrap">
+              return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:12px 14px;flex-wrap:wrap">
                 <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
                   <span style="font-size:1rem;flex-shrink:0">${ti}</span>
                   <div style="flex:1;min-width:0">
