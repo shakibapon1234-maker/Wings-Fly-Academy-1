@@ -389,8 +389,43 @@ const SupabaseSync = (() => {
     }
     // ─────────────────────────────────────────────────────────────────
 
-    bin.splice(index, 1);
-    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+    // ── Student restore হলে তার Recycle Bin-এ থাকা finance entries ও restore করো ──
+    if (table === 'students') {
+      try {
+        const currentBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+        const linkedFinance = currentBin
+          .map((b, i) => ({ b, i }))
+          .filter(({ b }) => b?.table === 'finance_ledger' && b?.data?.ref_id === record.id && b?.data?.category === 'Student Fee')
+          .reverse(); // reverse করো যাতে splice index ঠিক থাকে
+
+        for (const { b, i } of linkedFinance) {
+          const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
+          const finRows = getAll('finance_ledger');
+          const fIdx = finRows.findIndex(r => r.id === fr.id);
+          if (fIdx >= 0) finRows[fIdx] = fr;
+          else finRows.unshift(fr);
+          setAll('finance_ledger', finRows);
+          untrackDeletion('finance_ledger', fr.id);
+          await _pushRecord('finance_ledger', fr);
+          // account balance ও restore করো
+          if (fr.method && parseFloat(fr.amount) > 0) {
+            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+          }
+          const freshBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+          const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
+          if (realIdx !== -1) freshBin.splice(realIdx, 1);
+          localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(freshBin));
+        }
+      } catch (e) {
+        console.warn('[Restore] Student linked finance restore failed:', e);
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────
+
+    const freshBinFinal = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
+    if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
+    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(freshBinFinal));
 
     _logRecentChange(table, 'insert', record);
     _logActivity('add', table, `Restored ${_recycleDisplayName(table, record)} from recycle bin to ${_tableDisplayName(table)}`);

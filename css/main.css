@@ -1227,7 +1227,7 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   z-index: 500;
   justify-content: center;
   align-items: flex-start;
-  padding: 40px 16px;
+  padding: 24px 16px;
   overflow-y: auto;
 }
 .modal-backdrop.open { 
@@ -1295,6 +1295,17 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   margin-bottom: 20px;
 }
 .modal-title { font-size: 1.1rem; font-weight: 700; }
+
+#modal-body {
+  max-height: 80vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+#modal-body::-webkit-scrollbar { width: 5px; }
+#modal-body::-webkit-scrollbar-track { background: transparent; }
+#modal-body::-webkit-scrollbar-thumb { background: rgba(0,217,255,0.3); border-radius: 4px; }
+#modal-body::-webkit-scrollbar-thumb:hover { background: rgba(0,217,255,0.6); }
 
 .modal-close {
   background: none;
