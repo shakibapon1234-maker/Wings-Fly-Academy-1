@@ -603,7 +603,7 @@ const Students = (() => {
       historyTableRows = history.map((f, index) => `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
           <td style="padding:10px 8px">${index + 1}</td>
-          <td style="padding:10px 8px">${f.date}</td>
+          <td style="padding:10px 8px">${Utils.formatDate(f.date)}</td>
           <td style="padding:10px 8px"><span class="badge badge-info">${f.method||'Cash'}</span></td>
           <td style="padding:10px 8px;font-weight:700;color:var(--success)">${Utils.takaEn(f.amount)}</td>
           <td style="padding:10px 8px;text-align:right"><button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')">Delete</button></td>
@@ -612,54 +612,79 @@ const Students = (() => {
     }
 
     Utils.openModal('<i class="fa fa-credit-card"></i> Payment History & Installments', `
+      <!-- Student Info Bar -->
+      <div style="background:rgba(0,180,255,0.08); border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:14px 20px; margin-bottom:18px; display:flex; align-items:center; gap:16px;">
+        <i class="fa fa-user-graduate" style="font-size:1.5rem; color:var(--brand-primary);"></i>
+        <div>
+          <div style="font-size:1.1rem; font-weight:800; color:var(--text-primary);">${s.name}</div>
+          <div style="font-size:0.82rem; color:var(--text-secondary);">ID: ${s.student_id} &nbsp;|&nbsp; Course: ${s.course||'—'} &nbsp;|&nbsp; Batch: ${s.batch||'—'}</div>
+        </div>
+      </div>
+
       <!-- Top Cards -->
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:20px;">
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
-          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">TOTAL FEE</div>
-          <div style="font-size:1.4rem; font-weight:800; color:#00d9ff">${Utils.takaEn(s.total_fee)}</div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:22px;">
+        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(0,217,255,0.25); border-radius:10px; padding:20px; text-align:center;">
+          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">TOTAL FEE</div>
+          <div style="font-size:1.8rem; font-weight:900; color:#00d9ff">${Utils.takaEn(s.total_fee)}</div>
         </div>
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
-          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">PAID TO DATE</div>
-          <div style="font-size:1.4rem; font-weight:800; color:#00ff88">${Utils.takaEn(s.paid)}</div>
+        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(0,255,136,0.25); border-radius:10px; padding:20px; text-align:center;">
+          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">PAID TO DATE</div>
+          <div style="font-size:1.8rem; font-weight:900; color:#00ff88">${Utils.takaEn(s.paid)}</div>
         </div>
-        <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); border-radius:8px; padding:16px; text-align:center;">
-          <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:1px; margin-bottom:8px;">OUTSTANDING DUE</div>
-          <div style="font-size:1.4rem; font-weight:800; color:#ff4757">${Utils.takaEn(s.due)}</div>
+        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(255,71,87,0.25); border-radius:10px; padding:20px; text-align:center;">
+          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">OUTSTANDING DUE</div>
+          <div style="font-size:1.8rem; font-weight:900; color:#ff4757">${Utils.takaEn(s.due)}</div>
         </div>
       </div>
 
       <!-- Add Installment Section -->
-      <div style="border: 1.5px solid var(--border-glow); border-radius: 8px; padding: 16px; margin-bottom: 24px; position: relative;">
-        <div style="font-weight:700; color:var(--brand-primary); margin-bottom:12px;">Add New Installment</div>
-        <div style="display:flex; gap:12px; align-items:center;">
-          <input id="pay-amount" type="number" class="form-control" style="flex:1" placeholder="Amount (e.g. ${s.due})" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
-          <select id="pay-method" class="form-control" style="flex:1" onchange="Utils.onPaymentMethodChange(this, 'pay-bal-display')">
-            <option value="">Select Method...</option>
-            ${Utils.getPaymentMethodsHTML()}
-          </select>
-          <input id="pay-date" type="date" class="form-control" style="max-width:170px" value="${Utils.today()}" />
-          <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:6px; font-weight:700;" onclick="Students.savePayment('${id}')">
-            + ADD & PRINT RECEIPT
-          </button>
+      <div style="border: 1.5px solid var(--border-glow); border-radius: 10px; padding: 22px; margin-bottom: 26px; position: relative; background:rgba(0,0,0,0.15);">
+        <div style="font-size:1rem; font-weight:800; color:var(--brand-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+          <i class="fa fa-plus-circle"></i> Add New Installment
         </div>
-        <div id="pay-bal-display" style="display:none; margin-top:8px;"></div>
-        <div id="pay-error" class="form-error hidden" style="margin-top:8px"></div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:14px; align-items:end;">
+          <div>
+            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">AMOUNT (৳)</label>
+            <input id="pay-amount" type="number" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" placeholder="e.g. ${s.due}" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
+          </div>
+          <div>
+            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">PAYMENT METHOD</label>
+            <select id="pay-method" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" onchange="Utils.onPaymentMethodChange(this, 'pay-bal-display')">
+              <option value="">Select Method...</option>
+              ${Utils.getPaymentMethodsHTML()}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">DATE</label>
+            <input id="pay-date" type="date" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" value="${Utils.today()}" />
+          </div>
+          <div>
+            <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:8px; font-weight:800; font-size:0.85rem; padding:11px 20px; white-space:nowrap; cursor:pointer;" onclick="Students.savePayment('${id}')">
+              <i class="fa fa-plus"></i> ADD & PRINT RECEIPT
+            </button>
+          </div>
+        </div>
+        <div id="pay-bal-display" style="display:none; margin-top:10px;"></div>
+        <div id="pay-error" class="form-error hidden" style="margin-top:10px"></div>
       </div>
 
       <!-- History Table Section -->
-      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom: 8px;">
-        <div style="font-weight:700; color:var(--brand-primary);">Payment History (All Installments)</div>
-        <button class="btn-outline btn-xs" style="color:#ff6b35; border-color:#ff6b35" onclick="Students.printHistory('${id}')"><i class="fa fa-print"></i> PRINT HISTORY</button>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
+        <div style="font-size:1rem; font-weight:800; color:var(--brand-primary); display:flex; align-items:center; gap:8px;">
+          <i class="fa fa-history"></i> Payment History
+          <span style="background:var(--brand-primary); color:#000; font-size:0.72rem; font-weight:900; padding:2px 8px; border-radius:20px;">${history.length} records</span>
+        </div>
+        <button class="btn-outline btn-xs" style="color:#ff6b35; border-color:#ff6b35; padding:7px 14px;" onclick="Students.printHistory('${id}')"><i class="fa fa-print"></i> PRINT HISTORY</button>
       </div>
-      <div style="overflow:hidden; border-radius:8px; border:1px solid rgba(255,255,255,0.1)">
-        <table style="width:100%; border-collapse:collapse; font-size:0.9rem; text-align:left;">
-          <thead style="background:rgba(255,255,255,0.05); border-bottom:2px solid var(--brand-primary);">
+      <div style="overflow:hidden; border-radius:10px; border:1px solid rgba(255,255,255,0.1)">
+        <table style="width:100%; border-collapse:collapse; font-size:0.92rem; text-align:left;">
+          <thead style="background:rgba(255,255,255,0.07); border-bottom:2px solid var(--brand-primary);">
             <tr>
-              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">#</th>
-              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">DATE</th>
-              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">METHOD</th>
-              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px">AMOUNT</th>
-              <th style="padding:10px 8px;font-weight:800;letter-spacing:1px;text-align:right">ACTION</th>
+              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">#</th>
+              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">DATE</th>
+              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">METHOD</th>
+              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">AMOUNT</th>
+              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px;text-align:right">ACTION</th>
             </tr>
           </thead>
           <tbody>
@@ -668,7 +693,7 @@ const Students = (() => {
         </table>
         <div style="height:4px; background:linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); width:100%"></div>
       </div>
-    `);
+    `, 'modal-xl');
   }
 
   /* ══════════════════════════════════════════
@@ -680,13 +705,63 @@ const Students = (() => {
     Utils.formSet('sf-due', Math.max(0, total - paid));
   }
 
+  // Duplicate warning state — একবার warn করার পর force করতে পারবে
+  let _dupWarningAcknowledged = false;
+
   function saveStudent() {
-    const name = Utils.formVal('sf-name');
-    const sid  = Utils.formVal('sf-sid');
+    const name  = Utils.formVal('sf-name');
+    const sid   = Utils.formVal('sf-sid');
+    const phone = Utils.formVal('sf-phone');
     const errEl = document.getElementById('sf-error');
 
     if (!name) { errEl.textContent='Name is required'; errEl.classList.remove('hidden'); return; }
-    if (!sid && !editingId)  { errEl.textContent='Student ID Required'; errEl.classList.remove('hidden'); return; }
+    if (!sid && !editingId) { errEl.textContent='Student ID Required'; errEl.classList.remove('hidden'); return; }
+
+    // ── Duplicate Check (name + phone) ────────────────────────
+    if (!editingId && !_dupWarningAcknowledged) {
+      const allStudents = SupabaseSync.getAll(DB.students);
+      const nameLower   = name.trim().toLowerCase();
+      const phoneClean  = (phone || '').trim().replace(/\D/g, '');
+
+      const duplicate = allStudents.find(s => {
+        const sNameMatch  = s.name?.trim().toLowerCase() === nameLower;
+        const sPhoneClean = (s.phone || '').trim().replace(/\D/g, '');
+        const sPhoneMatch = phoneClean && sPhoneClean && sPhoneClean === phoneClean;
+        return sNameMatch || sPhoneMatch;
+      });
+
+      if (duplicate) {
+        // Warning দেখাও — user চাইলে তবুও save করতে পারবে
+        const dupPhone = duplicate.phone || 'N/A';
+        const dupId    = duplicate.student_id || '';
+        errEl.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; align-items:flex-start; gap:8px;">
+              <i class="fa fa-triangle-exclamation" style="color:#f7a800; font-size:1.1rem; margin-top:2px; flex-shrink:0;"></i>
+              <div>
+                <strong style="color:#f7a800;">Possible Duplicate Entry!</strong><br/>
+                <span style="font-size:0.88rem;">Similar student found: <strong>${duplicate.name}</strong> (ID: ${dupId}, Phone: ${dupPhone})</span>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button type="button"
+                style="background:#f7a800; color:#000; border:none; border-radius:6px; padding:6px 14px; font-weight:800; font-size:0.82rem; cursor:pointer;"
+                onclick="Students._forceSave()">
+                <i class="fa fa-check"></i> Yes, Save Anyway
+              </button>
+              <button type="button"
+                style="background:rgba(255,255,255,0.1); color:var(--text-primary); border:1px solid rgba(255,255,255,0.2); border-radius:6px; padding:6px 14px; font-weight:700; font-size:0.82rem; cursor:pointer;"
+                onclick="document.getElementById('sf-error').classList.add('hidden'); Students._resetDupWarning();">
+                <i class="fa fa-xmark"></i> Cancel
+              </button>
+            </div>
+          </div>`;
+        errEl.classList.remove('hidden');
+        return; // Save বন্ধ রাখো
+      }
+    }
+
+    _dupWarningAcknowledged = false; // Reset করো
 
     const total = Utils.safeNum(Utils.formVal('sf-total-fee'));
     const paid  = Utils.safeNum(Utils.formVal('sf-paid'));
@@ -695,7 +770,7 @@ const Students = (() => {
     const record = {
       student_id:    Utils.formVal('sf-sid'),
       name:          name,
-      phone:         Utils.formVal('sf-phone'),
+      phone:         phone,
       email:         Utils.formVal('sf-email'),
       father_name:   Utils.formVal('sf-father'),
       course:        Utils.formVal('sf-course'),
@@ -714,9 +789,11 @@ const Students = (() => {
       SupabaseSync.update(DB.students, editingId, record);
       Utils.toast('Student info updated ✓', 'success');
     } else {
-      SupabaseSync.insert(DB.students, record);
-      
-      // If there's an initial payment during admission, log it + update balance!
+      // insert করো এবং UUID সহ returned record রাখো
+      const inserted = SupabaseSync.insert(DB.students, record);
+      const studentUUID = inserted.id; // UUID — finance ref_id-এ ব্যবহার হবে
+
+      // Initial payment থাকলে finance-এ log করো (ref_id = UUID)
       if (paid > 0) {
         const method = Utils.formVal('sf-method');
         if (method) {
@@ -728,9 +805,8 @@ const Students = (() => {
             method:      method,
             date:        record.admission_date,
             note:        record.note,
-            ref_id:      record.student_id,
+            ref_id:      studentUUID, // ✅ UUID — restore logic কাজ করবে
           });
-          // Account balance-এ যোগ করো
           SupabaseSync.updateAccountBalance(method, paid, 'in');
         }
       }
@@ -740,6 +816,15 @@ const Students = (() => {
     Utils.closeModal();
     render();
     App.updateNotifCount();
+  }
+
+  // Duplicate warning bypass helpers — global expose করা হয়েছে নিচে return-এ
+  function _forceSave() {
+    _dupWarningAcknowledged = true;
+    saveStudent();
+  }
+  function _resetDupWarning() {
+    _dupWarningAcknowledged = false;
   }
 
   /* ══════════════════════════════════════════
@@ -1094,10 +1179,19 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   async function deleteStudent(id) {
     const s  = SupabaseSync.getById(DB.students, id);
-    const ok = await Utils.confirm(`"${s?.name}" to delete?`, 'Delete Student');
+    const ok = await Utils.confirm(`Delete student "${s?.name}" and all related payment records?`, 'Delete Student');
     if (!ok) return;
+
+    // এই student-এর সব finance payment খুঁজে account balance reverse করো
+    const allFinance = SupabaseSync.getAll(DB.finance);
+    const studentPayments = allFinance.filter(f => f.ref_id === id && f.category === 'Student Fee');
+    studentPayments.forEach(f => {
+      if (f.method) SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out');
+      SupabaseSync.remove(DB.finance, f.id);
+    });
+
     SupabaseSync.remove(DB.students, id);
-    Utils.toast('Student deleted', 'info');
+    Utils.toast(`Student deleted — ${studentPayments.length} payment(s) also moved to RecycleBin`, 'info');
     render();
     App.updateNotifCount();
   }
@@ -1185,7 +1279,8 @@ const Students = (() => {
     printHistory,
     printReceipt,
     deletePayment,
-    setReminder, _saveReminder
+    setReminder, _saveReminder,
+    _forceSave, _resetDupWarning
   };
 
 })();

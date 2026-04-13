@@ -107,7 +107,8 @@ const Utils = (() => {
     bodyEl.innerHTML = bodyHTML;
 
     if (box) {
-      box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '720px' : sizeClass === 'modal-xl' ? '860px' : '560px';
+      box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '720px' : sizeClass === 'modal-xl' ? '980px' : sizeClass === 'modal-xxl' ? '1200px' : '560px';
+      box.style.width = sizeClass === 'modal-xl' ? '98vw' : sizeClass === 'modal-xxl' ? '98vw' : '';
       
       // Dynamic PowerPoint-style Entrance Animations
       box.classList.remove('anim-slide-left', 'anim-slide-right', 'anim-drop-spin', 'anim-zoom-in', 'anim-fade-up', 'anim-slide-down');

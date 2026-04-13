@@ -518,10 +518,21 @@ const Finance = (() => {
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      // Transfer In/Out ও balance reverse হয়, কিন্তু Loan type হলে loans.js handle করে
       const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in' };
       const reverseDir = dirMap[entry.type];
       if (reverseDir) SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
+
+      // ── Student Fee হলে student-এর paid/due ও reverse করো ──
+      if (entry.type === 'Income' && entry.category === 'Student Fee' && entry.ref_id) {
+        const students = SupabaseSync.getAll(DB.students);
+        const sIdx = students.findIndex(s => s.id === entry.ref_id);
+        if (sIdx !== -1) {
+          const s = students[sIdx];
+          const newPaid = Math.max(0, (parseFloat(s.paid) || 0) - Utils.safeNum(entry.amount));
+          const newDue  = Math.max(0, (parseFloat(s.total_fee) || 0) - newPaid);
+          SupabaseSync.update(DB.students, s.id, { paid: newPaid, due: newDue });
+        }
+      }
     }
     SupabaseSync.remove(DB.finance, id); // RecycleBin-এ যাবে
     Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');
