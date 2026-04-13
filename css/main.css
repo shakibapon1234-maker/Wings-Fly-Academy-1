@@ -1634,7 +1634,7 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
 .login-input {
   width: 100%;
   box-sizing: border-box;
-  background: rgba(0,0,0,0.55);
+  background: rgba(5,10,35,0.80) !important;
   border: 1px solid rgba(0,80,180,0.30);
   border-radius: 10px;
   color: rgba(255,255,255,0.85);
@@ -1643,10 +1643,20 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   outline: none;
   transition: border-color 0.25s, box-shadow 0.25s, background 0.25s;
   font-family: var(--font-ui);
+  -webkit-text-fill-color: rgba(255,255,255,0.85);
 }
 .login-input-clean {
-  background: rgba(0,0,0,0.60);
+  background: rgba(5,10,35,0.80) !important;
   border: 1px solid rgba(0,70,160,0.28);
+}
+/* Override browser autofill white background */
+.login-input:-webkit-autofill,
+.login-input:-webkit-autofill:hover,
+.login-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0px 1000px rgba(5,10,45,0.95) inset !important;
+  -webkit-text-fill-color: rgba(255,255,255,0.85) !important;
+  background-color: rgba(5,10,45,0.95) !important;
+  caret-color: #fff;
 }
 .login-input::placeholder {
   color: rgba(255,255,255,0.20);
@@ -1668,24 +1678,26 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0,80,180,0.12);
-  border: 1px solid rgba(0,100,220,0.20);
+  background: rgba(0,200,140,0.15);
+  border: 1px solid rgba(0,220,150,0.40);
   border-radius: 7px;
   cursor: pointer;
-  color: rgba(0,140,255,0.55);
+  color: rgba(0,230,160,0.90);
   font-size: 0.85rem;
   padding: 5px 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.2s, background 0.2s;
+  transition: color 0.2s, background 0.2s, box-shadow 0.2s;
   height: 28px;
   width: 32px;
   z-index: 2;
+  box-shadow: 0 0 8px rgba(0,220,150,0.15);
 }
 .login-eye-btn:hover {
-  color: #60b8ff;
-  background: rgba(0,120,255,0.18);
+  color: #00ffb0;
+  background: rgba(0,220,150,0.28);
+  box-shadow: 0 0 12px rgba(0,220,150,0.35);
 }
 
 /* ── ERROR ───────────────────────────────────────────────────── */
