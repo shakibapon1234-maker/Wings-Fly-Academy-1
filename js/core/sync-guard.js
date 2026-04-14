@@ -64,14 +64,14 @@ const SyncGuard = (() => {
 
     const msg = msgs[entry.type] || `⚠️ SyncGuard: ${entry.type}`;
 
-    // Show toast if Utils available
-    if (typeof Utils !== 'undefined' && Utils.toast) {
-      Utils.toast(msg, entry.type.includes('Error') || entry.type === 'negative_balance' ? 'error' : 'warning');
-    }
+    const isCritical = (entry.type === 'negative_balance' || entry.type === 'merge_conflict');
 
-    // Also show a persistent floating alert for critical issues
-    if (entry.type === 'negative_balance' || entry.type === 'merge_conflict') {
+    if (isCritical) {
+      // Show persistent floating alert for critical issues
       _showFloatingAlert(msg, entry.id);
+    } else if (typeof Utils !== 'undefined' && Utils.toast) {
+      // Normal toast for non-critical
+      Utils.toast(msg, entry.type.includes('Error') ? 'error' : 'warning');
     }
   }
 
@@ -79,10 +79,19 @@ const SyncGuard = (() => {
     const existing = document.getElementById(`sg-alert-${id}`);
     if (existing) return;
 
+    let container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+
     const el = document.createElement('div');
     el.id = `sg-alert-${id}`;
+    // Using the same toast flex behavior so it stacks perfectly avoiding overlap
+    el.className = 'toast toast-error show'; 
     el.style.cssText = [
-      'position:fixed', 'bottom:80px', 'right:20px', 'z-index:99999',
+      'pointer-events:all', 'transform:none', 'opacity:1',
       'background:rgba(20,20,30,0.97)', 'border:1px solid rgba(255,71,87,0.6)',
       'border-radius:10px', 'padding:12px 16px', 'max-width:340px',
       'font-size:0.83rem', 'color:#fff', 'box-shadow:0 4px 20px rgba(255,71,87,0.3)',
@@ -94,14 +103,14 @@ const SyncGuard = (() => {
       <style>
         @keyframes sg-slide-in { from { transform:translateX(120%); opacity:0; } to { transform:translateX(0); opacity:1; } }
       </style>
-      <div style="flex:1;line-height:1.5">${msg}</div>
-      <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1rem;padding:0;flex-shrink:0">✕</button>
+      <div style="flex:1;line-height:1.5"><span style="color:red;font-size:1.1rem;margin-right:6px">🔴</span>${msg}</div>
+      <button onclick="this.parentElement.remove()" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:1rem;padding:0 0 0 5px;flex-shrink:0;transition:0.2s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#aaa'">✕</button>
     `;
 
-    document.body.appendChild(el);
+    container.appendChild(el);
 
     // Auto-remove after 12 seconds
-    setTimeout(() => { el.remove(); }, 12000);
+    setTimeout(() => { if (el.parentElement) el.remove(); }, 12000);
   }
 
   // ── Badge (unread count) ──────────────────────────────────
