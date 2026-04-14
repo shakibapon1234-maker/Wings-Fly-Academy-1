@@ -71,7 +71,7 @@ const SyncGuard = (() => {
       _showFloatingAlert(msg, entry.id);
     } else if (typeof Utils !== 'undefined' && Utils.toast) {
       // Normal toast for non-critical
-      Utils.toast(msg, entry.type.includes('Error') ? 'error' : 'warning');
+      Utils.toast(msg, entry.type.includes('Error') ? 'error' : 'warning', 8000);
     }
   }
 
@@ -356,7 +356,7 @@ const SyncGuard = (() => {
       typeof Utils !== 'undefined' && Utils.toast && Utils.toast('✅ Full audit passed — no issues found', 'success');
     } else {
       const total = f.issues.length + b.discrepancies.length;
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`⚠️ Audit found ${total} issue(s) — check SyncGuard log`, 'error');
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`⚠️ Audit found ${total} issue(s) — check SyncGuard log`, 'error', 8000);
     }
 
     _updateBadge();
