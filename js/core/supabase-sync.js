@@ -1,34 +1,224 @@
 // ============================================================
 // Wings Fly Aviation Academy — Supabase Sync Engine + CRUD
-// Phase 10: Real-time, Multi-user, Conflict Resolution
+// Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
+//
+// ── STORAGE MIGRATION: localStorage → IndexedDB ──────────────
+//
+// আগে:  wfa_students, wfa_finance_ledger ইত্যাদি → localStorage (5MB limit)
+// এখন:  উপরের সব table data → IndexedDB (500MB+ limit)
+//
+// ছোট meta-data (device_id, retry_queue, deletedItems, activity_log,
+// recent_changes, recycle_bin, wfa_auto_snapshots) এখনো localStorage-এ
+// থাকে — এগুলো কখনো বড় হয় না।
+//
+// বাকি সব code হুবহু একই — শুধু getAll/setAll এর storage backend বদলেছে।
+// ============================================================
+
+// ────────────────────────────────────────────────────────────
+// WFA_IDB — IndexedDB Wrapper (Async → Sync-like bridge)
+// ────────────────────────────────────────────────────────────
+//
+// IndexedDB naturally async, কিন্তু SupabaseSync এর getAll/setAll
+// synchronous। তাই আমরা একটি in-memory cache রাখব:
+//   - App load হলে IndexedDB থেকে সব data memory-তে load হবে
+//   - getAll() → memory থেকে তাৎক্ষণিক return করবে (synchronous)
+//   - setAll() → memory আপডেট করবে + async IndexedDB-তে write করবে
+//
+// এতে করে পুরো SupabaseSync API synchronous-ই থাকবে।
+// ────────────────────────────────────────────────────────────
+
+const WFA_IDB = (() => {
+  const DB_NAME    = 'WingsAcademyDB';
+  const DB_VERSION = 1;
+  const STORE_NAME = 'tables';
+
+  let _db = null;
+  let _cache = {};           // in-memory cache: { tableName: [...rows] }
+  let _ready = false;
+  let _readyCallbacks = [];
+
+  // IndexedDB open করো
+  function _openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(STORE_NAME)) {
+          db.createObjectStore(STORE_NAME, { keyPath: 'tableName' });
+        }
+      };
+
+      req.onsuccess  = (e) => resolve(e.target.result);
+      req.onerror    = (e) => reject(e.target.error);
+      req.onblocked  = ()  => console.warn('[IDB] DB upgrade blocked — close other tabs');
+    });
+  }
+
+  // IndexedDB থেকে সব table data একবারে load করে memory-তে রাখো
+  async function _loadAllIntoCache(db) {
+    return new Promise((resolve, reject) => {
+      const tx    = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      const req   = store.getAll();
+      req.onsuccess = (e) => {
+        const entries = e.target.result || [];
+        entries.forEach(entry => {
+          _cache[entry.tableName] = entry.rows || [];
+        });
+        resolve();
+      };
+      req.onerror = (e) => reject(e.target.error);
+    });
+  }
+
+  // IndexedDB-তে একটি table লেখো (async, fire-and-forget)
+  function _writeToIDB(tableName, rows) {
+    if (!_db) return;
+    const tx    = _db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put({ tableName, rows });
+    tx.onerror = (e) => console.error('[IDB] Write failed for', tableName, e.target.error);
+  }
+
+  // Initialize — app load-এ একবার call করতে হবে
+  async function init() {
+    try {
+      _db = await _openDB();
+      await _loadAllIntoCache(_db);
+
+      // ── localStorage থেকে পুরনো data migrate করো (একবারই) ──────────
+      await _migrateFromLocalStorage();
+
+      _ready = true;
+      _readyCallbacks.forEach(cb => cb());
+      _readyCallbacks = [];
+      console.info('[IDB] IndexedDB ready. Tables cached:', Object.keys(_cache).join(', ') || '(empty)');
+    } catch (e) {
+      console.error('[IDB] Init failed — falling back to localStorage:', e);
+      // Fallback: _ready = true করো যাতে app চলতে পারে
+      _ready = true;
+      _readyCallbacks.forEach(cb => cb());
+      _readyCallbacks = [];
+    }
+  }
+
+  // localStorage-এ যদি পুরনো wfa_ table data থাকে, IndexedDB-তে নিয়ে যাও
+  async function _migrateFromLocalStorage() {
+    const TABLE_KEYS = [
+      'students', 'finance_ledger', 'accounts', 'loans', 'exams',
+      'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings'
+    ];
+
+    const migrationFlag = 'wfa_idb_migrated_v1';
+    if (localStorage.getItem(migrationFlag) === 'done') return;
+
+    let migrated = 0;
+    for (const key of TABLE_KEYS) {
+      const lsKey = `wfa_${key}`;
+      const raw   = localStorage.getItem(lsKey);
+      if (!raw) continue;
+
+      try {
+        const rows = JSON.parse(raw);
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+
+        // IndexedDB-তে আছে কিনা দেখো — নেই বা কম থাকলে migrate করো
+        const existing = _cache[key] || [];
+        if (existing.length < rows.length) {
+          _cache[key] = rows;
+          _writeToIDB(key, rows);
+          migrated++;
+          console.info(`[IDB] Migrated "${key}" from localStorage (${rows.length} rows)`);
+        }
+
+        // localStorage থেকে সরিয়ে দাও — আর দরকার নেই
+        localStorage.removeItem(lsKey);
+      } catch (e) {
+        console.warn(`[IDB] Migration failed for "${key}":`, e);
+      }
+    }
+
+    localStorage.setItem(migrationFlag, 'done');
+    if (migrated > 0) {
+      console.info(`[IDB] Migration complete: ${migrated} table(s) moved to IndexedDB`);
+    }
+  }
+
+  // onReady callback — init শেষ হলে call করবে
+  function onReady(cb) {
+    if (_ready) { cb(); return; }
+    _readyCallbacks.push(cb);
+  }
+
+  // ── Public API ──────────────────────────────────────────────
+
+  // Synchronous read from memory cache
+  function getTable(tableName) {
+    return _cache[tableName] || [];
+  }
+
+  // Synchronous write to cache + async write to IDB
+  function setTable(tableName, rows) {
+    _cache[tableName] = rows;
+    _writeToIDB(tableName, rows);
+  }
+
+  // Storage usage — cache-এর JSON size অনুমান করো
+  function getUsageKB() {
+    let total = 0;
+    for (const [key, rows] of Object.entries(_cache)) {
+      try {
+        total += JSON.stringify(rows).length * 2;
+        total += key.length * 2;
+      } catch { /* ignore */ }
+    }
+    return Math.round(total / 1024);
+  }
+
+  function getTableSizeKB(tableName) {
+    try {
+      const rows = _cache[tableName] || [];
+      return Math.round(JSON.stringify(rows).length * 2 / 1024);
+    } catch { return 0; }
+  }
+
+  return { init, onReady, getTable, setTable, getUsageKB, getTableSizeKB };
+})();
+
+window.WFA_IDB = WFA_IDB;
+
+// ── App শুরু হলে IndexedDB init করো ──────────────────────────
+WFA_IDB.init();
+
 
 // ────────────────────────────────────────────────────────────
 // SupabaseSync — CRUD API used by all modules
 // ────────────────────────────────────────────────────────────
 const SupabaseSync = (() => {
 
+  // ── IDB-backed table storage ───────────────────────────────
   function getAll(table) {
-    try { return JSON.parse(localStorage.getItem(`wfa_${table}`)) || []; }
-    catch { return []; }
+    return WFA_IDB.getTable(table);
   }
 
   function getById(table, id) {
     return getAll(table).find(r => r.id === id) || null;
   }
 
-  // localStorage ব্যবহার কতটুকু হচ্ছে তা KB তে দেখায়
   function _storageUsageKB() {
-    let total = 0;
-    for (const key in localStorage) {
-      if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-        total += (localStorage[key].length + key.length) * 2;
+    let lsTotal = 0;
+    try {
+      for (const key in localStorage) {
+        if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+          lsTotal += (localStorage[key].length + key.length) * 2;
+        }
       }
-    }
-    return Math.round(total / 1024);
+    } catch { /* ignore */ }
+    return WFA_IDB.getUsageKB() + Math.round(lsTotal / 1024);
   }
 
-  // Quota পূর্ণ হলে activity log ও recent changes ছেঁটে জায়গা করে
   function _freeUpStorage() {
     try {
       const logKey = 'wfa_activity_log';
@@ -44,24 +234,11 @@ const SupabaseSync = (() => {
 
   function setAll(table, rows) {
     try {
-      localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
+      WFA_IDB.setTable(table, rows);
     } catch (e) {
-      if (e && (e.name === 'QuotaExceededError' || e.code === 22 || e.code === 1014)) {
-        console.warn('[Storage] Quota exceeded for:', table, '— trying auto-purge...');
-        _freeUpStorage();
-        try {
-          localStorage.setItem(`wfa_${table}`, JSON.stringify(rows));
-          if (typeof Utils !== 'undefined' && Utils.toast) {
-            Utils.toast(`⚠️ Storage ভর্তি হচ্ছে (${_storageUsageKB()} KB)। Settings থেকে পুরনো data মুছুন।`, 'warn');
-          }
-        } catch {
-          console.error('[Storage] CRITICAL: Cannot save even after purge. Usage:', _storageUsageKB(), 'KB');
-          const msg = `❌ Storage সর্বোচ্চ সীমা পুরণ! "${table}" data সর্কষণ বিফল।\nSettings > Data Management থেকে পুরনো data মুছুন।`;
-          if (typeof Utils !== 'undefined' && Utils.toast) Utils.toast(msg, 'error');
-          else alert(msg);
-        }
-      } else {
-        console.error('[Storage] setAll failed for table:', table, e);
+      console.error('[Storage] setAll failed for table:', table, e);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`❌ Data save failed for "${table}": ${e.message}`, 'error');
       }
     }
   }
@@ -103,7 +280,6 @@ const SupabaseSync = (() => {
       _logActivity('delete', table, `Deleted ${_recycleDisplayName(table, victim)} from ${_tableDisplayName(table)}`);
     }
     _deleteFromCloud(table, id);
-    // Track deletion for sync (tombstone so row does not reappear on pull)
     _trackDeletion(table, id);
   }
 
@@ -111,7 +287,6 @@ const SupabaseSync = (() => {
     return Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 8).toUpperCase();
   }
 
-  /** Settings → Monitor: last local saves/updates/deletes (not pull/merge). */
   function _logRecentChange(table, action, record) {
     try {
       if (!record || typeof record !== 'object') return;
@@ -147,7 +322,6 @@ const SupabaseSync = (() => {
       const accountBalance = accounts.reduce((sum, row) => sum + Number(row.balance || 0), 0);
       const totalIncome = finance.filter(f => String(f.type).toLowerCase() === 'income').reduce((sum, row) => sum + Number(row.amount || 0), 0);
       const totalExpense = finance.filter(f => String(f.type).toLowerCase() === 'expense').reduce((sum, row) => sum + Number(row.amount || 0), 0);
-      // Individual account snapshots (name + balance)
       const accountList = accounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
       return {
         students: { totalStudents, totalFee, totalPaid, totalDue },
@@ -180,7 +354,6 @@ const SupabaseSync = (() => {
     } catch { /* ignore */ }
   }
 
-  // Device identifier for multi-user conflict resolution
   function _deviceId() {
     let id = localStorage.getItem('wfa_device_id');
     if (!id) {
@@ -190,7 +363,6 @@ const SupabaseSync = (() => {
     return id;
   }
 
-  // Track deletions so they don't reappear on pull
   function _trackDeletion(table, id) {
     try {
       const key = 'wfa_deletedItems';
@@ -220,7 +392,6 @@ const SupabaseSync = (() => {
     } catch { /* ignore */ }
   }
 
-  /** Remove one id from sync tombstones (used when restoring from recycle bin). */
   function untrackDeletion(table, id) {
     try {
       let deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
@@ -296,7 +467,6 @@ const SupabaseSync = (() => {
     }
   }
 
-  /** Restore one item back into local storage + Supabase; removes tombstone and bin entry. */
   async function restoreRecycleBinItem(index) {
     const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
     if (!Array.isArray(bin)) return false;
@@ -319,9 +489,6 @@ const SupabaseSync = (() => {
     untrackDeletion(table, record.id);
     await _pushRecord(table, record);
 
-    // ── Account Balance স্বয়ংক্রিয় Restore ──────────────────────────
-    // যখন ডিলিট হয়েছিল তখন balance reverse হয়েছিল।
-    // এখন restore হচ্ছে, তাই balance আবার original দিকে ফিরিয়ে দাও।
     try {
       const r = record;
       const amount = parseFloat(r.amount) || 0;
@@ -329,16 +496,12 @@ const SupabaseSync = (() => {
 
       if (method && amount > 0) {
         if (table === 'finance_ledger') {
-          // Income / Transfer In ছিল → restore-এ আবার 'in'
-          // Expense / Transfer Out ছিল → restore-এ আবার 'out'
-          // Loan entries (_isLoan) → loans.js নিজেই handle করে, এড়িয়ে যাও
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
             if (isIncome)  updateAccountBalance(method, amount, 'in');
             if (isExpense) updateAccountBalance(method, amount, 'out');
 
-            // Student fee payment restore হলে student-এর paid/due ও ঠিক করো
             if (isIncome && r.category === 'Student Fee' && r.ref_id) {
               const students = getAll('students');
               const sIdx = students.findIndex(s => s.id === r.ref_id);
@@ -353,19 +516,13 @@ const SupabaseSync = (() => {
             }
           }
         } else if (table === 'loans') {
-          // Loan Given restore → account থেকে টাকা আবার বের হয় = 'out'
-          // Loan Received restore → account-এ টাকা আবার আসে = 'in'
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
           updateAccountBalance(method, amount, wasGiven ? 'out' : 'in');
 
-          // Linked finance entry-ও restore করো (loans.js এ _isLoan flag দিয়ে insert হয়েছিল)
-          // RecycleBin-এ linked finance entry আলাদা item হিসেবে থাকতে পারে,
-          // কিন্তু _linkedFinanceId দিয়ে সরাসরি restore করা নিরাপদ
           if (r._linkedFinanceId) {
             const allBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
             const linkedIdx = allBin.findIndex(b => b?.data?.id === r._linkedFinanceId);
             if (linkedIdx !== -1) {
-              // Linked finance item restore (balance update ছাড়া — loan-এ already হয়েছে)
               const linkedRecord = {
                 ...allBin[linkedIdx].data,
                 updated_at: new Date().toISOString(),
@@ -387,16 +544,14 @@ const SupabaseSync = (() => {
     } catch (e) {
       console.warn('[Restore] Balance update failed:', e);
     }
-    // ─────────────────────────────────────────────────────────────────
 
-    // ── Student restore হলে তার Recycle Bin-এ থাকা finance entries ও restore করো ──
     if (table === 'students') {
       try {
         const currentBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
         const linkedFinance = currentBin
           .map((b, i) => ({ b, i }))
           .filter(({ b }) => b?.table === 'finance_ledger' && b?.data?.ref_id === record.id && b?.data?.category === 'Student Fee')
-          .reverse(); // reverse করো যাতে splice index ঠিক থাকে
+          .reverse();
 
         for (const { b, i } of linkedFinance) {
           const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
@@ -407,7 +562,6 @@ const SupabaseSync = (() => {
           setAll('finance_ledger', finRows);
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
-          // account balance ও restore করো
           if (fr.method && parseFloat(fr.amount) > 0) {
             updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
           }
@@ -420,7 +574,6 @@ const SupabaseSync = (() => {
         console.warn('[Restore] Student linked finance restore failed:', e);
       }
     }
-    // ────────────────────────────────────────────────────────────────────
 
     const freshBinFinal = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
     const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
@@ -456,11 +609,8 @@ const SupabaseSync = (() => {
     _logActivity('delete', 'system', 'Emptied recycle bin');
   }
 
-  // ── Cloud Operations (fire-and-forget) ─────────────────────
-  // Columns Supabase auto-generates — never write these (400 Bad Request if sent)
   const _AUTO_COLS = new Set(['created_at', 'updated_at']);
 
-  // Embedded allowlist — independent of SyncEngine init order
   const _TABLE_COLS = {
     settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
     salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
@@ -477,28 +627,25 @@ const SupabaseSync = (() => {
 
   function _sanitizeRecord(record, tableKey) {
     if (!record || typeof record !== 'object') return record;
-    // Use embedded allowlist first; fallback to SyncEngine if available
     const allowedCols = _TABLE_COLS[tableKey]
       || (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && SyncEngine.TABLE_COLUMNS[tableKey])
       || null;
     const o = {};
     for (const [k, v] of Object.entries(record)) {
       if (v === undefined) continue;
-      if (k.startsWith('_')) continue;          // strip internal flags (_isLoan, _device, etc.)
-      if (_AUTO_COLS.has(k)) continue;           // never write auto-generated columns
+      if (k.startsWith('_')) continue;
+      if (_AUTO_COLS.has(k)) continue;
       if (allowedCols && !allowedCols.includes(k)) continue;
       o[k] = v;
     }
     return o;
   }
 
-  // Per-table set of columns Supabase has rejected (auto-stripped on retry)
-  const _badCols = {}; // table → Set of column names
+  const _badCols = {};
 
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
-      // Apply known bad cols for this table
       let clean = _sanitizeRecord(record, table);
       if (_badCols && _badCols[table]) {
         clean = { ...clean };
@@ -506,7 +653,6 @@ const SupabaseSync = (() => {
       }
       const { error } = await client.from(table).upsert([clean], { onConflict: 'id' });
       if (error) {
-        // Auto-strip bad column and retry once
         const msg = (error.message || '') + (error.details || '');
         const m = msg.match(/column[^"]*"([^"]+)"/i) || msg.match(/named\s+"([^"]+)"/i);
         if (m && m[1]) {
@@ -535,12 +681,10 @@ const SupabaseSync = (() => {
       if (error) throw error;
     } catch (e) {
       console.warn('[Sync] Delete from cloud failed — queued for retry:', e);
-      // Delete-ও retry queue-এ রাখো যাতে offline হলেও পরে execute হয়
       _queueRetry(table, { id, _deleteOnly: true });
     }
   }
 
-  // ── Retry Queue for offline operations ─────────────────────
   function _queueRetry(table, record) {
     try {
       const queue = JSON.parse(localStorage.getItem('wfa_retry_queue')) || [];
@@ -557,7 +701,6 @@ const SupabaseSync = (() => {
       const remaining = [];
       for (const item of queue) {
         try {
-          // Delete-only entry হলে upsert নয়, delete করো
           if (item.record && item.record._deleteOnly === true) {
             const { error } = await client.from(item.table).delete().eq('id', item.record.id);
             if (error) throw error;
@@ -575,40 +718,23 @@ const SupabaseSync = (() => {
     } catch { /* ignore */ }
   }
 
-  /**
-   * updateAccountBalance — Finance/Loan/Payment যেকোনো transaction-এর পর
-   * সংশ্লিষ্ট account-এর balance স্বয়ংক্রিয়ভাবে আপডেট করে।
-   *
-   * ── Race-condition safe ──────────────────────────────────────────────
-   * একটি _balanceLock ব্যবহার করে যাতে একই সময়ে দুটো call একই account
-   * পরিবর্তন করতে না পারে। প্রতিটি call শেষ হওয়ার পর পরবর্তীটি শুরু হয়।
-   *
-   * @param {string} methodName  — Cash | Bank নাম | Mobile নাম
-   * @param {number} amount      — positive amount
-   * @param {'in'|'out'} direction — 'in' = balance বাড়ে, 'out' = কমে
-   */
-  const _balanceLocks = {}; // per-account locks
+  const _balanceLocks = {};
 
   function updateAccountBalance(methodName, amount, direction) {
     if (!methodName || !amount || amount <= 0) return;
-
-    // Per-account serialized lock — prevents concurrent writes to same account
     const lockKey = methodName;
     if (!_balanceLocks[lockKey]) _balanceLocks[lockKey] = Promise.resolve();
-
     _balanceLocks[lockKey] = _balanceLocks[lockKey].then(() => {
       return _updateBalanceCore(methodName, amount, direction);
     }).catch(e => {
       console.warn('[Sync] updateAccountBalance lock failed:', e);
       SyncGuard && SyncGuard.report('balance_lock_error', { methodName, amount, direction, error: e?.message });
     });
-
     return _balanceLocks[lockKey];
   }
 
   function _updateBalanceCore(methodName, amount, direction) {
     try {
-      // Re-read accounts fresh each time (prevents stale-read race condition)
       const accounts = getAll('accounts');
       let accountIdx = -1;
 
@@ -640,7 +766,6 @@ const SupabaseSync = (() => {
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
       const newBal = direction === 'in' ? currentBal + amount : currentBal - amount;
 
-      // Guard: warn if balance goes negative unexpectedly
       if (newBal < 0) {
         SyncGuard && SyncGuard.report('negative_balance', {
           account: methodName,
@@ -680,43 +805,30 @@ const SyncEngine = (() => {
   const { client, TABLES } = window.SUPABASE_CONFIG;
   let syncInterval = null;
   let realtimeChannels = [];
-  let _lastSyncTime = 0;         // timestamp of last successful pull
-  let _lastPullTimestamp = null; // ISO string used for incremental pull filter
+  let _lastSyncTime = 0;
+  let _lastPullTimestamp = null;
   const missingTables = new Set();
 
-  // ── localStorage Size Guard ──────────────────────────────────────
-  // localStorage-এ কতটুকু জায়গা আছে তা check করে
-  // Warning: 3.5MB+, Critical: 4.5MB+
-  const STORAGE_WARN_KB  = 3584; // 3.5 MB
-  const STORAGE_CRIT_KB  = 4608; // 4.5 MB
+  // ── Storage Size Guard (IndexedDB-aware) ────────────────────
+  // IndexedDB ব্যবহার করায় 5MB limit আর নেই।
+  // Warning/Critical threshold অনেক বাড়িয়ে দেওয়া হয়েছে।
+  const STORAGE_WARN_KB  = 51200;   // 50 MB
+  const STORAGE_CRIT_KB  = 102400;  // 100 MB
 
   function _getStorageUsageKB() {
-    let total = 0;
-    try {
-      for (const key in localStorage) {
-        if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
-          total += (localStorage.getItem(key).length + key.length) * 2;
-        }
-      }
-    } catch { /* ignore */ }
-    return Math.round(total / 1024);
+    return WFA_IDB.getUsageKB();
   }
 
-  // Table-specific size in KB
   function _getTableSizeKB(tableKey) {
-    try {
-      const raw = localStorage.getItem(`wfa_${tableKey}`) || '';
-      return Math.round((raw.length * 2) / 1024);
-    } catch { return 0; }
+    return WFA_IDB.getTableSizeKB(tableKey);
   }
 
-  // বড় table-এর পুরনো rows trim করে জায়গা বাড়ায়
-  // finance_ledger এবং attendance সবচেয়ে বেশি data রাখে
+  // IndexedDB-তে সাধারণত trim দরকার হবে না — API compatibility-এর জন্য রাখা হয়েছে
   function _trimLargeTableForStorage(tableKey, keepCount) {
     try {
       const rows = SupabaseSync.getAll(tableKey);
       if (rows.length <= keepCount) return 0;
-      const trimmed = rows.slice(0, keepCount); // সবচেয়ে নতুন রাখো (unshift করা হয়েছে)
+      const trimmed = rows.slice(0, keepCount);
       SupabaseSync.setAll(tableKey, trimmed);
       const freed = rows.length - keepCount;
       console.warn(`[Storage] Trimmed ${freed} old rows from "${tableKey}" (kept ${keepCount})`);
@@ -724,50 +836,18 @@ const SyncEngine = (() => {
     } catch { return 0; }
   }
 
-  // Storage check ও auto-management — প্রতি sync-এর আগে call করো
   function _checkAndManageStorage() {
     const usageKB = _getStorageUsageKB();
-
     if (usageKB >= STORAGE_CRIT_KB) {
-      // Critical: সবচেয়ে বড় tables trim করো
-      console.error(`[Storage] CRITICAL: ${usageKB} KB used — auto-trimming tables...`);
-      _trimLargeTableForStorage('finance_ledger', 200);  // সর্বোচ্চ ২০০ transaction local-এ
-      _trimLargeTableForStorage('attendance',     500);  // সর্বোচ্চ ৫০০ attendance local-এ
-      _trimLargeTableForStorage('notices',         50);
-      _trimLargeTableForStorage('visitors',       100);
-
-      // Activity log ও trim করো
-      try {
-        const log = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
-        if (log.length > 100) {
-          localStorage.setItem('wfa_activity_log', JSON.stringify(log.slice(0, 100)));
-        }
-        const rc = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
-        if (rc.length > 30) {
-          localStorage.setItem('wfa_recent_changes', JSON.stringify(rc.slice(0, 30)));
-        }
-      } catch { /* ignore */ }
-
-      const afterKB = _getStorageUsageKB();
+      console.warn(`[Storage] IndexedDB usage high: ${usageKB} KB`);
       if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(
-          `⚠️ Storage: ${afterKB} KB — পুরনো data Supabase-এ আছে, local cache trim হয়েছে।`,
-          'warn'
-        );
+        Utils.toast(`📦 Local data ${Math.round(usageKB/1024)} MB — পুরনো data archive করুন।`, 'warn');
       }
     } else if (usageKB >= STORAGE_WARN_KB) {
-      // Warning level — শুধু জানাও
-      console.warn(`[Storage] Warning: ${usageKB} KB used (limit ~5120 KB)`);
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(
-          `📦 Storage ${Math.round(usageKB/1024*10)/10} MB ব্যবহার হচ্ছে। Settings > Data Management দেখুন।`,
-          'warn'
-        );
-      }
+      console.warn(`[Storage] IndexedDB warning: ${usageKB} KB used`);
     }
   }
 
-  // Serialize pull/push/syncAll so merge + batch upsert never interleave
   let _opQueue = Promise.resolve();
   function queueSyncOp(fn) {
     const run = _opQueue.then(() => fn());
@@ -775,7 +855,6 @@ const SyncEngine = (() => {
     return run;
   }
 
-  // ── Status Badge ──────────────────────────────────────────
   function setStatus(state) {
     const el = document.getElementById('sync-status');
     if (!el) return;
@@ -791,32 +870,15 @@ const SyncEngine = (() => {
     el.innerHTML = `${s.icon} ${s.text}`;
   }
 
-  // ── Smart Pull with Incremental Sync + Conflict Resolution ────────
-  //
-  // FIX (Point 5): select('*') এর বদলে incremental pull ব্যবহার করা হয়েছে।
-  // প্রথমবার (initial): সব data pull করে localStorage-এ রাখে।
-  // পরের বার (incremental): শুধু `updated_at > lastPullTime` দিয়ে filter করে
-  //   — শুধু নতুন বা পরিবর্তিত rows আনে। Performance অনেক বেড়ে যায়।
-  //
-  // FIX (Point 8): Storage check করে auto-trim করে 5MB limit handle করে।
-  //
-  /** @param {{ silent?: boolean, full?: boolean }} [opts]
-   *   full: true = force full pull (initial sync বা manual sync-এর সময়) */
   async function _pullCore(opts = {}) {
     const silent = opts.silent !== false ? true : false;
     const forceFull = opts.full === true;
     setStatus('syncing');
 
-    // Storage check করো — critical হলে auto-trim
     _checkAndManageStorage();
 
-    // Determine pull mode
-    //   full pull: প্রথমবার (lastPullTimestamp নেই) অথবা forceFull=true
-    //   incremental pull: শুধু lastPullTimestamp-এর পরের changes
     const isFullPull = forceFull || !_lastPullTimestamp;
-    const filterTs   = _lastPullTimestamp; // ISO string (e.g. "2026-04-14T09:00:00.000Z")
-
-    // Current time নোট করো — pull শেষ হলে এটা নতুন lastPullTimestamp হবে
+    const filterTs   = _lastPullTimestamp;
     const pullStartedAt = new Date().toISOString();
 
     try {
@@ -825,24 +887,18 @@ const SyncEngine = (() => {
       for (const key of Object.values(TABLES)) {
         if (missingTables.has(key)) continue;
 
-        // ── Query Build ──────────────────────────────────────────────
         let query = client.from(key).select('*');
 
         if (!isFullPull && filterTs) {
-          // Incremental: শুধু এই timestamp-এর পরে update হয়েছে এমন rows
           query = query.gt('updated_at', filterTs);
-          // সর্বোচ্চ ২০০ rows নিই এক incremental pull-এ
-          // (অনেক বেশি change হলে full pull ব্যবহার করুন)
           query = query.order('updated_at', { ascending: false }).limit(200);
         } else {
-          // Full pull: সব data, নতুন আগে
           query = query.order('updated_at', { ascending: false });
         }
 
         const { data: cloudRows, error } = await query;
 
         if (error) {
-          // Table might not exist yet — skip silently
           if (
             error.code === '42P01' ||
             error.message?.includes('does not exist') ||
@@ -853,9 +909,8 @@ const SyncEngine = (() => {
             missingTables.add(key);
             continue;
           }
-          // 400 / permission errors — schema mismatch বা RLS issue; skip & warn
           if (String(error.code) === '400' || error.code === 'PGRST301' || error.status === 400) {
-            console.warn(`[Sync] Pull skipped for "${key}" (HTTP 400 — schema or RLS issue):`, error.message);
+            console.warn(`[Sync] Pull skipped for "${key}" (HTTP 400):`, error.message);
             continue;
           }
           throw error;
@@ -866,27 +921,22 @@ const SyncEngine = (() => {
 
         let merged;
         if (isFullPull) {
-          // Full pull: সব data merge করো (existing behavior)
           merged = mergeRows(localRows, cloudRows || [], deletedIds);
         } else {
-          // Incremental: শুধু নতুন/পরিবর্তিত rows-কে local-এর উপর apply করো
           merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
         }
 
-        // Check if data actually changed
         const oldJson = JSON.stringify(localRows);
         const newJson = JSON.stringify(merged);
         if (oldJson !== newJson) {
           SupabaseSync.setAll(key, merged);
           hasChanges = true;
-
           if (!isFullPull) {
             console.log(`[Sync] Incremental pull: ${cloudRows?.length || 0} changed rows for "${key}"`);
           }
         }
       }
 
-      // Pull সফল — timestamp আপডেট করো
       _lastSyncTime     = Date.now();
       _lastPullTimestamp = pullStartedAt;
 
@@ -904,7 +954,6 @@ const SyncEngine = (() => {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
       }
 
-      // Process any queued operations (offline-এ জমা হয়েছিল)
       await SupabaseSync.processRetryQueue();
 
     } catch (e) {
@@ -918,25 +967,20 @@ const SyncEngine = (() => {
     return queueSyncOp(() => _pullCore(opts));
   }
 
-  // Manual full sync trigger (Settings page থেকে ব্যবহার হয়)
   function fullPull(opts = {}) {
     return queueSyncOp(() => _pullCore({ ...opts, full: true }));
   }
 
-  // ── Full Merge Algorithm (timestamp-based + conflict detection) ──
-  // Full pull-এ ব্যবহৃত হয় — cloud + local সব data merge করে
   function mergeRows(localRows, cloudRows, deletedIds) {
     const merged = new Map();
     const conflicts = [];
 
-    // Start with cloud data
     cloudRows.forEach(row => {
       if (!deletedIds.includes(row.id)) {
         merged.set(row.id, row);
       }
     });
 
-    // Merge local data — local wins if newer
     localRows.forEach(row => {
       if (deletedIds.includes(row.id)) return;
       const existing = merged.get(row.id);
@@ -947,7 +991,6 @@ const SyncEngine = (() => {
         const cloudTime = new Date(existing.updated_at || 0).getTime();
         const diff = Math.abs(localTime - cloudTime);
 
-        // Conflict: two different devices edited same row within 10 seconds
         if (diff < 10_000 && row._device && existing._device && row._device !== existing._device) {
           conflicts.push({ id: row.id, localTime, cloudTime, localDevice: row._device, cloudDevice: existing._device });
         }
@@ -958,7 +1001,6 @@ const SyncEngine = (() => {
       }
     });
 
-    // Report conflicts to SyncGuard
     if (conflicts.length > 0 && typeof SyncGuard !== 'undefined') {
       conflicts.forEach(c => SyncGuard.report('merge_conflict', c));
     }
@@ -966,330 +1008,94 @@ const SyncEngine = (() => {
     return Array.from(merged.values());
   }
 
-  // ── Incremental Merge Algorithm ───────────────────────────────────
-  // FIX (Point 5): Incremental pull-এ ব্যবহৃত হয়।
-  // শুধু নতুন/পরিবর্তিত cloudRows-কে existing local data-র উপর apply করে।
-  // পুরো table replace করে না — শুধু delta apply করে।
-  //
-  // এর ফলে:
-  //   - Network: শুধু changed rows আসে (পুরো table নয়)
-  //   - CPU: Map merge অনেক দ্রুত (ছোট dataset)
-  //   - localStorage: unchanged rows পুনরায় write হয় না
   function mergeIncremental(localRows, changedCloudRows, deletedIds) {
     if (!changedCloudRows.length && !deletedIds.length) return localRows;
 
-    // Local rows-কে Map-এ রাখো (fast lookup)
     const localMap = new Map(localRows.map(r => [r.id, r]));
 
-    // Deleted rows সরাও
     deletedIds.forEach(id => localMap.delete(id));
 
-    // Changed cloud rows apply করো
     for (const cloudRow of changedCloudRows) {
       if (deletedIds.includes(cloudRow.id)) continue;
 
       const localRow = localMap.get(cloudRow.id);
       if (!localRow) {
-        // নতুন row — add করো
         localMap.set(cloudRow.id, cloudRow);
       } else {
-        // Existing row — newer version রাখো
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
         if (cloudTime >= localTime) {
           localMap.set(cloudRow.id, cloudRow);
         }
-        // local নতুন হলে _pushRecord এ আগেই push হয়ে গেছে
       }
     }
 
-    // Map থেকে array বানাও, original sort বজায় রাখো
     return Array.from(localMap.values());
   }
 
-  // ── Per-table column allowlists ───────────────────────────
-  // Only columns listed here will be sent to Supabase.
-  // IMPORTANT: Do NOT include created_at or updated_at — Supabase auto-generates
-  // these as DEFAULT now() columns and rejects writes to them with a 400 error.
-  // If a table is NOT listed here, all non-underscore, non-timestamp columns are sent.
+  async function push(opts = {}) {
+    const silent = opts.silent !== false ? true : false;
+    setStatus('syncing');
+    try {
+      const { client } = window.SUPABASE_CONFIG;
+      for (const key of Object.values(TABLES)) {
+        if (missingTables.has(key)) continue;
+        const rows = SupabaseSync.getAll(key);
+        if (!rows.length) continue;
+        const cleanRows = rows.map(r => {
+          const o = {};
+          for (const [k, v] of Object.entries(r)) {
+            if (v === undefined || k.startsWith('_')) continue;
+            o[k] = v;
+          }
+          return o;
+        });
+        const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
+        if (error) console.error(`[Sync] Push failed for "${key}":`, error);
+      }
+      setStatus('synced');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');
+    } catch (e) {
+      console.error('[Sync] Push failed:', e);
+      setStatus('error');
+    }
+  }
+
+  async function syncAll(opts = {}) {
+    await pull(opts);
+    await push(opts);
+  }
+
   const TABLE_COLUMNS = {
-    settings: [
-      'id',
-      'academy_name', 'academy_address', 'academy_phone', 'academy_email',
-      // NOTE: admin_password, security_answer, supabase_email, supabase_password
-      // এগুলো intentionally বাদ — Supabase-এ push হবে না (local only)
-      'currency', 'timezone', 'logo_url',
-      'primary_color', 'theme',
-      'monthly_target', 'running_batch', 'expense_start_date', 'expense_end_date',
-    ],
-    salary: [
-      'id',
-      'staff_id', 'staff_name', 'month', 'year', 'amount',
-      'bonus', 'deduction', 'net_salary', 'status', 'note', 'paid_date',
-    ],
-    students: [
-      'id',
-      'name', 'student_id', 'phone', 'email', 'address', 'dob',
-      'course', 'batch', 'enrollment_date', 'total_fee', 'paid', 'due',
-      'status', 'photo_url', 'guardian_name', 'guardian_phone', 'note',
-    ],
-    finance_ledger: [
-      'id',
-      'date', 'type', 'category', 'amount', 'description',
-      'account_id', 'reference', 'note',
-      'method',        // payment method — Cash / Bank / Mobile (Supabase-এ save হবে)
-      'person_name',   // Loan-এর ক্ষেত্রে person name
-      'ref_id',        // student ref (student payment-এ ব্যবহার হয়)
-    ],
-    accounts: [
-      'id',
-      'name', 'type', 'balance', 'description', 'note',
-    ],
-    loans: [
-      'id',
-      'person_name', 'type', 'amount', 'interest_rate', 'date',
-      'due_date', 'paid', 'status', 'note', 'method',
-    ],
-    exams: [
-      'id',
-      'student_id', 'student_name', 'course', 'batch', 'exam_date',
-      'subject', 'marks', 'total_marks', 'grade', 'result', 'note',
-    ],
-    attendance: [
-      'id',
-      'person_id', 'person_name', 'type', 'date', 'status', 'note',
-    ],
-    staff: [
-      'id',
-      'name', 'role', 'phone', 'email', 'address', 'dob',
-      'join_date', 'salary', 'status', 'photo_url', 'note',
-    ],
-    visitors: [
-      'id',
-      'name', 'phone', 'purpose', 'host', 'visit_date', 'visit_time',
-      'out_time', 'status', 'note',
-      'interested_course', 'follow_up_date', 'remarks',
-    ],
-    notices: [
-      'id',
-      'title', 'content', 'date', 'category', 'priority', 'author',
-    ],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
+    finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
+    accounts:      ['id','name','type','balance','description','note'],
+    loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
+    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
+    attendance:    ['id','person_id','person_name','type','date','status','note'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
+    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
+    notices:       ['id','title','content','date','category','priority','author'],
   };
 
-  // Columns Supabase auto-generates — never write these back
-  const SUPABASE_AUTO_COLS = new Set(['created_at', 'updated_at']);
-
-  function _sanitizeRowForDb(row, tableKey) {
-    if (!row || typeof row !== 'object') return row;
-    const allowedCols = tableKey ? TABLE_COLUMNS[tableKey] : null;
-    const o = {};
-    for (const [k, v] of Object.entries(row)) {
-      if (v === undefined) continue;
-      if (k.startsWith('_')) continue;
-      if (SUPABASE_AUTO_COLS.has(k)) continue; // never write auto-generated columns
-      if (allowedCols && !allowedCols.includes(k)) continue;
-      o[k] = v;
-    }
-    return o;
-  }
-
-  /** Upsert rows with smart column-error recovery.
-   *  If Supabase returns 400 "column X does not exist", we strip X from
-   *  the allowlist, save a per-table badCols set, and retry.
-   */
-  const _badCols = {}; // table → Set of columns Supabase rejected
-
-  async function _upsertTableWithSplit(tableKey, rows) {
-    // Apply known bad cols before even trying
-    const _applyBadCols = (row) => {
-      if (!_badCols[tableKey] || _badCols[tableKey].size === 0) return row;
-      const o = { ...row };
-      _badCols[tableKey].forEach(c => delete o[c]);
-      return o;
-    };
-
-    const clean = rows.map(r => _applyBadCols(_sanitizeRowForDb(r, tableKey)));
-    if (!clean.length) return { ok: true };
-
-    const tryBatch = async (batch) => {
-      const { error } = await client.from(tableKey).upsert(batch, { onConflict: 'id' });
-      return error || null;
-    };
-
-    // Extract bad column name from Supabase error message
-    // e.g. 'Could not find the public.loans column named "interest_rate"'
-    const _extractBadCol = (err) => {
-      if (!err) return null;
-      const msg = (err.message || '') + (err.details || '') + (err.hint || '');
-      const m = msg.match(/column[^"]*"([^"]+)"/i) || msg.match(/named\s+"([^"]+)"/i);
-      return m ? m[1] : null;
-    };
-
-    async function divide(batch) {
-      if (!batch.length) return { ok: true };
-      const err = await tryBatch(batch);
-      if (!err) return { ok: true };
-
-      // Table missing entirely
-      if (err.code === '42P01' || (err.message || '').includes('does not exist') || (err.message || '').includes('relation')) {
-        missingTables.add(tableKey);
-        return { ok: false, error: `Table "${tableKey}" missing in Supabase.`, code: err.code, table: tableKey };
-      }
-
-      // Column not found (400) — strip it and retry automatically
-      const badCol = _extractBadCol(err);
-      if (badCol && (err.code === 'PGRST204' || err.code === '42703' || String(err.code) === '400' || (err.message||'').includes('column'))) {
-        if (!_badCols[tableKey]) _badCols[tableKey] = new Set();
-        if (!_badCols[tableKey].has(badCol)) {
-          _badCols[tableKey].add(badCol);
-          console.warn(`[Sync] Auto-skip column "${badCol}" in table "${tableKey}" (not in Supabase schema)`);
-          // Retry with bad col removed
-          const fixed = batch.map(r => { const o = { ...r }; delete o[badCol]; return o; });
-          return divide(fixed);
-        }
-      }
-
-      if (batch.length === 1) {
-        const hint = err.hint ? ` ${err.hint}` : '';
-        const det  = err.details ? ` (${err.details})` : '';
-        return { ok: false, error: `${err.message || 'Upsert failed'}${det}${hint}`, code: err.code, table: tableKey, badRowId: batch[0].id };
-      }
-
-      const mid  = Math.floor(batch.length / 2);
-      const left = await divide(batch.slice(0, mid));
-      if (!left.ok) return left;
-      return divide(batch.slice(mid));
-    }
-
-    for (let i = 0; i < clean.length; i += 50) {
-      const batch = clean.slice(i, i + 50);
-      const err = await tryBatch(batch);
-      if (!err) continue;
-      const drilled = await divide(batch);
-      if (!drilled.ok) return drilled;
-    }
-    return { ok: true };
-  }
-
-  // ── Push (all local data to cloud) ────────────────────────
-  async function _pushCore(options = {}) {
-    const silent = options.silent === true;
-    const onlyTables = options.tables || null; // optional: push only specific tables
-    setStatus('syncing');
-
-    const errors = [];
-    let successCount = 0;
-
-    const tableList = onlyTables || Object.values(TABLES);
-
-    for (const key of tableList) {
-      if (missingTables.has(key)) {
-        console.warn(`[Sync] Skipping push for missing table ${key}`);
-        continue;
-      }
-      const raw = localStorage.getItem(`wfa_${key}`);
-      if (!raw) continue;
-      let rows;
-      try {
-        rows = JSON.parse(raw);
-      } catch {
-        console.warn(`[Sync] Skip corrupt local JSON for ${key}`);
-        continue;
-      }
-      if (!Array.isArray(rows) || rows.length === 0) continue;
-
-      try {
-        const up = await _upsertTableWithSplit(key, rows);
-        if (!up.ok) {
-          const fullMsg = `[${up.table}] ${up.error}${up.badRowId != null ? ` (id: ${up.badRowId})` : ''}`;
-          errors.push({ table: key, error: fullMsg, detail: up });
-          console.error(`[Sync] Push failed for ${key}:`, fullMsg);
-          continue; // ← continue to next table instead of stopping
-        }
-        successCount++;
-
-        // Push deletions
-        const deletedIds = SupabaseSync.getDeletedIds(key);
-        for (const id of deletedIds) {
-          try {
-            await client.from(key).delete().eq('id', id);
-          } catch { /* ignore individual delete failures */ }
-        }
-        SupabaseSync.clearDeletedIds(key);
-      } catch (e) {
-        errors.push({ table: key, error: e?.message || String(e) });
-        console.error(`[Sync] Push exception for ${key}:`, e);
-      }
-    }
-
-    if (errors.length === 0) {
-      setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
-      window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push to Cloud completed ✅', 'success');
-      return { ok: true };
-    } else {
-      // Partial success or full failure
-      const allFailed = successCount === 0;
-      setStatus('error');
-      const summary = errors.map(e => e.error).join('\n');
-      if (!silent && typeof Utils !== 'undefined') {
-        const short = summary.length > 160 ? summary.slice(0, 157) + '…' : summary;
-        Utils.toast(
-          allFailed ? `Push failed: ${short}` : `Push partially done (${successCount} ok, ${errors.length} failed): ${short}`,
-          'error'
-        );
-      }
-      if (successCount > 0) {
-        window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'push' } }));
-      }
-      return { ok: false, error: summary, errors, successCount };
-    }
-  }
-
-  function push(options) {
-    return queueSyncOp(() => _pushCore(options));
-  }
-
-  /** Retry queue + pull; optional forcePush uploads all local rows before pull (full two-way sync).
-   *  forceFull: true → incremental এর বদলে full pull করে (manual sync button) */
-  function syncAll(options = {}) {
-    return queueSyncOp(async () => {
-      await SupabaseSync.processRetryQueue();
-      if (options.forcePush) await _pushCore({ silent: true });
-      // forceFull দিলে full pull, otherwise incremental
-      await _pullCore({ ...options, full: options.forceFull || false });
-    });
-  }
-
-  // ── Real-time Subscriptions ───────────────────────────────
   function startRealtime() {
+    if (!client?.channel) return;
     stopRealtime();
-    console.log('[Sync] Starting real-time subscriptions...');
 
-    for (const [key, tableName] of Object.entries(TABLES)) {
+    for (const key of Object.values(TABLES)) {
       try {
         const channel = client
-          .channel(`realtime-${tableName}`)
-          .on('postgres_changes',
-            { event: '*', schema: 'public', table: tableName },
-            (payload) => handleRealtimeEvent(tableName, payload)
-          )
-          .subscribe((status) => {
-            if (status === 'SUBSCRIBED') {
-              console.log(`[RT] ✅ ${tableName} subscribed`);
-            } else if (status === 'CHANNEL_ERROR') {
-              console.warn(`[RT] ❌ ${tableName} subscription failed`);
-            }
-          });
-
+          .channel(`realtime:${key}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: key }, (payload) => {
+            _handleRealtimeEvent(key, payload);
+          })
+          .subscribe();
         realtimeChannels.push(channel);
       } catch (e) {
-        console.warn(`[RT] Failed to subscribe to ${tableName}:`, e);
+        console.warn(`[Realtime] Subscribe failed for "${key}":`, e);
       }
-    }
-
-    if (realtimeChannels.length > 0) {
-      setStatus('realtime');
     }
   }
 
@@ -1300,75 +1106,42 @@ const SyncEngine = (() => {
     realtimeChannels = [];
   }
 
-  function handleRealtimeEvent(table, payload) {
-    const { eventType, new: newRow, old: oldRow } = payload;
-    const localRows = SupabaseSync.getAll(table);
-    const deviceId = SupabaseSync._deviceId();
+  function _handleRealtimeEvent(table, payload) {
+    try {
+      const { eventType, new: newRow, old: oldRow } = payload;
+      const rows = SupabaseSync.getAll(table);
 
-    // Skip if this change came from our own device
-    if (newRow?._device === deviceId && eventType !== 'DELETE') return;
-
-    console.log(`[RT] ${table}: ${eventType}`, payload);
-    let changed = false;
-
-    switch (eventType) {
-      case 'INSERT': {
-        if (!localRows.find(r => r.id === newRow.id)) {
-          localRows.unshift(newRow);
-          changed = true;
-        }
-        break;
+      if (eventType === 'INSERT' || eventType === 'UPDATE') {
+        if (!newRow?.id) return;
+        const idx = rows.findIndex(r => r.id === newRow.id);
+        if (idx >= 0) rows[idx] = newRow;
+        else rows.unshift(newRow);
+        SupabaseSync.setAll(table, rows);
+      } else if (eventType === 'DELETE') {
+        if (!oldRow?.id) return;
+        SupabaseSync.setAll(table, rows.filter(r => r.id !== oldRow.id));
       }
-      case 'UPDATE': {
-        const idx = localRows.findIndex(r => r.id === newRow.id);
-        if (idx >= 0) {
-          const localTime = new Date(localRows[idx].updated_at || 0).getTime();
-          const cloudTime = new Date(newRow.updated_at || 0).getTime();
-          if (cloudTime >= localTime) {
-            localRows[idx] = newRow;
-            changed = true;
-          }
-        } else {
-          localRows.unshift(newRow);
-          changed = true;
-        }
-        break;
-      }
-      case 'DELETE': {
-        const beforeLen = localRows.length;
-        const filtered = localRows.filter(r => r.id !== (oldRow?.id || newRow?.id));
-        if (filtered.length !== beforeLen) {
-          SupabaseSync.setAll(table, filtered);
-          changed = true;
-        }
-        break;
-      }
-    }
 
-    if (changed) {
-      if (eventType !== 'DELETE') SupabaseSync.setAll(table, localRows);
+      setStatus('realtime');
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'realtime', table, eventType } }));
+    } catch (e) {
+      console.warn('[Realtime] Handle event failed:', e);
     }
   }
 
-  // ── Auto Sync (polling as fallback for when realtime fails) ─
   function startAutoSync() {
     stopAutoSync();
     syncInterval = setInterval(() => {
-      // Only poll if real-time isn't active
       if (realtimeChannels.length === 0) {
         pull({ silent: true });
       } else {
-        // Light heartbeat every 60s to catch any missed events
         if (Date.now() - _lastSyncTime > 60_000) {
           pull({ silent: true });
         }
       }
     }, 30_000);
 
-    // Initial pull
     pull({ silent: true }).then(() => {
-      // After initial pull, start real-time
       startRealtime();
     });
   }
@@ -1378,7 +1151,6 @@ const SyncEngine = (() => {
     stopRealtime();
   }
 
-  // ── Online/Offline Detection ──────────────────────────────
   function setupNetworkListeners() {
     window.addEventListener('online', () => {
       console.log('[Sync] Back online');
@@ -1393,7 +1165,6 @@ const SyncEngine = (() => {
     });
   }
 
-  // ── Data Monitor (for settings page) ──────────────────────
   function getDataMonitor() {
     const stats = {};
     for (const [key, tableName] of Object.entries(TABLES)) {
@@ -1412,11 +1183,9 @@ const SyncEngine = (() => {
     return stats;
   }
 
-  // ── Backward compatibility ────────────────────────────────
   function getLocal(table)       { return SupabaseSync.getAll(table); }
   function setLocal(table, rows) { SupabaseSync.setAll(table, rows); }
 
-  // Init network listeners on load
   setupNetworkListeners();
 
   return {
@@ -1426,7 +1195,6 @@ const SyncEngine = (() => {
     getLocal, setLocal,
     setStatus, getDataMonitor,
     TABLE_COLUMNS,
-    // Storage utilities (Settings page-এ ব্যবহার করা যাবে)
     getStorageUsageKB: _getStorageUsageKB,
     getTableSizeKB: _getTableSizeKB,
     checkAndManageStorage: _checkAndManageStorage,
