@@ -680,8 +680,92 @@ const SyncEngine = (() => {
   const { client, TABLES } = window.SUPABASE_CONFIG;
   let syncInterval = null;
   let realtimeChannels = [];
-  let _lastSyncTime = 0;
+  let _lastSyncTime = 0;         // timestamp of last successful pull
+  let _lastPullTimestamp = null; // ISO string used for incremental pull filter
   const missingTables = new Set();
+
+  // ── localStorage Size Guard ──────────────────────────────────────
+  // localStorage-এ কতটুকু জায়গা আছে তা check করে
+  // Warning: 3.5MB+, Critical: 4.5MB+
+  const STORAGE_WARN_KB  = 3584; // 3.5 MB
+  const STORAGE_CRIT_KB  = 4608; // 4.5 MB
+
+  function _getStorageUsageKB() {
+    let total = 0;
+    try {
+      for (const key in localStorage) {
+        if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+          total += (localStorage.getItem(key).length + key.length) * 2;
+        }
+      }
+    } catch { /* ignore */ }
+    return Math.round(total / 1024);
+  }
+
+  // Table-specific size in KB
+  function _getTableSizeKB(tableKey) {
+    try {
+      const raw = localStorage.getItem(`wfa_${tableKey}`) || '';
+      return Math.round((raw.length * 2) / 1024);
+    } catch { return 0; }
+  }
+
+  // বড় table-এর পুরনো rows trim করে জায়গা বাড়ায়
+  // finance_ledger এবং attendance সবচেয়ে বেশি data রাখে
+  function _trimLargeTableForStorage(tableKey, keepCount) {
+    try {
+      const rows = SupabaseSync.getAll(tableKey);
+      if (rows.length <= keepCount) return 0;
+      const trimmed = rows.slice(0, keepCount); // সবচেয়ে নতুন রাখো (unshift করা হয়েছে)
+      SupabaseSync.setAll(tableKey, trimmed);
+      const freed = rows.length - keepCount;
+      console.warn(`[Storage] Trimmed ${freed} old rows from "${tableKey}" (kept ${keepCount})`);
+      return freed;
+    } catch { return 0; }
+  }
+
+  // Storage check ও auto-management — প্রতি sync-এর আগে call করো
+  function _checkAndManageStorage() {
+    const usageKB = _getStorageUsageKB();
+
+    if (usageKB >= STORAGE_CRIT_KB) {
+      // Critical: সবচেয়ে বড় tables trim করো
+      console.error(`[Storage] CRITICAL: ${usageKB} KB used — auto-trimming tables...`);
+      _trimLargeTableForStorage('finance_ledger', 200);  // সর্বোচ্চ ২০০ transaction local-এ
+      _trimLargeTableForStorage('attendance',     500);  // সর্বোচ্চ ৫০০ attendance local-এ
+      _trimLargeTableForStorage('notices',         50);
+      _trimLargeTableForStorage('visitors',       100);
+
+      // Activity log ও trim করো
+      try {
+        const log = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
+        if (log.length > 100) {
+          localStorage.setItem('wfa_activity_log', JSON.stringify(log.slice(0, 100)));
+        }
+        const rc = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+        if (rc.length > 30) {
+          localStorage.setItem('wfa_recent_changes', JSON.stringify(rc.slice(0, 30)));
+        }
+      } catch { /* ignore */ }
+
+      const afterKB = _getStorageUsageKB();
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(
+          `⚠️ Storage: ${afterKB} KB — পুরনো data Supabase-এ আছে, local cache trim হয়েছে।`,
+          'warn'
+        );
+      }
+    } else if (usageKB >= STORAGE_WARN_KB) {
+      // Warning level — শুধু জানাও
+      console.warn(`[Storage] Warning: ${usageKB} KB used (limit ~5120 KB)`);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(
+          `📦 Storage ${Math.round(usageKB/1024*10)/10} MB ব্যবহার হচ্ছে। Settings > Data Management দেখুন।`,
+          'warn'
+        );
+      }
+    }
+  }
 
   // Serialize pull/push/syncAll so merge + batch upsert never interleave
   let _opQueue = Promise.resolve();
@@ -707,28 +791,69 @@ const SyncEngine = (() => {
     el.innerHTML = `${s.icon} ${s.text}`;
   }
 
-  // ── Smart Pull with Conflict Resolution (core; run inside queue) ──
-  /** @param {{ silent?: boolean }} [opts] — pass `{ silent: false }` from UI for toast feedback */
+  // ── Smart Pull with Incremental Sync + Conflict Resolution ────────
+  //
+  // FIX (Point 5): select('*') এর বদলে incremental pull ব্যবহার করা হয়েছে।
+  // প্রথমবার (initial): সব data pull করে localStorage-এ রাখে।
+  // পরের বার (incremental): শুধু `updated_at > lastPullTime` দিয়ে filter করে
+  //   — শুধু নতুন বা পরিবর্তিত rows আনে। Performance অনেক বেড়ে যায়।
+  //
+  // FIX (Point 8): Storage check করে auto-trim করে 5MB limit handle করে।
+  //
+  /** @param {{ silent?: boolean, full?: boolean }} [opts]
+   *   full: true = force full pull (initial sync বা manual sync-এর সময়) */
   async function _pullCore(opts = {}) {
     const silent = opts.silent !== false ? true : false;
+    const forceFull = opts.full === true;
     setStatus('syncing');
+
+    // Storage check করো — critical হলে auto-trim
+    _checkAndManageStorage();
+
+    // Determine pull mode
+    //   full pull: প্রথমবার (lastPullTimestamp নেই) অথবা forceFull=true
+    //   incremental pull: শুধু lastPullTimestamp-এর পরের changes
+    const isFullPull = forceFull || !_lastPullTimestamp;
+    const filterTs   = _lastPullTimestamp; // ISO string (e.g. "2026-04-14T09:00:00.000Z")
+
+    // Current time নোট করো — pull শেষ হলে এটা নতুন lastPullTimestamp হবে
+    const pullStartedAt = new Date().toISOString();
 
     try {
       let hasChanges = false;
 
       for (const key of Object.values(TABLES)) {
-        const { data: cloudRows, error } = await client
-          .from(key)
-          .select('*');
+        if (missingTables.has(key)) continue;
+
+        // ── Query Build ──────────────────────────────────────────────
+        let query = client.from(key).select('*');
+
+        if (!isFullPull && filterTs) {
+          // Incremental: শুধু এই timestamp-এর পরে update হয়েছে এমন rows
+          query = query.gt('updated_at', filterTs);
+          // সর্বোচ্চ ২০০ rows নিই এক incremental pull-এ
+          // (অনেক বেশি change হলে full pull ব্যবহার করুন)
+          query = query.order('updated_at', { ascending: false }).limit(200);
+        } else {
+          // Full pull: সব data, নতুন আগে
+          query = query.order('updated_at', { ascending: false });
+        }
+
+        const { data: cloudRows, error } = await query;
 
         if (error) {
           // Table might not exist yet — skip silently
-          if (error.code === '42P01' || error.message?.includes('does not exist') || error.message?.includes('relation') || error.message?.includes('could not find')) {
+          if (
+            error.code === '42P01' ||
+            error.message?.includes('does not exist') ||
+            error.message?.includes('relation') ||
+            error.message?.includes('could not find')
+          ) {
             console.warn(`[Sync] Table "${key}" does not exist or is unavailable, skipping`);
             missingTables.add(key);
             continue;
           }
-          // 400 / permission errors — table exists but schema mismatch or RLS issue; skip & warn
+          // 400 / permission errors — schema mismatch বা RLS issue; skip & warn
           if (String(error.code) === '400' || error.code === 'PGRST301' || error.status === 400) {
             console.warn(`[Sync] Pull skipped for "${key}" (HTTP 400 — schema or RLS issue):`, error.message);
             continue;
@@ -736,11 +861,17 @@ const SyncEngine = (() => {
           throw error;
         }
 
-        const localRows = SupabaseSync.getAll(key);
+        const localRows  = SupabaseSync.getAll(key);
         const deletedIds = SupabaseSync.getDeletedIds(key);
 
-        // Merge: cloud data + local-only data, respecting deletions
-        const merged = mergeRows(localRows, cloudRows || [], deletedIds);
+        let merged;
+        if (isFullPull) {
+          // Full pull: সব data merge করো (existing behavior)
+          merged = mergeRows(localRows, cloudRows || [], deletedIds);
+        } else {
+          // Incremental: শুধু নতুন/পরিবর্তিত rows-কে local-এর উপর apply করো
+          merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
+        }
 
         // Check if data actually changed
         const oldJson = JSON.stringify(localRows);
@@ -748,15 +879,23 @@ const SyncEngine = (() => {
         if (oldJson !== newJson) {
           SupabaseSync.setAll(key, merged);
           hasChanges = true;
+
+          if (!isFullPull) {
+            console.log(`[Sync] Incremental pull: ${cloudRows?.length || 0} changed rows for "${key}"`);
+          }
         }
       }
 
-      _lastSyncTime = Date.now();
+      // Pull সফল — timestamp আপডেট করো
+      _lastSyncTime     = Date.now();
+      _lastPullTimestamp = pullStartedAt;
+
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
 
       if (!silent && typeof Utils !== 'undefined') {
+        const mode = isFullPull ? 'Full sync' : 'Incremental sync';
         Utils.toast(
-          hasChanges ? 'Pulled updates from cloud' : 'Pull complete — data in sync with cloud',
+          hasChanges ? `${mode} complete — নতুন data পাওয়া গেছে ✅` : `${mode} complete — সব up to date ✅`,
           'success'
         );
       }
@@ -765,13 +904,13 @@ const SyncEngine = (() => {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
       }
 
-      // Process any queued operations
+      // Process any queued operations (offline-এ জমা হয়েছিল)
       await SupabaseSync.processRetryQueue();
 
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
       setStatus('error');
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Pull from cloud failed', 'error');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Pull from cloud failed ❌', 'error');
     }
   }
 
@@ -779,7 +918,13 @@ const SyncEngine = (() => {
     return queueSyncOp(() => _pullCore(opts));
   }
 
-  // ── Merge Algorithm (timestamp-based + conflict detection) ──
+  // Manual full sync trigger (Settings page থেকে ব্যবহার হয়)
+  function fullPull(opts = {}) {
+    return queueSyncOp(() => _pullCore({ ...opts, full: true }));
+  }
+
+  // ── Full Merge Algorithm (timestamp-based + conflict detection) ──
+  // Full pull-এ ব্যবহৃত হয় — cloud + local সব data merge করে
   function mergeRows(localRows, cloudRows, deletedIds) {
     const merged = new Map();
     const conflicts = [];
@@ -819,6 +964,47 @@ const SyncEngine = (() => {
     }
 
     return Array.from(merged.values());
+  }
+
+  // ── Incremental Merge Algorithm ───────────────────────────────────
+  // FIX (Point 5): Incremental pull-এ ব্যবহৃত হয়।
+  // শুধু নতুন/পরিবর্তিত cloudRows-কে existing local data-র উপর apply করে।
+  // পুরো table replace করে না — শুধু delta apply করে।
+  //
+  // এর ফলে:
+  //   - Network: শুধু changed rows আসে (পুরো table নয়)
+  //   - CPU: Map merge অনেক দ্রুত (ছোট dataset)
+  //   - localStorage: unchanged rows পুনরায় write হয় না
+  function mergeIncremental(localRows, changedCloudRows, deletedIds) {
+    if (!changedCloudRows.length && !deletedIds.length) return localRows;
+
+    // Local rows-কে Map-এ রাখো (fast lookup)
+    const localMap = new Map(localRows.map(r => [r.id, r]));
+
+    // Deleted rows সরাও
+    deletedIds.forEach(id => localMap.delete(id));
+
+    // Changed cloud rows apply করো
+    for (const cloudRow of changedCloudRows) {
+      if (deletedIds.includes(cloudRow.id)) continue;
+
+      const localRow = localMap.get(cloudRow.id);
+      if (!localRow) {
+        // নতুন row — add করো
+        localMap.set(cloudRow.id, cloudRow);
+      } else {
+        // Existing row — newer version রাখো
+        const localTime = new Date(localRow.updated_at || 0).getTime();
+        const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
+        if (cloudTime >= localTime) {
+          localMap.set(cloudRow.id, cloudRow);
+        }
+        // local নতুন হলে _pushRecord এ আগেই push হয়ে গেছে
+      }
+    }
+
+    // Map থেকে array বানাও, original sort বজায় রাখো
+    return Array.from(localMap.values());
   }
 
   // ── Per-table column allowlists ───────────────────────────
@@ -1064,12 +1250,14 @@ const SyncEngine = (() => {
     return queueSyncOp(() => _pushCore(options));
   }
 
-  /** Retry queue + pull; optional forcePush uploads all local rows before pull (full two-way sync). */
+  /** Retry queue + pull; optional forcePush uploads all local rows before pull (full two-way sync).
+   *  forceFull: true → incremental এর বদলে full pull করে (manual sync button) */
   function syncAll(options = {}) {
     return queueSyncOp(async () => {
       await SupabaseSync.processRetryQueue();
       if (options.forcePush) await _pushCore({ silent: true });
-      await _pullCore(options);
+      // forceFull দিলে full pull, otherwise incremental
+      await _pullCore({ ...options, full: options.forceFull || false });
     });
   }
 
@@ -1232,12 +1420,17 @@ const SyncEngine = (() => {
   setupNetworkListeners();
 
   return {
-    pull, push, syncAll,
+    pull, push, syncAll, fullPull,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,
     setStatus, getDataMonitor,
     TABLE_COLUMNS,
+    // Storage utilities (Settings page-এ ব্যবহার করা যাবে)
+    getStorageUsageKB: _getStorageUsageKB,
+    getTableSizeKB: _getTableSizeKB,
+    checkAndManageStorage: _checkAndManageStorage,
+    trimTableForStorage: _trimLargeTableForStorage,
   };
 })();
 window.SyncEngine = SyncEngine;

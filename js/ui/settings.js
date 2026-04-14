@@ -816,9 +816,14 @@ const SettingsModule = (() => {
   function panelData() {
     return `
     <div class="settings-panel ${activeTab === 'data' ? 'active' : ''}" data-panel="data">
-      <!-- ── Storage Usage Indicator ──────────────────────────────── -->
+      <!-- ── Storage Usage Indicator (Enhanced) ───────────────────── -->
       <div class="settings-card" style="border-color:rgba(0,212,255,0.25);margin-bottom:14px" id="storage-usage-card">
-        <div class="settings-card-title"><i class="fa fa-hard-drive"></i> Local Storage Usage</div>
+        <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span><i class="fa fa-hard-drive"></i> Local Storage Usage</span>
+          <button onclick="SettingsModule.runStorageCleanup()" style="font-size:.75rem;padding:4px 10px;border:1px solid rgba(255,165,0,0.4);background:rgba(255,165,0,0.1);color:#ffa502;border-radius:6px;cursor:pointer">
+            <i class="fa fa-broom"></i> Auto-Clean
+          </button>
+        </div>
         <div id="storage-usage-content" style="font-size:.88rem;color:var(--text-secondary)">
           <i class="fa fa-spinner fa-spin"></i> Calculating...
         </div>
@@ -826,38 +831,43 @@ const SettingsModule = (() => {
       <script>
         (function() {
           try {
-            let totalBytes = 0;
-            const breakdown = [];
-            for (let i = 0; i < localStorage.length; i++) {
-              const key = localStorage.key(i);
-              const val = localStorage.getItem(key) || '';
-              const bytes = (key.length + val.length) * 2; // UTF-16
-              totalBytes += bytes;
-              if (key.startsWith('wfa_')) breakdown.push({ key: key.replace('wfa_',''), bytes });
-            }
-            breakdown.sort((a,b) => b.bytes - a.bytes);
-            const usedKB  = (totalBytes / 1024).toFixed(1);
-            const limitKB = 5120; // 5MB estimate
-            const pct     = Math.min(100, Math.round(totalBytes / (limitKB * 1024) * 100));
-            const color   = pct >= 85 ? '#ff4757' : pct >= 60 ? '#ffa502' : '#00ff88';
-            const topItems = breakdown.slice(0, 5).map(b =>
-              '<div style="display:flex;justify-content:space-between;margin-top:4px">' +
-              '<span style="color:var(--text-muted)">' + b.key + '</span>' +
-              '<span style="font-family:monospace">' + (b.bytes/1024).toFixed(1) + ' KB</span></div>'
-            ).join('');
+            const usedKB  = typeof SyncEngine !== 'undefined' ? SyncEngine.getStorageUsageKB() : 0;
+            const limitKB = 5120;
+            const pct     = Math.min(100, Math.round(usedKB / limitKB * 100));
+            const color   = pct >= 90 ? '#ff4757' : pct >= 70 ? '#ffa502' : pct >= 50 ? '#00d9ff' : '#00ff88';
+            const status  = pct >= 90 ? 'Critical' : pct >= 70 ? 'Warning' : 'Healthy';
+            const tables  = ['students','finance_ledger','accounts','loans','exams','staff','attendance','visitors','notices','salary','activity_log','recent_changes','recycle_bin','retry_queue'];
+            const tableRows = tables.map(function(t) {
+              var kb = typeof SyncEngine !== 'undefined' ? SyncEngine.getTableSizeKB(t) : 0;
+              if (kb < 1) return '';
+              var tpct = Math.min(100, Math.round(kb / limitKB * 100));
+              var tc   = tpct >= 20 ? '#ffa502' : tpct >= 10 ? '#00d9ff' : 'rgba(255,255,255,0.35)';
+              return '<div style="margin-bottom:7px">' +
+                '<div style="display:flex;justify-content:space-between;margin-bottom:2px">' +
+                  '<span style="color:var(--text-muted);font-size:.78rem">' + t + '</span>' +
+                  '<span style="font-family:monospace;font-size:.78rem;color:' + tc + '">' + kb + ' KB</span>' +
+                '</div>' +
+                '<div style="background:rgba(255,255,255,0.05);border-radius:3px;height:4px;overflow:hidden">' +
+                  '<div style="height:100%;width:' + tpct + '%;background:' + tc + ';border-radius:3px"></div>' +
+                '</div></div>';
+            }).filter(Boolean).join('');
             document.getElementById('storage-usage-content').innerHTML =
-              '<div style="display:flex;justify-content:space-between;margin-bottom:6px">' +
-                '<span>Used: <strong style="color:' + color + '">' + usedKB + ' KB</strong></span>' +
-                '<span style="color:var(--text-muted)">~5 MB limit (' + pct + '%)</span>' +
+              '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
+                '<span>Used: <strong style="color:' + color + '">' + usedKB.toLocaleString() + ' KB</strong></span>' +
+                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~5 MB</span>' +
               '</div>' +
-              '<div style="background:rgba(255,255,255,0.05);border-radius:6px;height:10px;overflow:hidden;margin-bottom:10px">' +
-                '<div style="height:100%;width:' + pct + '%;background:' + color + ';border-radius:6px;transition:width .4s"></div>' +
+              '<div style="background:rgba(255,255,255,0.06);border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px;border:1px solid rgba(255,255,255,0.08)">' +
+                '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + color + ',' + color + '88);border-radius:8px;transition:width .4s ease"></div>' +
               '</div>' +
-              (pct >= 85 ? '<div style="color:#ff4757;font-size:.82rem;margin-bottom:8px"><i class="fa fa-triangle-exclamation"></i> Storage প্রায় পূর্ণ! নিচে থেকে পুরনো data মুছুন।</div>' : '') +
-              '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:4px">Top usage by table:</div>' +
-              topItems;
+              (pct >= 70 ? '<div style="background:rgba(255,165,0,0.09);border:1px solid rgba(255,165,0,0.25);border-radius:6px;padding:8px 12px;font-size:.80rem;color:#ffa502;margin-bottom:10px"><i class="fa fa-triangle-exclamation"></i> ' +
+                (pct >= 90 ? '<strong>Critical!</strong> উপরে "Auto-Clean" বাটন চাপুন। পুরনো data Supabase-এ safe আছে।' :
+                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই "Auto-Clean" করুন।') +
+              '</div>' : '') +
+              '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.5px">TABLE BREAKDOWN</div>' +
+              (tableRows || '<div style="color:var(--text-muted);font-size:.78rem">Data এখনো যোগ হয়নি।</div>');
           } catch(e) {
-            document.getElementById('storage-usage-content').textContent = 'Storage info দেখা যাচ্ছে না।';
+            var el = document.getElementById('storage-usage-content');
+            if (el) el.textContent = 'Storage info দেখা যাচ্ছে না।';
           }
         })();
       </script>
@@ -872,10 +882,17 @@ const SettingsModule = (() => {
             <i class="fa fa-cloud-arrow-up"></i> IMPORT DATA
           </button>
         </div>
-        <button class="settings-btn-lg btn-sync-cloud" onclick="SyncEngine.syncAll({ forcePush: true }).then(()=>Utils.toast('Cloud sync complete','success'))">
-          <i class="fa fa-cloud"></i> SYNC WITH CLOUD NOW
-        </button>
-        <small style="display:block;text-align:center;margin-top:6px;color:var(--text-muted);font-size:.78rem">Auto-syncs every 30 seconds</small>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="settings-btn-lg btn-sync-cloud" style="flex:1" onclick="SyncEngine.syncAll({ forcePush:true, forceFull:true }).then(()=>Utils.toast('Full sync complete — সব data নামানো হয়েছে ✅','success'))">
+            <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (সব data)
+          </button>
+          <button class="settings-btn-lg btn-sync-cloud" style="flex:1;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.3);color:#00ff88" onclick="SyncEngine.push({ silent:false })">
+            <i class="fa fa-cloud-arrow-up"></i> PUSH → CLOUD
+          </button>
+        </div>
+        <small style="display:block;text-align:center;margin-top:6px;color:var(--text-muted);font-size:.78rem">
+          Full Sync = Supabase থেকে সব data নামায় | Auto incremental sync চলে প্রতি ৩০ সে.
+        </small>
       </div>
 
       <div class="settings-card glow-red">
