@@ -820,9 +820,7 @@ const SettingsModule = (() => {
       <div class="settings-card" style="border-color:rgba(0,212,255,0.25);margin-bottom:14px" id="storage-usage-card">
         <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
           <span><i class="fa fa-hard-drive"></i> Local Storage Usage</span>
-          <button onclick="SettingsModule.runStorageCleanup()" style="font-size:.75rem;padding:4px 10px;border:1px solid rgba(255,165,0,0.4);background:rgba(255,165,0,0.1);color:#ffa502;border-radius:6px;cursor:pointer">
-            <i class="fa fa-broom"></i> Auto-Clean
-          </button>
+
         </div>
         <div id="storage-usage-content" style="font-size:.88rem;color:var(--text-secondary)">
           <i class="fa fa-spinner fa-spin"></i> Calculating...
@@ -3138,68 +3136,6 @@ ${expenseEntries.length > 0 ? `
     Utils.toast(`Auto-fix: ${fixes} repairs`, 'success');
   }
 
-  // ── Storage Cleanup (Auto-Clean button) ──────────────────────
-  function runStorageCleanup() {
-    if (!confirm('Auto-Clean করলে পুরনো attendance, finance ও notice entries local cache থেকে মুছবে। Supabase cloud-এ সব data safe থাকবে। চালু করবেন?')) return;
-
-    let totalFreed = 0;
-    const trimList = [
-      { key: 'finance_ledger', keep: 150 },
-      { key: 'attendance',     keep: 300 },
-      { key: 'notices',        keep: 30  },
-      { key: 'visitors',       keep: 50  },
-    ];
-
-    trimList.forEach(({ key, keep }) => {
-      const rows = SupabaseSync.getAll(key);
-      if (rows.length > keep) {
-        SupabaseSync.setAll(key, rows.slice(0, keep));
-        totalFreed += rows.length - keep;
-      }
-    });
-
-    // Activity log trim
-    try {
-      const log = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
-      if (log.length > 50) {
-        localStorage.setItem('wfa_activity_log', JSON.stringify(log.slice(0, 50)));
-        totalFreed += log.length - 50;
-      }
-      const rc = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
-      if (rc.length > 20) {
-        localStorage.setItem('wfa_recent_changes', JSON.stringify(rc.slice(0, 20)));
-        totalFreed += rc.length - 20;
-      }
-    } catch { /* ignore */ }
-
-    // Refresh storage display
-    const contentEl = document.getElementById('storage-usage-content');
-    if (contentEl) {
-      let total = 0;
-      for (const k in localStorage) {
-        if (Object.prototype.hasOwnProperty.call(localStorage, k))
-          total += (localStorage.getItem(k).length + k.length) * 2;
-      }
-      const kb = Math.round(total / 1024);
-      const pct = Math.min(100, Math.round(kb / 5120 * 100));
-      const color = pct >= 80 ? '#ff4757' : pct >= 60 ? '#ffa502' : '#2ed573';
-      contentEl.innerHTML = `
-        <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span>Used: <strong>${kb} KB</strong> / ~5120 KB</span>
-            <span style="color:${color}">${pct}%</span>
-          </div>
-          <div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .4s"></div>
-          </div>
-        </div>
-        <div style="color:var(--success);font-size:.82rem">✅ Auto-Clean সম্পন্ন! ${totalFreed} পুরনো entry সরানো হয়েছে। সব data Supabase cloud-এ safe আছে।</div>
-      `;
-    }
-
-    Utils.toast(`✅ Auto-Clean: ${totalFreed} পুরনো entry মুছা হয়েছে`, 'success');
-    logActivity('edit', 'settings', `Storage auto-cleaned: ${totalFreed} entries freed`);
-  }
 
   // ════════════════════════════════════════════════════════════════
   // LEGACY FUNCTIONS (Preserved)
@@ -4056,7 +3992,7 @@ ${expenseEntries.length > 0 ? `
     addInvestment, saveInvestment, deleteInvestment,
     openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
     openSettingsInternalModal, closeSettingsInternalModal,
-    runAutoHeal, runSyncCheck, runAutoFix, runStorageCleanup,
+    runAutoHeal, runSyncCheck, runAutoFix,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
   };
 })();
