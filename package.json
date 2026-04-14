@@ -1,0 +1,24 @@
+{
+  "name": "wings-fly-academy-1",
+  "version": "1.0.0",
+  "description": "Aviation Academy-র জন্য সম্পূর্ণ ম্যানেজমেন্ট সিস্টেম।",
+  "main": "service-worker.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1/issues"
+  },
+  "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme",
+  "dependencies": {
+    "sharp": "^0.34.5"
+  }
+}
