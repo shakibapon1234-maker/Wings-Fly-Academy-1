@@ -95,13 +95,26 @@ const App = (() => {
     const correct = settings.admin_password || 'admin123';
     const normalizedUsername = String(username || '').trim();
 
-    if ((normalizedUsername === 'admin' || normalizedUsername === '') && password === correct) {
-      localStorage.setItem('wfa_logged_in', 'true');
-      localStorage.setItem('wfa_user_role', 'admin');
-      localStorage.setItem('wfa_user_name', 'admin');
-      localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
-      showApp(true);
-      return true;
+    // ── Admin login: support both plaintext (legacy) and SHA-256 hash ──
+    if (normalizedUsername === 'admin' || normalizedUsername === '') {
+      const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+      let adminOk = false;
+      if (_isHashed(correct)) {
+        // Stored password is hashed — hash the input and compare
+        const inputHash = await _hashPw(password);
+        adminOk = inputHash === correct;
+      } else {
+        // Legacy plaintext comparison
+        adminOk = password === correct;
+      }
+      if (adminOk) {
+        localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_user_role', 'admin');
+        localStorage.setItem('wfa_user_name', 'admin');
+        localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+        showApp(true);
+        return true;
+      }
     }
 
     if (!normalizedUsername) return false;
