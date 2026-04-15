@@ -22,6 +22,7 @@ const SettingsModule = (() => {
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
     document.body.style.overflow = 'hidden';
+    initSettingsPlugins();
 
     // ── Real-time Activity Log refresh ────────────────────────────
     // Settings panel খোলা থাকলে যেকোনো কাজ করলে activity log ও
@@ -37,8 +38,19 @@ const SettingsModule = (() => {
       panel.innerHTML = buildModalHTML();
       activeTab = savedTab;
       switchTab(savedTab);
+      initSettingsPlugins();
     };
     window.addEventListener('wfa:synced', _syncListener);
+  }
+
+  function initSettingsPlugins() {
+    if (typeof flatpickr !== 'undefined') {
+      flatpickr(document.querySelectorAll('#bp-start, #bp-end'), {
+        dateFormat: "Y-m-d",
+        altInput: true,
+        altFormat: "d M Y"
+      });
+    }
   }
 
   function closeModal() {
@@ -1408,11 +1420,11 @@ const SettingsModule = (() => {
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE START DATE</label>
-            <input type="date" id="bp-start" class="form-control" value="${monthAgo}" />
+            <input type="text" id="bp-start" class="form-control" value="${monthAgo}" />
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE END DATE</label>
-            <input type="date" id="bp-end" class="form-control" value="${today}" />
+            <input type="text" id="bp-end" class="form-control" value="${today}" />
           </div>
         </div>
 
@@ -1542,7 +1554,7 @@ const SettingsModule = (() => {
         </button>
         <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);align-self:center;">
           রিপোর্ট তৈরি: ${reportDate} &nbsp;|&nbsp; ${selectedBatch || 'সকল Batch'}
-          ${startDate ? ` &nbsp;|&nbsp; ${startDate} → ${endDate}` : ''}
+          ${startDate ? ` &nbsp;|&nbsp; ${Utils.formatDateEN(startDate)} → ${Utils.formatDateEN(endDate)}` : ''}
         </span>
       </div>
 
@@ -1667,7 +1679,7 @@ const SettingsModule = (() => {
       ${expenseEntries.length > 0 ? `
       <div>
         <div style="font-weight:800;color:#ff9a00;font-size:0.85rem;letter-spacing:1px;margin-bottom:10px;border-left:4px solid #ff9a00;padding-left:10px;">
-          💸 খরচের বিস্তারিত (${startDate || '—'} থেকে ${endDate || '—'})
+          💸 খরচের বিস্তারিত (${startDate ? Utils.formatDateEN(startDate) : '—'} থেকে ${endDate ? Utils.formatDateEN(endDate) : '—'})
         </div>
         <div class="table-wrapper">
           <table>
@@ -1677,16 +1689,18 @@ const SettingsModule = (() => {
               </tr>
             </thead>
             <tbody>
-              ${expenseEntries.sort((a,b) => a.date > b.date ? 1 : -1).map((f, i) => `
+              ${expenseEntries.sort((a,b) => a.date > b.date ? 1 : -1).map((f, i) => {
+                const personStr = (f.person_name || f.person) ? `<strong style="color:var(--brand-primary)">[${f.person_name || f.person}]</strong> ` : '';
+                return `
                 <tr>
                   <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
-                  <td>${f.date || '—'}</td>
-                  <td>${f.description || '—'}</td>
+                  <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || '—'}</td>
+                  <td>${personStr}${f.description || '—'}</td>
                   <td><span class="badge badge-secondary">${f.category || 'General'}</span></td>
                   <td>${f.method || '—'}</td>
                   <td style="text-align:right;font-weight:700;color:#ff9a00;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
                 </tr>
-              `).join('')}
+              `}).join('')}
             </tbody>
             <tfoot>
               <tr style="background:rgba(0,0,0,0.4);font-weight:800;">
@@ -1816,7 +1830,7 @@ const SettingsModule = (() => {
   </div>
   <div class="header-meta">
     <div class="big">Batch: ${batch}</div>
-    ${startDate ? `<div>Expense Period: ${startDate} → ${endDate}</div>` : ''}
+    ${startDate ? `<div>Expense Period: ${Utils.formatDateEN(startDate)} → ${Utils.formatDateEN(endDate)}</div>` : ''}
     ${prevBalance !== 0 ? `<div>পূর্ব ব্যালেন্স: ৳${prevBalance.toLocaleString('en-IN')}</div>` : ''}
     <div>Report Date: ${reportDate}</div>
   </div>
@@ -1919,16 +1933,18 @@ ${expenseEntries.length > 0 ? `
     <th style="text-align:right">পরিমাণ</th>
   </tr></thead>
   <tbody>
-    ${expenseEntries.sort((a,b)=>a.date>b.date?1:-1).map((f, i) => `
+    ${expenseEntries.sort((a,b)=>a.date>b.date?1:-1).map((f, i) => {
+      const personStr = (f.person_name || f.person) ? `<strong>[${f.person_name || f.person}]</strong> ` : '';
+      return `
       <tr>
         <td style="text-align:center;color:#777;">${i + 1}</td>
-        <td>${f.date || '—'}</td>
-        <td>${f.description || '—'}</td>
+        <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || '—'}</td>
+        <td>${personStr}${f.description || '—'}</td>
         <td>${f.category || 'General'}</td>
         <td>${f.method || '—'}</td>
         <td style="text-align:right;font-weight:700;color:#c2410c;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
       </tr>
-    `).join('')}
+    `}).join('')}
   </tbody>
   <tfoot>
     <tr>
@@ -1986,8 +2002,8 @@ ${expenseEntries.length > 0 ? `
     // Sheet 2: Expenses
     const expenseRows = expenseEntries.map((f, i) => ({
       '#': i + 1,
-      'তারিখ': f.date || '',
-      'বিবরণ': f.description || '',
+      'তারিখ': Utils.formatDateEN(f.date) || '',
+      'বিবরণ': (f.person_name || f.person ? `[${f.person_name || f.person}] ` : '') + (f.description || ''),
       'ক্যাটাগরি': f.category || 'General',
       'পদ্ধতি': f.method || '',
       'পরিমাণ (৳)': parseFloat(f.amount) || 0,
