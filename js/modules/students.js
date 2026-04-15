@@ -550,7 +550,7 @@ const Students = (() => {
       </div>
       
       <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 300)">
-        <i class="fa fa-sack-dollar"></i> ADD PAYMENT
+        <i class="fa fa-sack-dollar"></i> PAYMENTS & HISTORY
       </button>
       
       <button class="action-btn-glow btn-cyan" onclick="Utils.closeModal(); setTimeout(()=>IdCards && IdCards.previewCard('${id}'), 300)">

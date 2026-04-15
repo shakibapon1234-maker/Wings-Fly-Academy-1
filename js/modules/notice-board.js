@@ -406,9 +406,10 @@ const NoticeBoardModule = (() => {
     render();
   }
 
-  function deleteNoticeById(id) {
+  async function deleteNoticeById(id) {
     if (!id) return;
-    if (!window.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?')) return;
+    const ok = await Utils.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?', 'মুছে ফেলুন');
+    if (!ok) return;
     SupabaseSync.remove(DB.notices, id);
     if (activeNotice && activeNotice.id === id) { activeNotice = null; hideBanner(); }
     Utils.toast('নোটিশ মুছে গেছে', 'success');
@@ -429,7 +430,7 @@ const NoticeBoardModule = (() => {
 
   function dismissBanner() {
     hideBanner();
-    try { sessionStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
+    try { localStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
   }
 
   return { init, render, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };

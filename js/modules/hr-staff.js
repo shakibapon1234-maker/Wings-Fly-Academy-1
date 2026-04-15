@@ -129,7 +129,7 @@ const HRStaff = (() => {
     if (!data.length) return `
       <div class="empty-state">
         <i class="fa fa-users" style="font-size:3rem;opacity:.3"></i>
-        <p>No Staff not found। First Staff Add।</p>
+        <p>কোনো স্টাফ পাওয়া যায়নি। প্রথমে স্টাফ যোগ করুন।</p>
       </div>`;
 
     return `
@@ -180,23 +180,7 @@ const HRStaff = (() => {
       </table>`;
   }
 
-  function applyFilter() {
-    const q      = (document.getElementById('staff-search')?.value || '').toLowerCase();
-    const role   = document.getElementById('staff-role-filter')?.value || '';
-    const status = document.getElementById('staff-status-filter')?.value || '';
 
-    const staffList = getStaff();
-    const filtered = staffList.filter(s => {
-      const matchQ = !q || s.name.toLowerCase().includes(q) ||
-                     (s.phone || '').includes(q) || (s.staffId || '').toLowerCase().includes(q);
-      const matchRole   = !role   || s.role === role;
-      const matchStatus = !status || s.status === status;
-      return matchQ && matchRole && matchStatus;
-    });
-
-    const wrapper = document.getElementById('staff-table-wrapper');
-    if (wrapper) wrapper.innerHTML = renderTable(filtered);
-  }
 
   /* ─── Modal: Add ─── */
   function openAddModal() {
@@ -364,7 +348,7 @@ const HRStaff = (() => {
     if (typeof Salary !== 'undefined') Salary.syncFromHR(entry.staffId);
 
     Utils.closeModal();
-    renderContent();
+    render();
     editingId = null;
   }
 
@@ -374,7 +358,7 @@ const HRStaff = (() => {
     if (!s) return;
     const newStatus = s.status === 'Active' ? 'Inactive' : 'Active';
     SupabaseSync.update(DB.staff, id, { status: newStatus });
-    renderContent();
+    render();
     Utils.toast(`Status changed to: ${newStatus}`, 'info');
   }
 
@@ -383,7 +367,7 @@ const HRStaff = (() => {
     const ok = await Utils.confirm('Delete this staff member?', 'Delete Staff');
     if (!ok) return;
     SupabaseSync.remove(DB.staff, id);
-    renderContent();
+    render();
     Utils.toast('Staff has been deleted', 'warning');
   }
 

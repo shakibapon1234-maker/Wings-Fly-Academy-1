@@ -549,10 +549,13 @@ const Accounts = (() => {
       type:'Transfer Out', method:from, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
     });
+    SupabaseSync.updateAccountBalance(from, amount, 'out');
+    
     SupabaseSync.insert(DB.finance, {
       type:'Transfer In', method:to, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
     });
+    SupabaseSync.updateAccountBalance(to, amount, 'in');
 
     Utils.toast(`Transfer completed ✓`,'success');
     Utils.closeModal();

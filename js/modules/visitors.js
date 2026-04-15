@@ -89,6 +89,7 @@ const VisitorsModule = (() => {
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
+                    <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" onclick="VisitorsModule.convertToStudent('${v.id}')" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px;" onclick="VisitorsModule.openEditModal('${v.id}')"><i class="fa fa-pen"></i> Edit</button>
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 10px;" onclick="VisitorsModule.deleteRecord('${v.id}')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
                   </td>
@@ -201,13 +202,33 @@ const VisitorsModule = (() => {
   }
 
   async function deleteRecord(id) {
-    const ok = await Utils.confirm('Are you sure you want to delete this visitor visitor??', 'Delete Visitor');
+    const ok = await Utils.confirm('Are you sure you want to delete this visitor?', 'Delete Visitor');
     if (!ok) return;
     SupabaseSync.remove(DB.visitors, id);
     render();
     Utils.toast('Visitor deleted', 'warning');
   }
 
-  return { init, render, openAddModal, openEditModal, saveRecord, deleteRecord };
+  function convertToStudent(id) {
+    const v = SupabaseSync.getById(DB.visitors, id);
+    if (!v) return;
+    if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('students');
+    setTimeout(() => {
+      if (typeof Students !== 'undefined' && Students.openAddModal) {
+        Students.openAddModal();
+        setTimeout(() => {
+          const n = document.getElementById('sf-name');
+          const p = document.getElementById('sf-phone');
+          const c = document.getElementById('sf-course');
+          if (n) n.value = v.name || '';
+          if (p) p.value = v.phone || '';
+          if (c) c.value = v.interested_course || '';
+          Utils.toast('Visitor data pre-filled into Student form', 'success');
+        }, 100);
+      }
+    }, 200);
+  }
+
+  return { init, render, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
 
 })();

@@ -68,9 +68,7 @@ const Finance = (() => {
         </select>
         <select class="form-control" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
-          <option value="Cash"           ${filterMethod==='Cash'?'selected':''}>Cash</option>
-          <option value="Bank"           ${filterMethod==='Bank'?'selected':''}>Bank</option>
-          <option value="Mobile Banking" ${filterMethod==='Mobile Banking'?'selected':''}>Mobile Banking</option>
+          ${Utils.getPaymentMethodsHTML(filterMethod)}
         </select>
         <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
         <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo || Utils.today()}"   onchange="Finance.onFilter('to',this.value)"   title="End Date" />

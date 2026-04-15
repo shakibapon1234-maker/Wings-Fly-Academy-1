@@ -78,8 +78,8 @@ const Salary = (() => {
     const staffMember = HRStaff.getAll().find(function(s){ return s.staffId === staffId; });
     if (!staffMember) return;
     SupabaseSync.getAll(DB.salary).forEach(function(r) {
-      var matchById   = r.staffId   && r.staffId   === staffMember.staffId;
-      var matchByName = !r.staffId  && r.staffName && r.staffName === staffMember.name;
+      const matchById   = r.staffId   && r.staffId   === staffMember.staffId;
+      const matchByName = !r.staffId  && r.staffName && r.staffName === staffMember.name;
       if ((matchById || matchByName) && !r.paid) {
         SupabaseSync.update(DB.salary, r.id, {
           staffId:    staffMember.staffId,

@@ -113,6 +113,15 @@ const App = (() => {
         localStorage.setItem('wfa_user_name', 'admin');
         localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
         showApp(true);
+        if (password === 'admin123') {
+           setTimeout(() => {
+             navigateTo('settings');
+             Utils.toast('SECURITY WARNING: Please change your default password immediately!', 'error', 10000);
+             if (typeof SettingsModule !== 'undefined' && SettingsModule.switchTab) {
+               SettingsModule.switchTab('security');
+             }
+           }, 500);
+        }
         return true;
       }
     }
@@ -257,7 +266,18 @@ const App = (() => {
         case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
       }
     } catch (e) {
-      console.warn(`[App] Error rendering ${section}:`, e);
+      console.error(`[App] Error rendering ${section}:`, e);
+      const container = document.getElementById(`${section}-content`);
+      if (container) {
+        container.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4757">
+          <i class="fa fa-circle-exclamation" style="font-size:2rem;margin-bottom:10px;display:block"></i>
+          <strong>Module load error</strong><br>
+          <small style="color:#888">${e.message}</small>
+          <br><button onclick="App.navigateTo('dashboard')" style="margin-top:16px;padding:8px 20px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:8px;cursor:pointer">
+            ← Dashboard-এ ফিরুন
+          </button>
+        </div>`;
+      }
     }
   }
 
@@ -397,7 +417,7 @@ const App = (() => {
         const btnEl = loginForm.querySelector('button[type="submit"]');
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Logging in...'; }
         const ok = await login(un, pw);
-        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Login'; }
+        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN'; }
         if (!ok) {
           if (errEl) {
             errEl.textContent = 'Username or password incorrect!';
@@ -446,6 +466,22 @@ const App = (() => {
       renderModule(currentSection);
       updateNotifCount();
     });
+
+    // Auto Logout (Session Timeout)
+    let idleTimer;
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      if (isLoggedIn()) {
+        idleTimer = setTimeout(() => {
+          logout();
+          Utils.toast('Session expired due to inactivity', 'warning', 5000);
+        }, 30 * 60 * 1000); // 30 minutes
+      }
+    }
+    document.addEventListener('click', resetIdleTimer);
+    document.addEventListener('keypress', resetIdleTimer);
+    document.addEventListener('mousemove', Utils.debounce(resetIdleTimer, 1000));
+    document.addEventListener('touchstart', resetIdleTimer);
   }
 
   // ── Init ──────────────────────────────────────────────────

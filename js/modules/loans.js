@@ -464,7 +464,7 @@ const Loans = (() => {
   }
 
   async function deleteLoan(id) {
-    const ok = await Utils.confirm('Delete this loan record? RecycleBin-এ যাবে এবং Restore করা যাবে।', 'Delete Loan');
+    const ok = await Utils.confirm('Delete this loan record?', 'Delete Loan');
     if (!ok) return;
 
     const record = SupabaseSync.getById(DB.loans, id);
@@ -480,14 +480,6 @@ const Loans = (() => {
       f.date === record.date
     );
     const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
-
-    // ── RecycleBin এ save করো (linked finance id সহ) ─────────────────
-    SupabaseSync.insert(DB.recycle || 'recycle', {
-      ...record,
-      _deletedFrom:       'loans',
-      _deletedAt:         Utils.today(),
-      _linkedFinanceId:   linkedFinanceId,   // restore করার সময় কাজে লাগবে
-    });
 
     // ── Loan remove ───────────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id);
@@ -509,7 +501,7 @@ const Loans = (() => {
       SupabaseSync.remove(DB.finance, linkedFinanceId);
     }
 
-    Utils.toast('Loan deleted — RecycleBin-এ আছে, Restore করা যাবে', 'warning');
+    Utils.toast('Loan deleted', 'warning');
     render();
   }
 
@@ -552,36 +544,7 @@ const Loans = (() => {
   function changePage(p) { currentPage = p; render(); }
   function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
-  /* ── RecycleBin থেকে Restore ──────────────────────────────────────── */
-  async function restoreLoan(recycleId) {
-    const recycled = SupabaseSync.getById(DB.recycle || 'recycle', recycleId);
-    if (!recycled) { Utils.toast('Record not found', 'error'); return; }
-
-    // Loan restore
-    const { _deletedFrom, _deletedAt, _linkedFinanceId, id: _rid, ...loanData } = recycled;
-    SupabaseSync.insert(DB.loans, loanData);
-
-    // Finance entry restore
-    SupabaseSync.insert(DB.finance, {
-      type:        loanData.type,
-      method:      loanData.method,
-      category:    'Loan',
-      description: `${loanData.type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${loanData.person_name || loanData.person}`,
-      amount:      loanData.amount,
-      date:        loanData.date,
-      note:        loanData.note || '',
-      person_name: loanData.person_name || loanData.person,
-      _isLoan:     true,
-    });
-
-    // RecycleBin থেকে সরাও
-    SupabaseSync.remove(DB.recycle || 'recycle', recycleId);
-
-    Utils.toast('Loan Restored ✓ — Loans ও Finance উভয়ে ফিরে এসেছে', 'success');
-    render();
-  }
-
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, restoreLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
 
 })();
 

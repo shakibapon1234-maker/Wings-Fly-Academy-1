@@ -311,6 +311,7 @@ const SyncGuard = (() => {
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:.85rem;color:#aaa">Event Log (${log.length})</div>
           <div style="display:flex;gap:8px">
+            <button onclick="SyncGuard.autoFix()" style="background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.3);color:orange;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🛠 Auto Fix</button>
             <button onclick="SyncGuard.runFullAudit()" style="background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🔍 Re-Audit</button>
             <button onclick="SyncGuard.clearLog();SyncGuard.renderPanel('${containerId}')" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:#ff4757;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🗑 Clear Log</button>
           </div>
@@ -363,6 +364,37 @@ const SyncGuard = (() => {
     return { finance: f, balances: b };
   }
 
+  // ── Auto Fix logic ───────────────────────────────────────
+  async function autoFix() {
+    if (!window.confirm("Auto-Fix will recalculate negative/discrepant balances based on actual ledger entries. Continue?")) return;
+    
+    let fixed = 0;
+    const b = auditBalances();
+    
+    if (b.discrepancies.length > 0) {
+      const accounts = window.SupabaseSync.getAll('accounts');
+      b.discrepancies.forEach(d => {
+        const acc = accounts.find(a => (a.type === 'Cash' ? 'Cash' : a.name) === d.account);
+        if (acc) {
+          console.log(`[SyncGuard] Auto-fixing balance for ${d.account}: ${d.stored} -> ${d.calculated}`);
+          window.SupabaseSync.update('accounts', acc.id, { balance: d.calculated });
+          fixed++;
+        }
+      });
+    }
+
+    if (fixed > 0) {
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`✅ Successfully auto-fixed ${fixed} issue(s)`, 'success');
+      setTimeout(() => {
+        runFullAudit();
+        const settingsContainer = document.getElementById('settings-content');
+        if (settingsContainer && typeof SettingsModule !== 'undefined') SettingsModule.render(); 
+      }, 500);
+    } else {
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('No auto-fixable issues found.', 'info');
+    }
+  }
+
   // ── Init ─────────────────────────────────────────────────
   function init() {
     // Wait 12s for initial Supabase pull to finish before first audit
@@ -391,6 +423,7 @@ const SyncGuard = (() => {
     auditBalances,
     runFullAudit,
     renderPanel,
+    autoFix,
     init,
   };
 

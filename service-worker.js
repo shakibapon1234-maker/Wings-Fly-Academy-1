@@ -37,6 +37,7 @@ const STATIC_ASSETS = [
   './assets/favicon.ico',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './migrate.html',
 ];
 
 self.addEventListener('install', (e) => {
