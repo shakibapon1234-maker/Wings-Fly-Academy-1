@@ -17,8 +17,5 @@
   "bugs": {
     "url": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1/issues"
   },
-  "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme",
-  "dependencies": {
-    "sharp": "^0.34.5"
-  }
+  "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme"
 }

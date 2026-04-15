@@ -96,16 +96,6 @@ const App = (() => {
     const storedPw = settings.admin_password;
     const normalizedUsername = String(username || '').trim();
 
-    // ── Diagnostic: log auth state (remove after debug) ──
-    console.log('[Auth Debug]', {
-      settingsRowCount: settingsList.length,
-      hasAdminPassword: !!storedPw,
-      storedPwLength: (storedPw || '').length,
-      storedPwPreview: storedPw ? storedPw.substring(0, 10) + '...' : '(empty)',
-      isHashed: /^[0-9a-f]{64}$/.test(storedPw || ''),
-      inputUsername: normalizedUsername,
-      inputPasswordLength: (password || '').length,
-    });
 
     // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
@@ -114,7 +104,6 @@ const App = (() => {
 
       if (!storedPw) {
         // No password set yet — first time setup, accept any password and save it
-        console.log('[Auth] No admin password stored — first-time login, accepting input');
         adminOk = !!password; // just needs non-empty password
         if (adminOk) {
           // Hash and save the password immediately (professional first-run setup)
@@ -126,17 +115,14 @@ const App = (() => {
             settings.id = SupabaseSync.generateId();
             SupabaseSync.insert(DB.settings, settings);
           }
-          console.log('[Auth] First-time password saved (hashed)');
         }
       } else if (_isHashed(storedPw)) {
         // Stored password is hashed — hash input and compare
         const inputHash = await _hashPw(password);
         adminOk = inputHash === storedPw;
-        console.log('[Auth] Hash compare:', { match: adminOk, inputHash: inputHash.substring(0, 10) + '...', storedHash: storedPw.substring(0, 10) + '...' });
       } else {
         // Legacy plaintext comparison
         adminOk = password === storedPw;
-        console.log('[Auth] Plaintext compare:', { match: adminOk });
       }
 
       if (adminOk) {
