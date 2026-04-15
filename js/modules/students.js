@@ -171,7 +171,7 @@ const Students = (() => {
   }
 
   function changePage(p) { currentPage = p; render(); }
-  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
+  function changePageSize(s) { pageSize = parseInt(s, 10); currentPage = 1; render(); }
 
   /* ══════════════════════════════════════════
      ADD MODAL

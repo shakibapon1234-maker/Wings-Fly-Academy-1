@@ -234,4 +234,4 @@ const VisitorsModule = (() => {
 
 })();
 window.Visitors = VisitorsModule;
-window.VisitorsModule = VisitorsModule;
+// window.VisitorsModule alias removed — use window.Visitors instead

@@ -50,7 +50,7 @@ const Salary = (() => {
     const y = parts[0]; const m = parts[1];
     const months = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
-    return (months[parseInt(m) - 1] || '?') + ' ' + y;
+    return (months[parseInt(m, 10) - 1] || '?') + ' ' + y;
   }
 
   function formatDate(dateStr) {

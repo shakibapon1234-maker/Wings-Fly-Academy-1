@@ -670,7 +670,7 @@ const Attendance = (() => {
   /* ─── Blank Sheet ─── */
   function generateBlankSheet(sheetType = 'portrait') {
     const batch = document.getElementById('att-blank-batch')?.value;
-    const daysCount = Math.min(31, Math.max(1, parseInt(document.getElementById('att-blank-days')?.value || '26')));
+    const daysCount = Math.min(31, Math.max(1, parseInt(document.getElementById('att-blank-days')?.value || '26', 10)));
     const sessionLabel = document.getElementById('att-blank-label')?.value || '';
     const startDateVal = document.getElementById('att-blank-startdate')?.value || '';
     const wrapper = document.getElementById('att-blank-result');
