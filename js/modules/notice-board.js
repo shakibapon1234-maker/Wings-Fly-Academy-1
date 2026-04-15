@@ -29,7 +29,7 @@ const NoticeBoardModule = (() => {
   }
 
   function refreshActiveNotice() {
-    if (!window.DB || !DB.notices) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined' || !DB.notices) return;
     const all = SupabaseSync.getAll(DB.notices) || [];
     all.sort((a,b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
     activeNotice = null;

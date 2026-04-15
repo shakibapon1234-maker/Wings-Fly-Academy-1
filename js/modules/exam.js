@@ -19,6 +19,9 @@ const Exam = (() => {
   function render() {
     const container = document.getElementById('exam-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Exam] Core dependencies not loaded'); return;
+    }
 
     const exams    = Utils.sortBy(SupabaseSync.getAll(DB.exams), 'exam_date', 'desc');
     const filtered = applyFilters(exams);

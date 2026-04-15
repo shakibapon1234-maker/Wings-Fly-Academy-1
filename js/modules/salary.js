@@ -27,6 +27,7 @@ const Salary = (() => {
   ══════════════════════════════════════════ */
 
   function getRecords() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     const all = SupabaseSync.getAll(DB.salary);
     return all.sort((a, b) => {
       const aDate = a.paidDate || '';

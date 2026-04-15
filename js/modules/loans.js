@@ -13,6 +13,9 @@ const Loans = (() => {
   function render() {
     const container = document.getElementById('loans-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Loans] Core dependencies not loaded'); return;
+    }
 
     const loans = Utils.sortBy(SupabaseSync.getAll(DB.loans),'date','desc');
 

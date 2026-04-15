@@ -21,6 +21,9 @@ const Finance = (() => {
   function render() {
     const container = document.getElementById('finance-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Finance] Core dependencies not loaded'); return;
+    }
 
     const all      = SupabaseSync.getAll(DB.finance);
     const filtered = applyFilters(all);

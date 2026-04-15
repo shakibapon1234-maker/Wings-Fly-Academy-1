@@ -72,11 +72,11 @@ const IDCardsModule = (() => {
       <div style="width:90%;padding:4px 0;flex-shrink:0;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">ID Number</div>
-          <div style="color:#fff;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${idNumber}</div>
+          <div style="color:#fff;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${Utils.esc(idNumber)}</div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Blood Group</div>
-          <div style="color:#ff6b6b;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${person.bloodGroup || 'N/A'}</div>
+          <div style="color:#ff6b6b;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${Utils.esc(person.bloodGroup || 'N/A')}</div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Joining Date</div>
@@ -84,7 +84,7 @@ const IDCardsModule = (() => {
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Course</div>
-          <div style="color:#aaa;font-size:7px;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${person.course || 'N/A'}</div>
+          <div style="color:#aaa;font-size:7px;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${Utils.esc(person.course || 'N/A')}</div>
         </div>
         <div style="display:flex;justify-content:space-between;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Valid Till</div>

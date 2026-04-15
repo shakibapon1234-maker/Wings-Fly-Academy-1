@@ -11,6 +11,7 @@ const HRStaff = (() => {
 
   /* ─── Roles ─── */
   function getRoles() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return ['Admin', 'Instructor', 'Staff'];
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     return cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
   }
@@ -20,6 +21,7 @@ const HRStaff = (() => {
   }
 
   function getStaff() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     return Utils.sortBy(SupabaseSync.getAll(DB.staff), 'joiningDate', 'desc');
   }
 

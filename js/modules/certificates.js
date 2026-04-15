@@ -97,20 +97,20 @@ const CertificatesModule = (() => {
       <div style="font-size:13px;color:#aaa;margin-bottom:6px;">This is to certify that</div>
 
       <!-- Student Name -->
-      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${data.studentName || 'N/A'}</div>
+      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentName) : (data.studentName || 'N/A')}</div>
 
       <!-- Student details -->
       <div style="font-size:12px;color:#aaa;margin:10px 0;line-height:1.8;">
-        ID: <span style="color:#fff;font-weight:bold;">${data.studentId || 'N/A'}</span> &nbsp;|&nbsp;
-        Course: <span style="color:#fff;font-weight:bold;">${data.courseName || 'N/A'}</span> &nbsp;|&nbsp;
-        Batch: <span style="color:#fff;font-weight:bold;">${data.batch || 'N/A'}</span>
+        ID: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A')}</span> &nbsp;|&nbsp;
+        Course: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'N/A')}</span> &nbsp;|&nbsp;
+        Batch: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.batch) : (data.batch || 'N/A')}</span>
       </div>
 
       <!-- Completion text -->
       <div style="font-size:13px;color:#ccc;margin:12px 30px;line-height:1.7;">
-        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${data.courseName || 'training program'}</span> 
-        training program conducted by <span style="color:#c9a227;">${academyName}</span>.
-        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${sessionValue}</span>` : ''}
+        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'training program')}</span> 
+        training program conducted by <span style="color:#c9a227;">${typeof Utils !== 'undefined' ? Utils.esc(academyName) : academyName}</span>.
+        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(sessionValue) : sessionValue}</span>` : ''}
       </div>
 
       ${data.grade ? `

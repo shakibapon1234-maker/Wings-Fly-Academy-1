@@ -12,6 +12,7 @@ const VisitorsModule = (() => {
   }
 
   function getRecords() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
   }
 
@@ -85,7 +86,7 @@ const VisitorsModule = (() => {
                     <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
                   </td>
-                  <td style="font-weight:600; color:#00d4ff;">${v.interested_course || '-'}</td>
+                  <td style="font-weight:600; color:#00d4ff;">${Utils.esc(v.interested_course || '-')}</td>
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
@@ -123,18 +124,18 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Visitor Name <span class="req">*</span></label>
-          <input type="text" id="vis-name" class="form-control" placeholder="e.g. Shakib" value="${r?.name || ''}" />
+          <input type="text" id="vis-name" class="form-control" placeholder="e.g. Shakib" value="${Utils.escAttr(r?.name || '')}" />
         </div>
         <div class="form-group">
           <label>Phone Number <span class="req">*</span></label>
-          <input type="text" id="vis-phone" class="form-control" placeholder="017..." value="${r?.phone || ''}" />
+          <input type="text" id="vis-phone" class="form-control" placeholder="017..." value="${Utils.escAttr(r?.phone || '')}" />
         </div>
       </div>
       
       <div class="form-row">
         <div class="form-group">
           <label>Course Interested</label>
-          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${r?.interested_course || ''}" />
+          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${Utils.escAttr(r?.interested_course || '')}" />
         </div>
         <div class="form-group">
           <label>Status <span class="req">*</span></label>
@@ -159,7 +160,7 @@ const VisitorsModule = (() => {
 
       <div class="form-group full-width">
         <label>Remarks / Notes</label>
-        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${r?.remarks || ''}</textarea>
+        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${Utils.escAttr(r?.remarks || '')}</textarea>
       </div>
 
       <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">
