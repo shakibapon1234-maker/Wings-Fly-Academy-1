@@ -217,6 +217,23 @@ WFA_IDB.init();
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // SupabaseSync â€” CRUD API used by all modules
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// TABLE_COLUMNS Definition
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const TABLE_COLUMNS = {
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
+  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
+  finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
+  accounts:      ['id','name','type','balance','description','note'],
+  loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
+  exams:         ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
+  attendance:    ['id','person_id','person_name','type','date','status','note'],
+  staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
+  visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
+  notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
+};
+
 const SupabaseSync = (() => {
 
   // â”€â”€ IDB-backed table storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -360,13 +377,14 @@ const SupabaseSync = (() => {
     catch { return []; }
   }
 
-  function _logActivity(action, type, description) {
+  function _logActivity(action, type, description, status = 'success') {
     try {
       const logs = _getActivityLogs();
       logs.unshift({
         action,
         type,
         description,
+        status,
         user: localStorage.getItem('wfa_user_name') || 'Admin',
         time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       });
@@ -640,7 +658,7 @@ const SupabaseSync = (() => {
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','exam_fee','note'],
+    exams:         ['id','reg_id','student_id','student_name','batch','session','subject', 'exam_date','exam_fee','fee_paid','grade','marks','status','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
@@ -815,6 +833,7 @@ const SupabaseSync = (() => {
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
+    TABLE_COLUMNS,
   };
 })();
 window.SupabaseSync = SupabaseSync;
@@ -1088,20 +1107,6 @@ const SyncEngine = (() => {
     await push(opts);
   }
 
-  const TABLE_COLUMNS = {
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
-    finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
-    accounts:      ['id','name','type','balance','description','note'],
-    loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','exam_fee','note'],
-    attendance:    ['id','person_id','person_name','type','date','status','note'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
-    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
-    notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
-  };
-
   function startRealtime() {
     if (!client?.channel) return;
     stopRealtime();
@@ -1216,7 +1221,7 @@ const SyncEngine = (() => {
     startRealtime, stopRealtime,
     getLocal, setLocal,
     setStatus, getDataMonitor,
-    TABLE_COLUMNS,
+    TABLE_COLUMNS: SupabaseSync.TABLE_COLUMNS,
     getStorageUsageKB: _getStorageUsageKB,
     getTableSizeKB: _getTableSizeKB,
     checkAndManageStorage: _checkAndManageStorage,
