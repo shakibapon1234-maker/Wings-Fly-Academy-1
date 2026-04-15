@@ -400,3 +400,4 @@ const HRStaff = (() => {
            getAll: () => getStaff() };
 
 })();
+window.HRStaff = HRStaff;

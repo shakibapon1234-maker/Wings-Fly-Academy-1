@@ -91,37 +91,60 @@ const App = (() => {
   }
 
   async function login(username, password) {
-    const settings = SupabaseSync.getAll(DB.settings)[0] || {};
-    const correct = settings.admin_password || 'admin123';
+    const settingsList = SupabaseSync.getAll(DB.settings);
+    const settings = settingsList[0] || {};
+    const storedPw = settings.admin_password;
     const normalizedUsername = String(username || '').trim();
 
-    // ── Admin login: support both plaintext (legacy) and SHA-256 hash ──
+    // ── Diagnostic: log auth state (remove after debug) ──
+    console.log('[Auth Debug]', {
+      settingsRowCount: settingsList.length,
+      hasAdminPassword: !!storedPw,
+      storedPwLength: (storedPw || '').length,
+      storedPwPreview: storedPw ? storedPw.substring(0, 10) + '...' : '(empty)',
+      isHashed: /^[0-9a-f]{64}$/.test(storedPw || ''),
+      inputUsername: normalizedUsername,
+      inputPasswordLength: (password || '').length,
+    });
+
+    // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
       const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
       let adminOk = false;
-      if (_isHashed(correct)) {
-        // Stored password is hashed — hash the input and compare
+
+      if (!storedPw) {
+        // No password set yet — first time setup, accept any password and save it
+        console.log('[Auth] No admin password stored — first-time login, accepting input');
+        adminOk = !!password; // just needs non-empty password
+        if (adminOk) {
+          // Hash and save the password immediately (professional first-run setup)
+          const newHash = await _hashPw(password);
+          settings.admin_password = newHash;
+          if (settings.id) {
+            SupabaseSync.update(DB.settings, settings.id, settings);
+          } else {
+            settings.id = SupabaseSync.generateId();
+            SupabaseSync.insert(DB.settings, settings);
+          }
+          console.log('[Auth] First-time password saved (hashed)');
+        }
+      } else if (_isHashed(storedPw)) {
+        // Stored password is hashed — hash input and compare
         const inputHash = await _hashPw(password);
-        adminOk = inputHash === correct;
+        adminOk = inputHash === storedPw;
+        console.log('[Auth] Hash compare:', { match: adminOk, inputHash: inputHash.substring(0, 10) + '...', storedHash: storedPw.substring(0, 10) + '...' });
       } else {
         // Legacy plaintext comparison
-        adminOk = password === correct;
+        adminOk = password === storedPw;
+        console.log('[Auth] Plaintext compare:', { match: adminOk });
       }
+
       if (adminOk) {
         localStorage.setItem('wfa_logged_in', 'true');
         localStorage.setItem('wfa_user_role', 'admin');
         localStorage.setItem('wfa_user_name', 'admin');
         localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
         showApp(true);
-        if (password === 'admin123') {
-           setTimeout(() => {
-             navigateTo('settings');
-             Utils.toast('SECURITY WARNING: Please change your default password immediately!', 'error', 10000);
-             if (typeof SettingsModule !== 'undefined' && SettingsModule.switchTab) {
-               SettingsModule.switchTab('security');
-             }
-           }, 500);
-        }
         return true;
       }
     }
@@ -132,7 +155,6 @@ const App = (() => {
     const inputHash = await _hashPw(password);
     const sub = getSubAccounts().find((s) => {
       if (s.username !== normalizedUsername) return false;
-      // Hashed password (new format) অথবা legacy plaintext (migration এ ধরা না পড়লে)
       const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
       return isHashed ? s.password === inputHash : s.password === password;
     });
@@ -147,6 +169,28 @@ const App = (() => {
 
     return false;
   }
+
+  // ── Emergency Password Reset (console only) ────────────────────────
+  // Usage: App.resetAdminPassword('newPassword')
+  async function resetAdminPassword(newPassword) {
+    if (!newPassword || newPassword.length < 4) {
+      console.error('[Auth] Password must be at least 4 characters');
+      return false;
+    }
+    const settingsList = SupabaseSync.getAll(DB.settings);
+    const settings = settingsList[0] || {};
+    const newHash = await _hashPw(newPassword);
+    settings.admin_password = newHash;
+    if (settings.id) {
+      SupabaseSync.update(DB.settings, settings.id, settings);
+    } else {
+      settings.id = SupabaseSync.generateId();
+      SupabaseSync.insert(DB.settings, settings);
+    }
+    console.log('%c[Auth] Admin password reset successfully! You can now login with your new password.', 'color: #00ff88; font-weight: bold');
+    return true;
+  }
+
 
   function logout() {
     localStorage.removeItem('wfa_logged_in');
@@ -514,7 +558,7 @@ const App = (() => {
     });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount };
+  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);

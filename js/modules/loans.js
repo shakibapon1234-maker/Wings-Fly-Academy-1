@@ -547,4 +547,5 @@ const Loans = (() => {
   return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
 
 })();
+window.Loans = Loans;
 

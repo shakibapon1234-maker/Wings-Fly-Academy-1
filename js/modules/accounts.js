@@ -594,4 +594,5 @@ const Accounts = (() => {
   };
 
 })();
+window.Accounts = Accounts;
 

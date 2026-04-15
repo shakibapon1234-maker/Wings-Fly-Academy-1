@@ -263,3 +263,4 @@ const IDCardsModule = (() => {
 
   return { buildCardHTML, renderPreview, printCard, printBulk, render, previewStudent, previewCard, printStudent, printAllStudents };
 })();
+window.IDCardsModule = IDCardsModule;

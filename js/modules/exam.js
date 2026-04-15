@@ -514,3 +514,4 @@ const Exam = (() => {
   };
 
 })();
+window.ExamModule = Exam;

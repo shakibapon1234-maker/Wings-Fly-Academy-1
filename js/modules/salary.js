@@ -737,3 +737,4 @@ const Salary = (() => {
   };
 
 })();
+window.Salary = Salary;

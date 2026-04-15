@@ -1284,3 +1284,4 @@ const Students = (() => {
   };
 
 })();
+window.Students = Students;

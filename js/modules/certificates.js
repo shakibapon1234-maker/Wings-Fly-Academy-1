@@ -360,3 +360,4 @@ const CertificatesModule = (() => {
 
   return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, previewCertificate, printForStudent, printAllCerts };
 })();
+window.CertificatesModule = CertificatesModule;

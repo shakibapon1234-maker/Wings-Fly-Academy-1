@@ -524,6 +524,8 @@ const Attendance = (() => {
 
     let filtered = records.filter(r => r.date && r.date.startsWith(month) && r.type === 'student');
     if (batch) filtered = filtered.filter(r => r.batch === batch);
+    // সর্বশেষ তারিখের রেকর্ড আগে (latest on top)
+    filtered = filtered.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     if (!filtered.length) {
       wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">No records found for this month</div></div>`;
@@ -1288,3 +1290,4 @@ const Attendance = (() => {
   };
 
 })();
+window.Attendance = Attendance;

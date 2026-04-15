@@ -302,3 +302,4 @@ const LoginUI = (() => {
   document.addEventListener('DOMContentLoaded', init);
   return { showForgotModal, closeForgotModal, checkSecurityAnswer, checkMasterPin };
 })();
+window.LoginUI = LoginUI;

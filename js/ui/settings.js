@@ -1130,11 +1130,12 @@ const SettingsModule = (() => {
               <th>Action</th>
               <th>Type</th>
               <th>Description</th>
+              <th>Status</th>
               <th style="text-align:right">⏱ Time</th>
             </tr>
           </thead>
           <tbody>
-            ${logs.length === 0 ? `<tr><td colspan="5" class="no-data"><i class="fa fa-inbox"></i> No activity log</td></tr>` :
+            ${logs.length === 0 ? `<tr><td colspan="6" class="no-data"><i class="fa fa-inbox"></i> No activity log</td></tr>` :
               logs.slice(0, 100).map(l => `
                 <tr>
                   <td><i class="fa ${l.action === 'add' ? 'fa-plus-circle' : l.action === 'edit' ? 'fa-pen' : 'fa-trash'}"
@@ -1142,6 +1143,7 @@ const SettingsModule = (() => {
                   <td><span class="badge ${l.action === 'add' ? 'badge-success' : l.action === 'edit' ? 'badge-info' : 'badge-error'}" style="text-transform:uppercase">${l.action}</span></td>
                   <td style="font-size:.82rem">${l.type || '—'}</td>
                   <td style="font-size:.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.description || ''}</td>
+                  <td style="font-size:.82rem">${l.status === 'failed' ? '<span style="color:var(--error);font-weight:600">Failed</span>' : '<span style="color:var(--success);font-weight:600">Success</span>'}</td>
                   <td style="text-align:right;font-size:.78rem;color:var(--text-muted)">${l.time || '—'}</td>
                 </tr>
               `).join('')
@@ -4085,5 +4087,5 @@ window.SettingsModule = SettingsModule;
   document.head.appendChild(styleTag);
 
 })();
-
+window.SettingsModule = SettingsModule;
 
