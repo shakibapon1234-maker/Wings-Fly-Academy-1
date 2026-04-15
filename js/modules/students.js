@@ -182,7 +182,7 @@ const Students = (() => {
     const newId = Utils.generateStudentId(all.map(s => s.student_id));
     const today = Utils.today();
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-user-graduate"></i> Add Student', `
       <style>
@@ -414,7 +414,7 @@ const Students = (() => {
     editingId = id;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-pen"></i> Student Edit', `
       <div class="form-row">

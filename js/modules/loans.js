@@ -55,7 +55,7 @@ const Loans = (() => {
           return `
           <div class="loan-person-card" onclick="Loans.showPersonDetail('${person.replace(/'/g,"\\'")}')" data-person="${person.toLowerCase()}">
             <div class="person-avatar">${letter}</div>
-            <div class="person-name">${person}</div>
+            <div class="person-name">${Utils.esc(person)}</div>
             <div class="person-owe" style="color:${net>0?'#ff4757':'#00ff88'}">
               ${net > 0 ? 'We Owe: ' : 'They Owe: '}${Utils.takaEn(Math.abs(net))}
             </div>
@@ -96,7 +96,7 @@ const Loans = (() => {
             <tbody>
               ${pageData.items.map(l=>`<tr>
                 <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
-                <td style="font-weight:600">${l.person_name || l.person || '—'}</td>
+                <td style="font-weight:600">${Utils.esc(l.person_name || l.person || '—')}</td>
                 <td>${(l.type==='Loan Giving' || l.direction==='given')
                   ? '<span class="badge-expense">Given</span>'
                   : '<span class="badge-income">Taken</span>'}</td>
@@ -252,9 +252,9 @@ const Loans = (() => {
                 data-received='${JSON.stringify(receivedPersons)}'
                 data-all='${JSON.stringify(allPersons)}'>
                 <option value="">-- Select existing person --</option>
-                ${allPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
+                ${allPersons.map(p => `<option value="${Utils.esc(p)}" ${(d.person_name===p||d.person===p)?'selected':''}>${Utils.esc(p)}</option>`).join('')}
               </select>
-              <input id="lf-person" class="lf-input" value="${d.person_name||d.person||''}" placeholder="Or enter new name" />
+              <input id="lf-person" class="lf-input" value="${Utils.esc(d.person_name||d.person||'')}" placeholder="Or enter new name" />
             </div>
             <div class="lf-hint">
               <i class="fa fa-info-circle"></i> <span id="lf-hint-text">Select from dropdown or enter a new name</span>
@@ -517,7 +517,7 @@ const Loans = (() => {
     const loans = SupabaseSync.getAll(DB.loans).filter(l => (l.person_name === person || l.person === person));
     const given = loans.filter(l=>l.type==='Loan Giving' || l.direction==='given').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
     const recv  = loans.filter(l=>l.type==='Loan Receiving' || l.direction==='received').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
-    Utils.openModal(`<i class="fa fa-user"></i> ${person} — Loan History`, `
+    Utils.openModal(`<i class="fa fa-user"></i> ${Utils.esc(person)} — Loan History`, `
       <div style="display:flex;gap:16px;margin-bottom:16px">
         <div style="flex:1;text-align:center;padding:12px;background:rgba(255,71,87,0.08);border-radius:10px">
           <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase">Given</div>

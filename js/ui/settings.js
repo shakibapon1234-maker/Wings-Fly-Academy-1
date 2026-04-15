@@ -364,7 +364,7 @@ const SettingsModule = (() => {
 
   function buildColorCustomizerHTML(themeId, styleId) {
     const key = `wfa_sidebar_custom_${themeId}_${styleId}`;
-    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    const saved = Utils.safeJSON(localStorage.getItem(key), {});
     return `
       <div style="background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:16px" id="color-customizer-inner">
         <div style="font-size:.9rem;font-weight:700;color:var(--brand-primary);margin-bottom:12px">
@@ -557,7 +557,7 @@ const SettingsModule = (() => {
     // Re-apply if saved
     const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
     if(sideSavedJSON) {
-        const s = JSON.parse(sideSavedJSON);
+        const s = Utils.safeJSON(sideSavedJSON);
         _injectCSSOverrides(s.opacity, s.border, s.active, s.blur);
     }
   }
@@ -746,10 +746,10 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelCategories() {
     const cfg = getConfig();
-    const incomeCats = cfg.income_categories ? JSON.parse(cfg.income_categories) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
-    const expenseCats = cfg.expense_categories ? JSON.parse(cfg.expense_categories) : ['Rent', 'Salary', 'Loan Given', 'Other'];
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
-    const roles = cfg.employee_roles ? JSON.parse(cfg.employee_roles) : ['Admin', 'Instructor', 'Staff'];
+    const incomeCats = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
+    const expenseCats = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const roles = cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
 
     return `
     <div class="settings-panel ${activeTab === 'categories' ? 'active' : ''}" data-panel="categories">
@@ -788,7 +788,7 @@ const SettingsModule = (() => {
     const input = document.getElementById(`cat-add-${key}`);
     if (!input || !input.value.trim()) return;
     const cfg = getConfig();
-    const items = cfg[key] ? JSON.parse(cfg[key]) : [];
+    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     const newItem = input.value.trim();
     if (items.includes(newItem)) { Utils.toast('Already exists', 'error'); return; }
     items.push(newItem);
@@ -801,7 +801,7 @@ const SettingsModule = (() => {
 
   function removeCategory(key, item) {
     const cfg = getConfig();
-    const items = cfg[key] ? JSON.parse(cfg[key]) : [];
+    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     const idx = items.indexOf(item);
     if (idx > -1) items.splice(idx, 1);
     cfg[key] = JSON.stringify(items);
@@ -2045,7 +2045,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildAdvancePaymentSection() {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const advancesWithCalc = advances.map((a, i) => {
       const returns = a.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2131,7 +2131,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildInvestmentSection() {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const invWithCalc = investments.map((inv, i) => {
       const returns = inv.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2234,7 +2234,7 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
     const monitor = typeof SyncEngine !== 'undefined' ? SyncEngine.getDataMonitor() : {};
-    const recentChanges = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const totalRecords = Object.values(monitor).reduce((s, v) => s + (v.localCount || 0), 0);
 
     return `
@@ -2346,7 +2346,7 @@ ${expenseEntries.length > 0 ? `
 
   // ─── Activity Log ─────────────────────────────────────────────
   function getActivityLogs() {
-    return JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
   }
 
   function logActivity(action, type, description) {
@@ -2369,7 +2369,7 @@ ${expenseEntries.length > 0 ? `
   // ─── Recycle Bin (wfa_recycle_bin — separate from sync tombstones wfa_deletedItems) ───
   function getDeletedItems() {
     try {
-      const raw = JSON.parse(localStorage.getItem('wfa_recycle_bin') || '[]');
+      const raw = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
       return Array.isArray(raw) ? raw : [];
     } catch {
       return [];
@@ -2402,7 +2402,7 @@ ${expenseEntries.length > 0 ? `
 
   // ─── Keep Record (Notes) ──────────────────────────────────────
   function getKeepRecords() {
-    return JSON.parse(localStorage.getItem('wfa_keep_records') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_keep_records'), []);
   }
 
   function addNote() {
@@ -2568,7 +2568,7 @@ ${expenseEntries.length > 0 ? `
       const available = Utils.getAccountBalance(method);
       if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
     }
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     advances.push({ person, amount, method, date, note, returns: [] });
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     SupabaseSync.insert(DB.finance, {
@@ -2581,7 +2581,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteAdvance(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     if (!advances[idx]) return;
     if (!confirm(`Delete advance for "${advances[idx].person}"?`)) return;
     advances.splice(idx, 1);
@@ -2591,7 +2591,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function openReturnAdvanceModal(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -2636,7 +2636,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-adv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-adv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-adv-note')?.value || '';
-    const advances  = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances  = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const totalReturned = (a.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -2656,7 +2656,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewAdvanceLedger(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -2771,7 +2771,7 @@ ${expenseEntries.length > 0 ? `
     if (!source) { Utils.toast('Source/Investor name required', 'error'); return; }
     if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
     if (!method) { Utils.toast('Account required', 'error'); return; }
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     investments.push({ source, amount, method, date, note, returns: [] });
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
@@ -2784,7 +2784,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteInvestment(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     if (!investments[idx]) return;
     if (!confirm(`Delete investment from "${investments[idx].source}"?`)) return;
     investments.splice(idx, 1);
@@ -2794,7 +2794,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function openReturnInvestmentModal(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -2839,7 +2839,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-inv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-inv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-inv-note')?.value || '';
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const totalReturned = (inv.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -2859,7 +2859,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewInvestmentLedger(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -2934,7 +2934,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function showMonitorSnapshot(index) {
-    const recentChanges = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const item = recentChanges[index];
     if (!item) return showLiveAccountSnapshot();
 
@@ -3642,7 +3642,7 @@ ${expenseEntries.length > 0 ? `
 
   // ── Auto Snapshots ──────────────────────────────────────────────
   function getSnapshots() {
-    return JSON.parse(localStorage.getItem('wfa_auto_snapshots') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
 
   function saveSnapshot(manual = false) {
@@ -3833,7 +3833,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function getSubAccounts() {
-     return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
+     return Utils.safeJSON(localStorage.getItem('wfa_sub_accounts'), []);
   }
 
   /* ── SHA-256 password hashing (Web Crypto API) ───────────────────────
@@ -4022,7 +4022,7 @@ window.SettingsModule = SettingsModule;
   // Inject colors immediately
   const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${savedTheme}_${savedSidebar}`);
   if(sideSavedJSON) {
-      const s = JSON.parse(sideSavedJSON);
+      const s = Utils.safeJSON(sideSavedJSON);
       const styleTag = document.createElement('style');
       styleTag.id = 'custom-sidebar-overrides';
       styleTag.textContent = `

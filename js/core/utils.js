@@ -18,6 +18,14 @@ const Utils = (() => {
       .replace(/\//g, '&#x2F;');
   }
 
+  // ── Safe JSON Parser ────────────────────────────────────────
+  // JSON.parse wrapper — corrupt/invalid data হলে crash না করে fallback দেয়
+  function safeJSON(str, fallback = null) {
+    if (!str) return fallback;
+    try { return JSON.parse(str); }
+    catch (e) { console.warn('[safeJSON] Parse failed:', e.message); return fallback; }
+  }
+
   // ── Date Helpers ───────────────────────────────────────────
   function today() {
     return new Date().toISOString().split('T')[0];
@@ -478,7 +486,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc,
+      esc, safeJSON,
       // Modal
       openModal, closeModal, confirm,
       // Badges

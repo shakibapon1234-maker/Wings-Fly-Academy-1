@@ -118,18 +118,22 @@ const WFA_IDB = (() => {
     if (!_cache['recycle_bin'] || _cache['recycle_bin'].length === 0) {
        const rb = localStorage.getItem('wfa_recycle_bin');
        if (rb) {
-          const rbData = JSON.parse(rb);
-          _cache['recycle_bin'] = rbData;
-          _writeToIDB('recycle_bin', rbData);
+          try {
+            const rbData = JSON.parse(rb);
+            _cache['recycle_bin'] = rbData;
+            _writeToIDB('recycle_bin', rbData);
+          } catch(e) { console.warn('[IDB] recycle_bin parse failed:', e); }
        }
     }
     // Explicit migration for deleted tracker
     if (!_cache['deleted_items'] || _cache['deleted_items'].length === 0) {
        const di = localStorage.getItem('wfa_deletedItems');
        if (di) {
-          const diData = JSON.parse(di);
-          _cache['deleted_items'] = [diData];
-          _writeToIDB('deleted_items', [diData]);
+          try {
+            const diData = JSON.parse(di);
+            _cache['deleted_items'] = [diData];
+            _writeToIDB('deleted_items', [diData]);
+          } catch(e) { console.warn('[IDB] deletedItems parse failed:', e); }
        }
     }
 
@@ -260,10 +264,10 @@ const SupabaseSync = (() => {
   function _freeUpStorage() {
     try {
       const logKey = 'wfa_activity_log';
-      const log = JSON.parse(localStorage.getItem(logKey) || '[]');
+      const log = (() => { try { return JSON.parse(localStorage.getItem(logKey) || '[]'); } catch { return []; } })();
       if (log.length > 50) localStorage.setItem(logKey, JSON.stringify(log.slice(-50)));
       const rcKey = 'wfa_recent_changes';
-      const rc = JSON.parse(localStorage.getItem(rcKey) || '[]');
+      const rc = (() => { try { return JSON.parse(localStorage.getItem(rcKey) || '[]'); } catch { return []; } })();
       if (rc.length > 20) localStorage.setItem(rcKey, JSON.stringify(rc.slice(-20)));
       console.warn('[Storage] Auto-purged old logs. Usage:', _storageUsageKB(), 'KB');
       return true;
@@ -341,7 +345,7 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         snapshot: _getMonitorSnapshot(),
       };
-      const arr = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+      const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
       if (arr.length > 120) arr.length = 120;
       localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
@@ -405,7 +409,7 @@ const SupabaseSync = (() => {
   function _trackDeletion(table, id) {
     try {
       const key = 'wfa_deletedItems';
-      let deleted = JSON.parse(localStorage.getItem(key)) || {};
+      let deleted = (() => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } })();
       if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       if (!deleted[table]) deleted[table] = [];
       if (!deleted[table].includes(id)) deleted[table].push(id);
@@ -727,7 +731,7 @@ const SupabaseSync = (() => {
 
   function _queueRetry(table, record) {
     try {
-      const queue = JSON.parse(localStorage.getItem('wfa_retry_queue')) || [];
+      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
       queue.push({ table, record, at: Date.now() });
       localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
     } catch { /* ignore */ }
@@ -735,7 +739,7 @@ const SupabaseSync = (() => {
 
   async function processRetryQueue() {
     try {
-      const queue = JSON.parse(localStorage.getItem('wfa_retry_queue')) || [];
+      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
       if (!queue.length) return;
       const { client } = window.SUPABASE_CONFIG;
       const remaining = [];

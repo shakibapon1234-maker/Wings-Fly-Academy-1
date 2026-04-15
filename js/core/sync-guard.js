@@ -173,7 +173,7 @@ const SyncGuard = (() => {
       });
 
       // Advance payments should NOT be in finance_ledger
-      const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+      const advances = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch { return []; } })();
       if (advances.length > 0) {
         advances.forEach((a, i) => {
           const linked = finance.filter(f =>

@@ -368,7 +368,7 @@ const IntegrityGuard = (() => {
             if (!Array.isArray(bin)) return { ok: false, detail: 'recycle_bin is not an array in IDB' };
             // Check if also in localStorage (bad — should be in IDB only)
             const lsBin = localStorage.getItem('wfa_recycle_bin');
-            if (lsBin && JSON.parse(lsBin)?.length > 0) {
+            if (lsBin && ((() => { try { return JSON.parse(lsBin); } catch { return []; } })())?.length > 0) {
               return { ok: false, detail: 'wfa_recycle_bin still in localStorage — IDB migration may have failed' };
             }
             return { ok: true, detail: `RecycleBin in IDB: ${bin.length} items` };

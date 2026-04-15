@@ -118,8 +118,8 @@ const Finance = (() => {
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDate(f.date)}</td>
         <td>${typeBadge(f.type)}</td>
-        <td style="font-size:0.82rem;color:var(--text-secondary)">${f.category||'—'}</td>
-        <td style="max-width:200px;font-size:0.85rem">${Utils.truncate(f.description||'—',35)}</td>
+        <td style="font-size:0.82rem;color:var(--text-secondary)">${Utils.esc(f.category||'—')}</td>
+        <td style="max-width:200px;font-size:0.85rem">${Utils.esc(Utils.truncate(f.description||'—',35))}</td>
         <td>${Utils.methodBadge(f.method||'Cash')}</td>
         <td class="${isPos?'ledger-income':'ledger-expense'}" style="font-family:var(--font-en);font-weight:600">
           ${isPos?'+':'-'}${Utils.takaEn(f.amount)}
@@ -162,9 +162,9 @@ const Finance = (() => {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     let arr = [];
     if (type === 'Income' || type === 'Transfer In' || type === 'Loan Receiving') {
-      arr = cfg.income_categories ? JSON.parse(cfg.income_categories) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
+      arr = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
     } else {
-      arr = cfg.expense_categories ? JSON.parse(cfg.expense_categories) : ['Rent', 'Salary', 'Loan Given', 'Other'];
+      arr = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
     }
     return arr;
   }

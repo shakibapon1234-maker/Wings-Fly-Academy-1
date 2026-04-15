@@ -12,7 +12,7 @@ const HRStaff = (() => {
   /* ─── Roles ─── */
   function getRoles() {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    return cfg.employee_roles ? JSON.parse(cfg.employee_roles) : ['Admin', 'Instructor', 'Staff'];
+    return cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
   }
 
   function init() {

@@ -219,8 +219,8 @@ const Salary = (() => {
             '<div style="display:flex; align-items:center; gap:12px;">' +
               '<div style="width:40px; height:40px; border-radius:50%; background:rgba(0,212,255,0.15); border:1px solid rgba(0,212,255,0.2); display:flex; align-items:center; justify-content:center;"><i class="fa fa-user" style="color:#00d4ff;"></i></div>' +
               '<div>' +
-                '<div style="font-weight:700; color:#fff; font-size:1.05rem;">' + (r.staffName || '—') + '</div>' +
-                '<div style="font-size:.78rem; color:var(--text-muted);">' + (r.role || 'Staff') + (r.phone ? ' <i class="fa fa-phone" style="margin:0 4px; opacity:.6;"></i>' + r.phone : '') + '</div>' +
+                '<div style="font-weight:700; color:#fff; font-size:1.05rem;">' + Utils.esc(r.staffName || '—') + '</div>' +
+                '<div style="font-size:.78rem; color:var(--text-muted);">' + Utils.esc(r.role || 'Staff') + (r.phone ? ' <i class="fa fa-phone" style="margin:0 4px; opacity:.6;"></i>' + Utils.esc(r.phone) : '') + '</div>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">' +
@@ -339,8 +339,8 @@ const Salary = (() => {
         '<div style="background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:10px; padding:16px; margin-bottom:20px;">' +
           '<div style="display:flex; align-items:center; gap:12px;">' +
             '<div style="width:44px; height:44px; border-radius:50%; background:rgba(0,212,255,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa fa-user" style="color:#00d4ff; font-size:1.2rem;"></i></div>' +
-            '<div><div style="font-weight:800; color:#fff; font-size:1.1rem;">' + r.staffName + '</div>' +
-            '<div style="font-size:.8rem; color:#00d4ff;">' + (r.role || 'Staff') + ' &nbsp;|&nbsp; ' + monthLabel(r.month) + '</div></div>' +
+            '<div><div style="font-weight:800; color:#fff; font-size:1.1rem;">' + Utils.esc(r.staffName) + '</div>' +
+            '<div style="font-size:.8rem; color:#00d4ff;">' + Utils.esc(r.role || 'Staff') + ' &nbsp;|&nbsp; ' + monthLabel(r.month) + '</div></div>' +
             '<div style="margin-left:auto; text-align:right;">' +
               '<div style="font-size:.7rem; color:var(--text-muted);">Net Salary</div>' +
               '<div style="font-size:1.3rem; font-weight:800; color:#00ff88;">৳' + Utils.formatMoneyPlain(net) + '</div>' +
@@ -444,7 +444,7 @@ const Salary = (() => {
     var staffOpts = '<option value="">-- HR থেকে Staff বেছে নিন --</option>' +
       allStaff.map(function(s) {
         return '<option value="' + s.staffId + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
-          ' data-name="' + (Utils.escapeHtml ? Utils.escapeHtml(s.name) : s.name) + '"' +
+          ' data-name="' + Utils.esc(s.name) + '"' +
           ' data-role="' + (s.role || '') + '"' +
           ' data-phone="' + (s.phone || '') + '"' +
           ' data-salary="' + Utils.safeNum(s.salary) + '">' +
@@ -648,7 +648,7 @@ const Salary = (() => {
         return '<tr>' +
           '<td style="font-weight:700; color:' + (r.paid ? '#00ff88' : paid_amt > 0 ? '#00d4ff' : '#ffb703') + ';">' + (r.paidDate ? formatDate(r.paidDate) : '—') + '</td>' +
           '<td style="color:#00d4ff; font-weight:700;">' + monthLabel(r.month) + '</td>' +
-          '<td><div style="font-weight:700; color:#fff;">' + (r.staffName || '—') + '</div><div style="font-size:.73rem; color:var(--text-muted);">' + (r.role || 'Staff') + '</div></td>' +
+          '<td><div style="font-weight:700; color:#fff;">' + Utils.esc(r.staffName || '—') + '</div><div style="font-size:.73rem; color:var(--text-muted);">' + Utils.esc(r.role || 'Staff') + '</div></td>' +
           '<td>৳' + Utils.formatMoneyPlain(r.baseSalary || 0) + '</td>' +
           '<td style="color:#00d4ff;">' + (r.bonus ? '৳' + Utils.formatMoneyPlain(r.bonus) : '—') + '</td>' +
           '<td style="color:#ff4757;">' + (r.deduction ? '৳' + Utils.formatMoneyPlain(r.deduction) : '—') + '</td>' +

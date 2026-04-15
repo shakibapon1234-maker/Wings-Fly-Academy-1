@@ -100,11 +100,11 @@ const Exam = (() => {
       <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
       <td>${Utils.badge(e.reg_id || '—', 'primary')}</td>
       <td>
-        <div style="font-weight:600">${e.student_name || '—'}</div>
-        <div style="font-size:0.75rem;color:var(--text-muted)">${e.student_id || ''}</div>
+        <div style="font-weight:600">${Utils.esc(e.student_name || '—')}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(e.student_id || '')}</div>
       </td>
-      <td>${e.batch || '—'}</td>
-      <td>${e.subject || '—'}</td>
+      <td>${Utils.esc(e.batch || '—')}</td>
+      <td>${Utils.esc(e.subject || '—')}</td>
       <td style="font-size:0.82rem">${Utils.formatDate(e.exam_date)}</td>
       <td style="font-family:var(--font-ui)">${Utils.takaEn(e.exam_fee)}</td>
       <td><strong>${e.grade || '—'}</strong></td>
@@ -158,7 +158,7 @@ const Exam = (() => {
     const students = SupabaseSync.getAll(DB.students);
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-clipboard-list"></i> Exam Registration', `
       <div class="form-row">
@@ -249,7 +249,7 @@ const Exam = (() => {
     editingId = id;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-pen"></i> Edit Exam', `
       <div class="form-row">
@@ -452,6 +452,7 @@ const Exam = (() => {
             description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
             amount: record.exam_fee, method: method, date: record.exam_date,
           });
+          SupabaseSync.updateAccountBalance(method, record.exam_fee, 'in');
         }
       }
     }
