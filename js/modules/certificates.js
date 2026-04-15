@@ -328,5 +328,35 @@ const CertificatesModule = (() => {
     win.document.close();
   }
 
-  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, printForStudent, printAllCerts };
+  // ✅ Global-safe preview — works from ANY page via Utils.openModal()
+  // Called from Students MANAGE action → GENERATE CERTIFICATE button
+  function previewCertificate(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    // Try own modal first (if on Certificates page)
+    const ownModal = document.getElementById('cert-preview-modal');
+    const ownArea  = document.getElementById('cert-preview-area');
+    if (ownModal && ownArea) {
+      ownArea.innerHTML = buildCertHTML(buildDataFromStudent(s));
+      ownModal.style.display = 'flex';
+      return;
+    }
+
+    // Fallback: use global Utils modal (works from Students page)
+    const certHTML = buildCertHTML(buildDataFromStudent(s));
+    Utils.openModal(
+      `<i class="fa fa-award" style="color:#f59e0b"></i> Certificate &mdash; ${Utils.esc(s.name)}`,
+      `<div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px 0;">
+        <div style="overflow-x:auto; width:100%;">${certHTML}</div>
+        <button class="btn btn-primary" onclick="CertificatesModule.printForStudent('${id}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
+          <i class="fa fa-print"></i> Print Certificate
+        </button>
+      </div>`,
+      'modal-xl'
+    );
+  }
+
+  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, previewCertificate, printForStudent, printAllCerts };
 })();

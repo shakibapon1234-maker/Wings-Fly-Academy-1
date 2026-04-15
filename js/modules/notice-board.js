@@ -7,6 +7,7 @@ const NoticeBoardModule = (() => {
 
   let countdownInterval = null;
   let activeNotice = null;
+  let _inlineIv = null; // ✅ module-level tracker to prevent memory leaks
 
   // ── INIT ────────────────────────────────────────────────
   function init() {
@@ -331,18 +332,19 @@ const NoticeBoardModule = (() => {
       </div>
     `;
 
-    // Inline countdown
+    // Inline countdown — clear previous interval first to prevent memory leak
+    if (_inlineIv) { clearInterval(_inlineIv); _inlineIv = null; }
     if (isRunning && activeNotice) {
       const _tick = () => {
         const el = document.getElementById('nb-countdown-inline');
-        if (!el) return;
+        if (!el) { clearInterval(_inlineIv); _inlineIv = null; return; }
         const rem = new Date(activeNotice.expiresAt).getTime() - Date.now();
-        if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; return; }
+        if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; clearInterval(_inlineIv); _inlineIv = null; return; }
         const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
         el.textContent = `${h>0?h+'h ':''} ${m}m ${s}s বাকি`;
       };
       _tick();
-      const _iv = setInterval(() => { if (!document.getElementById('nb-countdown-inline')) { clearInterval(_iv); return; } _tick(); }, 1000);
+      _inlineIv = setInterval(_tick, 1000);
     }
   }
 

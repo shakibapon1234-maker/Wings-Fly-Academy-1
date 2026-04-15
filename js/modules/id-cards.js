@@ -231,5 +231,35 @@ const IDCardsModule = (() => {
     printBulk(students, 'student');
   }
 
-  return { buildCardHTML, renderPreview, printCard, printBulk, render, previewStudent, printStudent, printAllStudents };
+  // ✅ Global-safe preview — works from ANY page via Utils.openModal()
+  // Called from Students MANAGE action → VIEW ID CARD button
+  function previewCard(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    // Try own modal first (if on ID Cards page)
+    const ownModal = document.getElementById('idcard-preview-modal');
+    const ownArea  = document.getElementById('idcard-preview-area');
+    if (ownModal && ownArea) {
+      ownArea.innerHTML = buildCardHTML(s, 'student');
+      ownModal.style.display = 'flex';
+      return;
+    }
+
+    // Fallback: use global Utils modal (works from Students page)
+    const cardHTML = buildCardHTML(s, 'student');
+    Utils.openModal(
+      `<i class="fa fa-id-badge" style="color:#00d9ff"></i> ID Card &mdash; ${Utils.esc(s.name)}`,
+      `<div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px 0;">
+        <div>${cardHTML}</div>
+        <button class="btn btn-primary" onclick="IDCardsModule.printStudent('${id}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
+          <i class="fa fa-print"></i> Print ID Card
+        </button>
+      </div>`,
+      'modal-sm'
+    );
+  }
+
+  return { buildCardHTML, renderPreview, printCard, printBulk, render, previewStudent, previewCard, printStudent, printAllStudents };
 })();

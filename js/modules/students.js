@@ -553,11 +553,11 @@ const Students = (() => {
         <i class="fa fa-sack-dollar"></i> PAYMENTS & HISTORY
       </button>
       
-      <button class="action-btn-glow btn-cyan" onclick="Utils.closeModal(); setTimeout(()=>IdCards && IdCards.previewCard('${id}'), 300)">
+      <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${id}')">
         <i class="fa fa-id-badge"></i> VIEW ID CARD
       </button>
       
-      <button class="action-btn-glow btn-orange" onclick="Utils.closeModal(); setTimeout(()=>Certificates && Certificates.previewCertificate('${id}'), 300)">
+      <button class="action-btn-glow btn-orange" onclick="CertificatesModule && CertificatesModule.previewCertificate('${id}')">
         <i class="fa fa-award"></i> GENERATE CERTIFICATE
       </button>
       

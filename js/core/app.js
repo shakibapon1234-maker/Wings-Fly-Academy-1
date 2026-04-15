@@ -368,7 +368,8 @@ const App = (() => {
         if (matchedStudents.length > 0) {
           navigateTo('students');
           setTimeout(() => {
-            const sInput = document.getElementById('student-search');
+            // ✅ Use correct ID: 'stu-search' (as defined in students.js)
+            const sInput = document.getElementById('stu-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
           }, 300);
         } else if (matchedStaff.length > 0) {
@@ -417,7 +418,11 @@ const App = (() => {
         const btnEl = loginForm.querySelector('button[type="submit"]');
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Logging in...'; }
         const ok = await login(un, pw);
-        if (btnEl) { btnEl.disabled = false; btnEl.innerHTML = '<i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN'; }
+        if (btnEl) {
+          btnEl.disabled = false;
+          // ✅ Restore full HTML structure to preserve shimmer animation
+          btnEl.innerHTML = '<span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span><div class="login-btn-shimmer"></div>';
+        }
         if (!ok) {
           if (errEl) {
             errEl.textContent = 'Username or password incorrect!';

@@ -236,7 +236,7 @@ const LoginUI = (() => {
   }
 
   /* ── Master PIN verify (fallback when no security question) ── */
-  function checkMasterPin() {
+  async function checkMasterPin() {
     const input  = document.getElementById('master-pin-input');
     const result = document.getElementById('master-pin-result');
     if (!input || !result) return;
@@ -249,9 +249,25 @@ const LoginUI = (() => {
       result.innerHTML = `<span style="color:#ff6b7a">Please enter the master PIN.</span>`;
       return;
     }
-    // Support hashed password — check both
+
+    // ✅ Support both plaintext and SHA-256 hashed passwords
     const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
-    const match = _isHashed(masterPin) ? false : (given === masterPin); // hashed → can't verify plaintext
+    let match = false;
+    if (_isHashed(masterPin)) {
+      try {
+        const enc = new TextEncoder();
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(given));
+        const inputHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        match = inputHash === masterPin;
+      } catch (e) {
+        // Fallback non-crypto hash (same as app.js _hashPw)
+        let hash = 0;
+        for (let i = 0; i < given.length; i++) { hash = ((hash << 5) - hash) + given.charCodeAt(i); hash |= 0; }
+        match = ('fb_' + Math.abs(hash).toString(16)) === masterPin;
+      }
+    } else {
+      match = given === masterPin;
+    }
 
     if (match) {
       result.innerHTML = `

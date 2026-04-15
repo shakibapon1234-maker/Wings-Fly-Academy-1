@@ -626,7 +626,8 @@ const SupabaseSync = (() => {
         if (item?.table && item?.data?.id) untrackDeletion(item.table, item.data.id);
       });
     }
-    localStorage.setItem(RECYCLE_BIN_KEY, '[]');
+    // ✅ Use IDB (setAll) instead of legacy localStorage
+    setAll('recycle_bin', []);
     _logActivity('delete', 'system', 'Emptied recycle bin');
   }
 
@@ -634,14 +635,14 @@ const SupabaseSync = (() => {
 
   const _TABLE_COLS = {
     settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','session'],
+    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
+    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','exam_fee','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
     notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
   };
@@ -1089,14 +1090,14 @@ const SyncEngine = (() => {
 
   const TABLE_COLUMNS = {
     settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
+    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
+    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','exam_fee','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
     notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
   };
