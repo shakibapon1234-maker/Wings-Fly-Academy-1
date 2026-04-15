@@ -450,7 +450,7 @@ const App = (() => {
 
   // ── Init ──────────────────────────────────────────────────
   function init() {
-    // Apply saved theme
+    // Apply saved theme immediately (doesn't need IDB)
     const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeBtn = document.getElementById('btn-theme-toggle');
@@ -458,13 +458,19 @@ const App = (() => {
 
     bindEvents();
 
-    if (isLoggedIn()) {
-      showApp(false);
-    } else {
-      showLogin();
-    }
-
-    updateNotifCount();
+    // ── Wait for IndexedDB to be ready before login check ──
+    // WFA_IDB.init() is async — if we call isLoggedIn/showApp before IDB
+    // cache is loaded, SupabaseSync.getAll() returns [] and password
+    // checks fall back to default 'admin123'. onReady() guarantees
+    // the in-memory cache is populated first.
+    WFA_IDB.onReady(() => {
+      if (isLoggedIn()) {
+        showApp(false);
+      } else {
+        showLogin();
+      }
+      updateNotifCount();
+    });
   }
 
   return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount };

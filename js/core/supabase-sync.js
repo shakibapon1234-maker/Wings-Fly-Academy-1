@@ -622,7 +622,7 @@ const SupabaseSync = (() => {
     attendance:    ['id','person_id','person_name','type','date','status','note'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
-    notices:       ['id','title','content','date','category','priority','author'],
+    notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
   };
 
   function _sanitizeRecord(record, tableKey) {
@@ -1077,7 +1077,7 @@ const SyncEngine = (() => {
     attendance:    ['id','person_id','person_name','type','date','status','note'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
-    notices:       ['id','title','content','date','category','priority','author'],
+    notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
   };
 
   function startRealtime() {

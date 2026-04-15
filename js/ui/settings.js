@@ -830,7 +830,7 @@ const SettingsModule = (() => {
         (function() {
           try {
             const usedKB  = typeof SyncEngine !== 'undefined' ? SyncEngine.getStorageUsageKB() : 0;
-            const limitKB = 5120;
+            const limitKB = 512000; // IndexedDB — ~500 MB
             const pct     = Math.min(100, Math.round(usedKB / limitKB * 100));
             const color   = pct >= 90 ? '#ff4757' : pct >= 70 ? '#ffa502' : pct >= 50 ? '#00d9ff' : '#00ff88';
             const status  = pct >= 90 ? 'Critical' : pct >= 70 ? 'Warning' : 'Healthy';
@@ -852,14 +852,14 @@ const SettingsModule = (() => {
             document.getElementById('storage-usage-content').innerHTML =
               '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
                 '<span>Used: <strong style="color:' + color + '">' + usedKB.toLocaleString() + ' KB</strong></span>' +
-                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~5 MB</span>' +
+                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~500 MB</span>' +
               '</div>' +
               '<div style="background:rgba(255,255,255,0.06);border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px;border:1px solid rgba(255,255,255,0.08)">' +
                 '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + color + ',' + color + '88);border-radius:8px;transition:width .4s ease"></div>' +
               '</div>' +
               (pct >= 70 ? '<div style="background:rgba(255,165,0,0.09);border:1px solid rgba(255,165,0,0.25);border-radius:6px;padding:8px 12px;font-size:.80rem;color:#ffa502;margin-bottom:10px"><i class="fa fa-triangle-exclamation"></i> ' +
-                (pct >= 90 ? '<strong>Critical!</strong> উপরে "Auto-Clean" বাটন চাপুন। পুরনো data Supabase-এ safe আছে।' :
-                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই "Auto-Clean" করুন।') +
+                (pct >= 90 ? '<strong>Critical!</strong> Storage ' + pct + '% পূর্ণ। পুরনো data Supabase-এ safe আছে।' :
+                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই পুরনো data archive করুন।') +
               '</div>' : '') +
               '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.5px">TABLE BREAKDOWN</div>' +
               (tableRows || '<div style="color:var(--text-muted);font-size:.78rem">Data এখনো যোগ হয়নি।</div>');

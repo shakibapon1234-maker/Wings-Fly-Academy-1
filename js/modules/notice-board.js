@@ -30,7 +30,7 @@ const NoticeBoardModule = (() => {
   function refreshActiveNotice() {
     if (!window.DB || !DB.notices) return;
     const all = SupabaseSync.getAll(DB.notices) || [];
-    all.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    all.sort((a,b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
     activeNotice = null;
     hideBanner();
     for (let n of all) {
@@ -114,7 +114,7 @@ const NoticeBoardModule = (() => {
     refreshActiveNotice();
 
     const allNotices = (window.DB && DB.notices)
-      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
+      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||b.date||0) - new Date(a.createdAt||a.date||0))
       : [];
     const isRunning = activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now();
     const activeCfg = isRunning ? (TYPE_CFG[activeNotice.type] || TYPE_CFG.warning) : null;
@@ -393,7 +393,8 @@ const NoticeBoardModule = (() => {
     }
     const payload = {
       id: 'NOT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      text, title: text, type,
+      text, title: text, content: text, type,
+      date: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString()
     };
