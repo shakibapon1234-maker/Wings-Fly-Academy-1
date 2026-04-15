@@ -4087,5 +4087,3 @@ window.SettingsModule = SettingsModule;
   document.head.appendChild(styleTag);
 
 })();
-window.SettingsModule = SettingsModule;
-

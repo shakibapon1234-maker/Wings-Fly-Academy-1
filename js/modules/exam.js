@@ -140,7 +140,8 @@ const Exam = (() => {
     return r;
   }
 
-  function onSearch(val) { searchQuery = val; currentPage = 1; Utils.debounce(() => render(), 250)(); }
+  const debouncedRender = Utils.debounce(() => render(), 250);
+  function onSearch(val) { searchQuery = val; currentPage = 1; debouncedRender(); }
   function onFilter(key, val) {
     if (key === 'batch')  filterBatch = val;
     if (key === 'status') filterStatus = val;
