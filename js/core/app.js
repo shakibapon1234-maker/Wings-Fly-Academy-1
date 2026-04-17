@@ -187,7 +187,7 @@ const App = (() => {
       const allSettings = SupabaseSync.getAll(DB.settings);
       if (allSettings.length <= 1) return 0;
 
-      // প্রথম row রাখো, বাকিগুলো delete করো
+      // প্রথম row রাখো, বাকিগুলো remove করো
       const keeper = allSettings[0];
       let removed = 0;
       for (let i = 1; i < allSettings.length; i++) {
@@ -197,7 +197,8 @@ const App = (() => {
           keeper.admin_password = dup.admin_password;
           SupabaseSync.update(DB.settings, keeper.id, keeper);
         }
-        SupabaseSync.delete(DB.settings, dup.id);
+        // ✅ সঠিক function: remove (delete নয়)
+        SupabaseSync.remove(DB.settings, dup.id);
         removed++;
       }
       if (removed > 0) {
