@@ -3169,7 +3169,7 @@ ${expenseEntries.length > 0 ? `
     const oldPw = document.getElementById('set-old-pw')?.value;
     const newPw = document.getElementById('set-new-pw')?.value;
     const confirmPw = document.getElementById('set-confirm-pw')?.value;
-    const current = cfg.admin_password || 'admin123';
+    const current = cfg.admin_password || '';
 
     // Compare: support both legacy plaintext and new hashed format
     const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
@@ -3553,7 +3553,7 @@ ${expenseEntries.length > 0 ? `
           SupabaseSync.insert(DB.settings, {
             academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
             address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
-            admin_password: cfg.password || cfg.admin_password || 'admin123',
+            admin_password: cfg.password || cfg.admin_password || '',
           });
           total += 1;
         }

@@ -160,13 +160,6 @@ const LoginUI = (() => {
             border:none;border-radius:10px;color:#fff;font-weight:800;padding:12px;
             cursor:pointer;font-size:.88rem;letter-spacing:.4px;font-family:var(--font-ui);
           "><i class="fa fa-unlock-keyhole"></i>&nbsp; Verify PIN</button>
-        </div>
-
-        <div style="text-align:center;font-size:.75rem;color:rgba(255,255,255,0.25)">
-          Default master PIN is
-          <code style="color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.06);
-                       padding:1px 6px;border-radius:4px">admin123</code>
-          if it has never been changed
         </div>`;
     } else {
       /* ── Security question configured — show it ── */
@@ -242,7 +235,7 @@ const LoginUI = (() => {
     if (!input || !result) return;
 
     const settings  = _getSettings();
-    const masterPin = settings.admin_password || 'admin123';
+    const masterPin = settings.admin_password || '';
     const given     = (input.value || '').trim();
 
     if (!given) {
