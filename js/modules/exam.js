@@ -489,7 +489,7 @@ const Exam = (() => {
         (f.description || '').includes(entry.student_name || '')
       );
       if (finEntry && finEntry.method) {
-        SupabaseSync.updateAccountBalance(finEntry.method, Utils.safeNum(finEntry.amount), 'out');
+        SupabaseSync.updateAccountBalance(finEntry.method, Utils.safeNum(finEntry.amount), 'out', true); // deletion reversal: force=true
         SupabaseSync.remove(DB.finance, finEntry.id);
       }
     }

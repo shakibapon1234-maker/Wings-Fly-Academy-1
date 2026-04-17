@@ -800,6 +800,18 @@ const SettingsModule = (() => {
   }
 
   function removeCategory(key, item) {
+    // ✅ Req 2: push to recycle bin before deleting so it can be restored
+    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    bin.unshift({
+      table: 'settings_category',
+      type:  'category',
+      name:  `"${item}" (${key})`,
+      data:  { key, item },
+      deletedAt: new Date().toISOString(),
+    });
+    if (bin.length > 500) bin.length = 500;
+    localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     const idx = items.indexOf(item);
@@ -1178,7 +1190,7 @@ const SettingsModule = (() => {
               `<tr><td colspan="6" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle bin is empty.</td></tr>` :
               deleted.map((d, i) => `
                 <tr>
-                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : 'fa-file'}"></i></td>
+                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : 'fa-file'}"></i></td>
                   <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || '—'}</td>
                   <td><span class="badge badge-muted">${d.type || 'item'}</span></td>
                   <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || '—'}</td>
@@ -2381,6 +2393,41 @@ ${expenseEntries.length > 0 ? `
   }
 
   function restoreItem(index) {
+    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    const item = bin[index];
+
+    // ✅ Req 2: handle settings-specific types locally (categories & sub-accounts)
+    if (item && item.table === 'settings_category') {
+      const { key, item: catItem } = item.data || {};
+      if (key && catItem) {
+        const cfg = getConfig();
+        const items = Utils.safeJSON(cfg[key]) || [];
+        if (!items.includes(catItem)) items.push(catItem);
+        cfg[key] = JSON.stringify(items);
+        saveConfig(cfg);
+      }
+      bin.splice(index, 1);
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
+      refreshModal();
+      return;
+    }
+
+    if (item && item.table === 'settings_subaccount') {
+      const subData = item.data;
+      if (subData) {
+        const subs = getSubAccounts();
+        if (!subs.find(s => s.username === subData.username)) subs.push(subData);
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      }
+      bin.splice(index, 1);
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
+      refreshModal();
+      return;
+    }
+
+    // Standard restore via SupabaseSync for all other DB records
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
         Utils.toast('Item restored and synced', 'success');
@@ -3986,15 +4033,27 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteSubAccount(idx) {
-     const subs = getSubAccounts();
-     const target = subs[idx];
-     if(target) {
-        subs.splice(idx, 1);
-        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
-        logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
-        if(typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
-        refreshModal();
-     }
+    const subs = getSubAccounts();
+    const target = subs[idx];
+    if (target) {
+      // ✅ Req 2: push to recycle bin before deleting so it can be restored
+      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+      bin.unshift({
+        table: 'settings_subaccount',
+        type:  'subaccount',
+        name:  `@${target.username}`,
+        data:  target,
+        deletedAt: new Date().toISOString(),
+      });
+      if (bin.length > 500) bin.length = 500;
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+
+      subs.splice(idx, 1);
+      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
+      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
+      refreshModal();
+    }
   }
 
   // ════════════════════════════════════════════════════════════════

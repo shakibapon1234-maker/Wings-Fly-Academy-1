@@ -547,8 +547,8 @@ const SupabaseSync = (() => {
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            if (isIncome)  updateAccountBalance(method, amount, 'in');
-            if (isExpense) updateAccountBalance(method, amount, 'out');
+            if (isIncome)  updateAccountBalance(method, amount, 'in',  true); // restore: force=true
+            if (isExpense) updateAccountBalance(method, amount, 'out', true); // restore: force=true
 
             if (isIncome && r.category === 'Student Fee' && r.ref_id) {
               const students = getAll('students');
@@ -565,7 +565,7 @@ const SupabaseSync = (() => {
           }
         } else if (table === 'loans') {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
-          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in');
+          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
 
           if (r._linkedFinanceId) {
             const allBin = getAll('recycle_bin');
@@ -611,7 +611,7 @@ const SupabaseSync = (() => {
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
           if (fr.method && parseFloat(fr.amount) > 0) {
-            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in', true); // restore: force=true
           }
           const freshBin = getAll('recycle_bin');
           const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
@@ -769,12 +769,13 @@ const SupabaseSync = (() => {
 
   const _balanceLocks = {};
 
-  function updateAccountBalance(methodName, amount, direction) {
+  // ✅ Req 7: force=true bypasses negative check (for deletion reversals only)
+  function updateAccountBalance(methodName, amount, direction, force = false) {
     if (!methodName || !amount || amount <= 0) return;
     const lockKey = methodName;
     if (!_balanceLocks[lockKey]) _balanceLocks[lockKey] = Promise.resolve();
     _balanceLocks[lockKey] = _balanceLocks[lockKey].then(() => {
-      return _updateBalanceCore(methodName, amount, direction);
+      return _updateBalanceCore(methodName, amount, direction, force);
     }).catch(e => {
       console.warn('[Sync] updateAccountBalance lock failed:', e);
       SyncGuard && SyncGuard.report('balance_lock_error', { methodName, amount, direction, error: e?.message });
@@ -782,7 +783,7 @@ const SupabaseSync = (() => {
     return _balanceLocks[lockKey];
   }
 
-  function _updateBalanceCore(methodName, amount, direction) {
+  function _updateBalanceCore(methodName, amount, direction, force = false) {
     try {
       const accounts = getAll('accounts');
       let accountIdx = -1;
@@ -815,13 +816,16 @@ const SupabaseSync = (() => {
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
       const newBal = direction === 'in' ? currentBal + amount : currentBal - amount;
 
-      if (newBal < 0) {
+      if (newBal < 0 && !force) {
         SyncGuard && SyncGuard.report('negative_balance', {
           account: methodName,
           before: currentBal,
           change: direction === 'in' ? +amount : -amount,
           after: newBal,
         });
+        // ✅ Req 7: BLOCK the update — accounts must never go negative on new transactions
+        console.warn(`[Sync] ❌ Balance blocked for "${methodName}": ৳${currentBal} - ৳${amount} = ৳${newBal}`);
+        return false;
       }
 
       accounts[accountIdx] = {

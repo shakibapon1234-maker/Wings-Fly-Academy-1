@@ -115,6 +115,23 @@ const Utils = (() => {
     titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
     bodyEl.innerHTML = bodyHTML;
 
+    // ✅ Req 4: auto-convert all modal date inputs to DD/MM/YYYY via Flatpickr
+    setTimeout(() => {
+      if (typeof flatpickr !== 'undefined') {
+        bodyEl.querySelectorAll('input[type="date"]').forEach(el => {
+          if (!el._flatpickr) { // prevent double-init
+            flatpickr(el, {
+              dateFormat:  'Y-m-d',  // stored value stays YYYY-MM-DD for backend
+              altInput:    true,     // show a separate human-readable input
+              altFormat:   'd/m/Y',  // displayed as DD/MM/YYYY to the user
+              allowInput:  true,
+              locale:      { firstDayOfWeek: 1 },
+            });
+          }
+        });
+      }
+    }, 10);
+
     if (box) {
       box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '720px' : sizeClass === 'modal-xl' ? '980px' : sizeClass === 'modal-xxl' ? '1200px' : '560px';
       box.style.width = sizeClass === 'modal-xl' ? '98vw' : sizeClass === 'modal-xxl' ? '98vw' : '';
