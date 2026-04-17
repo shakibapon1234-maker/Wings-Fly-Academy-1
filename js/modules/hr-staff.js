@@ -250,7 +250,7 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>FULL NAME <span class="req">*</span></label>
-            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" />
+            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" maxlength="100" autocomplete="name" />
           </div>
           <div class="form-group">
             <label>ROLE / DESIGNATION <span class="req">*</span></label>
@@ -262,17 +262,17 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>DEPARTMENT</label>
-            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" />
+            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" maxlength="100" />
           </div>
           <div class="form-group">
             <label>PHONE NUMBER</label>
-            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" />
+            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>EMAIL ADDRESS</label>
-            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" />
+            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" maxlength="150" />
           </div>
         </div>
       </div>

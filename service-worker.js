@@ -2,7 +2,8 @@
 // Wings Fly Aviation Academy — Service Worker
 // Cache version: update BUILD_DATE when deploying new code
 // ============================================================
-const BUILD_DATE = '2026-04-16'; // ← code update করলে এই date বদলান
+// ✅ Fix #13: BUILD_DATE auto-generated — no more manual update needed
+const BUILD_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD always current
 const CACHE_NAME = `wfa-v3-${BUILD_DATE}`;
 
 const STATIC_ASSETS = [

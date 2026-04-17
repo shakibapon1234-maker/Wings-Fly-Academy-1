@@ -294,11 +294,11 @@ const Students = (() => {
           <div class="sf-grid-2" style="margin-bottom:12px;">
             <div class="sf-field">
               <label class="sf-label">Full Name <span class="req">*</span></label>
-              <input id="sf-name" class="sf-input" placeholder="Student's full name" />
+              <input id="sf-name" class="sf-input" placeholder="Student's full name" maxlength="100" autocomplete="name" />
             </div>
             <div class="sf-field">
               <label class="sf-label">Phone Number <span class="req">*</span></label>
-              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" />
+              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" maxlength="20" pattern="[0-9+\-() ]{7,20}" />
             </div>
           </div>
           <div class="sf-grid-2">
@@ -377,7 +377,7 @@ const Students = (() => {
           <div class="sf-grid-2" style="margin-bottom:12px;">
             <div class="sf-field">
               <label class="sf-label">Address</label>
-              <input id="sf-address" class="sf-input" placeholder="Present address" />
+              <input id="sf-address" class="sf-input" placeholder="Present address" maxlength="300" />
             </div>
             <div class="sf-field">
               <label class="sf-label">Status</label>
@@ -430,11 +430,11 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Full Name <span class="req">*</span></label>
-          <input id="sf-name" class="form-control" value="${s.name||''}" />
+          <input id="sf-name" class="form-control" value="${s.name||\'\'}" maxlength="100" />
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${s.phone||''}" />
+          <input id="sf-phone" class="form-control" value="${s.phone||\'\'}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
         </div>
       </div>
       <div class="form-row">
@@ -489,7 +489,7 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Address</label>
-          <input id="sf-address" class="form-control" value="${s.address||''}" />
+          <input id="sf-address" class="form-control" value="${s.address||\'\'}" maxlength="300" />
         </div>
         <div class="form-group">
           <label>Status</label>

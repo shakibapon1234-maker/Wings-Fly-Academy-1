@@ -128,37 +128,38 @@ const Salary = (() => {
      DATE DROPDOWN BUILDER
   ══════════════════════════════════════════ */
   function _buildDateDropdowns(prefix, dd, mm, yyyy) {
-    var months = [
+  // ✅ Fix #10: upgraded from ES5 var/function to ES6 const/let/arrow functions
+  function _buildDateDropdowns(prefix, dd, mm, yyyy) {
+    const months = [
       ['01','January'],['02','February'],['03','March'],['04','April'],
       ['05','May'],['06','June'],['07','July'],['08','August'],
       ['09','September'],['10','October'],['11','November'],['12','December']
     ];
-    var currentYear = new Date().getFullYear();
-    var years = [];
-    for (var i = 0; i < 6; i++) years.push(currentYear - 2 + i);
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
 
-    var dayOpts = '';
-    for (var d = 1; d <= 31; d++) {
-      var v = String(d).padStart(2,'0');
-      dayOpts += '<option value="' + v + '"' + (dd === v ? ' selected' : '') + '>' + v + '</option>';
+    let dayOpts = '';
+    for (let d = 1; d <= 31; d++) {
+      const v = String(d).padStart(2, '0');
+      dayOpts += `<option value="${v}"${dd === v ? ' selected' : ''}>${v}</option>`;
     }
-    var mmOpts  = months.map(function(mn){ return '<option value="' + mn[0] + '"' + (mm === mn[0] ? ' selected' : '') + '>' + mn[1] + '</option>'; }).join('');
-    var yrOpts  = years.map(function(y){ return '<option value="' + y + '"' + (yyyy === String(y) ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+    const mmOpts = months.map(mn => `<option value="${mn[0]}"${mm === mn[0] ? ' selected' : ''}>${mn[1]}</option>`).join('');
+    const yrOpts = years.map(y  => `<option value="${y}"${yyyy === String(y) ? ' selected' : ''}>${y}</option>`).join('');
 
-    return '<div style="display:flex; gap:6px;">' +
-      '<select id="' + prefix + '-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + dayOpts + '</select>' +
-      '<select id="' + prefix + '-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + mmOpts + '</select>' +
-      '<select id="' + prefix + '-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + yrOpts + '</select>' +
-      '</div>' +
-      '<input type="hidden" id="' + prefix + '" value="' + yyyy + '-' + mm + '-' + dd + '" />';
+    return `<div style="display:flex; gap:6px;">` +
+      `<select id="${prefix}-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate('${prefix}')">${dayOpts}</select>` +
+      `<select id="${prefix}-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate('${prefix}')">${mmOpts}</select>` +
+      `<select id="${prefix}-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate('${prefix}')">${yrOpts}</select>` +
+      `</div>` +
+      `<input type="hidden" id="${prefix}" value="${yyyy}-${mm}-${dd}" />`;
   }
 
   function _syncPayDate(prefix) {
-    var dd   = (document.getElementById(prefix + '-dd')   || {}).value || '';
-    var mm   = (document.getElementById(prefix + '-mm')   || {}).value || '';
-    var yyyy = (document.getElementById(prefix + '-yyyy') || {}).value || '';
-    var hidden = document.getElementById(prefix);
-    if (hidden) hidden.value = (yyyy && mm && dd) ? yyyy + '-' + mm + '-' + dd : '';
+    const dd   = (document.getElementById(`${prefix}-dd`)   || {}).value || '';
+    const mm   = (document.getElementById(`${prefix}-mm`)   || {}).value || '';
+    const yyyy = (document.getElementById(`${prefix}-yyyy`) || {}).value || '';
+    const hidden = document.getElementById(prefix);
+    if (hidden) hidden.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
   /* ══════════════════════════════════════════

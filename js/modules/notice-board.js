@@ -18,7 +18,7 @@ const NoticeBoardModule = (() => {
   function injectBannerContainer() {
     if (document.getElementById('noticeBoardBanner')) return;
     const bannerHTML = `
-      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:0; right:0; z-index:9000; padding:12px 16px; margin:10px 20px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center; align-items:center;">
+      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:240px; right:0; z-index:500; padding:12px 16px; margin:10px 20px 10px 0; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center; align-items:center;">
         <span class="notice-icon" style="margin-right:10px; font-size:1.2rem; flex-shrink:0;"></span>
         <span id="noticeBannerText" style="flex-grow:1; margin-right:15px; display:inline-block; font-size:1rem;"></span>
         <span id="noticeBannerCountdown" style="background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:30px; font-size:0.85rem; font-family:monospace; flex-shrink:0; margin-right:10px;"></span>

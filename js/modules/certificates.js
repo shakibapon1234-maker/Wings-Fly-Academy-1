@@ -45,7 +45,10 @@ const CertificatesModule = (() => {
     }
 
     // Photo
-    const photoSrc = data.photo || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
+    // ✅ Fix #12: Sanitize photo URL — only allow http/https/data:image to prevent XSS
+    const _rawPhoto   = data.photo || '';
+    const _safePhoto  = /^(https?:\/\/|data:image\/)/i.test(_rawPhoto) ? _rawPhoto : '';
+    const photoSrc    = _safePhoto || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
 
     return `
     <div id="certContent" style="

@@ -74,7 +74,7 @@ const Finance = (() => {
           ${Utils.getPaymentMethodsHTML(filterMethod)}
         </select>
         <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
-        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo || Utils.today()}"   onchange="Finance.onFilter('to',this.value)"   title="End Date" />
+        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)"   title="End Date (blank = no limit)" placeholder="End date" />
         <button class="btn-secondary btn-sm" onclick="Finance.resetFilters()"><i class="fa fa-rotate-left"></i></button>
         <button class="btn-success btn-sm"   onclick="Finance.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('finance-print-area')"><i class="fa fa-print"></i></button>
@@ -350,14 +350,14 @@ const Finance = (() => {
           </div>
           <div class="ff-field" style="margin-bottom:12px;">
             <label class="ff-label">Description</label>
-            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction details..." />
+            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction description" maxlength="200" />
           </div>
           <div class="ff-grid-2">
             <div class="ff-field">
               <label class="ff-label">Amount (৳) <span class="req">*</span></label>
               <div class="ff-amount-wrap">
                 <span class="ff-taka">৳</span>
-                <input id="ff-amount" type="number" class="ff-input" value="${d.amount||''}" placeholder="0" />
+                <input id="ff-amount" type="number" class="ff-input" value="${d.amount||''}" placeholder="0" min="0.01" max="99999999" step="0.01" />
               </div>
             </div>
             <div class="ff-field">

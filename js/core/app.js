@@ -108,10 +108,20 @@ const App = (() => {
       let adminOk = false;
 
       if (!storedPw) {
-        // No password set yet — first time setup, accept any password and save it
-        adminOk = !!password; // just needs non-empty password
+        // ✅ Fix #3: Only allow first-time setup if there is truly NO data yet.
+        // If students/finance records exist, we're on a new browser before sync — refuse login.
+        const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
+                                (SupabaseSync.getAll(DB.finance).length  > 0);
+        if (hasExistingData) {
+          // Sync is still loading settings — refuse and guide user
+          document.getElementById('login-error').textContent =
+            '⏳ Cloud settings loading… Please wait 5 seconds and try again.';
+          document.getElementById('login-error').style.display = 'block';
+          return;
+        }
+        // Genuine first-time setup — accept any non-empty password and save it
+        adminOk = !!password;
         if (adminOk) {
-          // Hash and save the password immediately (professional first-run setup)
           const newHash = await _hashPw(password);
           settings.admin_password = newHash;
           if (settings.id) {
@@ -399,6 +409,20 @@ const App = (() => {
   function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('open');
+    // ✅ Fix #5: show/hide overlay for mobile sidebar dismiss
+    let overlay = document.getElementById('sidebar-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'sidebar-overlay';
+      overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:149;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px)';
+      overlay.addEventListener('click', () => {
+        sidebar && sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+      });
+      document.body.appendChild(overlay);
+    }
+    const isOpen = sidebar && sidebar.classList.contains('open');
+    overlay.style.display = isOpen ? 'block' : 'none';
   }
 
   // ── Event Bindings ────────────────────────────────────────
@@ -520,15 +544,20 @@ const App = (() => {
       });
     }
 
-    // Quick Add toggle
-    const quickAddBtn = document.getElementById('btn-quick-add');
+    // Quick Add toggle — ✅ Fix #6: guard against duplicate listeners on each navigate
+    const quickAddBtn  = document.getElementById('btn-quick-add');
     const quickAddMenu = document.getElementById('quick-add-menu');
-    if (quickAddBtn && quickAddMenu) {
+    if (quickAddBtn && quickAddMenu && !quickAddBtn._qaListenerAttached) {
+      quickAddBtn._qaListenerAttached = true;
       quickAddBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         quickAddMenu.style.display = quickAddMenu.style.display === 'none' ? 'block' : 'none';
       });
-      document.addEventListener('click', () => { quickAddMenu.style.display = 'none'; });
+      document.addEventListener('click', (e) => {
+        if (!quickAddBtn.contains(e.target) && !quickAddMenu.contains(e.target)) {
+          quickAddMenu.style.display = 'none';
+        }
+      });
     }
 
     // Theme toggle

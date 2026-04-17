@@ -100,8 +100,7 @@ const Attendance = (() => {
     const overlay = document.getElementById('attendance-modal-overlay');
     if (overlay) overlay.classList.remove('open');
     document.body.style.overflow = '';
-    // Navigate back to dashboard
-    if (typeof App !== 'undefined') App.navigateTo('dashboard');
+    // ✅ Fix #2: removed App.navigateTo('dashboard') — just close the overlay
   }
 
   function renderModal() {

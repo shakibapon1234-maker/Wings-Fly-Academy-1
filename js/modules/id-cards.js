@@ -16,7 +16,13 @@ const IDCardsModule = (() => {
 
     const isStudent = type === 'student';
     const idNumber = person.studentId || person.employeeId || person.id || 'N/A';
-    const initials = person.name ? person.name[0].toUpperCase() : 'S';
+    // ✅ Fix #7: use first letter of first name + first letter of last name
+    const nameParts  = (person.name || '').trim().split(/\s+/).filter(Boolean);
+    const initials   = nameParts.length >= 2
+      ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+      : nameParts.length === 1
+        ? nameParts[0][0].toUpperCase()
+        : 'S';
 
     // Date calculations
     const enrollDate = new Date(person.admissionDate || person.enrollDate || Date.now());
