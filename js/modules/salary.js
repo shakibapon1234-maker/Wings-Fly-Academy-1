@@ -305,11 +305,16 @@ const Salary = (() => {
     }
     activeStaff.forEach(function(s) {
       SupabaseSync.insert(DB.salary, {
-        staffId: s.staffId, staffName: s.name, role: s.role || '', phone: s.phone || '',
-        month: month, baseSalary: Utils.safeNum(s.salary),
-        bonus: 0, deduction: 0, paidAmount: 0,
-        paid: false, paidDate: '', method: 'Cash', note: '',
+        staffId: s.staffId,   staff_id:   s.staffId,
+        staffName: s.name,    staff_name: s.name,
+        role: s.role || '', phone: s.phone || '',
+        month: month,
+        baseSalary: Utils.safeNum(s.salary), base_salary: Utils.safeNum(s.salary),
+        bonus: 0, deduction: 0,
+        paidAmount: 0, paid_amount: 0,
+        paid: false, paidDate: '', paid_date: '', method: 'Cash', note: '',
       });
+
     });
     renderContent();
     Utils.toast(activeStaff.length + ' salary sheets created ✓', 'success');
@@ -574,18 +579,19 @@ const Salary = (() => {
     var autoFullyPaid = (payAmount >= net && net > 0);
 
     var entry = {
-      staffId:    staffId,
+      staffId:    staffId,    staff_id:   staffId,
       staffName:  (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
+      staff_name: (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
       role:       (staffOpt && staffOpt.dataset.role)  || (existingRecord && existingRecord.role)       || '',
       phone:      (staffOpt && staffOpt.dataset.phone) || (existingRecord && existingRecord.phone)      || '',
       month:      (document.getElementById('sal-month') || {}).value || getSelectedMonth(),
-      baseSalary: base,
+      baseSalary: base,  base_salary: base,
       bonus:      bonus,
       deduction:  deduction,
-      paidAmount: payAmount,
+      paidAmount: payAmount, paid_amount: payAmount,
       method:     method,
       paid:       isPaid || autoFullyPaid,
-      paidDate:   (isPaid || payAmount > 0) ? payDate : '',
+      paidDate:   (isPaid || payAmount > 0) ? payDate : '', paid_date: (isPaid || payAmount > 0) ? payDate : '',
       note:       ((document.getElementById('sal-note') || {}).value || '').trim(),
     };
 

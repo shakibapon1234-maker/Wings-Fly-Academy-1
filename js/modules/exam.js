@@ -471,10 +471,28 @@ const Exam = (() => {
   async function deleteEntry(id) {
     const ok = await Utils.confirm('Delete this exam registration?', 'Delete Exam');
     if (!ok) return;
+
+    // ✅ Bug #1 fix: reverse account balance + remove finance entry if fee was paid
+    const entry = SupabaseSync.getById(DB.exams, id);
+    if (entry && entry.fee_paid && Utils.safeNum(entry.exam_fee) > 0) {
+      const allFinance = SupabaseSync.getAll(DB.finance);
+      const finEntry = allFinance.find(f =>
+        f.category === 'Exam Fee' &&
+        f.type     === 'Income'   &&
+        Utils.safeNum(f.amount) === Utils.safeNum(entry.exam_fee) &&
+        (f.description || '').includes(entry.student_name || '')
+      );
+      if (finEntry && finEntry.method) {
+        SupabaseSync.updateAccountBalance(finEntry.method, Utils.safeNum(finEntry.amount), 'out');
+        SupabaseSync.remove(DB.finance, finEntry.id);
+      }
+    }
+
     SupabaseSync.remove(DB.exams, id);
     Utils.toast('Exam registration deleted', 'info');
     render();
   }
+
 
   /* ══════════════════════════════════════════
      EXPORT

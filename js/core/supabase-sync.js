@@ -226,13 +226,13 @@ WFA_IDB.init();
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TABLE_COLUMNS = {
   settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
+  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
   accounts:      ['id','name','type','balance','description','note'],
   loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
   exams:         ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
-  attendance:    ['id','person_id','person_name','type','date','status','note'],
+  attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
   staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
   visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
   notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
@@ -657,13 +657,13 @@ const SupabaseSync = (() => {
 
   const _TABLE_COLS = {
     settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
+    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
     exams:         ['id','reg_id','student_id','student_name','batch','session','subject', 'exam_date','exam_fee','fee_paid','grade','marks','status','note'],
-    attendance:    ['id','person_id','person_name','type','date','status','note'],
+    attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
     notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
