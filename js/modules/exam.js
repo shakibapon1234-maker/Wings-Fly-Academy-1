@@ -319,7 +319,7 @@ const Exam = (() => {
         </div>
         <div class="form-group">
           <label>Number</label>
-          <input id="ef-marks" type="number" class="form-control" value="${e.marks||\'\'}" placeholder="0-100" min="0" max="100" />
+          <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" min="0" max="100" />
         </div>
         <div class="form-group">
           <label>Status</label>
