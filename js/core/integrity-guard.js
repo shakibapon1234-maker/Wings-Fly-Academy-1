@@ -769,7 +769,7 @@ const IntegrityGuard = (() => {
       const iconColor = r.ok ? '#2ed573' : r.critical ? '#ff4757' : '#ffa502';
       const icon      = r.ok ? '✅' : r.critical ? '🔴' : '⚠️';
       const bgColor   = r.ok ? 'transparent' : r.critical ? 'rgba(255,71,87,0.04)' : 'rgba(255,165,0,0.04)';
-      const catBg     = { GLOBAL: '#00d4ff22', MODULE: '#7c3aed22', DOM: '#059669(', DATA: '#d9730022' }[r.category] || '#ffffff11';
+      const catBg     = { GLOBAL: '#00d4ff22', MODULE: '#7c3aed22', DOM: '#05966922', DATA: '#d9730022' }[r.category] || '#ffffff11';
       const catColor  = { GLOBAL: '#00d4ff', MODULE: '#a78bfa', DOM: '#34d399', DATA: '#fb923c' }[r.category] || '#aaa';
 
       return `
