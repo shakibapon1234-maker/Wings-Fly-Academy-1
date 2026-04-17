@@ -451,7 +451,7 @@ const App = (() => {
         } else if (matchedFinance.length > 0) {
           navigateTo('finance');
           setTimeout(() => {
-            const sInput = document.getElementById('finance-search');
+            const sInput = document.getElementById('fin-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
           }, 300);
         } else {

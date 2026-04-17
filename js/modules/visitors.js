@@ -6,6 +6,7 @@
 const VisitorsModule = (() => {
 
   let editingId = null;
+  let searchQuery = '';
 
   function init() {
     render();
@@ -16,11 +17,24 @@ const VisitorsModule = (() => {
     return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
   }
 
+  function onSearch(val) {
+    searchQuery = (val || '').toLowerCase().trim();
+    render();
+  }
+
   function render() {
     const container = document.getElementById('visitors-content');
     if (!container) return; // Silent return if not rendered
 
-    const visitors = getRecords();
+    const allVisitors = getRecords();
+    const visitors = searchQuery
+      ? allVisitors.filter(v =>
+          (v.name || '').toLowerCase().includes(searchQuery) ||
+          (v.phone || '').toLowerCase().includes(searchQuery) ||
+          (v.purpose || '').toLowerCase().includes(searchQuery) ||
+          (v.interested_course || '').toLowerCase().includes(searchQuery)
+        )
+      : allVisitors;
 
     // Stats
     const total = visitors.length;
@@ -29,6 +43,18 @@ const VisitorsModule = (() => {
     const followup = visitors.filter(v => v.status === 'Follow-up').length;
 
     let html = `
+      <!-- Search Bar -->
+      <div style="margin-bottom:18px;">
+        <input
+          id="visitor-search"
+          type="text"
+          class="form-control"
+          placeholder="Search by name, phone, or course…"
+          value="${Utils.escAttr(searchQuery)}"
+          oninput="VisitorsModule.onSearch(this.value)"
+          style="max-width:400px; font-family:inherit;"
+        />
+      </div>
       <!-- Stats Row -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
         <div style="border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
@@ -51,10 +77,14 @@ const VisitorsModule = (() => {
     `;
 
     if (!visitors.length) {
+      const emptyMsg = searchQuery
+        ? `<div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No results for "${Utils.esc(searchQuery)}"</div>
+           <div style="color:var(--text-muted); font-size:0.9rem;">Try a different name, phone, or course.</div>`
+        : `<div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No Visitors Yet</div>
+           <div style="color:var(--text-muted); font-size:0.9rem;">Start adding visitors using the "ADD NEW" button on the top right.</div>`;
       html += `<div style="text-align:center; padding:60px 20px; background:var(--bg-secondary); border:1px dashed rgba(255,255,255,0.1); border-radius:12px;">
                 <i class="fa fa-person-walking-arrow-right" style="font-size:3.5rem; margin-bottom:16px; opacity:0.3; display:block; color:var(--brand-primary);"></i>
-                <div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No Visitors Yet</div>
-                <div style="color:var(--text-muted); font-size:0.9rem;">Start adding visitors using the "ADD NEW" button on the top right.</div>
+                ${emptyMsg}
                </div>`;
     } else {
       // Table
@@ -230,7 +260,7 @@ const VisitorsModule = (() => {
     }, 200);
   }
 
-  return { init, render, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
+  return { init, render, onSearch, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
 
 })();
 window.Visitors = VisitorsModule;
