@@ -91,8 +91,13 @@ const App = (() => {
   }
 
   async function login(username, password) {
+    // ✅ Fix #1: auto-cleanup duplicate settings rows before reading
+    // Prevents login failure when admin_password is in row[1] instead of row[0]
+    const rawList = SupabaseSync.getAll(DB.settings);
+    if (rawList.length > 1) cleanupDuplicateSettings();
     const settingsList = SupabaseSync.getAll(DB.settings);
-    const settings = settingsList[0] || {};
+    // Prefer the row that has admin_password set (guards against partial duplicates)
+    const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
     const storedPw = settings.admin_password;
     const normalizedUsername = String(username || '').trim();
 
@@ -475,7 +480,7 @@ const App = (() => {
         } else {
           Utils.toast('"' + Utils.esc(e.target.value) + '" — কোথাও পাওয়া যায়নি', 'info');
         }
-      }, 400));
+      }, 300)); // ✅ Fix #6: reduced from 400ms → 300ms for snappier search response
     }
 
     // Logout

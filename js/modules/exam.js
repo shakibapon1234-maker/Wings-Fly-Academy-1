@@ -319,7 +319,7 @@ const Exam = (() => {
         </div>
         <div class="form-group">
           <label>Number</label>
-          <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" />
+          <input id="ef-marks" type="number" class="form-control" value="${e.marks||\'\'}" placeholder="0-100" min="0" max="100" />
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -405,6 +405,12 @@ const Exam = (() => {
     if (!regId) { errEl.textContent = 'Reg ID Required'; errEl.classList.remove('hidden'); return; }
     if (!subject) { errEl.textContent = 'Subject Required'; errEl.classList.remove('hidden'); return; }
     
+    // ✅ Fix #12: validate marks do not exceed 100
+    const marksVal = Utils.safeNum(Utils.formVal('ef-marks'));
+    if (Utils.formVal('ef-marks') !== '' && marksVal > 100) {
+      errEl.textContent = 'Marks cannot exceed 100'; errEl.classList.remove('hidden'); return;
+    }
+
     if (Utils.safeNum(Utils.formVal('ef-fee')) > 0 && !Utils.formVal('ef-method')) {
       errEl.textContent = 'Payment Method is required when Exam Fee is entered';
       errEl.classList.remove('hidden'); return;

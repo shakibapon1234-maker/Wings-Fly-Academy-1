@@ -111,7 +111,8 @@ const Utils = (() => {
     const box = backdrop?.querySelector('.modal-box');
     if (!backdrop || !titleEl || !bodyEl) return;
 
-    titleEl.innerHTML = title;
+    // ✅ Fix #7: strip dangerous on* event handlers from title HTML before injection
+    titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
     bodyEl.innerHTML = bodyHTML;
 
     if (box) {
