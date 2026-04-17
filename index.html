@@ -389,11 +389,12 @@
        JS — Load Order Matters
   ════════════════════════════════════════ -->
   <!-- Core (defer: page render block হয় না, order preserved) -->
+  <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
+  <script src="js/core/utils.js" defer></script>
   <script src="js/core/supabase-config.js" defer></script>
   <script src="js/core/supabase-sync.js" defer></script>
   <script src="js/core/sync-guard.js" defer></script>
   <script src="js/core/integrity-guard.js" defer></script>
-  <script src="js/core/utils.js" defer></script>
   <script src="js/core/app.js" defer></script>
 
   <!-- UI -->

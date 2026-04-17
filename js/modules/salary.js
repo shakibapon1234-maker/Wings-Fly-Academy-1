@@ -127,7 +127,6 @@ const Salary = (() => {
   /* ══════════════════════════════════════════
      DATE DROPDOWN BUILDER
   ══════════════════════════════════════════ */
-  function _buildDateDropdowns(prefix, dd, mm, yyyy) {
   // ✅ Fix #10: upgraded from ES5 var/function to ES6 const/let/arrow functions
   function _buildDateDropdowns(prefix, dd, mm, yyyy) {
     const months = [

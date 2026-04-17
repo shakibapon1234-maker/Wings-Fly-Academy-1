@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/students.js
    Student Module — CRUD, Search, Filter, Print, Export
@@ -430,11 +430,11 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Full Name <span class="req">*</span></label>
-          <input id="sf-name" class="form-control" value="${s.name||\'\'}" maxlength="100" />
+          <input id="sf-name" class="form-control" value="${s.name||''}" maxlength="100" />
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${s.phone||\'\'}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
+          <input id="sf-phone" class="form-control" value="${s.phone||''}" maxlength="20" pattern="[0-9+\-() ]{7,20}" />
         </div>
       </div>
       <div class="form-row">
@@ -489,7 +489,7 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Address</label>
-          <input id="sf-address" class="form-control" value="${s.address||\'\'}" maxlength="300" />
+          <input id="sf-address" class="form-control" value="${s.address||''}" maxlength="300" />
         </div>
         <div class="form-group">
           <label>Status</label>
