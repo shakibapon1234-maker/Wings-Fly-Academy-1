@@ -48,6 +48,16 @@ const NoticeBoardModule = (() => {
       } catch(e) {}
       showBanner(activeNotice);
     }
+    updateNoticeDot(); // ✅ Bug #3 fix: keep sidebar dot in sync
+  }
+
+  // ── NOTICE DOT (Sidebar indicator) ──────────────────────
+  // Bug #3 fix: sidebar dot was present in HTML but nothing ever updated it.
+  function updateNoticeDot() {
+    const dot = document.getElementById('notice-dot');
+    if (!dot) return;
+    const hasActive = !!(activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now());
+    dot.style.display = hasActive ? 'inline-block' : 'none';
   }
 
   // ── BANNER ──────────────────────────────────────────────
@@ -435,7 +445,7 @@ const NoticeBoardModule = (() => {
     try { localStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
   }
 
-  return { init, render, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
+  return { init, render, updateNoticeDot, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
 })();
 window.NoticeBoard = NoticeBoardModule;
 

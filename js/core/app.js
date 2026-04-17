@@ -534,6 +534,8 @@ const App = (() => {
     window.addEventListener('wfa:synced', () => {
       renderModule(currentSection);
       updateNotifCount();
+      // Refresh notice dot after sync (new notice may have arrived from cloud)
+      try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.updateNoticeDot(); } catch { /* ignore */ }
     });
 
     // Auto Logout (Session Timeout)

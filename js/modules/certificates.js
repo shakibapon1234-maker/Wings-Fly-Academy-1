@@ -170,36 +170,40 @@ const CertificatesModule = (() => {
     container.innerHTML = buildCertHTML(data);
   }
 
-  // ── Auto-fill from Student ────────────────────────────────
   function fillFromStudent(studentId) {
-    if (typeof StudentsModule === 'undefined') return null;
-    const student = StudentsModule.getById(studentId);
+    if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return null;
+    // ✅ Fix: window.Students (not StudentsModule). getById not exported — use SupabaseSync directly
+    const student = SupabaseSync.getById(DB.students, studentId);
     if (!student) return null;
 
     let grade = '', marks = '', totalMarks = '';
-    if (typeof ExamModule !== 'undefined') {
-      const results = ExamModule.getAll().filter(e => e.studentId === studentId);
+    // ✅ Fix: ExamModule.getAll() doesn't exist — read DB directly; field is student_id (snake_case)
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      const results = SupabaseSync.getAll(DB.exams).filter(e =>
+        e.student_id === student.student_id
+      );
       if (results.length > 0) {
         const latest = results[results.length - 1];
-        grade = latest.grade || '';
-        marks = latest.marks || '';
+        grade      = latest.grade      || '';
+        marks      = latest.marks      || '';
         totalMarks = latest.totalMarks || '';
       }
     }
 
     return {
-      studentId: student.studentId || student.id,
+      studentId:   student.student_id || student.id,
       studentName: student.name,
-      fatherName: student.fatherName || student.guardianName || '',
-      courseName: student.course,
-      batch: student.batch,
-      session: student.session,
+      fatherName:  student.father_name || student.fatherName || '',
+      courseName:  student.course,
+      batch:       student.batch,
+      session:     student.session,
       grade, marks, totalMarks,
-      photo: student.photo || '',
-      certNumber: `WFA-${new Date().getFullYear()}-${(student.studentId || student.id).slice(-4)}`,
-      issueDate: typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
+      photo:       student.photo || '',
+      certNumber:  `WFA-${new Date().getFullYear()}-${(student.student_id || student.id || '0000').toString().slice(-4)}`,
+      issueDate:   typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
     };
   }
+
 
   // ── Print ─────────────────────────────────────────────────
   function print(data) {
