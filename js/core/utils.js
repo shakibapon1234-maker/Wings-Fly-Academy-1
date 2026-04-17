@@ -44,6 +44,21 @@ const Utils = (() => {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  // ✅ Req 4: strict DD/MM/YYYY display (no locale dependency)
+  // Works on YYYY-MM-DD strings: "2026-04-17" → "17/04/2026"
+  function formatDateDMY(dateStr) {
+    if (!dateStr) return '—';
+    const s = String(dateStr).split('T')[0]; // strip time if present
+    const parts = s.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    // Fallback: try Date object
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+
   function formatDateEN(dateStr) { return formatDate(dateStr); }
 
   // ── Number Helpers ─────────────────────────────────────────
@@ -501,7 +516,7 @@ const Utils = (() => {
 
     return {
       // Date
-      today, todayISO, nowISO, formatDate, formatDateEN,
+      today, todayISO, nowISO, formatDate, formatDateEN, formatDateDMY,
       // Number
       safeNum, takaEn, formatMoney, formatMoneyPlain,
       // String

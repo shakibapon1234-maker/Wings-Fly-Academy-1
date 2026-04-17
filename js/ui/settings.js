@@ -21,6 +21,7 @@ const SettingsModule = (() => {
     });
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
+    setTimeout(_initSettingsDatePickers, 20);
     document.body.style.overflow = 'hidden';
 
     // ── Real-time Activity Log refresh ────────────────────────────
@@ -37,6 +38,7 @@ const SettingsModule = (() => {
       panel.innerHTML = buildModalHTML();
       activeTab = savedTab;
       switchTab(savedTab);
+      setTimeout(_initSettingsDatePickers, 20);
     };
     window.addEventListener('wfa:synced', _syncListener);
   }
@@ -145,6 +147,8 @@ const SettingsModule = (() => {
     if (tab === 'syncguard' && typeof SyncGuard !== 'undefined') {
       setTimeout(() => SyncGuard.renderPanel('syncguard-panel'), 50);
     }
+    // ✅ Req 4: re-init date pickers whenever a tab is switched
+    setTimeout(_initSettingsDatePickers, 20);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -720,7 +724,10 @@ const SettingsModule = (() => {
             </div>
             <div class="form-group" style="flex:1;min-width:160px">
               <label style="font-size:.78rem;color:var(--text-muted)">To (আজ পর্যন্ত) <span class="auto-badge">AUTO</span></label>
-              <input type="date" class="form-control" value="${expEnd}" disabled style="color:var(--success)" />
+              <div class="form-control" style="color:var(--success);display:flex;align-items:center;gap:6px;cursor:default;opacity:.75">
+                <i class="fa fa-calendar-check" style="font-size:.8rem"></i>
+                ${Utils.formatDateDMY(expEnd)}
+              </div>
             </div>
           </div>
           <div style="margin-top:8px;padding:10px 14px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
@@ -2334,6 +2341,25 @@ ${expenseEntries.length > 0 ? `
     overlay.innerHTML = buildModalHTML();
     activeTab = savedTab;
     switchTab(savedTab);
+    setTimeout(_initSettingsDatePickers, 20);
+  }
+
+  // ✅ Req 4: init Flatpickr DD/MM/YYYY on all non-disabled date inputs in the settings overlay
+  function _initSettingsDatePickers() {
+    if (typeof flatpickr === 'undefined') return;
+    const overlay = document.getElementById('settings-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
+      if (!el._flatpickr) {
+        flatpickr(el, {
+          dateFormat: 'Y-m-d',   // backend keeps YYYY-MM-DD
+          altInput:   true,       // separate visible input
+          altFormat:  'd/m/Y',   // user sees DD/MM/YYYY
+          allowInput: true,
+          locale:     { firstDayOfWeek: 1 },
+        });
+      }
+    });
   }
 
   // ─── SyncGuard Panel ──────────────────────────────────────────
@@ -3206,7 +3232,7 @@ ${expenseEntries.length > 0 ? `
     cfg.id = cfg.id || SupabaseSync.generateId();
     cfg.academy_name = document.getElementById('set-academy-name')?.value || cfg.academy_name;
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
-    cfg.running_batch = document.getElementById('set-running-batch')?.value ?? cfg.running_batch;
+    cfg.running_batch = document.getElementById('set-running-batch')?.value || cfg.running_batch; // ✅ || so empty string falls back to synced value
     cfg.expense_start_date = document.getElementById('set-expense-start')?.value || cfg.expense_start_date;
     cfg.expense_end_date = new Date().toISOString().split('T')[0];
     saveConfig(cfg);
