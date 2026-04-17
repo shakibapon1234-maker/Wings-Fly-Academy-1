@@ -2303,8 +2303,12 @@ ${expenseEntries.length > 0 ? `
   }
 
   function saveConfig(cfg) {
-    if (cfg.id && SupabaseSync.getById(DB.settings, cfg.id)) {
-      SupabaseSync.update(DB.settings, cfg.id, cfg);
+    // সবসময় প্রথম existing row আপডেট করো — duplicate settings row তৈরি হবে না
+    const allSettings = SupabaseSync.getAll(DB.settings);
+    if (allSettings.length > 0) {
+      const existingId = allSettings[0].id;
+      cfg.id = existingId;
+      SupabaseSync.update(DB.settings, existingId, cfg);
     } else {
       cfg.id = cfg.id || SupabaseSync.generateId();
       SupabaseSync.insert(DB.settings, cfg);
@@ -3199,8 +3203,23 @@ ${expenseEntries.length > 0 ? `
 
     // Store SHA-256 hash — never plaintext
     cfg.admin_password = await _hashPw(newPw);
-    cfg.id = cfg.id || SupabaseSync.generateId();
     saveConfig(cfg);
+
+    // Save সফল হয়েছে কিনা verify করো
+    const verified = getConfig();
+    if (verified.admin_password !== cfg.admin_password) {
+      Utils.toast('⚠️ Password save failed — please try again!', 'error');
+      return;
+    }
+
+    // Input fields পরিষ্কার করো
+    const oldEl = document.getElementById('set-old-pw');
+    const newEl = document.getElementById('set-new-pw');
+    const cfmEl = document.getElementById('set-confirm-pw');
+    if (oldEl) oldEl.value = '';
+    if (newEl) newEl.value = '';
+    if (cfmEl) cfmEl.value = '';
+
     logActivity('edit', 'security', 'Password changed');
     Utils.toast('Password changed successfully ✅', 'success');
   }
@@ -3550,12 +3569,23 @@ ${expenseEntries.length > 0 ? `
       if (cfg) {
         const existing = SupabaseSync.getAll(DB.settings);
         if (!existing.length) {
+          // SECURITY: admin_password কখনো backup থেকে import করা হবে না
+          // Backup-এ plaintext পাসওয়ার্ড থাকলেও এখানে সেট হবে না
           SupabaseSync.insert(DB.settings, {
             academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
             address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
-            admin_password: cfg.password || cfg.admin_password || '',
+            // admin_password intentionally excluded — set via Settings → Change Password
           });
           total += 1;
+        } else {
+          // Existing settings থাকলে শুধু non-sensitive fields আপডেট করো
+          const existingCfg = { ...existing[0] };
+          existingCfg.academy_name = cfg.academyName || cfg.academy_name || existingCfg.academy_name;
+          // admin_password কখনো backup থেকে overwrite হবে না
+          delete existingCfg.admin_password;
+          const currentPw = existing[0].admin_password;
+          if (currentPw) existingCfg.admin_password = currentPw;
+          SupabaseSync.update(DB.settings, existingCfg.id, existingCfg);
         }
       }
     }

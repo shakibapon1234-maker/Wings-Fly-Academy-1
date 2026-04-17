@@ -163,6 +163,8 @@ const App = (() => {
       console.error('[Auth] Password must be at least 4 characters');
       return false;
     }
+    // Cleanup duplicates first, then reset
+    cleanupDuplicateSettings();
     const settingsList = SupabaseSync.getAll(DB.settings);
     const settings = settingsList[0] || {};
     const newHash = await _hashPw(newPassword);
@@ -175,6 +177,37 @@ const App = (() => {
     }
     console.log('%c[Auth] Admin password reset successfully! You can now login with your new password.', 'color: #00ff88; font-weight: bold');
     return true;
+  }
+
+  // ── Duplicate Settings Cleanup ─────────────────────────────────────
+  // যদি database-এ একাধিক settings row থাকে, প্রথমটি রেখে বাকিগুলো মুছে দাও
+  // Usage (console): App.cleanupDuplicateSettings()
+  function cleanupDuplicateSettings() {
+    try {
+      const allSettings = SupabaseSync.getAll(DB.settings);
+      if (allSettings.length <= 1) return 0;
+
+      // প্রথম row রাখো, বাকিগুলো delete করো
+      const keeper = allSettings[0];
+      let removed = 0;
+      for (let i = 1; i < allSettings.length; i++) {
+        const dup = allSettings[i];
+        // যদি duplicate-এ admin_password থাকে এবং keeper-এ না থাকে, সেটা merge করো
+        if (dup.admin_password && !keeper.admin_password) {
+          keeper.admin_password = dup.admin_password;
+          SupabaseSync.update(DB.settings, keeper.id, keeper);
+        }
+        SupabaseSync.delete(DB.settings, dup.id);
+        removed++;
+      }
+      if (removed > 0) {
+        console.log(`%c[Auth] Removed ${removed} duplicate settings row(s). Login will now use the correct password.`, 'color: #00d4ff; font-weight: bold');
+      }
+      return removed;
+    } catch (e) {
+      console.error('[Auth] cleanupDuplicateSettings error:', e);
+      return 0;
+    }
   }
 
 
@@ -532,9 +565,11 @@ const App = (() => {
     // ── Wait for IndexedDB to be ready before login check ──
     // WFA_IDB.init() is async — if we call isLoggedIn/showApp before IDB
     // cache is loaded, SupabaseSync.getAll() returns [] and password
-    // checks fall back to default 'admin123'. onReady() guarantees
-    // the in-memory cache is populated first.
+    // checks fail silently. onReady() guarantees the in-memory cache
+    // is populated before any auth logic runs.
     WFA_IDB.onReady(() => {
+      // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
+      cleanupDuplicateSettings();
       if (isLoggedIn()) {
         showApp(false);
       } else {
@@ -544,7 +579,7 @@ const App = (() => {
     });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword };
+  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);
