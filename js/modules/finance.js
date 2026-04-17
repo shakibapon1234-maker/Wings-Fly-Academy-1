@@ -9,7 +9,7 @@ const Finance = (() => {
   let filterType   = '';
   let filterMethod = '';
   let filterFrom   = '';
-  let filterTo     = Utils.today();
+  let filterTo     = '';
   let searchQuery  = '';
   let editingId    = null;
   let currentPage  = 1;
@@ -209,8 +209,7 @@ const Finance = (() => {
     render();
   }
   function resetFilters() {
-    filterType = filterMethod = filterFrom = searchQuery = '';
-    filterTo = Utils.today();
+    filterType = filterMethod = filterFrom = filterTo = searchQuery = '';
     currentPage = 1;
     render();
   }

@@ -1257,7 +1257,7 @@ const Students = (() => {
     }
     // Notice Board-এ entry তৈরি করো
     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-      SupabaseSync.insert(DB.notices || 'notices', {
+      SupabaseSync.insert(DB.notices, {
         title:   `🔔 Reminder: ${name}`,
         message: note,
         date:    date,
@@ -1268,6 +1268,8 @@ const Students = (() => {
     }
     Utils.closeModal();
     Utils.toast(`Reminder saved for ${name} — Notice Board-এ যোগ হয়েছে ✓`, 'success');
+    // Refresh notice-board indicator if it's mounted
+    try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.render(); } catch { /* ignore */ }
   }
 
   return {
