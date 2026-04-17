@@ -225,7 +225,7 @@ WFA_IDB.init();
 // TABLE_COLUMNS Definition
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TABLE_COLUMNS = {
-  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -656,7 +656,7 @@ const SupabaseSync = (() => {
   const _AUTO_COLS = new Set(['created_at', 'updated_at']);
 
   const _TABLE_COLS = {
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
     salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','role','phone'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -969,6 +969,24 @@ const SyncEngine = (() => {
           merged = mergeRows(localRows, cloudRows || [], deletedIds);
         } else {
           merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
+        }
+
+        // SECURITY: settings table — admin_password কখনো cloud এর plaintext দিয়ে overwrite হবে না
+        if (key === 'settings' && merged.length > 0 && localRows.length > 0) {
+          const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+          const localPw = localRows[0].admin_password;
+          const mergedPw = merged[0].admin_password;
+          // যদি local-এ hashed password থাকে কিন্তু merged-এ plaintext বা empty এসেছে
+          if (localPw && _isHashed(localPw) && (!mergedPw || !_isHashed(mergedPw))) {
+            merged[0].admin_password = localPw;
+          }
+          // security_question ও security_answer preserve করো
+          if (localRows[0].security_question && !merged[0].security_question) {
+            merged[0].security_question = localRows[0].security_question;
+          }
+          if (localRows[0].security_answer && !merged[0].security_answer) {
+            merged[0].security_answer = localRows[0].security_answer;
+          }
         }
 
         const oldJson = JSON.stringify(localRows);
