@@ -108,16 +108,32 @@ const App = (() => {
       let adminOk = false;
 
       if (!storedPw) {
-        // ✅ Fix #3: Only allow first-time setup if there is truly NO data yet.
+        // ✅ Fix #1 (enhanced): Only allow first-time setup if there is truly NO data yet.
         // If students/finance records exist, we're on a new browser before sync — refuse login.
         const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
                                 (SupabaseSync.getAll(DB.finance).length  > 0);
         if (hasExistingData) {
-          // Sync is still loading settings — refuse and guide user
-          document.getElementById('login-error').textContent =
-            '⏳ Cloud settings loading… Please wait 5 seconds and try again.';
-          document.getElementById('login-error').style.display = 'block';
-          return;
+          // Track retry attempts — after 3 attempts, allow setup anyway
+          const retryKey = '_loginRetryCount';
+          window[retryKey] = (window[retryKey] || 0) + 1;
+          const errEl = document.getElementById('login-error');
+
+          if (window[retryKey] < 4) {
+            // Sync is still loading settings — refuse and guide user
+            const waitSec = 5 * window[retryKey];
+            if (errEl) {
+              errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]}/3)</small>`;
+              errEl.style.display = 'block';
+            }
+            return;
+          } else {
+            // After 3 retries, allow forced setup with a warning
+            if (errEl) {
+              errEl.innerHTML = `⚠️ Settings could not be loaded from cloud. Setting new password.`;
+              errEl.style.display = 'block';
+            }
+            window[retryKey] = 0;
+          }
         }
         // Genuine first-time setup — accept any non-empty password and save it
         adminOk = !!password;
@@ -345,6 +361,23 @@ const App = (() => {
 
   // ── Module Rendering ──────────────────────────────────────
   function renderModule(section) {
+    // ✅ Phase 3: Show skeleton loading state for data-heavy modules
+    const heavyModules = {
+      'students':  'students-content',
+      'finance':   'finance-content',
+      'loans':     'loans-content',
+      'hr-staff':  'hr-staff-content',
+      'visitors':  'visitors-content',
+      'salary':    'salary-content',
+    };
+    const containerId = heavyModules[section];
+    if (containerId && typeof Utils !== 'undefined' && Utils.loadingSkeleton) {
+      const container = document.getElementById(containerId);
+      if (container && !container.innerHTML.trim()) {
+        container.innerHTML = Utils.loadingSkeleton(6);
+      }
+    }
+
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
@@ -647,6 +680,18 @@ window.App = App;
       if (!el.hasAttribute('data-locale-fixed')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
+        // ✅ Phase 2: Auto-init Flatpickr for consistent DD/MM/YYYY display
+        if (typeof flatpickr !== 'undefined' && !el._flatpickr && !el.closest('.flatpickr-calendar')) {
+          try {
+            flatpickr(el, {
+              dateFormat: 'Y-m-d',
+              altInput: true,
+              altFormat: 'd/m/Y',
+              allowInput: true,
+              locale: { firstDayOfWeek: 1 },
+            });
+          } catch { /* ignore if already initialized */ }
+        }
       }
     });
   }
@@ -656,3 +701,25 @@ window.App = App;
   const observer = new MutationObserver(fixDateInputs);
   observer.observe(document.body, { childList: true, subtree: true });
 })();
+
+// ── Phase 4.2: Production Console Log Management ────────────────────
+// Enable verbose logs: localStorage.setItem('wfa_debug_mode', 'true')
+// Disable (default): localStorage.removeItem('wfa_debug_mode')
+(function() {
+  const isDebug = localStorage.getItem('wfa_debug_mode') === 'true';
+  if (!isDebug) {
+    const _origLog = console.log;
+    const _origInfo = console.info;
+    console.log = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+        _origLog.apply(console, args);
+      }
+    };
+    console.info = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+        _origInfo.apply(console, args);
+      }
+    };
+  }
+})();
+

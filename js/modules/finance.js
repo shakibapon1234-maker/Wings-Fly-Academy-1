@@ -402,11 +402,19 @@ const Finance = (() => {
     const amount = Utils.safeNum(Utils.formVal('ff-amount'));
     const type   = Utils.formVal('ff-type');
     const method = Utils.formVal('ff-method');
+    const date   = Utils.formVal('ff-date');
     const errEl  = document.getElementById('ff-error');
     errEl.classList.add('hidden');
     
+    // ✅ Phase 2: Comprehensive finance form validation
     if (!method) { errEl.textContent = 'Please select a Payment Method.'; errEl.classList.remove('hidden'); return; }
-    if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount.'; errEl.classList.remove('hidden'); return; }
+    if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount (> 0).'; errEl.classList.remove('hidden'); return; }
+    if (amount > 99999999) { errEl.textContent = 'Amount exceeds maximum limit (99,999,999).'; errEl.classList.remove('hidden'); return; }
+    if (!date) { errEl.textContent = 'Please select a valid date.'; errEl.classList.remove('hidden'); return; }
+    // Validate date is not in the future (with 1 day tolerance for timezone)
+    const inputDate = new Date(date + 'T23:59:59');
+    const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    if (inputDate > tomorrow) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
 
     // Prevent negative balance for Expense / Transfer Out
     if (type === 'Expense' || type === 'Transfer Out') {

@@ -140,6 +140,7 @@ const WFA_IDB = (() => {
     if (localStorage.getItem(migrationFlag) === 'done') return;
 
     let migrated = 0;
+    const migrationErrors = [];
     for (const key of TABLE_KEYS) {
       const lsKey = `wfa_${key}`;
       const raw   = localStorage.getItem(lsKey);
@@ -149,28 +150,45 @@ const WFA_IDB = (() => {
         const rows = JSON.parse(raw);
         if (!Array.isArray(rows) || rows.length === 0) continue;
 
-        // IndexedDB-à¦¤à§‡ à¦†à¦›à§‡ à¦•à¦¿à¦¨à¦¾ à¦¦à§‡à¦–à§‹ â€” à¦¨à§‡à¦‡ à¦¬à¦¾ à¦•à¦® à¦¥à¦¾à¦•à¦²à§‡ migrate à¦•à¦°à§‹
         const existing = _cache[key] || [];
         if (existing.length < rows.length) {
           _cache[key] = rows;
           _writeToIDB(key, rows);
           migrated++;
-          console.info(`[IDB] Migrated "${key}" from localStorage (${rows.length} rows)`);
+
+          // Migration verification: read-back from cache and verify row count
+          const verified = _cache[key];
+          if (!verified || verified.length !== rows.length) {
+            migrationErrors.push(key);
+            console.error(`[IDB] Migration verification FAILED for "${key}": expected ${rows.length} rows, got ${verified?.length ?? 0}`);
+            _cache[key] = rows;
+            _writeToIDB(key, rows);
+          } else {
+            console.info(`[IDB] Migrated+verified "${key}" from localStorage (${rows.length} rows)`);
+          }
         }
 
-        // localStorage à¦¥à§‡à¦•à§‡ à¦¸à¦°à¦¿à¦¯à¦¼à§‡ à¦¦à¦¾à¦“ â€” à¦†à¦° à¦¦à¦°à¦•à¦¾à¦° à¦¨à§‡à¦‡
-        localStorage.removeItem(lsKey);
+        if (!migrationErrors.includes(key)) {
+          localStorage.removeItem(lsKey);
+        }
       } catch (e) {
         console.warn(`[IDB] Migration failed for "${key}":`, e);
+        migrationErrors.push(key);
       }
     }
 
-    localStorage.setItem(migrationFlag, 'done');
+    if (migrationErrors.length === 0) {
+      localStorage.setItem(migrationFlag, 'done');
+    } else {
+      console.warn(`[IDB] Migration incomplete: ${migrationErrors.join(', ')}. Will retry next load.`);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`Data migration incomplete for: ${migrationErrors.join(', ')}. Will retry.`, 'warning', 8000);
+      }
+    }
     if (migrated > 0) {
-      console.info(`[IDB] Migration complete: ${migrated} table(s) moved to IndexedDB`);
+      console.info(`[IDB] Migration: ${migrated} table(s) moved to IndexedDB`);
     }
   }
-
   // onReady callback â€” init à¦¶à§‡à¦· à¦¹à¦²à§‡ call à¦•à¦°à¦¬à§‡
   function onReady(cb) {
     if (_ready) { cb(); return; }
@@ -798,11 +816,19 @@ const SupabaseSync = (() => {
 
       if (accountIdx === -1) {
         if (methodName === 'Cash') {
+          // ✅ Fix: prevent creating Cash account with negative starting balance
+          if (direction !== 'in' && !force) {
+            console.warn(`[Sync] ❌ Cannot create Cash account with negative balance (direction: ${direction}, amount: ${amount})`);
+            if (typeof Utils !== 'undefined' && Utils.toast) {
+              Utils.toast('⚠️ No Cash account exists — please add one in Accounts first.', 'error', 5000);
+            }
+            return false;
+          }
           const newAcc = {
             id: generateId(),
             type: 'Cash',
             name: 'Cash',
-            balance: direction === 'in' ? amount : -amount,
+            balance: direction === 'in' ? amount : (force ? -amount : 0),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -823,8 +849,11 @@ const SupabaseSync = (() => {
           change: direction === 'in' ? +amount : -amount,
           after: newBal,
         });
-        // ✅ Req 7: BLOCK the update — accounts must never go negative on new transactions
+        // ✅ Issue #3: Block update AND show user-facing toast — not just console.warn
         console.warn(`[Sync] ❌ Balance blocked for "${methodName}": ৳${currentBal} - ৳${amount} = ৳${newBal}`);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast(`⚠️ Insufficient balance in "${methodName}" (Available: ৳${currentBal.toLocaleString()}, Needed: ৳${amount.toLocaleString()})`, 'error', 5000);
+        }
         return false;
       }
 
@@ -1064,10 +1093,15 @@ const SyncEngine = (() => {
         const diff = Math.abs(localTime - cloudTime);
 
         if (diff < 10_000 && row._device && existing._device && row._device !== existing._device) {
-          conflicts.push({ id: row.id, localTime, cloudTime, localDevice: row._device, cloudDevice: existing._device });
-        }
-
-        if (localTime > cloudTime) {
+          // ✅ Field-level merge: combine non-conflicting changes from both devices
+          const resolvedRecord = _fieldLevelMerge(existing, row, localTime, cloudTime);
+          merged.set(row.id, resolvedRecord);
+          conflicts.push({
+            id: row.id, localTime, cloudTime,
+            localDevice: row._device, cloudDevice: existing._device,
+            resolution: 'field_merge'
+          });
+        } else if (localTime > cloudTime) {
           merged.set(row.id, row);
         }
       }
@@ -1078,6 +1112,50 @@ const SyncEngine = (() => {
     }
 
     return Array.from(merged.values());
+  }
+
+  /**
+   * Field-level merge: when two devices edit the same record concurrently,
+   * merge non-conflicting field changes. For conflicting fields, prefer
+   * the version with the newer timestamp.
+   */
+  function _fieldLevelMerge(cloudRow, localRow, localTime, cloudTime) {
+    const result = { ...cloudRow };
+    const skipFields = new Set(['id', 'created_at', 'updated_at', '_device']);
+
+    for (const key of Object.keys(localRow)) {
+      if (skipFields.has(key)) continue;
+      const localVal = localRow[key];
+      const cloudVal = cloudRow[key];
+
+      // If both sides have the same value, no conflict
+      if (JSON.stringify(localVal) === JSON.stringify(cloudVal)) continue;
+
+      // If cloud has no value but local does, take local
+      if ((cloudVal === undefined || cloudVal === null || cloudVal === '') &&
+          localVal !== undefined && localVal !== null && localVal !== '') {
+        result[key] = localVal;
+        continue;
+      }
+
+      // If local has no value but cloud does, keep cloud (already in result)
+      if ((localVal === undefined || localVal === null || localVal === '') &&
+          cloudVal !== undefined && cloudVal !== null && cloudVal !== '') {
+        continue;
+      }
+
+      // Both have different non-empty values — prefer newer timestamp
+      if (localTime >= cloudTime) {
+        result[key] = localVal;
+      }
+      // else cloudVal already in result
+    }
+
+    // Set metadata to reflect the merge
+    result.updated_at = new Date(Math.max(localTime, cloudTime)).toISOString();
+    result._device = localTime >= cloudTime ? localRow._device : cloudRow._device;
+
+    return result;
   }
 
   function mergeIncremental(localRows, changedCloudRows, deletedIds) {

@@ -1,4 +1,4 @@
-﻿/* ════════════════════════════════════════════════
+/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/students.js
    Student Module — CRUD, Search, Filter, Print, Export
@@ -712,10 +712,35 @@ const Students = (() => {
     const name  = Utils.formVal('sf-name');
     const sid   = Utils.formVal('sf-sid');
     const phone = Utils.formVal('sf-phone');
+    const email = Utils.formVal('sf-email');
+    const course = Utils.formVal('sf-course');
+    const batch  = Utils.formVal('sf-batch');
     const errEl = document.getElementById('sf-error');
 
+    // ✅ Phase 2: Comprehensive form validation
     if (!name) { errEl.textContent='Name is required'; errEl.classList.remove('hidden'); return; }
+    if (name.length < 2) { errEl.textContent='Name must be at least 2 characters'; errEl.classList.remove('hidden'); return; }
     if (!sid && !editingId) { errEl.textContent='Student ID Required'; errEl.classList.remove('hidden'); return; }
+
+    // Phone validation: BD format (01X-XXXXXXXX) — 11 digits starting with 01
+    if (phone && !/^01[3-9]\d{8}$/.test(phone.replace(/[\s\-()]/g, ''))) {
+      errEl.textContent='Invalid phone number. BD format: 01XXXXXXXXX (11 digits)';
+      errEl.classList.remove('hidden'); return;
+    }
+
+    // Email validation
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent='Invalid email format (e.g. name@example.com)';
+      errEl.classList.remove('hidden'); return;
+    }
+
+    // Course & Batch required for new students
+    if (!editingId) {
+      if (!course) { errEl.textContent='Course is required'; errEl.classList.remove('hidden'); return; }
+      if (!batch) { errEl.textContent='Batch is required'; errEl.classList.remove('hidden'); return; }
+    }
+
+    errEl.classList.add('hidden');
 
     // ── Duplicate Check (name + phone) ────────────────────────
     if (!editingId && !_dupWarningAcknowledged) {

@@ -61,6 +61,49 @@ const Utils = (() => {
 
   function formatDateEN(dateStr) { return formatDate(dateStr); }
 
+  // ✅ Phase 3.1: CSS-based Virtual Scrolling — drastically improves performance for large pages
+  (function injectVirtualScrollCSS() {
+    if (document.getElementById('wfa-virtual-scroll-css')) return;
+    const style = document.createElement('style');
+    style.id = 'wfa-virtual-scroll-css';
+    style.textContent = `
+      .table-wrapper tbody tr {
+        content-visibility: auto;
+        contain-intrinsic-size: 0 48px;
+        will-change: transform;
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
+  // ✅ Phase 2: Parse any date string to YYYY-MM-DD — handles DD/MM/YYYY, MM/DD/YYYY, ISO, etc.
+  function parseAnyDate(input) {
+    if (!input) return '';
+    const s = String(input).trim();
+    // Already ISO YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+    // DD/MM/YYYY or DD-MM-YYYY
+    const dmyMatch = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+    if (dmyMatch) {
+      const [, dd, mm, yyyy] = dmyMatch;
+      return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+    }
+    // Fallback: try native Date
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    return s;
+  }
+
+  // ✅ Phase 3: Loading state skeleton HTML helper
+  function loadingSkeleton(rows = 5) {
+    let html = '<div style="padding:20px">';
+    for (let i = 0; i < rows; i++) {
+      html += `<div style="height:18px;background:rgba(255,255,255,0.04);border-radius:6px;margin-bottom:12px;animation:skeleton-pulse 1.5s infinite ease-in-out"></div>`;
+    }
+    html += '</div><style>@keyframes skeleton-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}</style>';
+    return html;
+  }
+
   // ── Number Helpers ─────────────────────────────────────────
   function safeNum(val) {
     const n = parseFloat(val);
@@ -126,9 +169,23 @@ const Utils = (() => {
     const box = backdrop?.querySelector('.modal-box');
     if (!backdrop || !titleEl || !bodyEl) return;
 
-    // ✅ Fix #7: strip dangerous on* event handlers from title HTML before injection
-    titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
-    bodyEl.innerHTML = bodyHTML;
+    // ✅ Fix #5: Wrap modal content injection in try/catch to prevent UI freeze
+    try {
+      // ✅ Fix #7: strip dangerous on* event handlers from title HTML before injection
+      titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+      bodyEl.innerHTML = bodyHTML;
+    } catch (e) {
+      console.error('[Modal] Content render error:', e);
+      titleEl.textContent = 'Error';
+      bodyEl.innerHTML = `<div style="padding:30px;text-align:center;color:#ff4757">
+        <i class="fa fa-circle-exclamation" style="font-size:2rem;margin-bottom:10px;display:block"></i>
+        <strong>Modal content failed to load</strong><br>
+        <small style="color:#888">${esc(e.message)}</small>
+        <br><button onclick="Utils.closeModal()" style="margin-top:16px;padding:8px 20px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:8px;cursor:pointer">
+          Close
+        </button>
+      </div>`;
+    }
 
     // ✅ Req 4: auto-convert all modal date inputs to DD/MM/YYYY via Flatpickr
     setTimeout(() => {
@@ -545,6 +602,8 @@ const Utils = (() => {
       debounce, paginate, renderPaginationUI,
       getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange,
       getSettlementKey, getPaymentMethodBucket, financeMatchesAccountCategory,
+      // Phase 2-4 additions
+      parseAnyDate, loadingSkeleton,
     };
 })();
 
