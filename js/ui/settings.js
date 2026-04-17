@@ -3763,7 +3763,12 @@ ${expenseEntries.length > 0 ? `
     const data = {};
     if (typeof DB !== 'undefined' && typeof SupabaseSync !== 'undefined') {
       Object.keys(DB).forEach(key => {
-        data[DB[key]] = SupabaseSync.getAll(DB[key]);
+        // Security: admin_password, security_answer বাদ
+        let rows = SupabaseSync.getAll(DB[key]);
+        if (DB[key] === 'settings') {
+          rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
+        }
+        data[DB[key]] = rows;
       });
     }
 
@@ -3775,12 +3780,55 @@ ${expenseEntries.length > 0 ? `
       data: data
     });
 
-    if (snapshots.length > 7) snapshots.length = 7; 
+    if (snapshots.length > 10) snapshots.length = 10; // ৭ → ১০ রাখবে
 
     localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
     if (manual) {
-      if (typeof Utils !== 'undefined') Utils.toast('📸 Manual Snapshot Saved', 'success');
+      if (typeof Utils !== 'undefined') Utils.toast('📸 Snapshot Saved!', 'success');
       refreshModal();
+    }
+  }
+
+  // ── Daily Auto Backup Download ────────────────────────────────
+  function tryDailyAutoDownload() {
+    try {
+      const today   = new Date().toISOString().split('T')[0];
+      const lastDay = localStorage.getItem('wfa_last_auto_download') || '';
+      if (lastDay === today) return; // আজকে already হয়েছে
+
+      if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return;
+      const students = SupabaseSync.getAll(DB.students || 'students');
+      if (!students || students.length === 0) return; // data ready না
+
+      // exportAllData এর মতো করে data নাও
+      const allData = {};
+      for (const [key, tableName] of Object.entries(DB)) {
+        let rows = SupabaseSync.getAll(tableName);
+        if (tableName === 'settings') {
+          rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
+        }
+        allData[tableName] = rows;
+      }
+      allData._exportedAt = new Date().toISOString();
+      allData._version = '2';
+
+      const json = JSON.stringify(allData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `wfa_backup_${today}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+
+      localStorage.setItem('wfa_last_auto_download', today);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('📥 Daily auto backup downloaded: wfa_backup_' + today + '.json', 'success', 6000);
+      }
+      console.info('[AutoBackup] ✅ Daily backup downloaded for', today);
+    } catch(e) {
+      console.warn('[AutoBackup] Daily download failed:', e);
     }
   }
 
@@ -4086,7 +4134,7 @@ ${expenseEntries.length > 0 ? `
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
-    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, restoreSnapshot, downloadSnapshot, deleteSnapshot,
+    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,

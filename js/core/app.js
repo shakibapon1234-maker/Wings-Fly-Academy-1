@@ -673,6 +673,46 @@ const App = (() => {
 document.addEventListener('DOMContentLoaded', App.init);
 window.App = App;
 
+// ── Auto Snapshot + Daily Backup Scheduler ───────────────────────────
+// App load এর ৩০ সেকেন্ড পরে প্রথমবার চলবে, তারপর প্রতি ঘণ্টায়
+(function startAutoBackupScheduler() {
+  const INTERVAL_MS = 60 * 60 * 1000; // ১ ঘণ্টা
+
+  function runScheduledTasks() {
+    try {
+      if (typeof SettingsModule !== 'undefined') {
+        // Auto snapshot (SettingsModule নিজেই ১ ঘণ্টার throttle check করে)
+        SettingsModule.saveSnapshot(false);
+        // Daily backup download (আজকে already হলে skip করবে)
+        SettingsModule.tryDailyAutoDownload();
+      }
+    } catch(e) {
+      console.warn('[Scheduler] Task error:', e);
+    }
+  }
+
+  function initScheduler() {
+    if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
+      WFA_IDB.onReady(() => {
+        setTimeout(runScheduledTasks, 30 * 1000);
+        setInterval(runScheduledTasks, INTERVAL_MS);
+        console.info('[Scheduler] Auto snapshot + daily backup scheduler started');
+      });
+    } else {
+      setTimeout(() => {
+        runScheduledTasks();
+        setInterval(runScheduledTasks, INTERVAL_MS);
+      }, 30 * 1000);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScheduler);
+  } else {
+    initScheduler();
+  }
+})();
+
 // ── Date Input locale fix: force DD/MM/YYYY everywhere ──────────────
 (function enforceDateLocale() {
   function fixDateInputs() {
