@@ -282,10 +282,19 @@ const Utils = (() => {
   }
 
   // ── CSV Export ────────────────────────────────────────────
+  // ✅ Fix #9: sanitize formula-injection prefixes (=, +, -, @, |, %)
+  // Excel/Sheets treat cells starting with these as formulas — prefix ' to force plain text
+  function _csvSanitize(val) {
+    const s = (val ?? '').toString().replace(/"/g, '""');
+    return /^[=+\-@|%]/.test(s) ? "'" + s : s;
+  }
   function downloadCSV(filename, rows) {
     if (!rows || rows.length === 0) { toast('No data available', 'warn'); return; }
     const headers = Object.keys(rows[0]);
-    const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => headers.map(h => `"${_csvSanitize(r[h])}"`).join(','))
+    ].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

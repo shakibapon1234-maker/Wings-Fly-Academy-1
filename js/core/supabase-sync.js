@@ -325,8 +325,12 @@ const SupabaseSync = (() => {
     _trackDeletion(table, id);
   }
 
+  // ✅ Security fix #3: use crypto.getRandomValues() instead of Math.random()
   function generateId() {
-    return Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const ts  = Date.now().toString(36).toUpperCase();
+    const buf = new Uint32Array(2);
+    crypto.getRandomValues(buf);
+    return ts + buf[0].toString(36).toUpperCase() + buf[1].toString(36).toUpperCase();
   }
 
   function _logRecentChange(table, action, record) {
@@ -497,7 +501,8 @@ const SupabaseSync = (() => {
       if (!Array.isArray(bin)) return;
       bin.unshift({
         table,
-        data: JSON.parse(JSON.stringify(record)),
+        // ✅ Fix #4: structuredClone is safer than JSON.parse(JSON.stringify()) for deep cloning
+      data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
         deletedAt: new Date().toISOString(),
         type: _recycleTypeLabel(table),
         name: _recycleDisplayName(table, record),

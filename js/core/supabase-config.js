@@ -3,6 +3,12 @@
 // ============================================================
 
 const SUPABASE_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+// ⚠️  SECURITY NOTE – Supabase ANON key:
+//   This key is intentionally public (it is a scoped, read-only JWT, NOT a secret).
+//   Supabase is designed for browser apps — the anon key is ALWAYS visible in source.
+//   Real data security is enforced via Row Level Security (RLS) policies in the
+//   Supabase dashboard: https://supabase.com/docs/guides/auth/row-level-security
+//   ACTION REQUIRED: Ensure RLS is enabled on every table in your Supabase project.
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
 // Supabase client (global window.supabase is loaded from CDN)

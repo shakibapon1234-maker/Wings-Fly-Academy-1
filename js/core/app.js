@@ -158,26 +158,44 @@ const App = (() => {
 
   // ── Emergency Password Reset (console only) ────────────────────────
   // Usage: App.resetAdminPassword('newPassword')
+  // ✅ Security fix #2: now requires security question answer to prevent DevTools abuse
   async function resetAdminPassword(newPassword) {
     if (!newPassword || newPassword.length < 4) {
       console.error('[Auth] Password must be at least 4 characters');
       return false;
     }
-    // Cleanup duplicates first, then reset
-    cleanupDuplicateSettings();
+    // Require security answer verification before allowing password reset
     const settingsList = SupabaseSync.getAll(DB.settings);
     const settings = settingsList[0] || {};
-    const newHash = await _hashPw(newPassword);
-    settings.admin_password = newHash;
-    if (settings.id) {
-      SupabaseSync.update(DB.settings, settings.id, settings);
-    } else {
-      settings.id = SupabaseSync.generateId();
-      SupabaseSync.insert(DB.settings, settings);
+    const question = settings.security_question || 'Security Question';
+    const correctAnswer = (settings.security_answer || '').toLowerCase().trim();
+
+    if (!correctAnswer) {
+      console.error('[Auth] ❌ No security answer configured — password reset blocked for safety. Configure a security question in Settings first.');
+      return false;
     }
-    console.log('%c[Auth] Admin password reset successfully! You can now login with your new password.', 'color: #00ff88; font-weight: bold');
+    const givenAnswer = window.prompt(`🔒 Security Verification Required\n\nQuestion: ${question}\n\nEnter your answer:`);
+    if (!givenAnswer || givenAnswer.toLowerCase().trim() !== correctAnswer) {
+      console.error('[Auth] ❌ Incorrect security answer. Password reset denied.');
+      return false;
+    }
+
+    // Cleanup duplicates first, then reset
+    cleanupDuplicateSettings();
+    const freshList = SupabaseSync.getAll(DB.settings);
+    const fresh = freshList[0] || {};
+    const newHash = await _hashPw(newPassword);
+    fresh.admin_password = newHash;
+    if (fresh.id) {
+      SupabaseSync.update(DB.settings, fresh.id, fresh);
+    } else {
+      fresh.id = SupabaseSync.generateId();
+      SupabaseSync.insert(DB.settings, fresh);
+    }
+    console.log('%c[Auth] ✅ Admin password reset successfully! Login with your new password.', 'color: #00ff88; font-weight: bold');
     return true;
   }
+
 
   // ── Duplicate Settings Cleanup ─────────────────────────────────────
   // যদি database-এ একাধিক settings row থাকে, প্রথমটি রেখে বাকিগুলো মুছে দাও
