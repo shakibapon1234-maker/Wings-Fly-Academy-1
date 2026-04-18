@@ -282,7 +282,7 @@ const SettingsModule = (() => {
       </p>
 
       <div class="theme-grid" style="margin-bottom:30px">
-        ${THEMES.map(t => `
+        ${_getAllThemes().map(t => `
           <div class="theme-card ${currentTheme === t.id ? 'theme-active' : ''}"
                onclick="SettingsModule.applyTheme('${t.id}')" title="${t.name}">
             <div class="theme-preview" style="background:${t.bg}">
@@ -295,6 +295,7 @@ const SettingsModule = (() => {
                 <div style="width:75%;height:3px;border-radius:3px;background:rgba(255,255,255,0.15)"></div>
               </div>
               ${currentTheme === t.id ? `<div class="theme-active-badge"><i class="fa fa-check"></i> Active</div>` : ''}
+              ${t.isCustom ? `<button class="btn btn-xs" style="position:absolute;bottom:10px;right:10px;background:rgba(255,71,87,0.8);border:none;border-radius:4px" onclick="event.stopPropagation();SettingsModule.deleteCustomTheme('${t.id}')" title="Delete Theme"><i class="fa fa-trash-can"></i></button>` : ''}
             </div>
             <div class="theme-info">
               <div class="theme-name">${t.emoji} ${t.name}</div>
@@ -311,7 +312,7 @@ const SettingsModule = (() => {
       <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
         এই থিমের জন্য সাইডবার ডিজাইন বেছে নিন। প্রতিটি থিমে আলাদা সেটিং সেভ হবে।
         <span style="color:var(--brand-primary);font-weight:600">
-          (বর্তমান থিম: <i class="fa fa-circle" style="font-size:.6rem"></i> ${THEMES.find(t=>t.id===currentTheme)?.emoji} ${THEMES.find(t=>t.id===currentTheme)?.name})
+          (বর্তমান থিম: <i class="fa fa-circle" style="font-size:.6rem"></i> ${_getAllThemes().find(t=>t.id===currentTheme)?.emoji} ${_getAllThemes().find(t=>t.id===currentTheme)?.name})
         </span>
       </p>
 
@@ -363,8 +364,22 @@ const SettingsModule = (() => {
         ${buildCardColorsHTML(currentTheme)}
       </div>
 
+      <!-- ── Custom Theme Builder ── -->
+      <div style="margin-top:28px;padding-top:28px;border-top:1px solid rgba(255,255,255,0.08)">
+        <div class="settings-card-title" style="color:var(--brand-primary);font-size:1.05rem;margin-bottom:6px">
+          <i class="fa fa-paint-roller"></i> CUSTOM THEME BUILDER
+        </div>
+        <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
+          নিজের পছন্দমতো কালার দিয়ে থিম তৈরি করুন। সর্বোচ্চ ৫টি থিম সেভ রাখতে পারবেন।
+        </p>
+        <button class="settings-save-btn" onclick="SettingsModule.openThemeBuilderModal()" style="background:linear-gradient(135deg, rgba(0,217,255,0.8), rgba(181,55,242,0.8));color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;">
+          <i class="fa fa-plus"></i> CREATE CUSTOM THEME
+        </button>
+      </div>
+
     </div>`;
   }
+
 
   function buildColorCustomizerHTML(themeId, styleId) {
     const key = `wfa_sidebar_custom_${themeId}_${styleId}`;
@@ -447,11 +462,21 @@ const SettingsModule = (() => {
 
 
   function applyTheme(themeId) {
-    const theme = THEMES.find(t => t.id === themeId);
+    const allThemes = _getAllThemes();
+    const theme = allThemes.find(t => t.id === themeId);
     if (!theme) return;
     // Remove all theme classes
-    THEMES.forEach(t => document.body.classList.remove(`theme-${t.id}`));
-    document.body.classList.add(`theme-${themeId}`);
+    allThemes.forEach(t => document.body.classList.remove(`theme-${t.id}`));
+    document.body.classList.remove('theme-custom');
+    
+    if (theme.isCustom) {
+      document.body.classList.add('theme-custom');
+      _injectCustomThemeStyle(theme);
+    } else {
+      document.body.classList.add(`theme-${themeId}`);
+      const s = document.getElementById('custom-theme-style');
+      if (s) s.remove();
+    }
     localStorage.setItem('wfa_theme', themeId);
     // Restore this theme's sidebar style (default = glass)
     const savedSidebar = localStorage.getItem(`wfa_sidebar_${themeId}`) || 'glass';
@@ -4134,10 +4159,124 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
+  // ── Custom Theme Logic ──
+  function _getAllThemes() {
+    const custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+    return [...THEMES, ...custom];
+  }
+
+  function _injectCustomThemeStyle(theme) {
+    let styleTag = document.getElementById('custom-theme-style');
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'custom-theme-style';
+      document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = `
+      body.theme-custom {
+        --brand-primary: ${theme.colors[1]};
+        --brand-accent: ${theme.colors[2]};
+        --brand-neon: ${theme.colors[3]};
+        --bg-base: ${theme.colors[0]};
+        --bg-surface-solid: color-mix(in srgb, ${theme.colors[0]} 80%, black);
+        --bg-sidebar: color-mix(in srgb, ${theme.colors[0]} 90%, black);
+        --border: color-mix(in srgb, ${theme.colors[1]} 20%, transparent);
+        --border-glow: color-mix(in srgb, ${theme.colors[1]} 40%, transparent);
+        --border-focus: ${theme.colors[1]};
+        --shadow-neon: 0 0 20px color-mix(in srgb, ${theme.colors[1]} 20%, transparent), 0 0 40px color-mix(in srgb, ${theme.colors[2]} 10%, transparent);
+        background-color: ${theme.colors[0]};
+        background: ${theme.bg};
+      }
+    `;
+  }
+
+  function openThemeBuilderModal() {
+    const m = document.createElement('div');
+    m.id = 'theme-builder-modal';
+    m.className = 'modal-backdrop';
+    m.style.zIndex = '9999';
+    m.innerHTML = \`
+      <div class="modal-box" style="max-width:500px">
+        <div class="modal-header">
+          <span class="modal-title bn">🎨 Custom Theme Builder</span>
+          <button class="modal-close" onclick="document.getElementById('theme-builder-modal').remove()"><i class="fa fa-xmark"></i></button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;padding:10px">
+          <div>
+            <label style="font-size:.8rem;color:var(--text-muted)">Theme Name</label>
+            <input type="text" id="ct-name" class="form-control" placeholder="My Awesome Theme">
+          </div>
+          <div>
+            <label style="font-size:.8rem;color:var(--text-muted)">Base Background Color</label>
+            <input type="color" id="ct-bg1" value="#050a15" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
+          </div>
+          <div>
+            <label style="font-size:.8rem;color:var(--text-muted)">Primary Accent (e.g. Buttons/Links)</label>
+            <input type="color" id="ct-primary" value="#00d9ff" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
+          </div>
+          <div>
+            <label style="font-size:.8rem;color:var(--text-muted)">Secondary Accent (e.g. Gradients)</label>
+            <input type="color" id="ct-secondary" value="#b537f2" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
+          </div>
+          <div>
+            <label style="font-size:.8rem;color:var(--text-muted)">Neon Glow Color</label>
+            <input type="color" id="ct-neon" value="#00ff88" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
+          </div>
+          <button class="btn btn-primary" style="margin-top:10px" onclick="SettingsModule.saveCustomThemeFromBuilder()">💾 Save Theme</button>
+        </div>
+      </div>
+    \`;
+    document.body.appendChild(m);
+  }
+
+  function saveCustomThemeFromBuilder() {
+    const name = document.getElementById('ct-name').value.trim() || 'My Theme';
+    const bg1 = document.getElementById('ct-bg1').value;
+    const p = document.getElementById('ct-primary').value;
+    const s = document.getElementById('ct-secondary').value;
+    const n = document.getElementById('ct-neon').value;
+
+    const custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+    if(custom.length >= 5) {
+      if(typeof Utils !== 'undefined') Utils.toast('You can only save up to 5 custom themes.', 'error');
+      return;
+    }
+
+    const tId = 'custom_' + Date.now();
+    custom.push({
+      id: tId,
+      name: name,
+      desc: 'Custom user-defined theme.',
+      emoji: '🎨',
+      colors: [bg1, p, s, n],
+      bg: 'linear-gradient(135deg, ' + bg1 + ' 0%, #000 100%)',
+      isCustom: true
+    });
+    localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
+    document.getElementById('theme-builder-modal').remove();
+    if(typeof Utils !== 'undefined') Utils.toast('Theme saved! Select it from the Theme panel.', 'success');
+    refreshModal();
+    switchTab('theme');
+  }
+
+  function deleteCustomTheme(tId) {
+    let custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+    custom = custom.filter(t => t.id !== tId);
+    localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
+    if (localStorage.getItem('wfa_theme') === tId) {
+      applyTheme('neon-space');
+    } else {
+      if(typeof Utils !== 'undefined') Utils.toast('Custom Theme deleted', 'info');
+      refreshModal();
+      switchTab('theme');
+    }
+  }
+
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
+    deleteCustomTheme, openThemeBuilderModal, saveCustomThemeFromBuilder, _getAllThemes,
     render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
@@ -4173,8 +4312,38 @@ window.SettingsModule = SettingsModule;
   const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
   const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald','aurora-wave'];
   allThemeIds.forEach(id => document.body.classList.remove(`theme-${id}`));
-  document.body.classList.add(`theme-${savedTheme}`);
   
+  if (savedTheme.startsWith('custom_')) {
+     const cust = JSON.parse(localStorage.getItem('wfa_custom_themes') || '[]');
+     const t = cust.find(x => x.id === savedTheme);
+     if(t) {
+        document.body.classList.add('theme-custom');
+        let styleTag = document.createElement('style');
+        styleTag.id = 'custom-theme-style';
+        styleTag.textContent = \`
+          body.theme-custom {
+            --brand-primary: \${t.colors[1]};
+            --brand-accent: \${t.colors[2]};
+            --brand-neon: \${t.colors[3]};
+            --bg-base: \${t.colors[0]};
+            --bg-surface-solid: color-mix(in srgb, \${t.colors[0]} 80%, black);
+            --bg-sidebar: color-mix(in srgb, \${t.colors[0]} 90%, black);
+            --border: color-mix(in srgb, \${t.colors[1]} 20%, transparent);
+            --border-glow: color-mix(in srgb, \${t.colors[1]} 40%, transparent);
+            --border-focus: \${t.colors[1]};
+            --shadow-neon: 0 0 20px color-mix(in srgb, \${t.colors[1]} 20%, transparent), 0 0 40px color-mix(in srgb, \${t.colors[2]} 10%, transparent);
+            background-color: \${t.colors[0]};
+            background: \${t.bg};
+          }
+        \`;
+        document.head.appendChild(styleTag);
+     } else {
+        document.body.classList.add('theme-neon-space');
+     }
+  } else {
+     document.body.classList.add(`theme-${savedTheme}`);
+  }
+
   const savedSidebar = localStorage.getItem(`wfa_sidebar_${savedTheme}`) || 'glass';
   const allSidebarStyles = ['glass','crystal','aurora-glow','tinted','carbon','neonstrip','velvet'];
   
