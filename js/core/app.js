@@ -679,7 +679,7 @@ const App = (() => {
     });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
+  return { init, navigateTo, login, logout, isLoggedIn, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);
