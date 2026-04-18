@@ -96,6 +96,7 @@ const CommandPalette = (() => {
       gap: 16px;
     \`;
     footer.innerHTML = \`
+      <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Ctrl</kbd> + <kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">K</kbd> or <kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Space</kbd> to open</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">↑↓</kbd> to navigate</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Enter</kbd> to select</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Esc</kbd> to close</span>
@@ -106,7 +107,7 @@ const CommandPalette = (() => {
     document.body.appendChild(modal);
 
     // Event Listeners
-    document.addEventListener('keydown', handleGlobalKeydown);
+    document.addEventListener('keydown', handleGlobalKeydown, { capture: true });
     input.addEventListener('input', () => { selectedIndex = 0; renderResults(); });
     input.addEventListener('keydown', handleInputKeydown);
     modal.addEventListener('click', (e) => {
@@ -115,7 +116,7 @@ const CommandPalette = (() => {
   }
 
   function handleGlobalKeydown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'Space')) {
       e.preventDefault();
       // Only open if logged in
       if (localStorage.getItem('wfa_logged_in') === 'true') {
