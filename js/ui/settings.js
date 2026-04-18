@@ -4195,7 +4195,7 @@ ${expenseEntries.length > 0 ? `
     m.id = 'theme-builder-modal';
     m.className = 'modal-backdrop';
     m.style.zIndex = '9999';
-    m.innerHTML = \`
+    m.innerHTML = `
       <div class="modal-box" style="max-width:500px">
         <div class="modal-header">
           <span class="modal-title bn">🎨 Custom Theme Builder</span>
@@ -4225,7 +4225,7 @@ ${expenseEntries.length > 0 ? `
           <button class="btn btn-primary" style="margin-top:10px" onclick="SettingsModule.saveCustomThemeFromBuilder()">💾 Save Theme</button>
         </div>
       </div>
-    \`;
+    `;
     document.body.appendChild(m);
   }
 
@@ -4320,22 +4320,22 @@ window.SettingsModule = SettingsModule;
         document.body.classList.add('theme-custom');
         let styleTag = document.createElement('style');
         styleTag.id = 'custom-theme-style';
-        styleTag.textContent = \`
+        styleTag.textContent = `
           body.theme-custom {
-            --brand-primary: \${t.colors[1]};
-            --brand-accent: \${t.colors[2]};
-            --brand-neon: \${t.colors[3]};
-            --bg-base: \${t.colors[0]};
-            --bg-surface-solid: color-mix(in srgb, \${t.colors[0]} 80%, black);
-            --bg-sidebar: color-mix(in srgb, \${t.colors[0]} 90%, black);
-            --border: color-mix(in srgb, \${t.colors[1]} 20%, transparent);
-            --border-glow: color-mix(in srgb, \${t.colors[1]} 40%, transparent);
-            --border-focus: \${t.colors[1]};
-            --shadow-neon: 0 0 20px color-mix(in srgb, \${t.colors[1]} 20%, transparent), 0 0 40px color-mix(in srgb, \${t.colors[2]} 10%, transparent);
-            background-color: \${t.colors[0]};
-            background: \${t.bg};
+            --brand-primary: ${t.colors[1]};
+            --brand-accent: ${t.colors[2]};
+            --brand-neon: ${t.colors[3]};
+            --bg-base: ${t.colors[0]};
+            --bg-surface-solid: color-mix(in srgb, ${t.colors[0]} 80%, black);
+            --bg-sidebar: color-mix(in srgb, ${t.colors[0]} 90%, black);
+            --border: color-mix(in srgb, ${t.colors[1]} 20%, transparent);
+            --border-glow: color-mix(in srgb, ${t.colors[1]} 40%, transparent);
+            --border-focus: ${t.colors[1]};
+            --shadow-neon: 0 0 20px color-mix(in srgb, ${t.colors[1]} 20%, transparent), 0 0 40px color-mix(in srgb, ${t.colors[2]} 10%, transparent);
+            background-color: ${t.colors[0]};
+            background: ${t.bg};
           }
-        \`;
+        `;
         document.head.appendChild(styleTag);
      } else {
         document.body.classList.add('theme-neon-space');
