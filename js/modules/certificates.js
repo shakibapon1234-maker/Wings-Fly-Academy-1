@@ -248,7 +248,7 @@ const CertificatesModule = (() => {
               </div>
               <div style="flex:1;">
                 <div style="font-weight:600; color:var(--text);">${Utils.esc(s.name || "Unknown")}</div>
-                <div style="font-size:0.82rem; color:var(--text-muted);">${s.studentId || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
+                <div style="font-size:0.82rem; color:var(--text-muted);">${s.student_id || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
               </div>
             </div>
             <div style="display:flex; gap:8px;">
@@ -280,7 +280,7 @@ const CertificatesModule = (() => {
     if (!q) return students;
     return students.filter(s =>
       (s.name || '').toLowerCase().includes(q) ||
-      (s.studentId || '').toLowerCase().includes(q) ||
+      (s.student_id || '').toLowerCase().includes(q) ||
       (s.course || '').toLowerCase().includes(q) ||
       (s.batch || '').toLowerCase().includes(q)
     );
@@ -288,7 +288,7 @@ const CertificatesModule = (() => {
 
   function buildDataFromStudent(s) {
     return {
-      studentId: s.studentId || s.id,
+      studentId: s.student_id || s.id,
       studentName: s.name,
       fatherName: s.fatherName || s.guardianName || '',
       courseName: s.course,
@@ -299,7 +299,7 @@ const CertificatesModule = (() => {
       marks: s.marks || '',
       totalMarks: s.totalMarks || 100,
       photo: s.photo || '',
-      certNumber: `WFA-${new Date().getFullYear()}-${(s.studentId || s.id || '0000').toString().slice(-4)}`,
+      certNumber: `WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`,
       issueDate: typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
     };
   }

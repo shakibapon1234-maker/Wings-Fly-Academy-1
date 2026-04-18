@@ -369,9 +369,9 @@ const SyncGuard = (() => {
 
   // ── Auto Fix logic ───────────────────────────────────────
   async function autoFix() {
-    // TODO (Bug #5): Replace window.confirm() with a custom modal in future
-    //                Some browsers/environments block window.confirm().
-    if (!window.confirm("Auto-Fix will recalculate negative/discrepant balances based on actual ledger entries. Continue?")) return;
+    // ✅ Bug #4 Fix: Use Utils.confirm() instead of window.confirm() — PWA-safe custom modal
+    const ok = await Utils.confirm('Auto-Fix will recalculate negative/discrepant balances based on actual ledger entries. Continue?', 'Auto-Fix Balances');
+    if (!ok) return;
 
     // Bug #1 fix: guard against SupabaseSync not being available
     if (!window.SupabaseSync) {

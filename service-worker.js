@@ -35,6 +35,8 @@ const STATIC_ASSETS = [
   './js/modules/id-cards.js',
   './js/modules/certificates.js',
   './js/modules/notice-board.js',
+  './js/core/backup-restore.js',
+  './js/modules/voice-assistant.js',
   './assets/logo.jpg',
   './assets/favicon.ico',
   './assets/icon-192.png',

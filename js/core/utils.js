@@ -604,6 +604,10 @@ const Utils = (() => {
       getSettlementKey, getPaymentMethodBucket, financeMatchesAccountCategory,
       // Phase 2-4 additions
       parseAnyDate, loadingSkeleton,
+      // XSS - attribute-safe escape
+      escAttr,
+      // ID generator (for attendance and other modules)
+      generateId: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
     };
 })();
 
