@@ -253,7 +253,7 @@ const TABLE_COLUMNS = {
   attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
   staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
   visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
-  notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
+  notices:       ['id','title','content','text','date','category','priority','author','created_at','expires_at','is_pinned','type'],
 };
 
 const SupabaseSync = (() => {
@@ -689,7 +689,7 @@ const SupabaseSync = (() => {
     attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
-    notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
+    notices:       ['id','title','content','text','date','category','priority','author','created_at','expires_at','is_pinned','type'],
   };
 
   function _sanitizeRecord(record, tableKey) {

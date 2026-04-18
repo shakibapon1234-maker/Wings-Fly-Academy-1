@@ -31,12 +31,13 @@ const NoticeBoardModule = (() => {
   function refreshActiveNotice() {
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined' || !DB.notices) return;
     const all = SupabaseSync.getAll(DB.notices) || [];
-    all.sort((a,b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
+    all.sort((a,b) => new Date(b.created_at || b.createdAt || b.date || 0) - new Date(a.created_at || a.createdAt || a.date || 0));
     activeNotice = null;
     hideBanner();
     for (let n of all) {
-      if (typeof n.expiresAt === 'number' || typeof n.expiresAt === 'string') {
-        if (new Date(n.expiresAt).getTime() > Date.now()) {
+      const _exp = n.expires_at || n.expiresAt;
+      if (typeof _exp === 'number' || typeof _exp === 'string') {
+        if (new Date(_exp).getTime() > Date.now()) {
           activeNotice = n; break;
         }
       }
@@ -56,7 +57,7 @@ const NoticeBoardModule = (() => {
   function updateNoticeDot() {
     const dot = document.getElementById('notice-dot');
     if (!dot) return;
-    const hasActive = !!(activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now());
+    const hasActive = !!(activeNotice && new Date(activeNotice.expires_at || activeNotice.expiresAt).getTime() > Date.now());
     dot.style.display = hasActive ? 'inline-block' : 'none';
   }
 
@@ -81,7 +82,7 @@ const NoticeBoardModule = (() => {
     banner.style.display = 'flex';
     banner.style.alignItems = 'center';
     banner.style.justifyContent = 'center';
-    startCountdown(notice.expiresAt);
+    startCountdown(notice.expires_at || notice.expiresAt);
   }
 
   function hideBanner() {
@@ -125,9 +126,9 @@ const NoticeBoardModule = (() => {
     refreshActiveNotice();
 
     const allNotices = (window.DB && DB.notices)
-      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||b.date||0) - new Date(a.createdAt||a.date||0))
+      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.created_at||b.createdAt||b.date||0) - new Date(a.created_at||a.createdAt||a.date||0))
       : [];
-    const isRunning = activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now();
+    const isRunning = activeNotice && new Date(activeNotice.expires_at || activeNotice.expiresAt).getTime() > Date.now();
     const activeCfg = isRunning ? (TYPE_CFG[activeNotice.type] || TYPE_CFG.warning) : null;
 
     container.innerHTML = `
@@ -302,7 +303,7 @@ const NoticeBoardModule = (() => {
           </div>
           <div style="display:flex; flex-direction:column; gap:10px;">
             ${allNotices.map(n => {
-              const expired = new Date(n.expiresAt).getTime() < Date.now();
+              const expired = new Date(n.expires_at || n.expiresAt).getTime() < Date.now();
               const cfg = TYPE_CFG[n.type||'warning'] || TYPE_CFG.warning;
               return `
               <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;
@@ -321,7 +322,7 @@ const NoticeBoardModule = (() => {
                         ${expired ? 'মেয়াদ শেষ' : '● সক্রিয়'}
                       </span>
                       <span style="font-size:0.72rem; color:rgba(255,255,255,0.3);">
-                        মেয়াদ: ${new Date(n.expiresAt).toLocaleString('bn-BD')}
+                        মেয়াদ: ${new Date(n.expires_at || n.expiresAt).toLocaleString('bn-BD')}
                       </span>
                     </div>
                   </div>
@@ -348,7 +349,7 @@ const NoticeBoardModule = (() => {
       const _tick = () => {
         const el = document.getElementById('nb-countdown-inline');
         if (!el) { clearInterval(_inlineIv); _inlineIv = null; return; }
-        const rem = new Date(activeNotice.expiresAt).getTime() - Date.now();
+        const rem = new Date(activeNotice.expires_at || activeNotice.expiresAt).getTime() - Date.now();
         if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; clearInterval(_inlineIv); _inlineIv = null; return; }
         const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
         el.textContent = `${h>0?h+'h ':''} ${m}m ${s}s বাকি`;
@@ -399,7 +400,7 @@ const NoticeBoardModule = (() => {
     } else {
       durationMinutes = parseInt(durSel?.value) || 720;
     }
-    if (activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now()) {
+    if (activeNotice && new Date(activeNotice.expires_at || activeNotice.expiresAt).getTime() > Date.now()) {
       const ok = await Utils.confirm('একটি নোটিশ ইতিমধ্যে চলছে। Replace করবেন?', 'Replace Notice');
       if (!ok) return;
     }
@@ -407,8 +408,9 @@ const NoticeBoardModule = (() => {
       id: 'NOT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
       text, title: text, content: text, type,
       date: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString()
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString(),
+      is_pinned: false,
     };
     if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id);
     SupabaseSync.insert(DB.notices, payload);
