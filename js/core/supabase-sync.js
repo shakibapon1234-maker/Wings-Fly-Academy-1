@@ -1076,6 +1076,13 @@ const SyncEngine = (() => {
     const merged = new Map();
     const conflicts = [];
 
+    // Cloud এর সবচেয়ে নতুন updated_at বের করো
+    let latestCloudTime = 0;
+    cloudRows.forEach(row => {
+      const t = new Date(row.updated_at || 0).getTime();
+      if (t > latestCloudTime) latestCloudTime = t;
+    });
+
     cloudRows.forEach(row => {
       if (!deletedIds.includes(row.id)) {
         merged.set(row.id, row);
@@ -1086,6 +1093,13 @@ const SyncEngine = (() => {
       if (deletedIds.includes(row.id)) return;
       const existing = merged.get(row.id);
       if (!existing) {
+        // Local এ আছে কিন্তু cloud এ নেই — শুধু রাখো যদি
+        // এটা cloud এর latest record এর চেয়ে নতুন হয় (অর্থাৎ সত্যিই নতুন entry)
+        const localTime = new Date(row.updated_at || 0).getTime();
+        if (latestCloudTime > 0 && localTime < latestCloudTime - 300_000) {
+          // Cloud এ ৫ মিনিটের বেশি আগের record এর চেয়েও পুরনো local row — skip (stale data)
+          return;
+        }
         merged.set(row.id, row);
       } else {
         const localTime = new Date(row.updated_at || 0).getTime();
@@ -1188,6 +1202,16 @@ const SyncEngine = (() => {
     setStatus('syncing');
     try {
       const { client } = window.SUPABASE_CONFIG;
+
+      // ── Safety check: fresh device এ blindly push করবে না ──
+      // _lastPullTimestamp না থাকলে মানে এই device এ full pull হয়নি।
+      // সেক্ষেত্রে local data stale হতে পারে, push skip করো।
+      if (!_lastPullTimestamp && !opts.forcePush) {
+        console.warn('[Sync] Push skipped — no pull timestamp (fresh device). Pull first.');
+        setStatus('synced');
+        return;
+      }
+
       for (const key of Object.values(TABLES)) {
         if (missingTables.has(key)) continue;
         const rows = SupabaseSync.getAll(key);
@@ -1204,7 +1228,7 @@ const SyncEngine = (() => {
         if (error) console.error(`[Sync] Push failed for "${key}":`, error);
       }
       setStatus('synced');
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete âœ…', 'success');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');
     } catch (e) {
       console.error('[Sync] Push failed:', e);
       setStatus('error');
