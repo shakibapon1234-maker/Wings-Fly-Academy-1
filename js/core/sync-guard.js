@@ -234,16 +234,19 @@ const SyncGuard = (() => {
       });
 
       // Compare with stored balances
-      // Note: auditBalances only flags large discrepancies (>500) to avoid
-      // false positives from opening balances entered manually at setup.
+      // Opening Balance entries (category === 'Opening Balance') are counted
+      // as income in expected[], so stored balance should match calculated.
       accounts.forEach(a => {
         const name = a.type === 'Cash' ? 'Cash' : a.name;
-        if (!name || !(name in expected)) return;
+        if (!name) return;
+        // Skip accounts that have no ledger activity AND no stored balance
+        // (brand-new accounts with 0 balance are fine)
         const stored = parseFloat(a.balance) || 0;
-        const calc   = expected[name] || 0;
-        const diff   = Math.abs(stored - calc);
+        if (stored === 0 && !(name in expected)) return;
+        const calc = expected[name] || 0;
+        const diff = Math.abs(stored - calc);
 
-        // Only flag if very large discrepancy (>500) — small diffs may be opening balances
+        // Only flag if very large discrepancy (>500) — small diffs may be rounding
         if (diff > 500) {
           discrepancies.push({ account: name, stored, calculated: calc, diff });
         }
