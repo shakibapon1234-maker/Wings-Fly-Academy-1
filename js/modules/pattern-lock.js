@@ -140,7 +140,7 @@ const PatternLockModule = (() => {
           if (!activeNodes.includes(id)) {
             activeNodes.push(id);
             el.classList.add('active');
-            if (typeof Utils !== 'undefined') Utils.haptic(20);
+            // haptic feedback (mobile only, if supported)
             drawLines();
           }
         }
