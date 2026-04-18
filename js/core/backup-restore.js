@@ -99,9 +99,17 @@ const BackupRestore = (() => {
           if (!confirmed) { resolve(false); return; }
 
           // Restore each table
+          // Logic #1 fix: setAll ব্যবহার করা হচ্ছে (insert নয়),
+          // যাতে backup-এর প্রতিটি record-এর original created_at,
+          // admission_date, date ইত্যাদি হুবহু preserve হয়।
+          // কোনো timestamp override হবে না।
           let restored = 0;
           for (const [table, rows] of Object.entries(backup.data)) {
             if (Array.isArray(rows)) {
+              // activity_log এবং recent_changes ছাড়া সব table restore হবে
+              // (এগুলো real-time log, backup থেকে overwrite করা উচিত না)
+              const skipTables = ['activity_log', 'recent_changes'];
+              if (skipTables.includes(table)) continue;
               SupabaseSync.setAll(table, rows);
               restored++;
             }

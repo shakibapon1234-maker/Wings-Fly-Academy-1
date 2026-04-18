@@ -303,9 +303,32 @@ const SupabaseSync = (() => {
     }
   }
 
+  // ── Per-table primary date field map ────────────────────────
+  // Logic #1: যে date দিয়ে record insert করা হচ্ছে, সেটাই created_at হবে।
+  // এতে করে পুরনো তারিখ দিয়ে import করলে সব ফাংশনে সেই তারিখ দেখাবে।
+  const _TABLE_DATE_FIELD = {
+    students:      'admission_date',
+    finance_ledger:'date',
+    loans:         'date',
+    exams:         'exam_date',
+    salary:        'paidDate',
+    attendance:    'date',
+    staff:         'joiningDate',
+    visitors:      'visit_date',
+    notices:       'date',
+  };
+
   function insert(table, record) {
     if (!record.id) record.id = generateId();
-    if (!record.created_at) record.created_at = new Date().toISOString();
+    // Logic #1 fix: record-এর নিজের date field থাকলে সেটাই created_at হবে,
+    // override হবে না — এতে import date অনুযায়ী সব জায়গায় ডেটা সাজবে।
+    if (!record.created_at) {
+      const dateField = _TABLE_DATE_FIELD[table];
+      const dateValue = dateField && record[dateField];
+      record.created_at = dateValue
+        ? new Date(dateValue).toISOString()
+        : new Date().toISOString();
+    }
     record.updated_at = new Date().toISOString();
     record._device = _deviceId();
     const rows = getAll(table);
