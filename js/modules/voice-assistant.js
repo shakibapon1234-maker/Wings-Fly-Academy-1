@@ -1,119 +1,132 @@
 /**
  * Wings Fly Academy — AI Voice Assistant Module
- * Features:
- * - Floating Voice Assistant button.
- * - Voice navigation & commands.
- * - Initial Greeting System.
+ * Fixed bugs:
+ * - Greeting check now uses correct key: localStorage 'wfa_logged_in'
+ * - Logout command uses correct button ID: 'btn-logout'
+ * - Mic button hidden until user is logged in
  */
 
 const VoiceAssistant = (() => {
   let isListening = false;
   let recognition = null;
   let synth = window.speechSynthesis;
-  // Use generic voice if available
   let voiceInstance = null;
+  let btn = null;
 
   function init() {
-    // 1. Create floating mic button
-    const btn = document.createElement('button');
+    // 1. Create floating mic button — hidden by default
+    btn = document.createElement('button');
     btn.id = 'ai-voice-btn';
+    btn.title = 'Voice Assistant (Click to speak)';
     btn.innerHTML = '<i class="fa fa-microphone"></i>';
-    btn.style.position = 'fixed';
-    btn.style.bottom = '20px';
-    btn.style.right = '20px';
-    btn.style.width = '60px';
-    btn.style.height = '60px';
-    btn.style.borderRadius = '50%';
-    btn.style.background = 'linear-gradient(135deg, var(--brand-primary), var(--brand-accent))';
-    btn.style.color = '#fff';
-    btn.style.border = 'none';
-    btn.style.fontSize = '1.5rem';
-    btn.style.boxShadow = '0 0 20px rgba(181, 55, 242, 0.4)';
-    btn.style.cursor = 'pointer';
-    btn.style.zIndex = '9999';
-    btn.style.transition = 'transform 0.2s, box-shadow 0.2s';
-    
+    btn.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 55px;
+      height: 55px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--brand-primary), var(--brand-accent));
+      color: #fff;
+      border: none;
+      font-size: 1.4rem;
+      box-shadow: 0 0 20px rgba(181, 55, 242, 0.4);
+      cursor: pointer;
+      z-index: 9998;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: none;
+    `;
+
     btn.onmouseover = () => { btn.style.transform = 'scale(1.1)'; };
-    btn.onmouseout = () => { btn.style.transform = 'scale(1)'; };
-    
+    btn.onmouseout  = () => { btn.style.transform = 'scale(1)'; };
     btn.onclick = toggleListening;
     document.body.appendChild(btn);
 
-    // 2. Setup recognition
+    // 2. Show mic btn only when logged in
+    checkVisibility();
+    window.addEventListener('wfa:navigate', checkVisibility);
+
+    // 3. Setup recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognition = new SpeechRecognition();
       recognition.continuous = false;
-      // Bengali and English recognition
       recognition.lang = 'en-US';
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
 
-      recognition.onstart = function() {
+      recognition.onstart = () => {
         isListening = true;
         btn.style.boxShadow = '0 0 30px rgba(0, 255, 136, 0.8)';
         btn.style.animation = 'pulseCardGlow 1s infinite alternate';
         btn.innerHTML = '<i class="fa fa-microphone-lines"></i>';
-        if (typeof Utils !== 'undefined') Utils.toast('Listening... Speak now.', 'info');
+        if (typeof Utils !== 'undefined') Utils.toast('Listening… Speak now.', 'info');
       };
 
-      recognition.onresult = function(event) {
+      recognition.onresult = (event) => {
         const command = event.results[0][0].transcript.toLowerCase();
-        console.log('Voice Command Received: ', command);
+        console.log('[Voice] Command:', command);
         processCommand(command);
       };
 
-      recognition.onerror = function(event) {
-        console.error('Speech recognition error', event.error);
+      recognition.onerror = (event) => {
         if (event.error !== 'no-speech' && typeof Utils !== 'undefined') {
           Utils.toast('Mic error: ' + event.error, 'error');
         }
         stopUI();
       };
 
-      recognition.onend = function() {
-        stopUI();
-      };
+      recognition.onend = stopUI;
     } else {
-      console.warn("Speech Recognition API not supported in this browser.");
-      btn.style.display = 'none';
+      console.warn('[Voice] Speech Recognition API not supported.');
+      if (btn) btn.style.display = 'none';
     }
 
-    // Attempt greeting when voices loaded
+    // 4. Load voice
     if (synth.onvoiceschanged !== undefined) {
       synth.onvoiceschanged = setVoice;
     }
-    
-    // Slight delay before greeting
-    setTimeout(greetUser, 2000);
+
+    // 5. Greeting on login
+    window.addEventListener('wfa:navigate', (e) => {
+      if (e.detail?.section === 'dashboard') {
+        setTimeout(greetUser, 1500);
+      }
+    });
+  }
+
+  function checkVisibility() {
+    if (!btn) return;
+    const loggedIn = localStorage.getItem('wfa_logged_in') === 'true';
+    btn.style.display = loggedIn ? 'flex' : 'none';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
   }
 
   function setVoice() {
     const voices = synth.getVoices();
-    // Try to find a good English voice
-    voiceInstance = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) || voices[0];
+    voiceInstance = voices.find(v => v.lang === 'en-US' && v.name.includes('Google')) || voices[0] || null;
   }
 
   function speak(text) {
-    if (synth.speaking) {
-       console.error('speechSynthesis.speaking');
-       return;
-    }
-    if (text !== '') {
+    if (!text || synth.speaking) return;
+    try {
       const utterThis = new SpeechSynthesisUtterance(text);
       if (!voiceInstance) setVoice();
       utterThis.voice = voiceInstance;
       utterThis.pitch = 1;
       utterThis.rate = 1;
       synth.speak(utterThis);
+    } catch (e) {
+      console.warn('[Voice] speak error:', e);
     }
   }
 
   function greetUser() {
-    // Only greet if user is logged in
-    const isLoggedIn = sessionStorage.getItem('wfa_auth') === 'true';
-    if(isLoggedIn) {
-      speak("Welcome back, Admin. System is online and ready.");
+    // FIX: use correct key — localStorage wfa_logged_in
+    const isLoggedIn = localStorage.getItem('wfa_logged_in') === 'true';
+    if (isLoggedIn) {
+      speak('Welcome back, Admin. System is online and ready.');
     }
   }
 
@@ -125,54 +138,49 @@ const VoiceAssistant = (() => {
     } else {
       try {
         recognition.start();
-      } catch(e) {
-        // Handle case where recognition was already started
-        console.warn(e);
+      } catch (e) {
+        console.warn('[Voice] recognition start error:', e);
       }
     }
   }
 
   function stopUI() {
     isListening = false;
-    const btn = document.getElementById('ai-voice-btn');
-    if(btn) {
-      btn.style.animation = 'none';
-      btn.style.boxShadow = '0 0 20px rgba(181, 55, 242, 0.4)';
-      btn.innerHTML = '<i class="fa fa-microphone"></i>';
+    const b = document.getElementById('ai-voice-btn');
+    if (b) {
+      b.style.animation = 'none';
+      b.style.boxShadow = '0 0 20px rgba(181, 55, 242, 0.4)';
+      b.innerHTML = '<i class="fa fa-microphone"></i>';
     }
   }
 
   function processCommand(cmd) {
     let handled = false;
-    
+
     const navigations = [
-      { trigger: ['dashboard', 'home'], tab: 'dashboard', speak: 'Opening Dashboard' },
-      { trigger: ['student', 'students'], tab: 'students', speak: 'Opening Students' },
-      { trigger: ['finance', 'payment', 'collection'], tab: 'finance', speak: 'Opening Finance Ledger' },
-      { trigger: ['account'], tab: 'accounts', speak: 'Opening Accounts' },
-      { trigger: ['loan'], tab: 'loans', speak: 'Opening Loans' },
-      { trigger: ['visitor'], tab: 'visitors', speak: 'Opening Visitors' },
-      { trigger: ['hr', 'staff', 'employee'], tab: 'hr-staff', speak: 'Opening HR and Staff' },
-      { trigger: ['exam', 'result'], tab: 'exam', speak: 'Opening Exams' },
-      { trigger: ['salary'], tab: 'salary', speak: 'Opening Salary Hub' },
-      { trigger: ['attendance', 'present'], tab: 'attendance', speak: 'Opening Attendance' },
-      { trigger: ['id card', 'id-card'], tab: 'id-cards', speak: 'Opening ID Cards' },
-      { trigger: ['certificate'], tab: 'certificates', speak: 'Opening Certificates' },
-      { trigger: ['notice', 'board'], tab: 'notice-board', speak: 'Opening Notice Board' },
-      { trigger: ['setting', 'settings', 'theme'], tab: 'settings', speak: 'Opening Settings' }
+      { trigger: ['dashboard', 'home'],             tab: 'dashboard',    speak: 'Opening Dashboard' },
+      { trigger: ['student', 'students'],            tab: 'students',     speak: 'Opening Students' },
+      { trigger: ['finance', 'payment', 'ledger'],   tab: 'finance',      speak: 'Opening Finance Ledger' },
+      { trigger: ['account', 'accounts'],            tab: 'accounts',     speak: 'Opening Accounts' },
+      { trigger: ['loan', 'loans'],                  tab: 'loans',        speak: 'Opening Loans' },
+      { trigger: ['visitor', 'visitors'],            tab: 'visitors',     speak: 'Opening Visitors' },
+      { trigger: ['hr', 'staff', 'employee'],        tab: 'hr-staff',     speak: 'Opening HR and Staff' },
+      { trigger: ['exam', 'exams', 'result'],        tab: 'exam',         speak: 'Opening Exams' },
+      { trigger: ['salary'],                         tab: 'salary',       speak: 'Opening Salary Hub' },
+      { trigger: ['attendance', 'present'],          tab: 'attendance',   speak: 'Opening Attendance' },
+      { trigger: ['id card', 'id-card'],             tab: 'id-cards',     speak: 'Opening ID Cards' },
+      { trigger: ['certificate'],                    tab: 'certificates', speak: 'Opening Certificates' },
+      { trigger: ['notice', 'board'],                tab: 'notice-board', speak: 'Opening Notice Board' },
+      { trigger: ['setting', 'settings', 'theme'],   tab: 'settings',     speak: 'Opening Settings' },
     ];
 
     for (let nav of navigations) {
       if (nav.trigger.some(t => cmd.includes(t))) {
-        // Trigger click on corresponding nav item
-        const navBtn = document.querySelector(`button[data-section="${nav.tab}"]`);
-        if (navBtn) {
-          navBtn.click();
-          if (typeof Utils !== 'undefined') Utils.toast(nav.speak, 'success');
-          speak(nav.speak);
-          handled = true;
-          break;
-        }
+        if (typeof App !== 'undefined') App.navigateTo(nav.tab);
+        if (typeof Utils !== 'undefined') Utils.toast(nav.speak, 'success');
+        speak(nav.speak);
+        handled = true;
+        break;
       }
     }
 
@@ -180,22 +188,24 @@ const VoiceAssistant = (() => {
       if (cmd.includes('logout') || cmd.includes('log out') || cmd.includes('sign out')) {
         speak('Logging out. Goodbye.');
         setTimeout(() => {
-          document.getElementById('logout-btn')?.click();
+          // FIX: correct button ID is 'btn-logout'
+          const logoutBtn = document.getElementById('btn-logout');
+          if (logoutBtn) logoutBtn.click();
+          else if (typeof App !== 'undefined') App.logout();
         }, 1500);
-      } else {
-        if (typeof Utils !== 'undefined') Utils.toast("Command not recognized: " + cmd, 'warn');
-        speak("I didn't quite catch that.");
+        handled = true;
       }
+    }
+
+    if (!handled) {
+      if (typeof Utils !== 'undefined') Utils.toast(`Command not recognized: "${cmd}"`, 'warn');
+      speak("I didn't quite catch that. Please try again.");
     }
   }
 
   return { init, speak };
 })();
 
-// Auto-init on page load if logged in, or attached to DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Slight delay to ensure other UI initialized
-    setTimeout(() => {
-        VoiceAssistant.init();
-    }, 1500);
+  setTimeout(() => VoiceAssistant.init(), 1500);
 });
