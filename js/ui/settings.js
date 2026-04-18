@@ -4193,7 +4193,7 @@ ${expenseEntries.length > 0 ? `
   function openThemeBuilderModal() {
     const m = document.createElement('div');
     m.id = 'theme-builder-modal';
-    m.className = 'modal-backdrop';
+    m.className = 'modal-backdrop open';
     m.style.zIndex = '9999';
     m.innerHTML = `
       <div class="modal-box" style="max-width:500px">
