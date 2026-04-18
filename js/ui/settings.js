@@ -2318,7 +2318,15 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
     const monitor = typeof SyncEngine !== 'undefined' ? SyncEngine.getDataMonitor() : {};
-    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
+    // ✅ Filter: only show financial transactions (no settings/activity entries)
+    const FINANCIAL_TABLES = new Set(['finance_ledger','students','loans','salary','accounts']);
+    const allChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
+    const recentChanges = allChanges.filter(c => {
+      if (!c) return false;
+      if (FINANCIAL_TABLES.has(c.table)) return true;
+      // Fallback: if table missing, check category is not 'settings'
+      return c.category && c.category !== 'settings';
+    });
     const totalRecords = Object.values(monitor).reduce((s, v) => s + (v.localCount || 0), 0);
 
     return `
@@ -2331,18 +2339,18 @@ ${expenseEntries.length > 0 ? `
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 local saves, updates, or deletes. Click a row to view that transaction's saved dashboard snapshot.</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 financial transactions. Click a row to view the account balance snapshot at that moment.</p>
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON</th></tr></thead>
+            <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th></tr></thead>
             <tbody>
               ${recentChanges.length === 0 ?
-                `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No recent changes yet — add or edit data to populate this list.</td></tr>` :
+                `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No financial transactions found — add income, expense or student fees to populate this list.</td></tr>` :
                 recentChanges.slice(0, 10).map((c, i) => {
                   const badgeCls = c.type === 'Delete' ? 'badge-error' : c.type === 'Update' ? 'badge-warning' : 'badge-success';
                   return `
-                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click for saved snapshot at this transaction">
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${allChanges.indexOf(c)})" title="Click for saved snapshot at this transaction">
                     <td>${i + 1}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
                     <td><span class="badge ${badgeCls}">${c.type || '—'}</span></td>
@@ -3099,7 +3107,7 @@ ${expenseEntries.length > 0 ? `
       ? accountList.map(a => {
           const isMobile = ['mobile','bkash','nagad','rocket','bikash'].some(k => (a.name||'').toLowerCase().includes(k) || (a.type||'').toLowerCase().includes(k));
           const isBank   = (a.type||'').toLowerCase().includes('bank');
-          const icon     = isMobile ? '📱' : isBank ? '🏦' : '💵';
+          const icon     = isMobile ? '\u{1F4F1}' : isBank ? '\u{1F3E6}' : '\u{1F4B5}';
           const hasBalance = a.balance > 0;
           const borderCol  = hasBalance ? 'rgba(0,212,255,0.25)' : 'rgba(255,255,255,0.08)';
           const glowCol    = hasBalance ? '0 0 18px rgba(0,212,255,0.12)' : 'none';
@@ -3118,27 +3126,64 @@ ${expenseEntries.length > 0 ? `
     const netProfit = (finance.totalIncome || 0) - (finance.totalExpense || 0);
     const profitColor = netProfit >= 0 ? '#00ff88' : '#ff4757';
 
-    Utils.openModal(
-      `<span style="display:inline-flex;align-items:center;gap:8px">
-        <i class="fa fa-camera" style="color:#00d9ff"></i>
-        <span>Monitor — Account Balances</span>
-      </span>`,
+    // ── Running Batch Stats ──────────────────────────────────────────
+    const cfg = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
+    const runningBatch = cfg.running_batch || '';
+    const allStudents = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll(DB.students) : [];
+    const allFinance  = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll(DB.finance) : [];
+    const batchStudents = runningBatch ? allStudents.filter(s => s.batch === runningBatch && s.status !== 'Inactive') : [];
+    const batchStudentIds = new Set(batchStudents.map(s => s.id));
+    const batchIncome  = allFinance.filter(f => f.type === 'Income' && batchStudentIds.has(f.ref_id)).reduce((s,f) => s + Utils.safeNum(f.amount), 0);
+    const batchExpense = allFinance.filter(f => f.type === 'Expense').reduce((s,f) => s + Utils.safeNum(f.amount), 0);
+    const batchNet     = batchIncome - batchExpense;
+    const batchNetColor = batchNet >= 0 ? '#00ff88' : '#ff4757';
+
+    const batchRow = runningBatch ? `
+      <!-- Running Batch Row -->
+      <div style="margin-bottom:14px;padding:12px 16px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
+        <div style="font-size:.68rem;font-weight:800;letter-spacing:1.5px;color:#00d4ff;margin-bottom:10px;display:flex;align-items:center;gap:8px">
+          <i class="fa fa-graduation-cap"></i> RUNNING BATCH OVERVIEW
+          <span style="background:rgba(0,212,255,0.12);padding:2px 10px;border-radius:20px;font-size:.65rem;color:#00d4ff;border:1px solid rgba(0,212,255,0.25)">${Utils.esc(runningBatch)}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
+          <div style="text-align:center;padding:10px;background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.18);border-radius:8px">
+            <div style="font-size:.62rem;color:#00e5ff;font-weight:700;letter-spacing:.8px;margin-bottom:4px">STUDENTS</div>
+            <div style="font-size:1.3rem;font-weight:900;color:#00e5ff">${batchStudents.length}</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);border-radius:8px">
+            <div style="font-size:.62rem;color:#00ff88;font-weight:700;letter-spacing:.8px;margin-bottom:4px">COLLECTION</div>
+            <div style="font-size:1rem;font-weight:900;color:#00ff88">${Utils.takaEn(batchIncome)}</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:rgba(255,71,87,0.07);border:1px solid rgba(255,71,87,0.15);border-radius:8px">
+            <div style="font-size:.62rem;color:#ff6b7a;font-weight:700;letter-spacing:.8px;margin-bottom:4px">EXPENSE</div>
+            <div style="font-size:1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(batchExpense)}</div>
+          </div>
+          <div style="text-align:center;padding:10px;background:rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.07);border:1px solid rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.18);border-radius:8px">
+            <div style="font-size:.62rem;color:${batchNetColor};font-weight:700;letter-spacing:.8px;margin-bottom:4px">NET P/L</div>
+            <div style="font-size:1rem;font-weight:900;color:${batchNetColor}">${Utils.takaEn(batchNet)}</div>
+          </div>
+        </div>
+      </div>` : '';
+
+    // ✅ Fix: Use openSettingsInternalModal (z-index:999999) so it appears ON TOP of Settings modal
+    openSettingsInternalModal(
+      `<span style="display:inline-flex;align-items:center;gap:8px"><i class="fa fa-camera" style="color:#00d9ff"></i><span>Monitor \u2014 Account Balances</span></span>`,
       `
       <!-- Snapshot header bar -->
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
         <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:rgba(0,212,255,0.9);font-weight:700">
           <i class="fa fa-camera" style="font-size:.8rem"></i>
-          <span>Balance Snapshot — ${snapshotTime} — Latest Change</span>
+          <span>Balance Snapshot \u2014 ${snapshotTime} \u2014 Latest Change</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="background:${typeBgColor};border:1px solid ${typeBorderColor};color:${typeBadgeColor};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '—'}</span>
-          <span style="font-size:.75rem;color:rgba(255,255,255,0.45)">${Utils.esc(item.category || '—')}</span>
-          ${item.person ? `<span style="font-size:.75rem;color:rgba(255,255,255,0.35)">• ${Utils.esc(item.person)}</span>` : ''}
+          <span style="background:${typeBgColor};border:1px solid ${typeBorderColor};color:${typeBadgeColor};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '\u2014'}</span>
+          <span style="font-size:.75rem;color:rgba(255,255,255,0.45)">${Utils.esc(item.category || '\u2014')}</span>
+          ${item.person ? `<span style="font-size:.75rem;color:rgba(255,255,255,0.35)">\u2022 ${Utils.esc(item.person)}</span>` : ''}
         </div>
       </div>
 
       <!-- Account balance grid -->
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px">
         ${accountCards}
       </div>
 
@@ -3149,8 +3194,11 @@ ${expenseEntries.length > 0 ? `
         </div>
       </div>
 
-      <!-- Dashboard summary cards -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+      ${batchRow}
+
+      <!-- All-Time dashboard summary cards -->
+      <div style="font-size:.65rem;font-weight:800;letter-spacing:1.5px;color:rgba(255,255,255,0.35);margin-bottom:8px">\u2605 ALL-TIME LIFETIME OVERVIEW</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
         <div style="padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px;text-align:center">
           <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
           <div style="font-size:1.4rem;font-weight:900;color:#00e5ff">${students.totalStudents || 0}</div>
@@ -3169,13 +3217,12 @@ ${expenseEntries.length > 0 ? `
         </div>
       </div>
 
-      <!-- Recent changes list hint -->
-      <div style="font-size:.75rem;color:rgba(255,255,255,0.30);padding:10px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
+      <!-- hint -->
+      <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
-        লাস্ট ১০টা data change/save এখানে দেখাবে। যেকোনো row তে ক্লিক করলে উপরে সেই সময়কার Account Balance Snapshot দেখাবে।
+        \u09b2\u09be\u09b8\u09cd\u099f \u09e7\u09e6\u099f\u09be financial transaction \u098f\u0996\u09be\u09a8\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7\u0964 \u09af\u09c7\u0995\u09cb\u09a8\u09cb row \u09a4\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7 \u09b8\u09c7\u0987 \u09b8\u09ae\u09af\u09bc\u09c7\u09b0 Account Balance Snapshot.
       </div>
-      `,
-      'modal-lg'
+      `
     );
   }
 
