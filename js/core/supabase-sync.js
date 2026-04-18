@@ -899,6 +899,7 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     TABLE_COLUMNS,
+    logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
   };
 })();
 window.SupabaseSync = SupabaseSync;

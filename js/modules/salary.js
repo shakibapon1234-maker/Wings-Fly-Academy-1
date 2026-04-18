@@ -418,6 +418,11 @@ const Salary = (() => {
       ? 'পুরো salary paid ✓'
       : 'partial ৳' + Utils.formatMoneyPlain(payAmount) + ' paid — বাকি ৳' + Utils.formatMoneyPlain(net - totalPaid);
     Utils.toast(r.staffName + ': ' + statusMsg, isFullyPaid ? 'success' : 'info');
+    // ✅ লজিক ৫: Specific payment activity log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('payment', 'salary',
+        'Salary Payment: ' + r.staffName + ' (' + monthLabel(r.month) + ') — ৳' + Utils.formatMoneyPlain(payAmount) + ' via ' + method);
+    }
   }
 
   function markPaid(id) { openPayModal(id); }

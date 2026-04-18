@@ -603,7 +603,7 @@ const Students = (() => {
       historyTableRows = history.map((f, index) => `
         <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
           <td style="padding:10px 8px">${index + 1}</td>
-          <td style="padding:10px 8px">${Utils.formatDate(f.date)}</td>
+          <td style="padding:10px 8px">${Utils.formatDateDMY(f.date)}</td>
           <td style="padding:10px 8px"><span class="badge badge-info">${f.method||'Cash'}</span></td>
           <td style="padding:10px 8px;font-weight:700;color:var(--success)">${Utils.takaEn(f.amount)}</td>
           <td style="padding:10px 8px;text-align:right"><button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')">Delete</button></td>
@@ -897,6 +897,11 @@ const Students = (() => {
     SupabaseSync.updateAccountBalance(method, amount, 'in');
 
     Utils.toast('Payment added ✓', 'success');
+    // ✅ লজিক ৫: Student payment specific log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('payment', 'students',
+        `Payment received: ${s.name} (${s.student_id}) — ৳${Utils.formatMoneyPlain(amount)} via ${method}`);
+    }
     Utils.closeModal();
     render();
     App.updateNotifCount();
@@ -943,7 +948,7 @@ const Students = (() => {
     const allFinance = SupabaseSync.getAll(DB.finance);
     const payments   = allFinance
       .filter(f => f.ref_id === id && f.category === 'Student Fee')
-      .sort((a, b) => new Date(a.date) - new Date(b.date));
+      .sort((a, b) => new Date(b.date) - new Date(a.date)); // ✅ লজিক ৪: Latest first
 
     const totalFee  = Utils.safeNum(s.total_fee);
     const totalPaid = Utils.safeNum(s.paid);
@@ -951,7 +956,7 @@ const Students = (() => {
     const paidPct   = totalFee > 0 ? Math.round((totalPaid / totalFee) * 100) : 0;
 
     const receiptNo = `RCP-${s.student_id}-${Date.now().toString().slice(-5)}`;
-    const printDate = Utils.formatDate(Utils.today());
+    const printDate = Utils.formatDateDMY(Utils.today());
 
     let runningBalance = 0;
     const paymentRows = payments.length === 0
@@ -962,7 +967,7 @@ const Students = (() => {
           return `
           <tr style="border-bottom:1px solid #e8e8e8; ${i % 2 === 0 ? 'background:#fafafa;' : ''}">
             <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${i + 1}</td>
-            <td style="padding:8px 10px;">${Utils.formatDate(f.date)}</td>
+            <td style="padding:8px 10px;">${Utils.formatDateDMY(f.date)}</td>
             <td style="padding:8px 10px;text-align:center;">
               <span style="background:#e8f4f8;color:#0077aa;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">${f.method || 'Cash'}</span>
             </td>
@@ -1099,7 +1104,7 @@ const Students = (() => {
       </div>
       <div class="info-item">
         <span class="info-label">Admission Date</span>
-        <span class="info-value">${Utils.formatDate(s.admission_date)}</span>
+        <span class="info-value">${Utils.formatDateDMY(s.admission_date)}</span>
       </div>
       ${s.father_name ? `<div class="info-item"><span class="info-label">Father's Name</span><span class="info-value">${s.father_name}</span></div>` : ''}
       ${s.address ? `<div class="info-item"><span class="info-label">Address</span><span class="info-value">${s.address}</span></div>` : ''}

@@ -119,7 +119,7 @@ const Finance = (() => {
       const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
       return `<tr>
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
-        <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDate(f.date)}</td>
+        <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDateDMY(f.date)}</td>
         <td>${typeBadge(f.type)}</td>
         <td style="font-size:0.82rem;color:var(--text-secondary)">${Utils.esc(f.category||'—')}</td>
         <td style="max-width:200px;font-size:0.85rem">${Utils.esc(Utils.truncate(f.description||'—',35))}</td>
