@@ -22,10 +22,9 @@ const CommandPalette = (() => {
   ];
 
   function init() {
-    // Create UI
     modal = document.createElement('div');
     modal.className = 'command-palette-backdrop';
-    modal.style.cssText = \`
+    modal.style.cssText = `
       display: none;
       position: fixed;
       inset: 0;
@@ -35,10 +34,10 @@ const CommandPalette = (() => {
       align-items: flex-start;
       justify-content: center;
       padding-top: 15vh;
-    \`;
+    `;
 
     const box = document.createElement('div');
-    box.style.cssText = \`
+    box.style.cssText = `
       width: 100%;
       max-width: 600px;
       background: rgba(5, 12, 28, 0.95);
@@ -48,22 +47,21 @@ const CommandPalette = (() => {
       overflow: hidden;
       display: flex;
       flex-direction: column;
-    \`;
+    `;
 
-    // Input area
     const inputWrapper = document.createElement('div');
-    inputWrapper.style.cssText = \`
+    inputWrapper.style.cssText = `
       display: flex;
       align-items: center;
       padding: 16px 24px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    \`;
+    `;
     inputWrapper.innerHTML = '<i class="fa fa-magnifying-glass" style="color:#00d4ff;font-size:1.2rem;margin-right:16px"></i>';
 
     input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Search commands or data (e.g. students, settings)...';
-    input.style.cssText = \`
+    input.style.cssText = `
       flex: 1;
       background: transparent;
       border: none;
@@ -71,22 +69,20 @@ const CommandPalette = (() => {
       color: #fff;
       font-size: 1.1rem;
       font-family: 'Inter', sans-serif;
-    \`;
+    `;
     inputWrapper.appendChild(input);
     box.appendChild(inputWrapper);
 
-    // Results area
     resultsContainer = document.createElement('div');
-    resultsContainer.style.cssText = \`
+    resultsContainer.style.cssText = `
       max-height: 400px;
       overflow-y: auto;
       padding: 8px 0;
-    \`;
+    `;
     box.appendChild(resultsContainer);
 
-    // Footer
     const footer = document.createElement('div');
-    footer.style.cssText = \`
+    footer.style.cssText = `
       padding: 8px 24px;
       background: rgba(0,0,0,0.2);
       border-top: 1px solid rgba(255,255,255,0.05);
@@ -94,19 +90,18 @@ const CommandPalette = (() => {
       color: var(--text-muted);
       display: flex;
       gap: 16px;
-    \`;
-    footer.innerHTML = \`
+    `;
+    footer.innerHTML = `
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Ctrl</kbd> + <kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">K</kbd> or <kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Space</kbd> to open</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">↑↓</kbd> to navigate</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Enter</kbd> to select</span>
       <span><kbd style="background:rgba(255,255,255,0.1);padding:2px 6px;border-radius:4px">Esc</kbd> to close</span>
-    \`;
+    `;
     box.appendChild(footer);
 
     modal.appendChild(box);
     document.body.appendChild(modal);
 
-    // Event Listeners
     document.addEventListener('keydown', handleGlobalKeydown, { capture: true });
     input.addEventListener('input', () => { selectedIndex = 0; renderResults(); });
     input.addEventListener('keydown', handleInputKeydown);
@@ -118,7 +113,6 @@ const CommandPalette = (() => {
   function handleGlobalKeydown(e) {
     if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'k' || e.code === 'Space')) {
       e.preventDefault();
-      // Only open if logged in
       if (localStorage.getItem('wfa_logged_in') === 'true') {
         toggle();
       }
@@ -146,7 +140,6 @@ const CommandPalette = (() => {
       if (currentResults[selectedIndex]) {
         executeCommand(currentResults[selectedIndex]);
       } else if (input.value.trim() !== '') {
-        // Fallback to global search
         const globalSearch = document.getElementById('global-search');
         if (globalSearch) {
           globalSearch.value = input.value;
@@ -161,7 +154,6 @@ const CommandPalette = (() => {
     if (item.action) {
       item.action();
     } else if (item.student_id) {
-       // Deep link to student
        App.navigateTo('students');
        setTimeout(() => {
           const sInput = document.getElementById('stu-search');
@@ -196,27 +188,25 @@ const CommandPalette = (() => {
     
     currentResults = [];
 
-    // Filter static commands
     const matchedCommands = COMMANDS.filter(c => 
       c.title.toLowerCase().includes(query) || 
       c.type.toLowerCase().includes(query)
     );
     currentResults.push(...matchedCommands);
 
-    // Search students if query is long enough
     if (query.length > 2 && typeof SupabaseSync !== 'undefined') {
        const students = SupabaseSync.getAll('wfa_students') || [];
        const matchedStudents = students.filter(s => 
          (s.name || '').toLowerCase().includes(query) || 
          (s.phone || '').includes(query) ||
          (s.student_id || '').toLowerCase().includes(query)
-       ).slice(0, 5); // Max 5 students
+       ).slice(0, 5);
 
        matchedStudents.forEach(s => {
           currentResults.push({
              type: 'student',
-             title: \`\${s.name} (\${s.student_id})\`,
-             subtitle: \`Phone: \${s.phone}\`,
+             title: `${s.name} (${s.student_id})`,
+             subtitle: `Phone: ${s.phone}`,
              icon: 'fa-user',
              student_id: s.student_id
           });
@@ -224,32 +214,31 @@ const CommandPalette = (() => {
     }
 
     if (currentResults.length === 0) {
-      resultsContainer.innerHTML = \`<div style="padding: 24px; text-align: center; color: var(--text-muted)">No commands or students found for "\${Utils.esc(query)}"</div>\`;
+      resultsContainer.innerHTML = `<div style="padding: 24px; text-align: center; color: var(--text-muted)">No commands or students found for "${Utils.esc(query)}"</div>`;
       return;
     }
 
-    resultsContainer.innerHTML = currentResults.map((res, idx) => \`
-      <div class="cp-item \${idx === selectedIndex ? 'selected' : ''}" data-idx="\${idx}" style="
+    resultsContainer.innerHTML = currentResults.map((res, idx) => `
+      <div class="cp-item ${idx === selectedIndex ? 'selected' : ''}" data-idx="${idx}" style="
         padding: 12px 24px;
         display: flex;
         align-items: center;
         gap: 16px;
         cursor: pointer;
-        background: \${idx === selectedIndex ? 'rgba(0, 217, 255, 0.1)' : 'transparent'};
-        border-left: 3px solid \${idx === selectedIndex ? '#00d4ff' : 'transparent'};
+        background: ${idx === selectedIndex ? 'rgba(0, 217, 255, 0.1)' : 'transparent'};
+        border-left: 3px solid ${idx === selectedIndex ? '#00d4ff' : 'transparent'};
       ">
-        <div style="width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:\${idx === selectedIndex ? '#00d4ff' : 'rgba(255,255,255,0.7)'}">
-          <i class="fa \${res.icon}"></i>
+        <div style="width:32px; height:32px; border-radius:8px; background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center; color:${idx === selectedIndex ? '#00d4ff' : 'rgba(255,255,255,0.7)'}">
+          <i class="fa ${res.icon}"></i>
         </div>
         <div style="flex:1">
-          <div style="font-size:0.95rem; font-weight:\${idx === selectedIndex ? '600' : '400'}; color:\${idx === selectedIndex ? '#fff' : 'rgba(255,255,255,0.8)'}">\${res.title}</div>
-          \${res.subtitle ? \`<div style="font-size:0.75rem; color:var(--text-muted)">\${res.subtitle}</div>\` : ''}
+          <div style="font-size:0.95rem; font-weight:${idx === selectedIndex ? '600' : '400'}; color:${idx === selectedIndex ? '#fff' : 'rgba(255,255,255,0.8)'}">${res.title}</div>
+          ${res.subtitle ? `<div style="font-size:0.75rem; color:var(--text-muted)">${res.subtitle}</div>` : ''}
         </div>
-        <div style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-muted); text-transform:uppercase">\${res.type}</div>
+        <div style="font-size:0.7rem; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.05); color:var(--text-muted); text-transform:uppercase">${res.type}</div>
       </div>
-    \`).join('');
+    `).join('');
 
-    // Attach click events
     resultsContainer.querySelectorAll('.cp-item').forEach(el => {
        el.addEventListener('mouseover', () => {
           selectedIndex = parseInt(el.getAttribute('data-idx'));
@@ -284,7 +273,6 @@ const CommandPalette = (() => {
   return { init, open, close };
 })();
 
-// Auto-init
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => CommandPalette.init(), 1000);
 });

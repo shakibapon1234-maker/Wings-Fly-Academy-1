@@ -12,7 +12,7 @@ const PatternLockModule = (() => {
     if (document.getElementById('pattern-lock-styles')) return;
     const style = document.createElement('style');
     style.id = 'pattern-lock-styles';
-    style.innerHTML = \`
+    style.innerHTML = `
       .pl-modal-backdrop {
         display: none; position: fixed; inset: 0; z-index: 999999;
         background: rgba(0, 5, 20, 0.85); backdrop-filter: blur(10px);
@@ -34,7 +34,7 @@ const PatternLockModule = (() => {
         width: 250px;
         margin: 30px auto;
         position: relative;
-        touch-action: none; /* Prevent scroll on touch */
+        touch-action: none;
       }
       .pl-node {
         width: 100%;
@@ -84,7 +84,7 @@ const PatternLockModule = (() => {
         font-weight: 600;
         min-height: 24px;
       }
-    \`;
+    `;
     document.head.appendChild(style);
   }
 
@@ -97,7 +97,7 @@ const PatternLockModule = (() => {
     if (!modal) {
       modal = document.createElement('div');
       modal.className = 'pl-modal-backdrop';
-      modal.innerHTML = \`
+      modal.innerHTML = `
         <div class="pl-box">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
              <div style="font-size:1.2rem; font-weight:700; color:#fff"><i class="fa fa-lock" style="color:#00d4ff"></i> Pattern Lock</div>
@@ -107,13 +107,12 @@ const PatternLockModule = (() => {
           
           <div class="pl-grid" id="pl-grid">
              <svg class="pl-svg" id="pl-svg"></svg>
-             \${[0,1,2,3,4,5,6,7,8].map(i => \`<div class="pl-node" data-id="\${i}"></div>\`).join('')}
+             ${[0,1,2,3,4,5,6,7,8].map(i => `<div class="pl-node" data-id="${i}"></div>`).join('')}
           </div>
         </div>
-      \`;
+      `;
       document.body.appendChild(modal);
 
-      // Events
       const grid = document.getElementById('pl-grid');
       
       const startDrawing = (e) => {
@@ -183,8 +182,8 @@ const PatternLockModule = (() => {
     svg.innerHTML = '';
     
     for (let i = 0; i < activeNodes.length - 1; i++) {
-       const p1 = document.querySelector(\`.pl-node[data-id="\${activeNodes[i]}"]\`);
-       const p2 = document.querySelector(\`.pl-node[data-id="\${activeNodes[i+1]}"]\`);
+       const p1 = document.querySelector(`.pl-node[data-id="${activeNodes[i]}"]`);
+       const p2 = document.querySelector(`.pl-node[data-id="${activeNodes[i+1]}"]`);
        
        const rect1 = p1.getBoundingClientRect();
        const rect2 = p2.getBoundingClientRect();
@@ -235,7 +234,6 @@ const PatternLockModule = (() => {
        } else {
           statusEl.textContent = 'Incorrect Pattern!';
           statusEl.style.color = '#ff4757';
-          // Visual shake
           document.querySelector('.pl-box').style.transform = 'translateX(10px)';
           setTimeout(() => document.querySelector('.pl-box').style.transform = 'translateX(-10px)', 100);
           setTimeout(() => document.querySelector('.pl-box').style.transform = 'translateX(0)', 200);
