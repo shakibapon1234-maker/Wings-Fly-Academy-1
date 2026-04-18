@@ -96,16 +96,6 @@
         <button type="button" class="login-btn" id="face-id-login-btn" style="display:none;background:rgba(0, 255, 136, 0.1);border:1px solid rgba(0, 255, 136, 0.4);color:#00ff88;margin-top:10px" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('login')">
           <span class="login-btn-text"><i class="fa fa-face-smile"></i>&nbsp; Face ID Login</span>
         </button>
-        <script>
-          document.addEventListener('DOMContentLoaded', () => {
-             // Only show the Face ID button if it has been registered
-             setTimeout(() => {
-                if(localStorage.getItem('wfa_admin_face_descriptor')) {
-                   document.getElementById('face-id-login-btn').style.display = 'flex';
-                }
-             }, 500);
-          });
-        </script>
       </form>
 
       <button type="button" class="login-forgot-link" onclick="LoginUI.showForgotModal()">

@@ -276,6 +276,12 @@ const App = (() => {
     const appEl = document.getElementById('app-wrapper');
     if (loginEl) loginEl.style.display = 'flex';
     if (appEl) appEl.style.display = 'none';
+    
+    // Face ID button visiblity
+    const faceBtn = document.getElementById('face-id-login-btn');
+    if (faceBtn) {
+       faceBtn.style.display = localStorage.getItem('wfa_admin_face_descriptor') ? 'flex' : 'none';
+    }
   }
 
   function showApp(fromLogin = false) {
