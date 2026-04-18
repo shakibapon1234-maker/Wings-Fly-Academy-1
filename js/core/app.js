@@ -276,6 +276,18 @@ const App = (() => {
     const appEl = document.getElementById('app-wrapper');
     if (loginEl) loginEl.style.display = 'flex';
     if (appEl) appEl.style.display = 'none';
+    
+    // Face ID button visiblity
+    const faceBtn = document.getElementById('face-id-login-btn');
+    if (faceBtn) {
+       faceBtn.style.display = localStorage.getItem('wfa_admin_face_descriptor') ? 'flex' : 'none';
+    }
+
+    // Pattern Lock button visibility
+    const patBtn = document.getElementById('pattern-lock-login-btn');
+    if (patBtn) {
+       patBtn.style.display = localStorage.getItem('wfa_admin_pattern') ? 'flex' : 'none';
+    }
   }
 
   function showApp(fromLogin = false) {
@@ -667,7 +679,7 @@ const App = (() => {
     });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
+  return { init, navigateTo, login, logout, isLoggedIn, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);
