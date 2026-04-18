@@ -735,7 +735,7 @@ const SettingsModule = (() => {
           <small class="settings-sublabel">Select the batch you want to feature in the "Running Batch Overview" section on your dashboard.</small>
           <select id="set-running-batch" class="form-control" style="max-width:500px">
             <option value="">-- All Batches --</option>
-            ${batches.map(b => `<option value="${b}" ${cfg.running_batch === b ? 'selected' : ''}>Batch ${b}</option>`).join('')}
+            ${batches.map(b => `<option value="${b}" ${String(cfg.running_batch) === String(b) ? 'selected' : ''}>Batch ${b}</option>`).join('')}
           </select>
         </div>
 
@@ -3297,7 +3297,8 @@ ${expenseEntries.length > 0 ? `
     cfg.id = cfg.id || SupabaseSync.generateId();
     cfg.academy_name = document.getElementById('set-academy-name')?.value || cfg.academy_name;
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
-    cfg.running_batch = document.getElementById('set-running-batch')?.value || cfg.running_batch; // ✅ || so empty string falls back to synced value
+    const rawBatch = document.getElementById('set-running-batch')?.value;
+    cfg.running_batch = rawBatch !== undefined && rawBatch !== null ? String(rawBatch) : (cfg.running_batch != null ? String(cfg.running_batch) : '');
     cfg.expense_start_date = document.getElementById('set-expense-start')?.value || cfg.expense_start_date;
     cfg.expense_end_date = new Date().toISOString().split('T')[0];
     saveConfig(cfg);

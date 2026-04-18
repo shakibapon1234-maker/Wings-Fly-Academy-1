@@ -5,12 +5,14 @@
 const DashboardModule = (() => {
 
   function getSettings() {
-    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+    if (typeof SupabaseSync === 'undefined') {
       return { runningBatch: '', expenseMonth: '', monthlyTarget: 0 };
     }
-    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    // Use string fallback in case DB object not yet ready
+    const tbl = (typeof DB !== 'undefined' && DB.settings) ? DB.settings : 'settings';
+    const cfg = SupabaseSync.getAll(tbl)[0] || {};
     return {
-      runningBatch:  cfg.running_batch  || '',
+      runningBatch:  (cfg.running_batch != null && cfg.running_batch !== '') ? String(cfg.running_batch) : '',
       expenseMonth:  cfg.expense_month  || '',
       monthlyTarget: Utils.safeNum(cfg.monthly_target),
     };
@@ -46,13 +48,15 @@ const DashboardModule = (() => {
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
       return { totalStudents:0,totalIncome:0,totalExpense:0,netProfit:0,totalBalance:0,totalDue:0,loanOut:0,loanIn:0,rTotalStudents:0,rTotalIncome:0,rTotalExpense:0,rNetProfit:0,students:[],finance:[],balances:{},notices:[],loans:[],settings:getSettings(),advances:[],advancesAll:[],advanceTotalGiven:0,advanceTotalReturned:0,advanceTotalPending:0 };
     }
-    const students  = SupabaseSync.getAll(DB.students);
-    const finance   = SupabaseSync.getAll(DB.finance);
-    const accounts  = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
-    const loans     = SupabaseSync.getAll(DB.loans);
-    const notices   = SupabaseSync.getAll(DB.notices);
+    // Use string fallbacks in case DB object not yet initialized
+    const _tbl = (k) => (typeof DB !== 'undefined' && DB[k]) ? DB[k] : k === 'finance' ? 'finance_ledger' : k;
+    const students  = SupabaseSync.getAll(_tbl('students'));
+    const finance   = SupabaseSync.getAll(_tbl('finance'));
+    const accounts  = normalizeAccounts(SupabaseSync.getAll(_tbl('accounts')));
+    const loans     = SupabaseSync.getAll(_tbl('loans'));
+    const notices   = SupabaseSync.getAll(_tbl('notices'));
     const settings  = getSettings();
-    const cfg       = SupabaseSync.getAll(DB.settings)[0] || {};
+    const cfg       = SupabaseSync.getAll(_tbl('settings'))[0] || {};
 
     const totalStudents = students.length;
 
@@ -63,8 +67,10 @@ const DashboardModule = (() => {
     const netProfit    = totalIncome - totalExpense;
 
     // ── Running Batch filtered stats ──────────────────────────
-    const rStudents      = settings.runningBatch
-      ? students.filter(s => s.batch === settings.runningBatch)
+    // Normalize helper: strip leading "Batch " / "batch " and trim for comparison
+    const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
+    const rStudents = settings.runningBatch
+      ? students.filter(s => normBatch(s.batch) === normBatch(settings.runningBatch))
       : students;
     const rTotalStudents = rStudents.length;
 
@@ -74,14 +80,26 @@ const DashboardModule = (() => {
       : totalIncome;
 
     // Expense for running batch = filtered by expense_start_date → today
-    const expStart = cfg.expense_start_date || '';
+    // Normalize any date to YYYY-MM-DD for safe string comparison
+    const normDate = (d) => {
+      if (!d) return '';
+      const s = String(d).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s; // already ISO
+      const p = s.split('/');
+      if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+      const dt = new Date(s);
+      if (!isNaN(dt.getTime())) return dt.toISOString().split('T')[0];
+      return '';
+    };
+    const expStart = normDate(cfg.expense_start_date);
     const today    = new Date().toISOString().split('T')[0]; // always use today as end
     const rTotalExpense = expStart
       ? finance.filter(f => {
           if (f.type !== 'Expense') return false;
-          if (!f.date) return false;
-          if (f.date < expStart) return false;
-          if (f.date > today) return false;
+          const fd = normDate(f.date);
+          if (!fd) return false;
+          if (fd < expStart) return false;
+          if (fd > today) return false;
           return true;
         }).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
       : totalExpense;
