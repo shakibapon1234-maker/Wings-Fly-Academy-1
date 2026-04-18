@@ -2481,9 +2481,16 @@ ${expenseEntries.length > 0 ? `
     refreshModal();
   }
 
-  // ─── Recycle Bin (wfa_recycle_bin — separate from sync tombstones wfa_deletedItems) ───
+  // ─── Recycle Bin ───────────────────────────────────────────────────────
+  // ✅ Bug Fix: SupabaseSync.remove() writes to IndexedDB ('recycle_bin' table)
+  //            but the old code read from localStorage 'wfa_recycle_bin'.
+  //            Now we read from IDB first, then fall back to localStorage.
   function getDeletedItems() {
     try {
+      // Primary source: IndexedDB (where SupabaseSync._addToRecycleBin writes)
+      const idbBin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+      if (Array.isArray(idbBin) && idbBin.length > 0) return idbBin;
+      // Fallback: legacy localStorage (settings-specific deletes: categories, sub-accounts)
       const raw = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
       return Array.isArray(raw) ? raw : [];
     } catch {
@@ -2492,7 +2499,10 @@ ${expenseEntries.length > 0 ? `
   }
 
   function restoreItem(index) {
-    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    // Read from the correct source (IDB-backed)
+    const idbBin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+    const isIDB = Array.isArray(idbBin) && idbBin.length > 0;
+    const bin = isIDB ? idbBin : Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
     const item = bin[index];
 
     // ✅ Req 2: handle settings-specific types locally (categories & sub-accounts)
@@ -2540,6 +2550,9 @@ ${expenseEntries.length > 0 ? `
 
   function permanentDelete(index) {
     SupabaseSync.permanentDeleteRecycleBinItem(index);
+    // Also clean up legacy localStorage bin if present
+    const lsBin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    if (lsBin.length > 0) { lsBin.splice(index, 1); localStorage.setItem('wfa_recycle_bin', JSON.stringify(lsBin)); }
     Utils.toast('Removed from recycle bin', 'info');
     refreshModal();
   }
@@ -3431,14 +3444,15 @@ ${expenseEntries.length > 0 ? `
       `<td style="font-size:.78rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[f] ?? '—'}</td>`
     ).join('')}</tr>`).join('');
 
-    Utils.openModal(`📋 ${tableName} (${rows.length} records)`, `
-      <div class="table-wrapper" style="max-height:400px;overflow:auto">
+    // ✅ Fix: use openSettingsInternalModal so it appears ON TOP of the Settings modal
+    openSettingsInternalModal(`📋 ${tableName} (${rows.length} records)`, `
+      <div class="table-wrapper" style="max-height:380px;overflow:auto">
         <table><thead><tr>${headerHTML}</tr></thead><tbody>${bodyHTML}</tbody></table>
       </div>
       <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px">
         ${rows.length > 20 ? `Showing first 20 (Total ${rows.length})` : `Total ${rows.length} records`}
       </p>
-    `, 'modal-lg');
+    `);
   }
 
   // ── Export All Data ───────────────────────────────────────────
