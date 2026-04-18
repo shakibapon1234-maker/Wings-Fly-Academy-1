@@ -1,32 +1,32 @@
 // ============================================================
-// Wings Fly Aviation Academy — Supabase Sync Engine + CRUD
+// Wings Fly Aviation Academy â€” Supabase Sync Engine + CRUD
 // Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
 //
-// ── STORAGE MIGRATION: localStorage → IndexedDB ──────────────
+// â”€â”€ STORAGE MIGRATION: localStorage â†’ IndexedDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// আগে:  wfa_students, wfa_finance_ledger ইত্যাদি → localStorage (5MB limit)
-// এখন:  উপরের সব table data → IndexedDB (500MB+ limit)
+// à¦†à¦—à§‡:  wfa_students, wfa_finance_ledger à¦‡à¦¤à§à¦¯à¦¾à¦¦à¦¿ â†’ localStorage (5MB limit)
+// à¦à¦–à¦¨:  à¦‰à¦ªà¦°à§‡à¦° à¦¸à¦¬ table data â†’ IndexedDB (500MB+ limit)
 //
-// ছোট meta-data (device_id, retry_queue, deletedItems, activity_log,
-// recent_changes, recycle_bin, wfa_auto_snapshots) এখনো localStorage-এ
-// থাকে — এগুলো কখনো বড় হয় না।
+// à¦›à§‹à¦Ÿ meta-data (device_id, retry_queue, deletedItems, activity_log,
+// recent_changes, recycle_bin, wfa_auto_snapshots) à¦à¦–à¦¨à§‹ localStorage-à¦
+// à¦¥à¦¾à¦•à§‡ â€” à¦à¦—à§à¦²à§‹ à¦•à¦–à¦¨à§‹ à¦¬à¦¡à¦¼ à¦¹à¦¯à¦¼ à¦¨à¦¾à¥¤
 //
-// বাকি সব code হুবহু একই — শুধু getAll/setAll এর storage backend বদলেছে।
+// à¦¬à¦¾à¦•à¦¿ à¦¸à¦¬ code à¦¹à§à¦¬à¦¹à§ à¦à¦•à¦‡ â€” à¦¶à§à¦§à§ getAll/setAll à¦à¦° storage backend à¦¬à¦¦à¦²à§‡à¦›à§‡à¥¤
 // ============================================================
 
-// ────────────────────────────────────────────────────────────
-// WFA_IDB — IndexedDB Wrapper (Async → Sync-like bridge)
-// ────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// WFA_IDB â€” IndexedDB Wrapper (Async â†’ Sync-like bridge)
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 //
-// IndexedDB naturally async, কিন্তু SupabaseSync এর getAll/setAll
-// synchronous। তাই আমরা একটি in-memory cache রাখব:
-//   - App load হলে IndexedDB থেকে সব data memory-তে load হবে
-//   - getAll() → memory থেকে তাৎক্ষণিক return করবে (synchronous)
-//   - setAll() → memory আপডেট করবে + async IndexedDB-তে write করবে
+// IndexedDB naturally async, à¦•à¦¿à¦¨à§à¦¤à§ SupabaseSync à¦à¦° getAll/setAll
+// synchronousà¥¤ à¦¤à¦¾à¦‡ à¦†à¦®à¦°à¦¾ à¦à¦•à¦Ÿà¦¿ in-memory cache à¦°à¦¾à¦–à¦¬:
+//   - App load à¦¹à¦²à§‡ IndexedDB à¦¥à§‡à¦•à§‡ à¦¸à¦¬ data memory-à¦¤à§‡ load à¦¹à¦¬à§‡
+//   - getAll() â†’ memory à¦¥à§‡à¦•à§‡ à¦¤à¦¾à§Žà¦•à§à¦·à¦£à¦¿à¦• return à¦•à¦°à¦¬à§‡ (synchronous)
+//   - setAll() â†’ memory à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à¦¬à§‡ + async IndexedDB-à¦¤à§‡ write à¦•à¦°à¦¬à§‡
 //
-// এতে করে পুরো SupabaseSync API synchronous-ই থাকবে।
-// ────────────────────────────────────────────────────────────
+// à¦à¦¤à§‡ à¦•à¦°à§‡ à¦ªà§à¦°à§‹ SupabaseSync API synchronous-à¦‡ à¦¥à¦¾à¦•à¦¬à§‡à¥¤
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const WFA_IDB = (() => {
   const DB_NAME    = 'WingsAcademyDB';
@@ -38,7 +38,7 @@ const WFA_IDB = (() => {
   let _ready = false;
   let _readyCallbacks = [];
 
-  // IndexedDB open করো
+  // IndexedDB open à¦•à¦°à§‹
   function _openDB() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -52,11 +52,11 @@ const WFA_IDB = (() => {
 
       req.onsuccess  = (e) => resolve(e.target.result);
       req.onerror    = (e) => reject(e.target.error);
-      req.onblocked  = ()  => console.warn('[IDB] DB upgrade blocked — close other tabs');
+      req.onblocked  = ()  => console.warn('[IDB] DB upgrade blocked â€” close other tabs');
     });
   }
 
-  // IndexedDB থেকে সব table data একবারে load করে memory-তে রাখো
+  // IndexedDB à¦¥à§‡à¦•à§‡ à¦¸à¦¬ table data à¦à¦•à¦¬à¦¾à¦°à§‡ load à¦•à¦°à§‡ memory-à¦¤à§‡ à¦°à¦¾à¦–à§‹
   async function _loadAllIntoCache(db) {
     return new Promise((resolve, reject) => {
       const tx    = db.transaction(STORE_NAME, 'readonly');
@@ -73,7 +73,7 @@ const WFA_IDB = (() => {
     });
   }
 
-  // IndexedDB-তে একটি table লেখো (async, fire-and-forget)
+  // IndexedDB-à¦¤à§‡ à¦à¦•à¦Ÿà¦¿ table à¦²à§‡à¦–à§‹ (async, fire-and-forget)
   function _writeToIDB(tableName, rows) {
     if (!_db) return;
     const tx    = _db.transaction(STORE_NAME, 'readwrite');
@@ -82,13 +82,13 @@ const WFA_IDB = (() => {
     tx.onerror = (e) => console.error('[IDB] Write failed for', tableName, e.target.error);
   }
 
-  // Initialize — app load-এ একবার call করতে হবে
+  // Initialize â€” app load-à¦ à¦à¦•à¦¬à¦¾à¦° call à¦•à¦°à¦¤à§‡ à¦¹à¦¬à§‡
   async function init() {
     try {
       _db = await _openDB();
       await _loadAllIntoCache(_db);
 
-      // ── localStorage থেকে পুরনো data migrate করো (একবারই) ──────────
+      // â”€â”€ localStorage à¦¥à§‡à¦•à§‡ à¦ªà§à¦°à¦¨à§‹ data migrate à¦•à¦°à§‹ (à¦à¦•à¦¬à¦¾à¦°à¦‡) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
       await _migrateFromLocalStorage();
 
       _ready = true;
@@ -96,15 +96,16 @@ const WFA_IDB = (() => {
       _readyCallbacks = [];
       console.info('[IDB] IndexedDB ready. Tables cached:', Object.keys(_cache).join(', ') || '(empty)');
     } catch (e) {
-      console.error('[IDB] Init failed — falling back to localStorage:', e);
-      // Fallback: _ready = true করো যাতে app চলতে পারে
+      console.error('[IDB] Init failed â€” falling back to localStorage:', e);
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('Database Storage Init Failed - using temporary cache (incognito mode?).', 'error', 10000);
+      // Fallback: _ready = true à¦•à¦°à§‹ à¦¯à¦¾à¦¤à§‡ app à¦šà¦²à¦¤à§‡ à¦ªà¦¾à¦°à§‡
       _ready = true;
       _readyCallbacks.forEach(cb => cb());
       _readyCallbacks = [];
     }
   }
 
-  // localStorage-এ যদি পুরনো wfa_ table data থাকে, IndexedDB-তে নিয়ে যাও
+  // localStorage-à¦ à¦¯à¦¦à¦¿ à¦ªà§à¦°à¦¨à§‹ wfa_ table data à¦¥à¦¾à¦•à§‡, IndexedDB-à¦¤à§‡ à¦¨à¦¿à¦¯à¦¼à§‡ à¦¯à¦¾à¦“
   async function _migrateFromLocalStorage() {
     const TABLE_KEYS = [
       'students', 'finance_ledger', 'accounts', 'loans', 'exams',
@@ -112,9 +113,34 @@ const WFA_IDB = (() => {
     ];
 
     const migrationFlag = 'wfa_idb_migrated_v1';
+    
+    // Explicit migration for recycle bin
+    if (!_cache['recycle_bin'] || _cache['recycle_bin'].length === 0) {
+       const rb = localStorage.getItem('wfa_recycle_bin');
+       if (rb) {
+          try {
+            const rbData = JSON.parse(rb);
+            _cache['recycle_bin'] = rbData;
+            _writeToIDB('recycle_bin', rbData);
+          } catch(e) { console.warn('[IDB] recycle_bin parse failed:', e); }
+       }
+    }
+    // Explicit migration for deleted tracker
+    if (!_cache['deleted_items'] || _cache['deleted_items'].length === 0) {
+       const di = localStorage.getItem('wfa_deletedItems');
+       if (di) {
+          try {
+            const diData = JSON.parse(di);
+            _cache['deleted_items'] = [diData];
+            _writeToIDB('deleted_items', [diData]);
+          } catch(e) { console.warn('[IDB] deletedItems parse failed:', e); }
+       }
+    }
+
     if (localStorage.getItem(migrationFlag) === 'done') return;
 
     let migrated = 0;
+    const migrationErrors = [];
     for (const key of TABLE_KEYS) {
       const lsKey = `wfa_${key}`;
       const raw   = localStorage.getItem(lsKey);
@@ -124,35 +150,52 @@ const WFA_IDB = (() => {
         const rows = JSON.parse(raw);
         if (!Array.isArray(rows) || rows.length === 0) continue;
 
-        // IndexedDB-তে আছে কিনা দেখো — নেই বা কম থাকলে migrate করো
         const existing = _cache[key] || [];
         if (existing.length < rows.length) {
           _cache[key] = rows;
           _writeToIDB(key, rows);
           migrated++;
-          console.info(`[IDB] Migrated "${key}" from localStorage (${rows.length} rows)`);
+
+          // Migration verification: read-back from cache and verify row count
+          const verified = _cache[key];
+          if (!verified || verified.length !== rows.length) {
+            migrationErrors.push(key);
+            console.error(`[IDB] Migration verification FAILED for "${key}": expected ${rows.length} rows, got ${verified?.length ?? 0}`);
+            _cache[key] = rows;
+            _writeToIDB(key, rows);
+          } else {
+            console.info(`[IDB] Migrated+verified "${key}" from localStorage (${rows.length} rows)`);
+          }
         }
 
-        // localStorage থেকে সরিয়ে দাও — আর দরকার নেই
-        localStorage.removeItem(lsKey);
+        if (!migrationErrors.includes(key)) {
+          localStorage.removeItem(lsKey);
+        }
       } catch (e) {
         console.warn(`[IDB] Migration failed for "${key}":`, e);
+        migrationErrors.push(key);
       }
     }
 
-    localStorage.setItem(migrationFlag, 'done');
+    if (migrationErrors.length === 0) {
+      localStorage.setItem(migrationFlag, 'done');
+    } else {
+      console.warn(`[IDB] Migration incomplete: ${migrationErrors.join(', ')}. Will retry next load.`);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`Data migration incomplete for: ${migrationErrors.join(', ')}. Will retry.`, 'warning', 8000);
+      }
+    }
     if (migrated > 0) {
-      console.info(`[IDB] Migration complete: ${migrated} table(s) moved to IndexedDB`);
+      console.info(`[IDB] Migration: ${migrated} table(s) moved to IndexedDB`);
     }
   }
-
-  // onReady callback — init শেষ হলে call করবে
+  // onReady callback â€” init à¦¶à§‡à¦· à¦¹à¦²à§‡ call à¦•à¦°à¦¬à§‡
   function onReady(cb) {
     if (_ready) { cb(); return; }
     _readyCallbacks.push(cb);
   }
 
-  // ── Public API ──────────────────────────────────────────────
+  // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   // Synchronous read from memory cache
   function getTable(tableName) {
@@ -165,7 +208,7 @@ const WFA_IDB = (() => {
     _writeToIDB(tableName, rows);
   }
 
-  // Storage usage — cache-এর JSON size অনুমান করো
+  // Storage usage â€” cache-à¦à¦° JSON size à¦…à¦¨à§à¦®à¦¾à¦¨ à¦•à¦°à§‹
   function getUsageKB() {
     let total = 0;
     for (const [key, rows] of Object.entries(_cache)) {
@@ -189,16 +232,33 @@ const WFA_IDB = (() => {
 
 window.WFA_IDB = WFA_IDB;
 
-// ── App শুরু হলে IndexedDB init করো ──────────────────────────
+// â”€â”€ App à¦¶à§à¦°à§ à¦¹à¦²à§‡ IndexedDB init à¦•à¦°à§‹ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 WFA_IDB.init();
 
 
-// ────────────────────────────────────────────────────────────
-// SupabaseSync — CRUD API used by all modules
-// ────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SupabaseSync â€” CRUD API used by all modules
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// TABLE_COLUMNS Definition
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+const TABLE_COLUMNS = {
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
+  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
+  finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
+  accounts:      ['id','name','type','balance','description','note'],
+  loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
+  exams:         ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
+  attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
+  staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
+  visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
+  notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
+};
+
 const SupabaseSync = (() => {
 
-  // ── IDB-backed table storage ───────────────────────────────
+  // â”€â”€ IDB-backed table storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function getAll(table) {
     return WFA_IDB.getTable(table);
   }
@@ -222,10 +282,10 @@ const SupabaseSync = (() => {
   function _freeUpStorage() {
     try {
       const logKey = 'wfa_activity_log';
-      const log = JSON.parse(localStorage.getItem(logKey) || '[]');
+      const log = (() => { try { return JSON.parse(localStorage.getItem(logKey) || '[]'); } catch { return []; } })();
       if (log.length > 50) localStorage.setItem(logKey, JSON.stringify(log.slice(-50)));
       const rcKey = 'wfa_recent_changes';
-      const rc = JSON.parse(localStorage.getItem(rcKey) || '[]');
+      const rc = (() => { try { return JSON.parse(localStorage.getItem(rcKey) || '[]'); } catch { return []; } })();
       if (rc.length > 20) localStorage.setItem(rcKey, JSON.stringify(rc.slice(-20)));
       console.warn('[Storage] Auto-purged old logs. Usage:', _storageUsageKB(), 'KB');
       return true;
@@ -238,7 +298,7 @@ const SupabaseSync = (() => {
     } catch (e) {
       console.error('[Storage] setAll failed for table:', table, e);
       if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(`❌ Data save failed for "${table}": ${e.message}`, 'error');
+        Utils.toast(`âŒ Data save failed for "${table}": ${e.message}`, 'error');
       }
     }
   }
@@ -283,15 +343,19 @@ const SupabaseSync = (() => {
     _trackDeletion(table, id);
   }
 
+  // ✅ Security fix #3: use crypto.getRandomValues() instead of Math.random()
   function generateId() {
-    return Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 8).toUpperCase();
+    const ts  = Date.now().toString(36).toUpperCase();
+    const buf = new Uint32Array(2);
+    crypto.getRandomValues(buf);
+    return ts + buf[0].toString(36).toUpperCase() + buf[1].toString(36).toUpperCase();
   }
 
   function _logRecentChange(table, action, record) {
     try {
       if (!record || typeof record !== 'object') return;
       const person = record.name || record.student_id || record.person_name || record.reg_id
-        || record.description || record.note || '—';
+        || record.description || record.note || 'â€”';
       const category = record.category || record.type || table;
       const typeLabel = action === 'delete' ? 'Delete' : (action === 'insert' ? 'Save' : 'Update');
       const entry = {
@@ -303,7 +367,7 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         snapshot: _getMonitorSnapshot(),
       };
-      const arr = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+      const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
       if (arr.length > 120) arr.length = 120;
       localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
@@ -339,14 +403,15 @@ const SupabaseSync = (() => {
     catch { return []; }
   }
 
-  function _logActivity(action, type, description) {
+  function _logActivity(action, type, description, status = 'success') {
     try {
       const logs = _getActivityLogs();
       logs.unshift({
         action,
         type,
         description,
-        user: 'Admin',
+        status,
+        user: localStorage.getItem('wfa_user_name') || 'Admin',
         time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
       });
       if (logs.length > 500) logs.length = 500;
@@ -366,7 +431,7 @@ const SupabaseSync = (() => {
   function _trackDeletion(table, id) {
     try {
       const key = 'wfa_deletedItems';
-      let deleted = JSON.parse(localStorage.getItem(key)) || {};
+      let deleted = (() => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } })();
       if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       if (!deleted[table]) deleted[table] = [];
       if (!deleted[table].includes(id)) deleted[table].push(id);
@@ -376,7 +441,7 @@ const SupabaseSync = (() => {
 
   function getDeletedIds(table) {
     try {
-      const deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      const deleted = ((getAll('deleted_items') || [])[0] || {});
       if (Array.isArray(deleted) || typeof deleted !== 'object') return [];
       const arr = deleted[table];
       return Array.isArray(arr) ? arr : [];
@@ -385,21 +450,21 @@ const SupabaseSync = (() => {
 
   function clearDeletedIds(table) {
     try {
-      let deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      let deleted = ((getAll('deleted_items') || [])[0] || {});
       if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       delete deleted[table];
-      localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
+      setAll('deleted_items', [deleted]);
     } catch { /* ignore */ }
   }
 
   function untrackDeletion(table, id) {
     try {
-      let deleted = JSON.parse(localStorage.getItem('wfa_deletedItems')) || {};
+      let deleted = ((getAll('deleted_items') || [])[0] || {});
       if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       if (!Array.isArray(deleted[table])) return;
       deleted[table] = deleted[table].filter((x) => x !== id);
       if (deleted[table].length === 0) delete deleted[table];
-      localStorage.setItem('wfa_deletedItems', JSON.stringify(deleted));
+      setAll('deleted_items', [deleted]);
     } catch { /* ignore */ }
   }
 
@@ -424,7 +489,7 @@ const SupabaseSync = (() => {
   }
 
   function _recycleDisplayName(table, r) {
-    if (!r || typeof r !== 'object') return '—';
+    if (!r || typeof r !== 'object') return 'â€”';
     return (
       r.name ||
       r.student_id ||
@@ -432,9 +497,9 @@ const SupabaseSync = (() => {
       r.reg_id ||
       r.person_name ||
       r.title ||
-      (r.type && r.amount != null ? `${r.type} ৳${r.amount}` : '') ||
+      (r.type && r.amount != null ? `${r.type} à§³${r.amount}` : '') ||
       r.id ||
-      '—'
+      'â€”'
     );
   }
 
@@ -450,25 +515,26 @@ const SupabaseSync = (() => {
 
   function _addToRecycleBin(table, record) {
     try {
-      const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+      const bin = getAll('recycle_bin');
       if (!Array.isArray(bin)) return;
       bin.unshift({
         table,
-        data: JSON.parse(JSON.stringify(record)),
+        // ✅ Fix #4: structuredClone is safer than JSON.parse(JSON.stringify()) for deep cloning
+      data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
         deletedAt: new Date().toISOString(),
         type: _recycleTypeLabel(table),
         name: _recycleDisplayName(table, record),
         tableLabel: _tableDisplayName(table),
       });
       if (bin.length > RECYCLE_MAX) bin.length = RECYCLE_MAX;
-      localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+      setAll('recycle_bin', bin);
     } catch (e) {
       console.warn('[Recycle] add failed:', e);
     }
   }
 
   async function restoreRecycleBinItem(index) {
-    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    const bin = getAll('recycle_bin');
     if (!Array.isArray(bin)) return false;
     const item = bin[index];
     if (!item?.table || !item?.data?.id) return false;
@@ -499,8 +565,8 @@ const SupabaseSync = (() => {
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            if (isIncome)  updateAccountBalance(method, amount, 'in');
-            if (isExpense) updateAccountBalance(method, amount, 'out');
+            if (isIncome)  updateAccountBalance(method, amount, 'in',  true); // restore: force=true
+            if (isExpense) updateAccountBalance(method, amount, 'out', true); // restore: force=true
 
             if (isIncome && r.category === 'Student Fee' && r.ref_id) {
               const students = getAll('students');
@@ -517,10 +583,10 @@ const SupabaseSync = (() => {
           }
         } else if (table === 'loans') {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
-          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in');
+          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
 
           if (r._linkedFinanceId) {
-            const allBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+            const allBin = getAll('recycle_bin');
             const linkedIdx = allBin.findIndex(b => b?.data?.id === r._linkedFinanceId);
             if (linkedIdx !== -1) {
               const linkedRecord = {
@@ -536,7 +602,7 @@ const SupabaseSync = (() => {
               untrackDeletion('finance_ledger', linkedRecord.id);
               await _pushRecord('finance_ledger', linkedRecord);
               allBin.splice(linkedIdx, 1);
-              localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(allBin));
+              setAll('recycle_bin', allBin);
             }
           }
         }
@@ -547,7 +613,7 @@ const SupabaseSync = (() => {
 
     if (table === 'students') {
       try {
-        const currentBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+        const currentBin = getAll('recycle_bin');
         const linkedFinance = currentBin
           .map((b, i) => ({ b, i }))
           .filter(({ b }) => b?.table === 'finance_ledger' && b?.data?.ref_id === record.id && b?.data?.category === 'Student Fee')
@@ -563,22 +629,22 @@ const SupabaseSync = (() => {
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
           if (fr.method && parseFloat(fr.amount) > 0) {
-            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in', true); // restore: force=true
           }
-          const freshBin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+          const freshBin = getAll('recycle_bin');
           const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
           if (realIdx !== -1) freshBin.splice(realIdx, 1);
-          localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(freshBin));
+          setAll('recycle_bin', freshBin);
         }
       } catch (e) {
         console.warn('[Restore] Student linked finance restore failed:', e);
       }
     }
 
-    const freshBinFinal = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    const freshBinFinal = getAll('recycle_bin');
     const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
     if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
-    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(freshBinFinal));
+    setAll('recycle_bin', freshBinFinal);
 
     _logRecentChange(table, 'insert', record);
     _logActivity('add', table, `Restored ${_recycleDisplayName(table, record)} from recycle bin to ${_tableDisplayName(table)}`);
@@ -587,7 +653,7 @@ const SupabaseSync = (() => {
   }
 
   function permanentDeleteRecycleBinItem(index) {
-    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    const bin = getAll('recycle_bin');
     if (!Array.isArray(bin) || index < 0 || index >= bin.length) return;
     const item = bin[index];
     if (item?.table && item?.data?.id) {
@@ -595,34 +661,35 @@ const SupabaseSync = (() => {
       _logActivity('delete', item.table, `Permanently deleted ${item.name} from recycle bin`);
     }
     bin.splice(index, 1);
-    localStorage.setItem(RECYCLE_BIN_KEY, JSON.stringify(bin));
+    setAll('recycle_bin', bin);
   }
 
   function emptyRecycleBin() {
-    const bin = JSON.parse(localStorage.getItem(RECYCLE_BIN_KEY) || '[]');
+    const bin = getAll('recycle_bin');
     if (Array.isArray(bin)) {
       bin.forEach((item) => {
         if (item?.table && item?.data?.id) untrackDeletion(item.table, item.data.id);
       });
     }
-    localStorage.setItem(RECYCLE_BIN_KEY, '[]');
+    // ✅ Use IDB (setAll) instead of legacy localStorage
+    setAll('recycle_bin', []);
     _logActivity('delete', 'system', 'Emptied recycle bin');
   }
 
   const _AUTO_COLS = new Set(['created_at', 'updated_at']);
 
   const _TABLE_COLS = {
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
+    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
-    attendance:    ['id','person_id','person_name','type','date','status','note'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
-    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
-    notices:       ['id','title','content','date','category','priority','author'],
+    exams:         ['id','reg_id','student_id','student_name','batch','session','subject', 'exam_date','exam_fee','fee_paid','grade','marks','status','note'],
+    attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
+    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
+    notices:       ['id','title','content','text','date','category','priority','author','createdAt','expiresAt','type'],
   };
 
   function _sanitizeRecord(record, tableKey) {
@@ -680,14 +747,14 @@ const SupabaseSync = (() => {
       const { error } = await client.from(table).delete().eq('id', id);
       if (error) throw error;
     } catch (e) {
-      console.warn('[Sync] Delete from cloud failed — queued for retry:', e);
+      console.warn('[Sync] Delete from cloud failed â€” queued for retry:', e);
       _queueRetry(table, { id, _deleteOnly: true });
     }
   }
 
   function _queueRetry(table, record) {
     try {
-      const queue = JSON.parse(localStorage.getItem('wfa_retry_queue')) || [];
+      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
       queue.push({ table, record, at: Date.now() });
       localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
     } catch { /* ignore */ }
@@ -695,7 +762,7 @@ const SupabaseSync = (() => {
 
   async function processRetryQueue() {
     try {
-      const queue = JSON.parse(localStorage.getItem('wfa_retry_queue')) || [];
+      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
       if (!queue.length) return;
       const { client } = window.SUPABASE_CONFIG;
       const remaining = [];
@@ -720,12 +787,13 @@ const SupabaseSync = (() => {
 
   const _balanceLocks = {};
 
-  function updateAccountBalance(methodName, amount, direction) {
+  // ✅ Req 7: force=true bypasses negative check (for deletion reversals only)
+  function updateAccountBalance(methodName, amount, direction, force = false) {
     if (!methodName || !amount || amount <= 0) return;
     const lockKey = methodName;
     if (!_balanceLocks[lockKey]) _balanceLocks[lockKey] = Promise.resolve();
     _balanceLocks[lockKey] = _balanceLocks[lockKey].then(() => {
-      return _updateBalanceCore(methodName, amount, direction);
+      return _updateBalanceCore(methodName, amount, direction, force);
     }).catch(e => {
       console.warn('[Sync] updateAccountBalance lock failed:', e);
       SyncGuard && SyncGuard.report('balance_lock_error', { methodName, amount, direction, error: e?.message });
@@ -733,7 +801,7 @@ const SupabaseSync = (() => {
     return _balanceLocks[lockKey];
   }
 
-  function _updateBalanceCore(methodName, amount, direction) {
+  function _updateBalanceCore(methodName, amount, direction, force = false) {
     try {
       const accounts = getAll('accounts');
       let accountIdx = -1;
@@ -748,11 +816,19 @@ const SupabaseSync = (() => {
 
       if (accountIdx === -1) {
         if (methodName === 'Cash') {
+          // ✅ Fix: prevent creating Cash account with negative starting balance
+          if (direction !== 'in' && !force) {
+            console.warn(`[Sync] ❌ Cannot create Cash account with negative balance (direction: ${direction}, amount: ${amount})`);
+            if (typeof Utils !== 'undefined' && Utils.toast) {
+              Utils.toast('⚠️ No Cash account exists — please add one in Accounts first.', 'error', 5000);
+            }
+            return false;
+          }
           const newAcc = {
             id: generateId(),
             type: 'Cash',
             name: 'Cash',
-            balance: direction === 'in' ? amount : -amount,
+            balance: direction === 'in' ? amount : (force ? -amount : 0),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -766,13 +842,19 @@ const SupabaseSync = (() => {
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
       const newBal = direction === 'in' ? currentBal + amount : currentBal - amount;
 
-      if (newBal < 0) {
+      if (newBal < 0 && !force) {
         SyncGuard && SyncGuard.report('negative_balance', {
           account: methodName,
           before: currentBal,
           change: direction === 'in' ? +amount : -amount,
           after: newBal,
         });
+        // ✅ Issue #3: Block update AND show user-facing toast — not just console.warn
+        console.warn(`[Sync] ❌ Balance blocked for "${methodName}": ৳${currentBal} - ৳${amount} = ৳${newBal}`);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast(`⚠️ Insufficient balance in "${methodName}" (Available: ৳${currentBal.toLocaleString()}, Needed: ৳${amount.toLocaleString()})`, 'error', 5000);
+        }
+        return false;
       }
 
       accounts[accountIdx] = {
@@ -793,14 +875,15 @@ const SupabaseSync = (() => {
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
+    TABLE_COLUMNS,
   };
 })();
 window.SupabaseSync = SupabaseSync;
 
 
-// ────────────────────────────────────────────────────────────
-// SyncEngine — Pull / Push / Real-time / Multi-user
-// ────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// SyncEngine â€” Pull / Push / Real-time / Multi-user
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SyncEngine = (() => {
   const { client, TABLES } = window.SUPABASE_CONFIG;
   let syncInterval = null;
@@ -809,9 +892,9 @@ const SyncEngine = (() => {
   let _lastPullTimestamp = null;
   const missingTables = new Set();
 
-  // ── Storage Size Guard (IndexedDB-aware) ────────────────────
-  // IndexedDB ব্যবহার করায় 5MB limit আর নেই।
-  // Warning/Critical threshold অনেক বাড়িয়ে দেওয়া হয়েছে।
+  // â”€â”€ Storage Size Guard (IndexedDB-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // IndexedDB à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾à¦¯à¦¼ 5MB limit à¦†à¦° à¦¨à§‡à¦‡à¥¤
+  // Warning/Critical threshold à¦…à¦¨à§‡à¦• à¦¬à¦¾à¦¡à¦¼à¦¿à¦¯à¦¼à§‡ à¦¦à§‡à¦“à¦¯à¦¼à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤
   const STORAGE_WARN_KB  = 51200;   // 50 MB
   const STORAGE_CRIT_KB  = 102400;  // 100 MB
 
@@ -823,7 +906,7 @@ const SyncEngine = (() => {
     return WFA_IDB.getTableSizeKB(tableKey);
   }
 
-  // IndexedDB-তে সাধারণত trim দরকার হবে না — API compatibility-এর জন্য রাখা হয়েছে
+  // IndexedDB-à¦¤à§‡ à¦¸à¦¾à¦§à¦¾à¦°à¦£à¦¤ trim à¦¦à¦°à¦•à¦¾à¦° à¦¹à¦¬à§‡ à¦¨à¦¾ â€” API compatibility-à¦à¦° à¦œà¦¨à§à¦¯ à¦°à¦¾à¦–à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡
   function _trimLargeTableForStorage(tableKey, keepCount) {
     try {
       const rows = SupabaseSync.getAll(tableKey);
@@ -841,7 +924,7 @@ const SyncEngine = (() => {
     if (usageKB >= STORAGE_CRIT_KB) {
       console.warn(`[Storage] IndexedDB usage high: ${usageKB} KB`);
       if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(`📦 Local data ${Math.round(usageKB/1024)} MB — পুরনো data archive করুন।`, 'warn');
+        Utils.toast(`ðŸ“¦ Local data ${Math.round(usageKB/1024)} MB â€” à¦ªà§à¦°à¦¨à§‹ data archive à¦•à¦°à§à¦¨à¥¤`, 'warn');
       }
     } else if (usageKB >= STORAGE_WARN_KB) {
       console.warn(`[Storage] IndexedDB warning: ${usageKB} KB used`);
@@ -859,11 +942,11 @@ const SyncEngine = (() => {
     const el = document.getElementById('sync-status');
     if (!el) return;
     const map = {
-      synced:   { icon: '☁️', text: 'Synced',    cls: 'synced'  },
-      syncing:  { icon: '🔄', text: 'Syncing…',  cls: 'syncing' },
-      offline:  { icon: '📴', text: 'Offline',   cls: 'offline' },
-      error:    { icon: '⚠️', text: 'Error',     cls: 'error'   },
-      realtime: { icon: '🟢', text: 'Real-time', cls: 'synced'  },
+      synced:   { icon: 'â˜ï¸', text: 'Synced',    cls: 'synced'  },
+      syncing:  { icon: 'ðŸ”„', text: 'Syncingâ€¦',  cls: 'syncing' },
+      offline:  { icon: 'ðŸ“´', text: 'Offline',   cls: 'offline' },
+      error:    { icon: 'âš ï¸', text: 'Error',     cls: 'error'   },
+      realtime: { icon: 'ðŸŸ¢', text: 'Real-time', cls: 'synced'  },
     };
     const s = map[state] || map.offline;
     el.className = `sync-badge ${s.cls}`;
@@ -926,6 +1009,24 @@ const SyncEngine = (() => {
           merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
         }
 
+        // SECURITY: settings table — admin_password কখনো cloud এর plaintext দিয়ে overwrite হবে না
+        if (key === 'settings' && merged.length > 0 && localRows.length > 0) {
+          const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+          const localPw = localRows[0].admin_password;
+          const mergedPw = merged[0].admin_password;
+          // যদি local-এ hashed password থাকে কিন্তু merged-এ plaintext বা empty এসেছে
+          if (localPw && _isHashed(localPw) && (!mergedPw || !_isHashed(mergedPw))) {
+            merged[0].admin_password = localPw;
+          }
+          // security_question ও security_answer preserve করো
+          if (localRows[0].security_question && !merged[0].security_question) {
+            merged[0].security_question = localRows[0].security_question;
+          }
+          if (localRows[0].security_answer && !merged[0].security_answer) {
+            merged[0].security_answer = localRows[0].security_answer;
+          }
+        }
+
         const oldJson = JSON.stringify(localRows);
         const newJson = JSON.stringify(merged);
         if (oldJson !== newJson) {
@@ -945,7 +1046,7 @@ const SyncEngine = (() => {
       if (!silent && typeof Utils !== 'undefined') {
         const mode = isFullPull ? 'Full sync' : 'Incremental sync';
         Utils.toast(
-          hasChanges ? `${mode} complete — নতুন data পাওয়া গেছে ✅` : `${mode} complete — সব up to date ✅`,
+          hasChanges ? `${mode} complete â€” à¦¨à¦¤à§à¦¨ data à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦—à§‡à¦›à§‡ âœ…` : `${mode} complete â€” à¦¸à¦¬ up to date âœ…`,
           'success'
         );
       }
@@ -959,7 +1060,7 @@ const SyncEngine = (() => {
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
       setStatus('error');
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Pull from cloud failed ❌', 'error');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Pull from cloud failed âŒ', 'error');
     }
   }
 
@@ -992,10 +1093,15 @@ const SyncEngine = (() => {
         const diff = Math.abs(localTime - cloudTime);
 
         if (diff < 10_000 && row._device && existing._device && row._device !== existing._device) {
-          conflicts.push({ id: row.id, localTime, cloudTime, localDevice: row._device, cloudDevice: existing._device });
-        }
-
-        if (localTime > cloudTime) {
+          // ✅ Field-level merge: combine non-conflicting changes from both devices
+          const resolvedRecord = _fieldLevelMerge(existing, row, localTime, cloudTime);
+          merged.set(row.id, resolvedRecord);
+          conflicts.push({
+            id: row.id, localTime, cloudTime,
+            localDevice: row._device, cloudDevice: existing._device,
+            resolution: 'field_merge'
+          });
+        } else if (localTime > cloudTime) {
           merged.set(row.id, row);
         }
       }
@@ -1006,6 +1112,50 @@ const SyncEngine = (() => {
     }
 
     return Array.from(merged.values());
+  }
+
+  /**
+   * Field-level merge: when two devices edit the same record concurrently,
+   * merge non-conflicting field changes. For conflicting fields, prefer
+   * the version with the newer timestamp.
+   */
+  function _fieldLevelMerge(cloudRow, localRow, localTime, cloudTime) {
+    const result = { ...cloudRow };
+    const skipFields = new Set(['id', 'created_at', 'updated_at', '_device']);
+
+    for (const key of Object.keys(localRow)) {
+      if (skipFields.has(key)) continue;
+      const localVal = localRow[key];
+      const cloudVal = cloudRow[key];
+
+      // If both sides have the same value, no conflict
+      if (JSON.stringify(localVal) === JSON.stringify(cloudVal)) continue;
+
+      // If cloud has no value but local does, take local
+      if ((cloudVal === undefined || cloudVal === null || cloudVal === '') &&
+          localVal !== undefined && localVal !== null && localVal !== '') {
+        result[key] = localVal;
+        continue;
+      }
+
+      // If local has no value but cloud does, keep cloud (already in result)
+      if ((localVal === undefined || localVal === null || localVal === '') &&
+          cloudVal !== undefined && cloudVal !== null && cloudVal !== '') {
+        continue;
+      }
+
+      // Both have different non-empty values — prefer newer timestamp
+      if (localTime >= cloudTime) {
+        result[key] = localVal;
+      }
+      // else cloudVal already in result
+    }
+
+    // Set metadata to reflect the merge
+    result.updated_at = new Date(Math.max(localTime, cloudTime)).toISOString();
+    result._device = localTime >= cloudTime ? localRow._device : cloudRow._device;
+
+    return result;
   }
 
   function mergeIncremental(localRows, changedCloudRows, deletedIds) {
@@ -1054,7 +1204,7 @@ const SyncEngine = (() => {
         if (error) console.error(`[Sync] Push failed for "${key}":`, error);
       }
       setStatus('synced');
-      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');
+      if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete âœ…', 'success');
     } catch (e) {
       console.error('[Sync] Push failed:', e);
       setStatus('error');
@@ -1065,20 +1215,6 @@ const SyncEngine = (() => {
     await pull(opts);
     await push(opts);
   }
-
-  const TABLE_COLUMNS = {
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date'],
-    salary:        ['id','staff_id','staff_name','month','year','amount','bonus','deduction','net_salary','status','note','paid_date'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','enrollment_date','total_fee','paid','due','status','photo_url','guardian_name','guardian_phone','note'],
-    finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
-    accounts:      ['id','name','type','balance','description','note'],
-    loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
-    exams:         ['id','student_id','student_name','course','batch','exam_date','subject','marks','total_marks','grade','result','note'],
-    attendance:    ['id','person_id','person_name','type','date','status','note'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','salary','status','photo_url','note'],
-    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks'],
-    notices:       ['id','title','content','date','category','priority','author'],
-  };
 
   function startRealtime() {
     if (!client?.channel) return;
@@ -1177,7 +1313,7 @@ const SyncEngine = (() => {
               const t = r.updated_at || r.created_at || '';
               return t > max ? t : max;
             }, '')
-          : '—',
+          : 'â€”',
       };
     }
     return stats;
@@ -1194,7 +1330,7 @@ const SyncEngine = (() => {
     startRealtime, stopRealtime,
     getLocal, setLocal,
     setStatus, getDataMonitor,
-    TABLE_COLUMNS,
+    TABLE_COLUMNS: SupabaseSync.TABLE_COLUMNS,
     getStorageUsageKB: _getStorageUsageKB,
     getTableSizeKB: _getTableSizeKB,
     checkAndManageStorage: _checkAndManageStorage,

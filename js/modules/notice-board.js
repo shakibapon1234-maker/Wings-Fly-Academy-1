@@ -7,6 +7,7 @@ const NoticeBoardModule = (() => {
 
   let countdownInterval = null;
   let activeNotice = null;
+  let _inlineIv = null; // ✅ module-level tracker to prevent memory leaks
 
   // ── INIT ────────────────────────────────────────────────
   function init() {
@@ -17,7 +18,7 @@ const NoticeBoardModule = (() => {
   function injectBannerContainer() {
     if (document.getElementById('noticeBoardBanner')) return;
     const bannerHTML = `
-      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:0; right:0; z-index:9000; padding:12px 16px; margin:10px 20px; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center; align-items:center;">
+      <div id="noticeBoardBanner" class="notice-container" style="display:none; position:fixed; top:60px; left:240px; right:0; z-index:500; padding:12px 16px; margin:10px 20px 10px 0; border-radius:12px; font-weight:bold; box-shadow:0 4px 15px rgba(0,0,0,0.3); text-align:center; align-items:center;">
         <span class="notice-icon" style="margin-right:10px; font-size:1.2rem; flex-shrink:0;"></span>
         <span id="noticeBannerText" style="flex-grow:1; margin-right:15px; display:inline-block; font-size:1rem;"></span>
         <span id="noticeBannerCountdown" style="background:rgba(0,0,0,0.2); padding:4px 10px; border-radius:30px; font-size:0.85rem; font-family:monospace; flex-shrink:0; margin-right:10px;"></span>
@@ -28,9 +29,9 @@ const NoticeBoardModule = (() => {
   }
 
   function refreshActiveNotice() {
-    if (!window.DB || !DB.notices) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined' || !DB.notices) return;
     const all = SupabaseSync.getAll(DB.notices) || [];
-    all.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    all.sort((a,b) => new Date(b.createdAt || b.date || 0) - new Date(a.createdAt || a.date || 0));
     activeNotice = null;
     hideBanner();
     for (let n of all) {
@@ -47,6 +48,16 @@ const NoticeBoardModule = (() => {
       } catch(e) {}
       showBanner(activeNotice);
     }
+    updateNoticeDot(); // ✅ Bug #3 fix: keep sidebar dot in sync
+  }
+
+  // ── NOTICE DOT (Sidebar indicator) ──────────────────────
+  // Bug #3 fix: sidebar dot was present in HTML but nothing ever updated it.
+  function updateNoticeDot() {
+    const dot = document.getElementById('notice-dot');
+    if (!dot) return;
+    const hasActive = !!(activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now());
+    dot.style.display = hasActive ? 'inline-block' : 'none';
   }
 
   // ── BANNER ──────────────────────────────────────────────
@@ -114,7 +125,7 @@ const NoticeBoardModule = (() => {
     refreshActiveNotice();
 
     const allNotices = (window.DB && DB.notices)
-      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0))
+      ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.createdAt||b.date||0) - new Date(a.createdAt||a.date||0))
       : [];
     const isRunning = activeNotice && new Date(activeNotice.expiresAt).getTime() > Date.now();
     const activeCfg = isRunning ? (TYPE_CFG[activeNotice.type] || TYPE_CFG.warning) : null;
@@ -331,18 +342,19 @@ const NoticeBoardModule = (() => {
       </div>
     `;
 
-    // Inline countdown
+    // Inline countdown — clear previous interval first to prevent memory leak
+    if (_inlineIv) { clearInterval(_inlineIv); _inlineIv = null; }
     if (isRunning && activeNotice) {
       const _tick = () => {
         const el = document.getElementById('nb-countdown-inline');
-        if (!el) return;
+        if (!el) { clearInterval(_inlineIv); _inlineIv = null; return; }
         const rem = new Date(activeNotice.expiresAt).getTime() - Date.now();
-        if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; return; }
+        if (rem <= 0) { el.textContent = 'মেয়াদ শেষ'; clearInterval(_inlineIv); _inlineIv = null; return; }
         const h = Math.floor(rem/3600000), m = Math.floor((rem%3600000)/60000), s = Math.floor((rem%60000)/1000);
         el.textContent = `${h>0?h+'h ':''} ${m}m ${s}s বাকি`;
       };
       _tick();
-      const _iv = setInterval(() => { if (!document.getElementById('nb-countdown-inline')) { clearInterval(_iv); return; } _tick(); }, 1000);
+      _inlineIv = setInterval(_tick, 1000);
     }
   }
 
@@ -393,7 +405,8 @@ const NoticeBoardModule = (() => {
     }
     const payload = {
       id: 'NOT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      text, title: text, type,
+      text, title: text, content: text, type,
+      date: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString()
     };
@@ -405,9 +418,10 @@ const NoticeBoardModule = (() => {
     render();
   }
 
-  function deleteNoticeById(id) {
+  async function deleteNoticeById(id) {
     if (!id) return;
-    if (!window.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?')) return;
+    const ok = await Utils.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?', 'মুছে ফেলুন');
+    if (!ok) return;
     SupabaseSync.remove(DB.notices, id);
     if (activeNotice && activeNotice.id === id) { activeNotice = null; hideBanner(); }
     Utils.toast('নোটিশ মুছে গেছে', 'success');
@@ -428,10 +442,11 @@ const NoticeBoardModule = (() => {
 
   function dismissBanner() {
     hideBanner();
-    try { sessionStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
+    try { localStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
   }
 
-  return { init, render, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
+  return { init, render, updateNoticeDot, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
 })();
+window.NoticeBoard = NoticeBoardModule;
 
 document.addEventListener('DOMContentLoaded', () => { setTimeout(NoticeBoardModule.init, 1000); });

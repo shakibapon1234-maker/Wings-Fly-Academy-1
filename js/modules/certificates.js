@@ -45,7 +45,10 @@ const CertificatesModule = (() => {
     }
 
     // Photo
-    const photoSrc = data.photo || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
+    // ✅ Fix #12: Sanitize photo URL — only allow http/https/data:image to prevent XSS
+    const _rawPhoto   = data.photo || '';
+    const _safePhoto  = /^(https?:\/\/|data:image\/)/i.test(_rawPhoto) ? _rawPhoto : '';
+    const photoSrc    = _safePhoto || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
 
     return `
     <div id="certContent" style="
@@ -97,20 +100,20 @@ const CertificatesModule = (() => {
       <div style="font-size:13px;color:#aaa;margin-bottom:6px;">This is to certify that</div>
 
       <!-- Student Name -->
-      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${data.studentName || 'N/A'}</div>
+      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentName) : (data.studentName || 'N/A')}</div>
 
       <!-- Student details -->
       <div style="font-size:12px;color:#aaa;margin:10px 0;line-height:1.8;">
-        ID: <span style="color:#fff;font-weight:bold;">${data.studentId || 'N/A'}</span> &nbsp;|&nbsp;
-        Course: <span style="color:#fff;font-weight:bold;">${data.courseName || 'N/A'}</span> &nbsp;|&nbsp;
-        Batch: <span style="color:#fff;font-weight:bold;">${data.batch || 'N/A'}</span>
+        ID: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A')}</span> &nbsp;|&nbsp;
+        Course: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'N/A')}</span> &nbsp;|&nbsp;
+        Batch: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.batch) : (data.batch || 'N/A')}</span>
       </div>
 
       <!-- Completion text -->
       <div style="font-size:13px;color:#ccc;margin:12px 30px;line-height:1.7;">
-        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${data.courseName || 'training program'}</span> 
-        training program conducted by <span style="color:#c9a227;">${academyName}</span>.
-        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${sessionValue}</span>` : ''}
+        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'training program')}</span> 
+        training program conducted by <span style="color:#c9a227;">${typeof Utils !== 'undefined' ? Utils.esc(academyName) : academyName}</span>.
+        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(sessionValue) : sessionValue}</span>` : ''}
       </div>
 
       ${data.grade ? `
@@ -170,36 +173,40 @@ const CertificatesModule = (() => {
     container.innerHTML = buildCertHTML(data);
   }
 
-  // ── Auto-fill from Student ────────────────────────────────
   function fillFromStudent(studentId) {
-    if (typeof StudentsModule === 'undefined') return null;
-    const student = StudentsModule.getById(studentId);
+    if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return null;
+    // ✅ Fix: window.Students (not StudentsModule). getById not exported — use SupabaseSync directly
+    const student = SupabaseSync.getById(DB.students, studentId);
     if (!student) return null;
 
     let grade = '', marks = '', totalMarks = '';
-    if (typeof ExamModule !== 'undefined') {
-      const results = ExamModule.getAll().filter(e => e.studentId === studentId);
+    // ✅ Fix: ExamModule.getAll() doesn't exist — read DB directly; field is student_id (snake_case)
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      const results = SupabaseSync.getAll(DB.exams).filter(e =>
+        e.student_id === student.student_id
+      );
       if (results.length > 0) {
         const latest = results[results.length - 1];
-        grade = latest.grade || '';
-        marks = latest.marks || '';
+        grade      = latest.grade      || '';
+        marks      = latest.marks      || '';
         totalMarks = latest.totalMarks || '';
       }
     }
 
     return {
-      studentId: student.studentId || student.id,
+      studentId:   student.student_id || student.id,
       studentName: student.name,
-      fatherName: student.fatherName || student.guardianName || '',
-      courseName: student.course,
-      batch: student.batch,
-      session: student.session,
+      fatherName:  student.father_name || student.fatherName || '',
+      courseName:  student.course,
+      batch:       student.batch,
+      session:     student.session,
       grade, marks, totalMarks,
-      photo: student.photo || '',
-      certNumber: `WFA-${new Date().getFullYear()}-${(student.studentId || student.id).slice(-4)}`,
-      issueDate: typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
+      photo:       student.photo || '',
+      certNumber:  `WFA-${new Date().getFullYear()}-${(student.student_id || student.id || '0000').toString().slice(-4)}`,
+      issueDate:   typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'),
     };
   }
+
 
   // ── Print ─────────────────────────────────────────────────
   function print(data) {
@@ -328,5 +335,36 @@ const CertificatesModule = (() => {
     win.document.close();
   }
 
-  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, printForStudent, printAllCerts };
+  // ✅ Global-safe preview — works from ANY page via Utils.openModal()
+  // Called from Students MANAGE action → GENERATE CERTIFICATE button
+  function previewCertificate(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    // Try own modal first (if on Certificates page)
+    const ownModal = document.getElementById('cert-preview-modal');
+    const ownArea  = document.getElementById('cert-preview-area');
+    if (ownModal && ownArea) {
+      ownArea.innerHTML = buildCertHTML(buildDataFromStudent(s));
+      ownModal.style.display = 'flex';
+      return;
+    }
+
+    // Fallback: use global Utils modal (works from Students page)
+    const certHTML = buildCertHTML(buildDataFromStudent(s));
+    Utils.openModal(
+      `<i class="fa fa-award" style="color:#f59e0b"></i> Certificate &mdash; ${Utils.esc(s.name)}`,
+      `<div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px 0;">
+        <div style="overflow-x:auto; width:100%;">${certHTML}</div>
+        <button class="btn btn-primary" onclick="CertificatesModule.printForStudent('${id}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
+          <i class="fa fa-print"></i> Print Certificate
+        </button>
+      </div>`,
+      'modal-xl'
+    );
+  }
+
+  return { buildCertHTML, renderPreview, fillFromStudent, print, GRADES, render, previewForStudent, previewCertificate, printForStudent, printAllCerts };
 })();
+window.CertificatesModule = CertificatesModule;

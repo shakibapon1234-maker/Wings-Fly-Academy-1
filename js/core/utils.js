@@ -18,6 +18,14 @@ const Utils = (() => {
       .replace(/\//g, '&#x2F;');
   }
 
+  // ── Safe JSON Parser ────────────────────────────────────────
+  // JSON.parse wrapper — corrupt/invalid data হলে crash না করে fallback দেয়
+  function safeJSON(str, fallback = null) {
+    if (!str) return fallback;
+    try { return JSON.parse(str); }
+    catch (e) { console.warn('[safeJSON] Parse failed:', e.message); return fallback; }
+  }
+
   // ── Date Helpers ───────────────────────────────────────────
   function today() {
     return new Date().toISOString().split('T')[0];
@@ -36,7 +44,65 @@ const Utils = (() => {
     return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  // ✅ Req 4: strict DD/MM/YYYY display (no locale dependency)
+  // Works on YYYY-MM-DD strings: "2026-04-17" → "17/04/2026"
+  function formatDateDMY(dateStr) {
+    if (!dateStr) return '—';
+    const s = String(dateStr).split('T')[0]; // strip time if present
+    const parts = s.split('-');
+    if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    // Fallback: try Date object
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dd}/${mm}/${d.getFullYear()}`;
+  }
+
   function formatDateEN(dateStr) { return formatDate(dateStr); }
+
+  // ✅ Phase 3.1: CSS-based Virtual Scrolling — drastically improves performance for large pages
+  (function injectVirtualScrollCSS() {
+    if (document.getElementById('wfa-virtual-scroll-css')) return;
+    const style = document.createElement('style');
+    style.id = 'wfa-virtual-scroll-css';
+    style.textContent = `
+      .table-wrapper tbody tr {
+        content-visibility: auto;
+        contain-intrinsic-size: 0 48px;
+        will-change: transform;
+      }
+    `;
+    document.head.appendChild(style);
+  })();
+
+  // ✅ Phase 2: Parse any date string to YYYY-MM-DD — handles DD/MM/YYYY, MM/DD/YYYY, ISO, etc.
+  function parseAnyDate(input) {
+    if (!input) return '';
+    const s = String(input).trim();
+    // Already ISO YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
+    // DD/MM/YYYY or DD-MM-YYYY
+    const dmyMatch = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+    if (dmyMatch) {
+      const [, dd, mm, yyyy] = dmyMatch;
+      return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
+    }
+    // Fallback: try native Date
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0];
+    return s;
+  }
+
+  // ✅ Phase 3: Loading state skeleton HTML helper
+  function loadingSkeleton(rows = 5) {
+    let html = '<div style="padding:20px">';
+    for (let i = 0; i < rows; i++) {
+      html += `<div style="height:18px;background:rgba(255,255,255,0.04);border-radius:6px;margin-bottom:12px;animation:skeleton-pulse 1.5s infinite ease-in-out"></div>`;
+    }
+    html += '</div><style>@keyframes skeleton-pulse{0%,100%{opacity:0.4}50%{opacity:0.8}}</style>';
+    return html;
+  }
 
   // ── Number Helpers ─────────────────────────────────────────
   function safeNum(val) {
@@ -103,8 +169,40 @@ const Utils = (() => {
     const box = backdrop?.querySelector('.modal-box');
     if (!backdrop || !titleEl || !bodyEl) return;
 
-    titleEl.innerHTML = title;
-    bodyEl.innerHTML = bodyHTML;
+    // ✅ Fix #5: Wrap modal content injection in try/catch to prevent UI freeze
+    try {
+      // ✅ Fix #7: strip dangerous on* event handlers from title HTML before injection
+      titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
+      bodyEl.innerHTML = bodyHTML;
+    } catch (e) {
+      console.error('[Modal] Content render error:', e);
+      titleEl.textContent = 'Error';
+      bodyEl.innerHTML = `<div style="padding:30px;text-align:center;color:#ff4757">
+        <i class="fa fa-circle-exclamation" style="font-size:2rem;margin-bottom:10px;display:block"></i>
+        <strong>Modal content failed to load</strong><br>
+        <small style="color:#888">${esc(e.message)}</small>
+        <br><button onclick="Utils.closeModal()" style="margin-top:16px;padding:8px 20px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:8px;cursor:pointer">
+          Close
+        </button>
+      </div>`;
+    }
+
+    // ✅ Req 4: auto-convert all modal date inputs to DD/MM/YYYY via Flatpickr
+    setTimeout(() => {
+      if (typeof flatpickr !== 'undefined') {
+        bodyEl.querySelectorAll('input[type="date"]').forEach(el => {
+          if (!el._flatpickr) { // prevent double-init
+            flatpickr(el, {
+              dateFormat:  'Y-m-d',  // stored value stays YYYY-MM-DD for backend
+              altInput:    true,     // show a separate human-readable input
+              altFormat:   'd/m/Y',  // displayed as DD/MM/YYYY to the user
+              allowInput:  true,
+              locale:      { firstDayOfWeek: 1 },
+            });
+          }
+        });
+      }
+    }, 10);
 
     if (box) {
       box.style.maxWidth = sizeClass === 'modal-sm' ? '420px' : sizeClass === 'modal-lg' ? '720px' : sizeClass === 'modal-xl' ? '980px' : sizeClass === 'modal-xxl' ? '1200px' : '560px';
@@ -274,10 +372,19 @@ const Utils = (() => {
   }
 
   // ── CSV Export ────────────────────────────────────────────
+  // ✅ Fix #9: sanitize formula-injection prefixes (=, +, -, @, |, %)
+  // Excel/Sheets treat cells starting with these as formulas — prefix ' to force plain text
+  function _csvSanitize(val) {
+    const s = (val ?? '').toString().replace(/"/g, '""');
+    return /^[=+\-@|%]/.test(s) ? "'" + s : s;
+  }
   function downloadCSV(filename, rows) {
     if (!rows || rows.length === 0) { toast('No data available', 'warn'); return; }
     const headers = Object.keys(rows[0]);
-    const csv = [headers.join(','), ...rows.map(r => headers.map(h => `"${(r[h] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n');
+    const csv = [
+      headers.join(','),
+      ...rows.map(r => headers.map(h => `"${_csvSanitize(r[h])}"`).join(','))
+    ].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -466,7 +573,7 @@ const Utils = (() => {
 
     return {
       // Date
-      today, todayISO, nowISO, formatDate, formatDateEN,
+      today, todayISO, nowISO, formatDate, formatDateEN, formatDateDMY,
       // Number
       safeNum, takaEn, formatMoney, formatMoneyPlain,
       // String
@@ -478,7 +585,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc,
+      esc, safeJSON,
       // Modal
       openModal, closeModal, confirm,
       // Badges
@@ -495,6 +602,8 @@ const Utils = (() => {
       debounce, paginate, renderPaginationUI,
       getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange,
       getSettlementKey, getPaymentMethodBucket, financeMatchesAccountCategory,
+      // Phase 2-4 additions
+      parseAnyDate, loadingSkeleton,
     };
 })();
 

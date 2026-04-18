@@ -21,9 +21,8 @@ const SettingsModule = (() => {
     });
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
+    setTimeout(_initSettingsDatePickers, 20);
     document.body.style.overflow = 'hidden';
-    initSettingsPlugins();
-
     // ── Real-time Activity Log refresh ────────────────────────────
     // Settings panel খোলা থাকলে যেকোনো কাজ করলে activity log ও
     // অন্যান্য tabs real-time-এ আপডেট হবে
@@ -38,20 +37,11 @@ const SettingsModule = (() => {
       panel.innerHTML = buildModalHTML();
       activeTab = savedTab;
       switchTab(savedTab);
-      initSettingsPlugins();
+      setTimeout(_initSettingsDatePickers, 20);
     };
     window.addEventListener('wfa:synced', _syncListener);
   }
 
-  function initSettingsPlugins() {
-    if (typeof flatpickr !== 'undefined') {
-      flatpickr(document.querySelectorAll('#bp-start, #bp-end'), {
-        dateFormat: "Y-m-d",
-        altInput: true,
-        altFormat: "d M Y"
-      });
-    }
-  }
 
   function closeModal() {
     const overlay = document.getElementById('settings-overlay');
@@ -157,6 +147,8 @@ const SettingsModule = (() => {
     if (tab === 'syncguard' && typeof SyncGuard !== 'undefined') {
       setTimeout(() => SyncGuard.renderPanel('syncguard-panel'), 50);
     }
+    // ✅ Req 4: re-init date pickers whenever a tab is switched
+    setTimeout(_initSettingsDatePickers, 20);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -376,7 +368,7 @@ const SettingsModule = (() => {
 
   function buildColorCustomizerHTML(themeId, styleId) {
     const key = `wfa_sidebar_custom_${themeId}_${styleId}`;
-    const saved = JSON.parse(localStorage.getItem(key) || '{}');
+    const saved = Utils.safeJSON(localStorage.getItem(key), {});
     return `
       <div style="background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:16px" id="color-customizer-inner">
         <div style="font-size:.9rem;font-weight:700;color:var(--brand-primary);margin-bottom:12px">
@@ -569,7 +561,7 @@ const SettingsModule = (() => {
     // Re-apply if saved
     const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${themeId}_${styleId}`);
     if(sideSavedJSON) {
-        const s = JSON.parse(sideSavedJSON);
+        const s = Utils.safeJSON(sideSavedJSON);
         _injectCSSOverrides(s.opacity, s.border, s.active, s.blur);
     }
   }
@@ -732,7 +724,10 @@ const SettingsModule = (() => {
             </div>
             <div class="form-group" style="flex:1;min-width:160px">
               <label style="font-size:.78rem;color:var(--text-muted)">To (আজ পর্যন্ত) <span class="auto-badge">AUTO</span></label>
-              <input type="date" class="form-control" value="${expEnd}" disabled style="color:var(--success)" />
+              <div class="form-control" style="color:var(--success);display:flex;align-items:center;gap:6px;cursor:default;opacity:.75">
+                <i class="fa fa-calendar-check" style="font-size:.8rem"></i>
+                ${Utils.formatDateDMY(expEnd)}
+              </div>
             </div>
           </div>
           <div style="margin-top:8px;padding:10px 14px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
@@ -758,10 +753,10 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelCategories() {
     const cfg = getConfig();
-    const incomeCats = cfg.income_categories ? JSON.parse(cfg.income_categories) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
-    const expenseCats = cfg.expense_categories ? JSON.parse(cfg.expense_categories) : ['Rent', 'Salary', 'Loan Given', 'Other'];
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
-    const roles = cfg.employee_roles ? JSON.parse(cfg.employee_roles) : ['Admin', 'Instructor', 'Staff'];
+    const incomeCats = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
+    const expenseCats = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const roles = cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
 
     return `
     <div class="settings-panel ${activeTab === 'categories' ? 'active' : ''}" data-panel="categories">
@@ -800,7 +795,7 @@ const SettingsModule = (() => {
     const input = document.getElementById(`cat-add-${key}`);
     if (!input || !input.value.trim()) return;
     const cfg = getConfig();
-    const items = cfg[key] ? JSON.parse(cfg[key]) : [];
+    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     const newItem = input.value.trim();
     if (items.includes(newItem)) { Utils.toast('Already exists', 'error'); return; }
     items.push(newItem);
@@ -812,8 +807,20 @@ const SettingsModule = (() => {
   }
 
   function removeCategory(key, item) {
+    // ✅ Req 2: push to recycle bin before deleting so it can be restored
+    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    bin.unshift({
+      table: 'settings_category',
+      type:  'category',
+      name:  `"${item}" (${key})`,
+      data:  { key, item },
+      deletedAt: new Date().toISOString(),
+    });
+    if (bin.length > 500) bin.length = 500;
+    localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+
     const cfg = getConfig();
-    const items = cfg[key] ? JSON.parse(cfg[key]) : [];
+    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     const idx = items.indexOf(item);
     if (idx > -1) items.splice(idx, 1);
     cfg[key] = JSON.stringify(items);
@@ -832,9 +839,7 @@ const SettingsModule = (() => {
       <div class="settings-card" style="border-color:rgba(0,212,255,0.25);margin-bottom:14px" id="storage-usage-card">
         <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
           <span><i class="fa fa-hard-drive"></i> Local Storage Usage</span>
-          <button onclick="SettingsModule.runStorageCleanup()" style="font-size:.75rem;padding:4px 10px;border:1px solid rgba(255,165,0,0.4);background:rgba(255,165,0,0.1);color:#ffa502;border-radius:6px;cursor:pointer">
-            <i class="fa fa-broom"></i> Auto-Clean
-          </button>
+
         </div>
         <div id="storage-usage-content" style="font-size:.88rem;color:var(--text-secondary)">
           <i class="fa fa-spinner fa-spin"></i> Calculating...
@@ -844,7 +849,7 @@ const SettingsModule = (() => {
         (function() {
           try {
             const usedKB  = typeof SyncEngine !== 'undefined' ? SyncEngine.getStorageUsageKB() : 0;
-            const limitKB = 5120;
+            const limitKB = 512000; // IndexedDB — ~500 MB
             const pct     = Math.min(100, Math.round(usedKB / limitKB * 100));
             const color   = pct >= 90 ? '#ff4757' : pct >= 70 ? '#ffa502' : pct >= 50 ? '#00d9ff' : '#00ff88';
             const status  = pct >= 90 ? 'Critical' : pct >= 70 ? 'Warning' : 'Healthy';
@@ -866,14 +871,14 @@ const SettingsModule = (() => {
             document.getElementById('storage-usage-content').innerHTML =
               '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
                 '<span>Used: <strong style="color:' + color + '">' + usedKB.toLocaleString() + ' KB</strong></span>' +
-                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~5 MB</span>' +
+                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~500 MB</span>' +
               '</div>' +
               '<div style="background:rgba(255,255,255,0.06);border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px;border:1px solid rgba(255,255,255,0.08)">' +
                 '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + color + ',' + color + '88);border-radius:8px;transition:width .4s ease"></div>' +
               '</div>' +
               (pct >= 70 ? '<div style="background:rgba(255,165,0,0.09);border:1px solid rgba(255,165,0,0.25);border-radius:6px;padding:8px 12px;font-size:.80rem;color:#ffa502;margin-bottom:10px"><i class="fa fa-triangle-exclamation"></i> ' +
-                (pct >= 90 ? '<strong>Critical!</strong> উপরে "Auto-Clean" বাটন চাপুন। পুরনো data Supabase-এ safe আছে।' :
-                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই "Auto-Clean" করুন।') +
+                (pct >= 90 ? '<strong>Critical!</strong> Storage ' + pct + '% পূর্ণ। পুরনো data Supabase-এ safe আছে।' :
+                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই পুরনো data archive করুন।') +
               '</div>' : '') +
               '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.5px">TABLE BREAKDOWN</div>' +
               (tableRows || '<div style="color:var(--text-muted);font-size:.78rem">Data এখনো যোগ হয়নি।</div>');
@@ -1144,11 +1149,12 @@ const SettingsModule = (() => {
               <th>Action</th>
               <th>Type</th>
               <th>Description</th>
+              <th>Status</th>
               <th style="text-align:right">⏱ Time</th>
             </tr>
           </thead>
           <tbody>
-            ${logs.length === 0 ? `<tr><td colspan="5" class="no-data"><i class="fa fa-inbox"></i> No activity log</td></tr>` :
+            ${logs.length === 0 ? `<tr><td colspan="6" class="no-data"><i class="fa fa-inbox"></i> No activity log</td></tr>` :
               logs.slice(0, 100).map(l => `
                 <tr>
                   <td><i class="fa ${l.action === 'add' ? 'fa-plus-circle' : l.action === 'edit' ? 'fa-pen' : 'fa-trash'}"
@@ -1156,6 +1162,7 @@ const SettingsModule = (() => {
                   <td><span class="badge ${l.action === 'add' ? 'badge-success' : l.action === 'edit' ? 'badge-info' : 'badge-error'}" style="text-transform:uppercase">${l.action}</span></td>
                   <td style="font-size:.82rem">${l.type || '—'}</td>
                   <td style="font-size:.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.description || ''}</td>
+                  <td style="font-size:.82rem">${l.status === 'failed' ? '<span style="color:var(--error);font-weight:600">Failed</span>' : '<span style="color:var(--success);font-weight:600">Success</span>'}</td>
                   <td style="text-align:right;font-size:.78rem;color:var(--text-muted)">${l.time || '—'}</td>
                 </tr>
               `).join('')
@@ -1190,7 +1197,7 @@ const SettingsModule = (() => {
               `<tr><td colspan="6" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle bin is empty.</td></tr>` :
               deleted.map((d, i) => `
                 <tr>
-                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : 'fa-file'}"></i></td>
+                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : 'fa-file'}"></i></td>
                   <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || '—'}</td>
                   <td><span class="badge badge-muted">${d.type || 'item'}</span></td>
                   <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || '—'}</td>
@@ -2061,7 +2068,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildAdvancePaymentSection() {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const advancesWithCalc = advances.map((a, i) => {
       const returns = a.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2147,7 +2154,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildInvestmentSection() {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const invWithCalc = investments.map((inv, i) => {
       const returns = inv.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2250,7 +2257,7 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
     const monitor = typeof SyncEngine !== 'undefined' ? SyncEngine.getDataMonitor() : {};
-    const recentChanges = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const totalRecords = Object.values(monitor).reduce((s, v) => s + (v.localCount || 0), 0);
 
     return `
@@ -2319,8 +2326,12 @@ ${expenseEntries.length > 0 ? `
   }
 
   function saveConfig(cfg) {
-    if (cfg.id && SupabaseSync.getById(DB.settings, cfg.id)) {
-      SupabaseSync.update(DB.settings, cfg.id, cfg);
+    // সবসময় প্রথম existing row আপডেট করো — duplicate settings row তৈরি হবে না
+    const allSettings = SupabaseSync.getAll(DB.settings);
+    if (allSettings.length > 0) {
+      const existingId = allSettings[0].id;
+      cfg.id = existingId;
+      SupabaseSync.update(DB.settings, existingId, cfg);
     } else {
       cfg.id = cfg.id || SupabaseSync.generateId();
       SupabaseSync.insert(DB.settings, cfg);
@@ -2334,6 +2345,25 @@ ${expenseEntries.length > 0 ? `
     overlay.innerHTML = buildModalHTML();
     activeTab = savedTab;
     switchTab(savedTab);
+    setTimeout(_initSettingsDatePickers, 20);
+  }
+
+  // ✅ Req 4: init Flatpickr DD/MM/YYYY on all non-disabled date inputs in the settings overlay
+  function _initSettingsDatePickers() {
+    if (typeof flatpickr === 'undefined') return;
+    const overlay = document.getElementById('settings-overlay');
+    if (!overlay) return;
+    overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
+      if (!el._flatpickr) {
+        flatpickr(el, {
+          dateFormat: 'Y-m-d',   // backend keeps YYYY-MM-DD
+          altInput:   true,       // separate visible input
+          altFormat:  'd/m/Y',   // user sees DD/MM/YYYY
+          allowInput: true,
+          locale:     { firstDayOfWeek: 1 },
+        });
+      }
+    });
   }
 
   // ─── SyncGuard Panel ──────────────────────────────────────────
@@ -2362,7 +2392,7 @@ ${expenseEntries.length > 0 ? `
 
   // ─── Activity Log ─────────────────────────────────────────────
   function getActivityLogs() {
-    return JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
   }
 
   function logActivity(action, type, description) {
@@ -2385,7 +2415,7 @@ ${expenseEntries.length > 0 ? `
   // ─── Recycle Bin (wfa_recycle_bin — separate from sync tombstones wfa_deletedItems) ───
   function getDeletedItems() {
     try {
-      const raw = JSON.parse(localStorage.getItem('wfa_recycle_bin') || '[]');
+      const raw = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
       return Array.isArray(raw) ? raw : [];
     } catch {
       return [];
@@ -2393,6 +2423,41 @@ ${expenseEntries.length > 0 ? `
   }
 
   function restoreItem(index) {
+    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    const item = bin[index];
+
+    // ✅ Req 2: handle settings-specific types locally (categories & sub-accounts)
+    if (item && item.table === 'settings_category') {
+      const { key, item: catItem } = item.data || {};
+      if (key && catItem) {
+        const cfg = getConfig();
+        const items = Utils.safeJSON(cfg[key]) || [];
+        if (!items.includes(catItem)) items.push(catItem);
+        cfg[key] = JSON.stringify(items);
+        saveConfig(cfg);
+      }
+      bin.splice(index, 1);
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
+      refreshModal();
+      return;
+    }
+
+    if (item && item.table === 'settings_subaccount') {
+      const subData = item.data;
+      if (subData) {
+        const subs = getSubAccounts();
+        if (!subs.find(s => s.username === subData.username)) subs.push(subData);
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      }
+      bin.splice(index, 1);
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
+      refreshModal();
+      return;
+    }
+
+    // Standard restore via SupabaseSync for all other DB records
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
         Utils.toast('Item restored and synced', 'success');
@@ -2418,7 +2483,7 @@ ${expenseEntries.length > 0 ? `
 
   // ─── Keep Record (Notes) ──────────────────────────────────────
   function getKeepRecords() {
-    return JSON.parse(localStorage.getItem('wfa_keep_records') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_keep_records'), []);
   }
 
   function addNote() {
@@ -2584,7 +2649,7 @@ ${expenseEntries.length > 0 ? `
       const available = Utils.getAccountBalance(method);
       if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
     }
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     advances.push({ person, amount, method, date, note, returns: [] });
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     SupabaseSync.insert(DB.finance, {
@@ -2597,7 +2662,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteAdvance(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     if (!advances[idx]) return;
     if (!confirm(`Delete advance for "${advances[idx].person}"?`)) return;
     advances.splice(idx, 1);
@@ -2607,7 +2672,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function openReturnAdvanceModal(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -2652,7 +2717,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-adv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-adv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-adv-note')?.value || '';
-    const advances  = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances  = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const totalReturned = (a.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -2672,7 +2737,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewAdvanceLedger(idx) {
-    const advances = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -2787,7 +2852,7 @@ ${expenseEntries.length > 0 ? `
     if (!source) { Utils.toast('Source/Investor name required', 'error'); return; }
     if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
     if (!method) { Utils.toast('Account required', 'error'); return; }
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     investments.push({ source, amount, method, date, note, returns: [] });
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
@@ -2800,7 +2865,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteInvestment(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     if (!investments[idx]) return;
     if (!confirm(`Delete investment from "${investments[idx].source}"?`)) return;
     investments.splice(idx, 1);
@@ -2810,7 +2875,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function openReturnInvestmentModal(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -2855,7 +2920,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-inv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-inv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-inv-note')?.value || '';
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const totalReturned = (inv.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -2875,7 +2940,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewInvestmentLedger(idx) {
-    const investments = JSON.parse(localStorage.getItem('wfa_investments') || '[]');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -2950,7 +3015,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function showMonitorSnapshot(index) {
-    const recentChanges = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
+    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const item = recentChanges[index];
     if (!item) return showLiveAccountSnapshot();
 
@@ -3154,68 +3219,6 @@ ${expenseEntries.length > 0 ? `
     Utils.toast(`Auto-fix: ${fixes} repairs`, 'success');
   }
 
-  // ── Storage Cleanup (Auto-Clean button) ──────────────────────
-  function runStorageCleanup() {
-    if (!confirm('Auto-Clean করলে পুরনো attendance, finance ও notice entries local cache থেকে মুছবে। Supabase cloud-এ সব data safe থাকবে। চালু করবেন?')) return;
-
-    let totalFreed = 0;
-    const trimList = [
-      { key: 'finance_ledger', keep: 150 },
-      { key: 'attendance',     keep: 300 },
-      { key: 'notices',        keep: 30  },
-      { key: 'visitors',       keep: 50  },
-    ];
-
-    trimList.forEach(({ key, keep }) => {
-      const rows = SupabaseSync.getAll(key);
-      if (rows.length > keep) {
-        SupabaseSync.setAll(key, rows.slice(0, keep));
-        totalFreed += rows.length - keep;
-      }
-    });
-
-    // Activity log trim
-    try {
-      const log = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]');
-      if (log.length > 50) {
-        localStorage.setItem('wfa_activity_log', JSON.stringify(log.slice(0, 50)));
-        totalFreed += log.length - 50;
-      }
-      const rc = JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');
-      if (rc.length > 20) {
-        localStorage.setItem('wfa_recent_changes', JSON.stringify(rc.slice(0, 20)));
-        totalFreed += rc.length - 20;
-      }
-    } catch { /* ignore */ }
-
-    // Refresh storage display
-    const contentEl = document.getElementById('storage-usage-content');
-    if (contentEl) {
-      let total = 0;
-      for (const k in localStorage) {
-        if (Object.prototype.hasOwnProperty.call(localStorage, k))
-          total += (localStorage.getItem(k).length + k.length) * 2;
-      }
-      const kb = Math.round(total / 1024);
-      const pct = Math.min(100, Math.round(kb / 5120 * 100));
-      const color = pct >= 80 ? '#ff4757' : pct >= 60 ? '#ffa502' : '#2ed573';
-      contentEl.innerHTML = `
-        <div style="margin-bottom:8px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span>Used: <strong>${kb} KB</strong> / ~5120 KB</span>
-            <span style="color:${color}">${pct}%</span>
-          </div>
-          <div style="height:8px;background:rgba(255,255,255,0.1);border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:${color};border-radius:4px;transition:width .4s"></div>
-          </div>
-        </div>
-        <div style="color:var(--success);font-size:.82rem">✅ Auto-Clean সম্পন্ন! ${totalFreed} পুরনো entry সরানো হয়েছে। সব data Supabase cloud-এ safe আছে।</div>
-      `;
-    }
-
-    Utils.toast(`✅ Auto-Clean: ${totalFreed} পুরনো entry মুছা হয়েছে`, 'success');
-    logActivity('edit', 'settings', `Storage auto-cleaned: ${totalFreed} entries freed`);
-  }
 
   // ════════════════════════════════════════════════════════════════
   // LEGACY FUNCTIONS (Preserved)
@@ -3233,7 +3236,7 @@ ${expenseEntries.length > 0 ? `
     cfg.id = cfg.id || SupabaseSync.generateId();
     cfg.academy_name = document.getElementById('set-academy-name')?.value || cfg.academy_name;
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
-    cfg.running_batch = document.getElementById('set-running-batch')?.value ?? cfg.running_batch;
+    cfg.running_batch = document.getElementById('set-running-batch')?.value || cfg.running_batch; // ✅ || so empty string falls back to synced value
     cfg.expense_start_date = document.getElementById('set-expense-start')?.value || cfg.expense_start_date;
     cfg.expense_end_date = new Date().toISOString().split('T')[0];
     saveConfig(cfg);
@@ -3247,7 +3250,7 @@ ${expenseEntries.length > 0 ? `
     const oldPw = document.getElementById('set-old-pw')?.value;
     const newPw = document.getElementById('set-new-pw')?.value;
     const confirmPw = document.getElementById('set-confirm-pw')?.value;
-    const current = cfg.admin_password || 'admin123';
+    const current = cfg.admin_password || '';
 
     // Compare: support both legacy plaintext and new hashed format
     const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
@@ -3277,8 +3280,23 @@ ${expenseEntries.length > 0 ? `
 
     // Store SHA-256 hash — never plaintext
     cfg.admin_password = await _hashPw(newPw);
-    cfg.id = cfg.id || SupabaseSync.generateId();
     saveConfig(cfg);
+
+    // Save সফল হয়েছে কিনা verify করো
+    const verified = getConfig();
+    if (verified.admin_password !== cfg.admin_password) {
+      Utils.toast('⚠️ Password save failed — please try again!', 'error');
+      return;
+    }
+
+    // Input fields পরিষ্কার করো
+    const oldEl = document.getElementById('set-old-pw');
+    const newEl = document.getElementById('set-new-pw');
+    const cfmEl = document.getElementById('set-confirm-pw');
+    if (oldEl) oldEl.value = '';
+    if (newEl) newEl.value = '';
+    if (cfmEl) cfmEl.value = '';
+
     logActivity('edit', 'security', 'Password changed');
     Utils.toast('Password changed successfully ✅', 'success');
   }
@@ -3628,12 +3646,23 @@ ${expenseEntries.length > 0 ? `
       if (cfg) {
         const existing = SupabaseSync.getAll(DB.settings);
         if (!existing.length) {
+          // SECURITY: admin_password কখনো backup থেকে import করা হবে না
+          // Backup-এ plaintext পাসওয়ার্ড থাকলেও এখানে সেট হবে না
           SupabaseSync.insert(DB.settings, {
             academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
             address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
-            admin_password: cfg.password || cfg.admin_password || 'admin123',
+            // admin_password intentionally excluded — set via Settings → Change Password
           });
           total += 1;
+        } else {
+          // Existing settings থাকলে শুধু non-sensitive fields আপডেট করো
+          const existingCfg = { ...existing[0] };
+          existingCfg.academy_name = cfg.academyName || cfg.academy_name || existingCfg.academy_name;
+          // admin_password কখনো backup থেকে overwrite হবে না
+          delete existingCfg.admin_password;
+          const currentPw = existing[0].admin_password;
+          if (currentPw) existingCfg.admin_password = currentPw;
+          SupabaseSync.update(DB.settings, existingCfg.id, existingCfg);
         }
       }
     }
@@ -3720,7 +3749,7 @@ ${expenseEntries.length > 0 ? `
 
   // ── Auto Snapshots ──────────────────────────────────────────────
   function getSnapshots() {
-    return JSON.parse(localStorage.getItem('wfa_auto_snapshots') || '[]');
+    return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
 
   function saveSnapshot(manual = false) {
@@ -3738,7 +3767,12 @@ ${expenseEntries.length > 0 ? `
     const data = {};
     if (typeof DB !== 'undefined' && typeof SupabaseSync !== 'undefined') {
       Object.keys(DB).forEach(key => {
-        data[DB[key]] = SupabaseSync.getAll(DB[key]);
+        // Security: admin_password, security_answer বাদ
+        let rows = SupabaseSync.getAll(DB[key]);
+        if (DB[key] === 'settings') {
+          rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
+        }
+        data[DB[key]] = rows;
       });
     }
 
@@ -3750,12 +3784,55 @@ ${expenseEntries.length > 0 ? `
       data: data
     });
 
-    if (snapshots.length > 7) snapshots.length = 7; 
+    if (snapshots.length > 10) snapshots.length = 10; // ৭ → ১০ রাখবে
 
     localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
     if (manual) {
-      if (typeof Utils !== 'undefined') Utils.toast('📸 Manual Snapshot Saved', 'success');
+      if (typeof Utils !== 'undefined') Utils.toast('📸 Snapshot Saved!', 'success');
       refreshModal();
+    }
+  }
+
+  // ── Daily Auto Backup Download ────────────────────────────────
+  function tryDailyAutoDownload() {
+    try {
+      const today   = new Date().toISOString().split('T')[0];
+      const lastDay = localStorage.getItem('wfa_last_auto_download') || '';
+      if (lastDay === today) return; // আজকে already হয়েছে
+
+      if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return;
+      const students = SupabaseSync.getAll(DB.students || 'students');
+      if (!students || students.length === 0) return; // data ready না
+
+      // exportAllData এর মতো করে data নাও
+      const allData = {};
+      for (const [key, tableName] of Object.entries(DB)) {
+        let rows = SupabaseSync.getAll(tableName);
+        if (tableName === 'settings') {
+          rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
+        }
+        allData[tableName] = rows;
+      }
+      allData._exportedAt = new Date().toISOString();
+      allData._version = '2';
+
+      const json = JSON.stringify(allData, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `wfa_backup_${today}.json`;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+
+      localStorage.setItem('wfa_last_auto_download', today);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('📥 Daily auto backup downloaded: wfa_backup_' + today + '.json', 'success', 6000);
+      }
+      console.info('[AutoBackup] ✅ Daily backup downloaded for', today);
+    } catch(e) {
+      console.warn('[AutoBackup] Daily download failed:', e);
     }
   }
 
@@ -3911,7 +3988,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function getSubAccounts() {
-     return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
+     return Utils.safeJSON(localStorage.getItem('wfa_sub_accounts'), []);
   }
 
   /* ── SHA-256 password hashing (Web Crypto API) ───────────────────────
@@ -4034,22 +4111,34 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteSubAccount(idx) {
-     const subs = getSubAccounts();
-     const target = subs[idx];
-     if(target) {
-        subs.splice(idx, 1);
-        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
-        logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
-        if(typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
-        refreshModal();
-     }
+    const subs = getSubAccounts();
+    const target = subs[idx];
+    if (target) {
+      // ✅ Req 2: push to recycle bin before deleting so it can be restored
+      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+      bin.unshift({
+        table: 'settings_subaccount',
+        type:  'subaccount',
+        name:  `@${target.username}`,
+        data:  target,
+        deletedAt: new Date().toISOString(),
+      });
+      if (bin.length > 500) bin.length = 500;
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+
+      subs.splice(idx, 1);
+      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
+      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
+      refreshModal();
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
-    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, restoreSnapshot, downloadSnapshot, deleteSnapshot,
+    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,
@@ -4072,7 +4161,7 @@ ${expenseEntries.length > 0 ? `
     addInvestment, saveInvestment, deleteInvestment,
     openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
     openSettingsInternalModal, closeSettingsInternalModal,
-    runAutoHeal, runSyncCheck, runAutoFix, runStorageCleanup,
+    runAutoHeal, runSyncCheck, runAutoFix,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
   };
 })();
@@ -4100,7 +4189,7 @@ window.SettingsModule = SettingsModule;
   // Inject colors immediately
   const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${savedTheme}_${savedSidebar}`);
   if(sideSavedJSON) {
-      const s = JSON.parse(sideSavedJSON);
+      const s = Utils.safeJSON(sideSavedJSON);
       const styleTag = document.createElement('style');
       styleTag.id = 'custom-sidebar-overrides';
       styleTag.textContent = `
@@ -4165,5 +4254,3 @@ window.SettingsModule = SettingsModule;
   document.head.appendChild(styleTag);
 
 })();
-
-

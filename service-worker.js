@@ -2,7 +2,8 @@
 // Wings Fly Aviation Academy — Service Worker
 // Cache version: update BUILD_DATE when deploying new code
 // ============================================================
-const BUILD_DATE = '2026-04-14'; // ← code update করলে এই date বদলান
+// ✅ Fix #13: BUILD_DATE auto-generated — no more manual update needed
+const BUILD_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD always current
 const CACHE_NAME = `wfa-v3-${BUILD_DATE}`;
 
 const STATIC_ASSETS = [
@@ -16,6 +17,7 @@ const STATIC_ASSETS = [
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',
   './js/core/sync-guard.js',
+  './js/core/integrity-guard.js',
   './js/core/app.js',
   './js/core/utils.js',
   './js/ui/dashboard.js',
@@ -37,6 +39,7 @@ const STATIC_ASSETS = [
   './assets/favicon.ico',
   './assets/icon-192.png',
   './assets/icon-512.png',
+  './migrate.html',
 ];
 
 self.addEventListener('install', (e) => {

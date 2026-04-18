@@ -5,6 +5,9 @@
 const DashboardModule = (() => {
 
   function getSettings() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      return { runningBatch: '', expenseMonth: '', monthlyTarget: 0 };
+    }
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     return {
       runningBatch:  cfg.running_batch  || '',
@@ -40,6 +43,9 @@ const DashboardModule = (() => {
   }
 
   function getStats() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      return { totalStudents:0,totalIncome:0,totalExpense:0,netProfit:0,totalBalance:0,totalDue:0,loanOut:0,loanIn:0,rTotalStudents:0,rTotalIncome:0,rTotalExpense:0,rNetProfit:0,students:[],finance:[],balances:{},notices:[],loans:[],settings:getSettings(),advances:[],advancesAll:[],advanceTotalGiven:0,advanceTotalReturned:0,advanceTotalPending:0 };
+    }
     const students  = SupabaseSync.getAll(DB.students);
     const finance   = SupabaseSync.getAll(DB.finance);
     const accounts  = normalizeAccounts(SupabaseSync.getAll(DB.accounts));

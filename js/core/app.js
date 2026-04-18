@@ -91,22 +91,71 @@ const App = (() => {
   }
 
   async function login(username, password) {
-    const settings = SupabaseSync.getAll(DB.settings)[0] || {};
-    const correct = settings.admin_password || 'admin123';
+    // ✅ Fix #1: auto-cleanup duplicate settings rows before reading
+    // Prevents login failure when admin_password is in row[1] instead of row[0]
+    const rawList = SupabaseSync.getAll(DB.settings);
+    if (rawList.length > 1) cleanupDuplicateSettings();
+    const settingsList = SupabaseSync.getAll(DB.settings);
+    // Prefer the row that has admin_password set (guards against partial duplicates)
+    const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
+    const storedPw = settings.admin_password;
     const normalizedUsername = String(username || '').trim();
 
-    // ── Admin login: support both plaintext (legacy) and SHA-256 hash ──
+
+    // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
       const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
       let adminOk = false;
-      if (_isHashed(correct)) {
-        // Stored password is hashed — hash the input and compare
+
+      if (!storedPw) {
+        // ✅ Fix #1 (enhanced): Only allow first-time setup if there is truly NO data yet.
+        // If students/finance records exist, we're on a new browser before sync — refuse login.
+        const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
+                                (SupabaseSync.getAll(DB.finance).length  > 0);
+        if (hasExistingData) {
+          // Track retry attempts — after 3 attempts, allow setup anyway
+          const retryKey = '_loginRetryCount';
+          window[retryKey] = (window[retryKey] || 0) + 1;
+          const errEl = document.getElementById('login-error');
+
+          if (window[retryKey] < 4) {
+            // Sync is still loading settings — refuse and guide user
+            const waitSec = 5 * window[retryKey];
+            if (errEl) {
+              errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]}/3)</small>`;
+              errEl.style.display = 'block';
+            }
+            return;
+          } else {
+            // After 3 retries, allow forced setup with a warning
+            if (errEl) {
+              errEl.innerHTML = `⚠️ Settings could not be loaded from cloud. Setting new password.`;
+              errEl.style.display = 'block';
+            }
+            window[retryKey] = 0;
+          }
+        }
+        // Genuine first-time setup — accept any non-empty password and save it
+        adminOk = !!password;
+        if (adminOk) {
+          const newHash = await _hashPw(password);
+          settings.admin_password = newHash;
+          if (settings.id) {
+            SupabaseSync.update(DB.settings, settings.id, settings);
+          } else {
+            settings.id = SupabaseSync.generateId();
+            SupabaseSync.insert(DB.settings, settings);
+          }
+        }
+      } else if (_isHashed(storedPw)) {
+        // Stored password is hashed — hash input and compare
         const inputHash = await _hashPw(password);
-        adminOk = inputHash === correct;
+        adminOk = inputHash === storedPw;
       } else {
         // Legacy plaintext comparison
-        adminOk = password === correct;
+        adminOk = password === storedPw;
       }
+
       if (adminOk) {
         localStorage.setItem('wfa_logged_in', 'true');
         localStorage.setItem('wfa_user_role', 'admin');
@@ -123,7 +172,6 @@ const App = (() => {
     const inputHash = await _hashPw(password);
     const sub = getSubAccounts().find((s) => {
       if (s.username !== normalizedUsername) return false;
-      // Hashed password (new format) অথবা legacy plaintext (migration এ ধরা না পড়লে)
       const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
       return isHashed ? s.password === inputHash : s.password === password;
     });
@@ -138,6 +186,80 @@ const App = (() => {
 
     return false;
   }
+
+  // ── Emergency Password Reset (console only) ────────────────────────
+  // Usage: App.resetAdminPassword('newPassword')
+  // ✅ Security fix #2: now requires security question answer to prevent DevTools abuse
+  async function resetAdminPassword(newPassword) {
+    if (!newPassword || newPassword.length < 4) {
+      console.error('[Auth] Password must be at least 4 characters');
+      return false;
+    }
+    // Require security answer verification before allowing password reset
+    const settingsList = SupabaseSync.getAll(DB.settings);
+    const settings = settingsList[0] || {};
+    const question = settings.security_question || 'Security Question';
+    const correctAnswer = (settings.security_answer || '').toLowerCase().trim();
+
+    if (!correctAnswer) {
+      console.error('[Auth] ❌ No security answer configured — password reset blocked for safety. Configure a security question in Settings first.');
+      return false;
+    }
+    const givenAnswer = window.prompt(`🔒 Security Verification Required\n\nQuestion: ${question}\n\nEnter your answer:`);
+    if (!givenAnswer || givenAnswer.toLowerCase().trim() !== correctAnswer) {
+      console.error('[Auth] ❌ Incorrect security answer. Password reset denied.');
+      return false;
+    }
+
+    // Cleanup duplicates first, then reset
+    cleanupDuplicateSettings();
+    const freshList = SupabaseSync.getAll(DB.settings);
+    const fresh = freshList[0] || {};
+    const newHash = await _hashPw(newPassword);
+    fresh.admin_password = newHash;
+    if (fresh.id) {
+      SupabaseSync.update(DB.settings, fresh.id, fresh);
+    } else {
+      fresh.id = SupabaseSync.generateId();
+      SupabaseSync.insert(DB.settings, fresh);
+    }
+    console.log('%c[Auth] ✅ Admin password reset successfully! Login with your new password.', 'color: #00ff88; font-weight: bold');
+    return true;
+  }
+
+
+  // ── Duplicate Settings Cleanup ─────────────────────────────────────
+  // যদি database-এ একাধিক settings row থাকে, প্রথমটি রেখে বাকিগুলো মুছে দাও
+  // Usage (console): App.cleanupDuplicateSettings()
+  function cleanupDuplicateSettings() {
+    try {
+      const allSettings = SupabaseSync.getAll(DB.settings);
+      if (allSettings.length <= 1) return 0;
+
+      // প্রথম row রাখো, বাকিগুলো remove করো
+      const keeper = allSettings[0];
+      let removed = 0;
+      for (let i = 1; i < allSettings.length; i++) {
+        const dup = allSettings[i];
+        // যদি duplicate-এ admin_password থাকে এবং keeper-এ না থাকে, সেটা merge করো
+        if (dup.admin_password && !keeper.admin_password) {
+          keeper.admin_password = dup.admin_password;
+          SupabaseSync.update(DB.settings, keeper.id, keeper);
+        }
+        // ✅ সঠিক function: remove (delete নয়)
+        SupabaseSync.remove(DB.settings, dup.id);
+        removed++;
+      }
+      if (removed > 0) {
+        console.log(`%c[Auth] Removed ${removed} duplicate settings row(s). Login will now use the correct password.`, 'color: #00d4ff; font-weight: bold');
+      }
+      return removed;
+    } catch (e) {
+      console.error('[Auth] cleanupDuplicateSettings error:', e);
+      return 0;
+    }
+  }
+
 
   function logout() {
     localStorage.removeItem('wfa_logged_in');
@@ -239,6 +361,23 @@ const App = (() => {
 
   // ── Module Rendering ──────────────────────────────────────
   function renderModule(section) {
+    // ✅ Phase 3: Show skeleton loading state for data-heavy modules
+    const heavyModules = {
+      'students':  'students-content',
+      'finance':   'finance-content',
+      'loans':     'loans-content',
+      'hr-staff':  'hr-staff-content',
+      'visitors':  'visitors-content',
+      'salary':    'salary-content',
+    };
+    const containerId = heavyModules[section];
+    if (containerId && typeof Utils !== 'undefined' && Utils.loadingSkeleton) {
+      const container = document.getElementById(containerId);
+      if (container && !container.innerHTML.trim()) {
+        container.innerHTML = Utils.loadingSkeleton(6);
+      }
+    }
+
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
@@ -257,7 +396,18 @@ const App = (() => {
         case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
       }
     } catch (e) {
-      console.warn(`[App] Error rendering ${section}:`, e);
+      console.error(`[App] Error rendering ${section}:`, e);
+      const container = document.getElementById(`${section}-content`);
+      if (container) {
+        container.innerHTML = `<div style="padding:40px;text-align:center;color:#ff4757">
+          <i class="fa fa-circle-exclamation" style="font-size:2rem;margin-bottom:10px;display:block"></i>
+          <strong>Module load error</strong><br>
+          <small style="color:#888">${e.message}</small>
+          <br><button onclick="App.navigateTo('dashboard')" style="margin-top:16px;padding:8px 20px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:8px;cursor:pointer">
+            ← Dashboard-এ ফিরুন
+          </button>
+        </div>`;
+      }
     }
   }
 
@@ -292,6 +442,20 @@ const App = (() => {
   function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('open');
+    // ✅ Fix #5: show/hide overlay for mobile sidebar dismiss
+    let overlay = document.getElementById('sidebar-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'sidebar-overlay';
+      overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:149;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px)';
+      overlay.addEventListener('click', () => {
+        sidebar && sidebar.classList.remove('open');
+        overlay.style.display = 'none';
+      });
+      document.body.appendChild(overlay);
+    }
+    const isOpen = sidebar && sidebar.classList.contains('open');
+    overlay.style.display = isOpen ? 'block' : 'none';
   }
 
   // ── Event Bindings ────────────────────────────────────────
@@ -348,7 +512,8 @@ const App = (() => {
         if (matchedStudents.length > 0) {
           navigateTo('students');
           setTimeout(() => {
-            const sInput = document.getElementById('student-search');
+            // ✅ Use correct ID: 'stu-search' (as defined in students.js)
+            const sInput = document.getElementById('stu-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
           }, 300);
         } else if (matchedStaff.length > 0) {
@@ -366,13 +531,13 @@ const App = (() => {
         } else if (matchedFinance.length > 0) {
           navigateTo('finance');
           setTimeout(() => {
-            const sInput = document.getElementById('finance-search');
+            const sInput = document.getElementById('fin-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
           }, 300);
         } else {
           Utils.toast('"' + Utils.esc(e.target.value) + '" — কোথাও পাওয়া যায়নি', 'info');
         }
-      }, 400));
+      }, 300)); // ✅ Fix #6: reduced from 400ms → 300ms for snappier search response
     }
 
     // Logout
@@ -397,7 +562,11 @@ const App = (() => {
         const btnEl = loginForm.querySelector('button[type="submit"]');
         if (btnEl) { btnEl.disabled = true; btnEl.textContent = 'Logging in...'; }
         const ok = await login(un, pw);
-        if (btnEl) { btnEl.disabled = false; btnEl.textContent = 'Login'; }
+        if (btnEl) {
+          btnEl.disabled = false;
+          // ✅ Restore full HTML structure to preserve shimmer animation
+          btnEl.innerHTML = '<span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span><div class="login-btn-shimmer"></div>';
+        }
         if (!ok) {
           if (errEl) {
             errEl.textContent = 'Username or password incorrect!';
@@ -408,15 +577,20 @@ const App = (() => {
       });
     }
 
-    // Quick Add toggle
-    const quickAddBtn = document.getElementById('btn-quick-add');
+    // Quick Add toggle — ✅ Fix #6: guard against duplicate listeners on each navigate
+    const quickAddBtn  = document.getElementById('btn-quick-add');
     const quickAddMenu = document.getElementById('quick-add-menu');
-    if (quickAddBtn && quickAddMenu) {
+    if (quickAddBtn && quickAddMenu && !quickAddBtn._qaListenerAttached) {
+      quickAddBtn._qaListenerAttached = true;
       quickAddBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         quickAddMenu.style.display = quickAddMenu.style.display === 'none' ? 'block' : 'none';
       });
-      document.addEventListener('click', () => { quickAddMenu.style.display = 'none'; });
+      document.addEventListener('click', (e) => {
+        if (!quickAddBtn.contains(e.target) && !quickAddMenu.contains(e.target)) {
+          quickAddMenu.style.display = 'none';
+        }
+      });
     }
 
     // Theme toggle
@@ -445,12 +619,30 @@ const App = (() => {
     window.addEventListener('wfa:synced', () => {
       renderModule(currentSection);
       updateNotifCount();
+      // Refresh notice dot after sync (new notice may have arrived from cloud)
+      try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.updateNoticeDot(); } catch { /* ignore */ }
     });
+
+    // Auto Logout (Session Timeout)
+    let idleTimer;
+    function resetIdleTimer() {
+      clearTimeout(idleTimer);
+      if (isLoggedIn()) {
+        idleTimer = setTimeout(() => {
+          logout();
+          Utils.toast('Session expired due to inactivity', 'warning', 5000);
+        }, 30 * 60 * 1000); // 30 minutes
+      }
+    }
+    document.addEventListener('click', resetIdleTimer);
+    document.addEventListener('keypress', resetIdleTimer);
+    document.addEventListener('mousemove', Utils.debounce(resetIdleTimer, 1000));
+    document.addEventListener('touchstart', resetIdleTimer);
   }
 
   // ── Init ──────────────────────────────────────────────────
   function init() {
-    // Apply saved theme
+    // Apply saved theme immediately (doesn't need IDB)
     const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeBtn = document.getElementById('btn-theme-toggle');
@@ -458,20 +650,68 @@ const App = (() => {
 
     bindEvents();
 
-    if (isLoggedIn()) {
-      showApp(false);
-    } else {
-      showLogin();
-    }
-
-    updateNotifCount();
+    // ── Wait for IndexedDB to be ready before login check ──
+    // WFA_IDB.init() is async — if we call isLoggedIn/showApp before IDB
+    // cache is loaded, SupabaseSync.getAll() returns [] and password
+    // checks fail silently. onReady() guarantees the in-memory cache
+    // is populated before any auth logic runs.
+    WFA_IDB.onReady(() => {
+      // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
+      cleanupDuplicateSettings();
+      if (isLoggedIn()) {
+        showApp(false);
+      } else {
+        showLogin();
+      }
+      updateNotifCount();
+    });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount };
+  return { init, navigateTo, login, logout, isLoggedIn, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);
 window.App = App;
+
+// ── Auto Snapshot + Daily Backup Scheduler ───────────────────────────
+// App load এর ৩০ সেকেন্ড পরে প্রথমবার চলবে, তারপর প্রতি ঘণ্টায়
+(function startAutoBackupScheduler() {
+  const INTERVAL_MS = 60 * 60 * 1000; // ১ ঘণ্টা
+
+  function runScheduledTasks() {
+    try {
+      if (typeof SettingsModule !== 'undefined') {
+        // Auto snapshot (SettingsModule নিজেই ১ ঘণ্টার throttle check করে)
+        SettingsModule.saveSnapshot(false);
+        // Daily backup download (আজকে already হলে skip করবে)
+        SettingsModule.tryDailyAutoDownload();
+      }
+    } catch(e) {
+      console.warn('[Scheduler] Task error:', e);
+    }
+  }
+
+  function initScheduler() {
+    if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
+      WFA_IDB.onReady(() => {
+        setTimeout(runScheduledTasks, 30 * 1000);
+        setInterval(runScheduledTasks, INTERVAL_MS);
+        console.info('[Scheduler] Auto snapshot + daily backup scheduler started');
+      });
+    } else {
+      setTimeout(() => {
+        runScheduledTasks();
+        setInterval(runScheduledTasks, INTERVAL_MS);
+      }, 30 * 1000);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScheduler);
+  } else {
+    initScheduler();
+  }
+})();
 
 // ── Date Input locale fix: force DD/MM/YYYY everywhere ──────────────
 (function enforceDateLocale() {
@@ -480,6 +720,18 @@ window.App = App;
       if (!el.hasAttribute('data-locale-fixed')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
+        // ✅ Phase 2: Auto-init Flatpickr for consistent DD/MM/YYYY display
+        if (typeof flatpickr !== 'undefined' && !el._flatpickr && !el.closest('.flatpickr-calendar')) {
+          try {
+            flatpickr(el, {
+              dateFormat: 'Y-m-d',
+              altInput: true,
+              altFormat: 'd/m/Y',
+              allowInput: true,
+              locale: { firstDayOfWeek: 1 },
+            });
+          } catch { /* ignore if already initialized */ }
+        }
       }
     });
   }
@@ -489,3 +741,25 @@ window.App = App;
   const observer = new MutationObserver(fixDateInputs);
   observer.observe(document.body, { childList: true, subtree: true });
 })();
+
+// ── Phase 4.2: Production Console Log Management ────────────────────
+// Enable verbose logs: localStorage.setItem('wfa_debug_mode', 'true')
+// Disable (default): localStorage.removeItem('wfa_debug_mode')
+(function() {
+  const isDebug = localStorage.getItem('wfa_debug_mode') === 'true';
+  if (!isDebug) {
+    const _origLog = console.log;
+    const _origInfo = console.info;
+    console.log = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+        _origLog.apply(console, args);
+      }
+    };
+    console.info = function(...args) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+        _origInfo.apply(console, args);
+      }
+    };
+  }
+})();
+

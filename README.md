@@ -23,7 +23,13 @@ python -m http.server 8080
 
 ### ২. Default Login
 - Username: `admin`
-- Password: `admin123` ← প্রথম login-এর পরেই বদলান!
+- Password: **প্রথম login-এ যেকোনো password দিন** — সেটাই হ্যাশ হয়ে save হয়ে যাবে।
+  পরে Settings → Security → Change Password দিয়ে বদলান।
+
+> **⚠️ Emergency Reset:** পাসওয়ার্ড ভুলে গেলে browser console খুলে:
+> ```js
+> App.resetAdminPassword('নতুন_পাসওয়ার্ড')
+> ```
 
 ---
 

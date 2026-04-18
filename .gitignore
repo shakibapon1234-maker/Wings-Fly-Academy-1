@@ -1,0 +1,39 @@
+# ============================================================
+# Wings Fly Academy — .gitignore
+# ============================================================
+
+# Node.js dependencies — never commit these
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Package lock (optional — remove this line if you want to track it)
+# package-lock.json
+
+# Environment variables — never commit secrets
+.env
+.env.local
+.env.production
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor / IDE
+.vscode/settings.json
+.idea/
+*.suo
+*.user
+
+# Build output (if any in future)
+dist/
+build/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

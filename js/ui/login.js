@@ -160,13 +160,6 @@ const LoginUI = (() => {
             border:none;border-radius:10px;color:#fff;font-weight:800;padding:12px;
             cursor:pointer;font-size:.88rem;letter-spacing:.4px;font-family:var(--font-ui);
           "><i class="fa fa-unlock-keyhole"></i>&nbsp; Verify PIN</button>
-        </div>
-
-        <div style="text-align:center;font-size:.75rem;color:rgba(255,255,255,0.25)">
-          Default master PIN is
-          <code style="color:rgba(255,255,255,0.4);background:rgba(255,255,255,0.06);
-                       padding:1px 6px;border-radius:4px">admin123</code>
-          if it has never been changed
         </div>`;
     } else {
       /* ── Security question configured — show it ── */
@@ -236,22 +229,38 @@ const LoginUI = (() => {
   }
 
   /* ── Master PIN verify (fallback when no security question) ── */
-  function checkMasterPin() {
+  async function checkMasterPin() {
     const input  = document.getElementById('master-pin-input');
     const result = document.getElementById('master-pin-result');
     if (!input || !result) return;
 
     const settings  = _getSettings();
-    const masterPin = settings.admin_password || 'admin123';
+    const masterPin = settings.admin_password || '';
     const given     = (input.value || '').trim();
 
     if (!given) {
       result.innerHTML = `<span style="color:#ff6b7a">Please enter the master PIN.</span>`;
       return;
     }
-    // Support hashed password — check both
+
+    // ✅ Support both plaintext and SHA-256 hashed passwords
     const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
-    const match = _isHashed(masterPin) ? false : (given === masterPin); // hashed → can't verify plaintext
+    let match = false;
+    if (_isHashed(masterPin)) {
+      try {
+        const enc = new TextEncoder();
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(given));
+        const inputHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+        match = inputHash === masterPin;
+      } catch (e) {
+        // Fallback non-crypto hash (same as app.js _hashPw)
+        let hash = 0;
+        for (let i = 0; i < given.length; i++) { hash = ((hash << 5) - hash) + given.charCodeAt(i); hash |= 0; }
+        match = ('fb_' + Math.abs(hash).toString(16)) === masterPin;
+      }
+    } else {
+      match = given === masterPin;
+    }
 
     if (match) {
       result.innerHTML = `
@@ -286,3 +295,4 @@ const LoginUI = (() => {
   document.addEventListener('DOMContentLoaded', init);
   return { showForgotModal, closeForgotModal, checkSecurityAnswer, checkMasterPin };
 })();
+window.LoginUI = LoginUI;

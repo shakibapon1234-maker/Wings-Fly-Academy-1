@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en-GB">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -25,12 +25,7 @@
   <!-- SheetJS (Excel export) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <!-- Flatpickr (Date Picker) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css">
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-
-  <!-- Supabase JS v2 -->
+  <!-- Supabase JS v2 (guard implemented in supabase-config.js) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
   <!-- CSS -->
@@ -38,6 +33,10 @@
   <link rel="stylesheet" href="css/attendance.css" />
   <link rel="stylesheet" href="css/exam.css" />
   <link rel="stylesheet" href="css/print.css" media="print" />
+
+  <!-- Flatpickr — DD/MM/YYYY date picker (Req 4) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 </head>
 <body>
 
@@ -126,48 +125,49 @@
         </div>
       </div>
 
-      <nav>
-        <button class="nav-item active" data-section="dashboard">
+      <nav role="navigation" aria-label="Main navigation">
+        <button class="nav-item active" data-section="dashboard" aria-label="Dashboard">
           <i class="fa fa-gauge-high nav-icon"></i><span>Dashboard</span>
         </button>
-        <button class="nav-item" data-section="students">
+        <button class="nav-item" data-section="students" aria-label="Students">
           <i class="fa fa-user-graduate nav-icon"></i><span>Students</span>
         </button>
-        <button class="nav-item" data-section="finance">
+
+        <button class="nav-item" data-section="finance" aria-label="Finance Ledger">
           <i class="fa fa-book-open nav-icon"></i><span>Finance</span>
         </button>
-        <button class="nav-item" data-section="accounts">
+        <button class="nav-item" data-section="accounts" aria-label="Accounts">
           <i class="fa fa-wallet nav-icon"></i><span>Accounts</span>
         </button>
-        <button class="nav-item" data-section="loans">
+        <button class="nav-item" data-section="loans" aria-label="Loan Management">
           <i class="fa fa-hand-holding-dollar nav-icon"></i><span>Loans</span>
         </button>
-        <button class="nav-item" data-section="visitors">
+        <button class="nav-item" data-section="visitors" aria-label="Visitors">
           <i class="fa fa-person-walking-arrow-right nav-icon"></i><span>Visitors</span>
         </button>
-        <button class="nav-item" data-section="hr-staff">
+        <button class="nav-item" data-section="hr-staff" aria-label="HR and Staff Management">
           <i class="fa fa-users nav-icon"></i><span>HR/Staff</span>
         </button>
-        <button class="nav-item" data-section="exam">
+        <button class="nav-item" data-section="exam" aria-label="Exams">
           <i class="fa fa-clipboard-list nav-icon"></i><span>Exams</span>
         </button>
-        <button class="nav-item" data-section="salary">
+        <button class="nav-item" data-section="salary" aria-label="Salary Hub">
           <i class="fa fa-sack-dollar nav-icon"></i><span>Salary Hub</span>
         </button>
-        <button class="nav-item" data-section="attendance">
+        <button class="nav-item" data-section="attendance" aria-label="Attendance">
           <i class="fa fa-calendar-check nav-icon"></i><span>Attendance</span>
         </button>
-        <button class="nav-item" data-section="id-cards">
+        <button class="nav-item" data-section="id-cards" aria-label="ID Cards">
           <i class="fa fa-id-card nav-icon"></i><span>ID Cards</span>
         </button>
-        <button class="nav-item" data-section="certificates">
+        <button class="nav-item" data-section="certificates" aria-label="Certificates">
           <i class="fa fa-certificate nav-icon"></i><span>Certificates</span>
         </button>
-        <button class="nav-item" data-section="notice-board" id="nav-notice">
+        <button class="nav-item" data-section="notice-board" id="nav-notice" aria-label="Notice Board">
           <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
-          <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;"></span>
+          <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;" aria-hidden="true"></span>
         </button>
-        <button class="nav-item" data-section="settings">
+        <button class="nav-item" data-section="settings" aria-label="Settings">
           <i class="fa fa-gear nav-icon"></i><span>Settings</span>
         </button>
       </nav>
@@ -196,7 +196,7 @@
     </aside>
 
     <!-- ── MAIN CONTENT ── -->
-    <div id="main-content">
+    <div id="main-content" role="main" aria-label="Main content area">
 
       <!-- TOPBAR -->
       <div id="topbar">
@@ -211,6 +211,7 @@
         </div>
         <div class="topbar-actions">
           <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
+          <button class="btn btn-sm btn-ghost" id="btn-theme-toggle" title="Toggle Theme" style="font-size:1.1rem; padding: 0 8px;">✨</button>
           <button class="btn btn-sm btn-ghost" id="btn-notif" title="Due Payments" onclick="App.navigateTo('finance')">
             <i class="fa fa-bell"></i>
             <span id="notif-count" class="badge badge-error" style="font-size:.6rem;padding:1px 5px;display:none;position:relative;top:-6px;left:-4px">0</span>
@@ -352,11 +353,11 @@
   <!-- ════════════════════════════════════════
        GLOBAL MODAL
   ════════════════════════════════════════ -->
-  <div id="modal-backdrop" class="modal-backdrop">
+  <div id="modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Dialog">
     <div class="modal-box">
       <div class="modal-header">
         <span id="modal-title" class="modal-title bn"></span>
-        <button class="modal-close" onclick="Utils.closeModal()"><i class="fa fa-xmark"></i></button>
+        <button class="modal-close" onclick="Utils.closeModal()" aria-label="Close dialog"><i class="fa fa-xmark"></i></button>
       </div>
       <div id="modal-body"></div>
     </div>
@@ -365,7 +366,7 @@
   <!-- ════════════════════════════════════════
        CONFIRM DIALOG
   ════════════════════════════════════════ -->
-  <div id="confirm-backdrop" class="modal-backdrop">
+  <div id="confirm-backdrop" class="modal-backdrop" role="alertdialog" aria-modal="true" aria-label="Confirmation dialog">
     <div class="modal-box" style="max-width:420px">
       <div class="modal-header">
         <span id="confirm-title" class="modal-title">Confirm</span>
@@ -389,10 +390,13 @@
        JS — Load Order Matters
   ════════════════════════════════════════ -->
   <!-- Core (defer: page render block হয় না, order preserved) -->
+  <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
+  <script src="js/core/utils.js" defer></script>
   <script src="js/core/supabase-config.js" defer></script>
   <script src="js/core/supabase-sync.js" defer></script>
   <script src="js/core/sync-guard.js" defer></script>
-  <script src="js/core/utils.js" defer></script>
+  <script src="js/core/integrity-guard.js" defer></script>
+  <script src="js/core/backup-restore.js" defer></script>
   <script src="js/core/app.js" defer></script>
 
   <!-- UI -->
@@ -440,7 +444,11 @@
     const ctx = canvas.getContext('2d');
 
     let W, H, cells = [];
+    let animFrameId = null;
+    let isVisible = !document.hidden;
     const BG = '#0a0e27';
+    // ✅ Phase 3: Reduced cell count from 26 → 18 to lower memory footprint
+    const MAX_CELLS = 18;
     const COLORS = [
       { r:0,   g:217, b:255 },   // cyan
       { r:181, g:55,  b:242 },   // purple
@@ -448,11 +456,17 @@
       { r:0,   g:255, b:200 },   // teal
     ];
 
+    // ✅ Phase 3: Debounced resize to prevent excessive canvas re-allocations
+    let resizeTimer = null;
     function resize() {
       W = Math.max(1, window.innerWidth || 1);
       H = Math.max(1, window.innerHeight || 1);
       canvas.width = W;
       canvas.height = H;
+    }
+    function debouncedResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(resize, 150);
     }
 
     function makeCell() {
@@ -465,15 +479,18 @@
         speed: Math.random() * 0.4 + 0.18,
         col,
         alpha: 0,
-        maxAlpha: Math.random() * 0.18 + 0.1,  // brighter: up to 0.28
+        maxAlpha: Math.random() * 0.18 + 0.1,
         growing: true,
         delay: Math.random() * 250 | 0,
       };
     }
 
-    for (let i = 0; i < 26; i++) cells.push(makeCell());
+    for (let i = 0; i < MAX_CELLS; i++) cells.push(makeCell());
 
     function draw() {
+      // ✅ Phase 3: Stop animation loop when page is hidden (prevents memory leak)
+      if (!isVisible) { animFrameId = null; return; }
+
       ctx.clearRect(0, 0, W, H);
 
       // deep space base
@@ -538,11 +555,21 @@
         }
       });
 
-      requestAnimationFrame(draw);
+      animFrameId = requestAnimationFrame(draw);
     }
 
     resize();
-    window.addEventListener('resize', resize);
+    // ✅ Phase 3: Use debounced resize handler
+    window.addEventListener('resize', debouncedResize);
+
+    // ✅ Phase 3: Pause/resume animation with Page Visibility API
+    document.addEventListener('visibilitychange', () => {
+      isVisible = !document.hidden;
+      if (isVisible && !animFrameId) {
+        animFrameId = requestAnimationFrame(draw);
+      }
+    });
+
     draw();
   })();
   </script>

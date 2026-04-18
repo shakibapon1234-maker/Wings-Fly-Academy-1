@@ -6,20 +6,35 @@
 const VisitorsModule = (() => {
 
   let editingId = null;
+  let searchQuery = '';
 
   function init() {
     render();
   }
 
   function getRecords() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
+  }
+
+  function onSearch(val) {
+    searchQuery = (val || '').toLowerCase().trim();
+    render();
   }
 
   function render() {
     const container = document.getElementById('visitors-content');
     if (!container) return; // Silent return if not rendered
 
-    const visitors = getRecords();
+    const allVisitors = getRecords();
+    const visitors = searchQuery
+      ? allVisitors.filter(v =>
+          (v.name || '').toLowerCase().includes(searchQuery) ||
+          (v.phone || '').toLowerCase().includes(searchQuery) ||
+          (v.purpose || '').toLowerCase().includes(searchQuery) ||
+          (v.interested_course || '').toLowerCase().includes(searchQuery)
+        )
+      : allVisitors;
 
     // Stats
     const total = visitors.length;
@@ -28,6 +43,18 @@ const VisitorsModule = (() => {
     const followup = visitors.filter(v => v.status === 'Follow-up').length;
 
     let html = `
+      <!-- Search Bar -->
+      <div style="margin-bottom:18px;">
+        <input
+          id="visitor-search"
+          type="text"
+          class="form-control"
+          placeholder="Search by name, phone, or course…"
+          value="${Utils.escAttr(searchQuery)}"
+          oninput="VisitorsModule.onSearch(this.value)"
+          style="max-width:400px; font-family:inherit;"
+        />
+      </div>
       <!-- Stats Row -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
         <div style="border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
@@ -50,10 +77,14 @@ const VisitorsModule = (() => {
     `;
 
     if (!visitors.length) {
+      const emptyMsg = searchQuery
+        ? `<div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No results for "${Utils.esc(searchQuery)}"</div>
+           <div style="color:var(--text-muted); font-size:0.9rem;">Try a different name, phone, or course.</div>`
+        : `<div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No Visitors Yet</div>
+           <div style="color:var(--text-muted); font-size:0.9rem;">Start adding visitors using the "ADD NEW" button on the top right.</div>`;
       html += `<div style="text-align:center; padding:60px 20px; background:var(--bg-secondary); border:1px dashed rgba(255,255,255,0.1); border-radius:12px;">
                 <i class="fa fa-person-walking-arrow-right" style="font-size:3.5rem; margin-bottom:16px; opacity:0.3; display:block; color:var(--brand-primary);"></i>
-                <div style="font-size:1.2rem; font-weight:700; color:#fff; margin-bottom:8px;">No Visitors Yet</div>
-                <div style="color:var(--text-muted); font-size:0.9rem;">Start adding visitors using the "ADD NEW" button on the top right.</div>
+                ${emptyMsg}
                </div>`;
     } else {
       // Table
@@ -85,10 +116,11 @@ const VisitorsModule = (() => {
                     <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
                   </td>
-                  <td style="font-weight:600; color:#00d4ff;">${v.interested_course || '-'}</td>
+                  <td style="font-weight:600; color:#00d4ff;">${Utils.esc(v.interested_course || '-')}</td>
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
+                    <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" onclick="VisitorsModule.convertToStudent('${v.id}')" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px;" onclick="VisitorsModule.openEditModal('${v.id}')"><i class="fa fa-pen"></i> Edit</button>
                     <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 10px;" onclick="VisitorsModule.deleteRecord('${v.id}')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
                   </td>
@@ -122,18 +154,18 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Visitor Name <span class="req">*</span></label>
-          <input type="text" id="vis-name" class="form-control" placeholder="e.g. Shakib" value="${r?.name || ''}" />
+          <input type="text" id="vis-name" class="form-control" placeholder="e.g. Shakib" value="${Utils.escAttr(r?.name || '')}" />
         </div>
         <div class="form-group">
           <label>Phone Number <span class="req">*</span></label>
-          <input type="text" id="vis-phone" class="form-control" placeholder="017..." value="${r?.phone || ''}" />
+          <input type="text" id="vis-phone" class="form-control" placeholder="017..." value="${Utils.escAttr(r?.phone || '')}" />
         </div>
       </div>
       
       <div class="form-row">
         <div class="form-group">
           <label>Course Interested</label>
-          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${r?.interested_course || ''}" />
+          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${Utils.escAttr(r?.interested_course || '')}" />
         </div>
         <div class="form-group">
           <label>Status <span class="req">*</span></label>
@@ -158,7 +190,7 @@ const VisitorsModule = (() => {
 
       <div class="form-group full-width">
         <label>Remarks / Notes</label>
-        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${r?.remarks || ''}</textarea>
+        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${Utils.escAttr(r?.remarks || '')}</textarea>
       </div>
 
       <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">
@@ -201,13 +233,35 @@ const VisitorsModule = (() => {
   }
 
   async function deleteRecord(id) {
-    const ok = await Utils.confirm('Are you sure you want to delete this visitor visitor??', 'Delete Visitor');
+    const ok = await Utils.confirm('Are you sure you want to delete this visitor?', 'Delete Visitor');
     if (!ok) return;
     SupabaseSync.remove(DB.visitors, id);
     render();
     Utils.toast('Visitor deleted', 'warning');
   }
 
-  return { init, render, openAddModal, openEditModal, saveRecord, deleteRecord };
+  function convertToStudent(id) {
+    const v = SupabaseSync.getById(DB.visitors, id);
+    if (!v) return;
+    if (typeof App !== 'undefined' && App.navigateTo) App.navigateTo('students');
+    setTimeout(() => {
+      if (typeof Students !== 'undefined' && Students.openAddModal) {
+        Students.openAddModal();
+        setTimeout(() => {
+          const n = document.getElementById('sf-name');
+          const p = document.getElementById('sf-phone');
+          const c = document.getElementById('sf-course');
+          if (n) n.value = v.name || '';
+          if (p) p.value = v.phone || '';
+          if (c) c.value = v.interested_course || '';
+          Utils.toast('Visitor data pre-filled into Student form', 'success');
+        }, 100);
+      }
+    }, 200);
+  }
+
+  return { init, render, onSearch, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
 
 })();
+window.Visitors = VisitorsModule;
+// window.VisitorsModule alias removed — use window.Visitors instead

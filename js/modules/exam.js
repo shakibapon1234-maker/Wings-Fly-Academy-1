@@ -19,6 +19,9 @@ const Exam = (() => {
   function render() {
     const container = document.getElementById('exam-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Exam] Core dependencies not loaded'); return;
+    }
 
     const exams    = Utils.sortBy(SupabaseSync.getAll(DB.exams), 'exam_date', 'desc');
     const filtered = applyFilters(exams);
@@ -100,11 +103,11 @@ const Exam = (() => {
       <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
       <td>${Utils.badge(e.reg_id || '—', 'primary')}</td>
       <td>
-        <div style="font-weight:600">${e.student_name || '—'}</div>
-        <div style="font-size:0.75rem;color:var(--text-muted)">${e.student_id || ''}</div>
+        <div style="font-weight:600">${Utils.esc(e.student_name || '—')}</div>
+        <div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(e.student_id || '')}</div>
       </td>
-      <td>${e.batch || '—'}</td>
-      <td>${e.subject || '—'}</td>
+      <td>${Utils.esc(e.batch || '—')}</td>
+      <td>${Utils.esc(e.subject || '—')}</td>
       <td style="font-size:0.82rem">${Utils.formatDate(e.exam_date)}</td>
       <td style="font-family:var(--font-ui)">${Utils.takaEn(e.exam_fee)}</td>
       <td><strong>${e.grade || '—'}</strong></td>
@@ -137,7 +140,8 @@ const Exam = (() => {
     return r;
   }
 
-  function onSearch(val) { searchQuery = val; currentPage = 1; Utils.debounce(() => render(), 250)(); }
+  const debouncedRender = Utils.debounce(() => render(), 250);
+  function onSearch(val) { searchQuery = val; currentPage = 1; debouncedRender(); }
   function onFilter(key, val) {
     if (key === 'batch')  filterBatch = val;
     if (key === 'status') filterStatus = val;
@@ -158,7 +162,7 @@ const Exam = (() => {
     const students = SupabaseSync.getAll(DB.students);
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-clipboard-list"></i> Exam Registration', `
       <div class="form-row">
@@ -249,7 +253,7 @@ const Exam = (() => {
     editingId = id;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-pen"></i> Edit Exam', `
       <div class="form-row">
@@ -315,7 +319,7 @@ const Exam = (() => {
         </div>
         <div class="form-group">
           <label>Number</label>
-          <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" />
+          <input id="ef-marks" type="number" class="form-control" value="${e.marks||''}" placeholder="0-100" min="0" max="100" />
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -401,6 +405,12 @@ const Exam = (() => {
     if (!regId) { errEl.textContent = 'Reg ID Required'; errEl.classList.remove('hidden'); return; }
     if (!subject) { errEl.textContent = 'Subject Required'; errEl.classList.remove('hidden'); return; }
     
+    // ✅ Fix #12: validate marks do not exceed 100
+    const marksVal = Utils.safeNum(Utils.formVal('ef-marks'));
+    if (Utils.formVal('ef-marks') !== '' && marksVal > 100) {
+      errEl.textContent = 'Marks cannot exceed 100'; errEl.classList.remove('hidden'); return;
+    }
+
     if (Utils.safeNum(Utils.formVal('ef-fee')) > 0 && !Utils.formVal('ef-method')) {
       errEl.textContent = 'Payment Method is required when Exam Fee is entered';
       errEl.classList.remove('hidden'); return;
@@ -452,6 +462,7 @@ const Exam = (() => {
             description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
             amount: record.exam_fee, method: method, date: record.exam_date,
           });
+          SupabaseSync.updateAccountBalance(method, record.exam_fee, 'in');
         }
       }
     }
@@ -466,10 +477,28 @@ const Exam = (() => {
   async function deleteEntry(id) {
     const ok = await Utils.confirm('Delete this exam registration?', 'Delete Exam');
     if (!ok) return;
+
+    // ✅ Bug #1 fix: reverse account balance + remove finance entry if fee was paid
+    const entry = SupabaseSync.getById(DB.exams, id);
+    if (entry && entry.fee_paid && Utils.safeNum(entry.exam_fee) > 0) {
+      const allFinance = SupabaseSync.getAll(DB.finance);
+      const finEntry = allFinance.find(f =>
+        f.category === 'Exam Fee' &&
+        f.type     === 'Income'   &&
+        Utils.safeNum(f.amount) === Utils.safeNum(entry.exam_fee) &&
+        (f.description || '').includes(entry.student_name || '')
+      );
+      if (finEntry && finEntry.method) {
+        SupabaseSync.updateAccountBalance(finEntry.method, Utils.safeNum(finEntry.amount), 'out', true); // deletion reversal: force=true
+        SupabaseSync.remove(DB.finance, finEntry.id);
+      }
+    }
+
     SupabaseSync.remove(DB.exams, id);
     Utils.toast('Exam registration deleted', 'info');
     render();
   }
+
 
   /* ══════════════════════════════════════════
      EXPORT
@@ -514,3 +543,4 @@ const Exam = (() => {
   };
 
 })();
+window.ExamModule = Exam;

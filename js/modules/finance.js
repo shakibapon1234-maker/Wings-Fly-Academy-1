@@ -9,7 +9,7 @@ const Finance = (() => {
   let filterType   = '';
   let filterMethod = '';
   let filterFrom   = '';
-  let filterTo     = Utils.today();
+  let filterTo     = '';
   let searchQuery  = '';
   let editingId    = null;
   let currentPage  = 1;
@@ -21,6 +21,9 @@ const Finance = (() => {
   function render() {
     const container = document.getElementById('finance-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Finance] Core dependencies not loaded'); return;
+    }
 
     const all      = SupabaseSync.getAll(DB.finance);
     const filtered = applyFilters(all);
@@ -68,12 +71,10 @@ const Finance = (() => {
         </select>
         <select class="form-control" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
-          <option value="Cash"           ${filterMethod==='Cash'?'selected':''}>Cash</option>
-          <option value="Bank"           ${filterMethod==='Bank'?'selected':''}>Bank</option>
-          <option value="Mobile Banking" ${filterMethod==='Mobile Banking'?'selected':''}>Mobile Banking</option>
+          ${Utils.getPaymentMethodsHTML(filterMethod)}
         </select>
         <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
-        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo || Utils.today()}"   onchange="Finance.onFilter('to',this.value)"   title="End Date" />
+        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)"   title="End Date (blank = no limit)" placeholder="End date" />
         <button class="btn-secondary btn-sm" onclick="Finance.resetFilters()"><i class="fa fa-rotate-left"></i></button>
         <button class="btn-success btn-sm"   onclick="Finance.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('finance-print-area')"><i class="fa fa-print"></i></button>
@@ -120,8 +121,8 @@ const Finance = (() => {
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDate(f.date)}</td>
         <td>${typeBadge(f.type)}</td>
-        <td style="font-size:0.82rem;color:var(--text-secondary)">${f.category||'—'}</td>
-        <td style="max-width:200px;font-size:0.85rem">${Utils.truncate(f.description||'—',35)}</td>
+        <td style="font-size:0.82rem;color:var(--text-secondary)">${Utils.esc(f.category||'—')}</td>
+        <td style="max-width:200px;font-size:0.85rem">${Utils.esc(Utils.truncate(f.description||'—',35))}</td>
         <td>${Utils.methodBadge(f.method||'Cash')}</td>
         <td class="${isPos?'ledger-income':'ledger-expense'}" style="font-family:var(--font-en);font-weight:600">
           ${isPos?'+':'-'}${Utils.takaEn(f.amount)}
@@ -164,9 +165,9 @@ const Finance = (() => {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     let arr = [];
     if (type === 'Income' || type === 'Transfer In' || type === 'Loan Receiving') {
-      arr = cfg.income_categories ? JSON.parse(cfg.income_categories) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
+      arr = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
     } else {
-      arr = cfg.expense_categories ? JSON.parse(cfg.expense_categories) : ['Rent', 'Salary', 'Loan Given', 'Other'];
+      arr = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
     }
     return arr;
   }
@@ -208,8 +209,7 @@ const Finance = (() => {
     render();
   }
   function resetFilters() {
-    filterType = filterMethod = filterFrom = searchQuery = '';
-    filterTo = Utils.today();
+    filterType = filterMethod = filterFrom = filterTo = searchQuery = '';
     currentPage = 1;
     render();
   }
@@ -350,14 +350,14 @@ const Finance = (() => {
           </div>
           <div class="ff-field" style="margin-bottom:12px;">
             <label class="ff-label">Description</label>
-            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction details..." />
+            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction description" maxlength="200" />
           </div>
           <div class="ff-grid-2">
             <div class="ff-field">
               <label class="ff-label">Amount (৳) <span class="req">*</span></label>
               <div class="ff-amount-wrap">
                 <span class="ff-taka">৳</span>
-                <input id="ff-amount" type="number" class="ff-input" value="${d.amount||''}" placeholder="0" />
+                <input id="ff-amount" type="number" class="ff-input" value="${d.amount||''}" placeholder="0" min="0.01" max="99999999" step="0.01" />
               </div>
             </div>
             <div class="ff-field">
@@ -402,11 +402,19 @@ const Finance = (() => {
     const amount = Utils.safeNum(Utils.formVal('ff-amount'));
     const type   = Utils.formVal('ff-type');
     const method = Utils.formVal('ff-method');
+    const date   = Utils.formVal('ff-date');
     const errEl  = document.getElementById('ff-error');
     errEl.classList.add('hidden');
     
+    // ✅ Phase 2: Comprehensive finance form validation
     if (!method) { errEl.textContent = 'Please select a Payment Method.'; errEl.classList.remove('hidden'); return; }
-    if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount.'; errEl.classList.remove('hidden'); return; }
+    if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount (> 0).'; errEl.classList.remove('hidden'); return; }
+    if (amount > 99999999) { errEl.textContent = 'Amount exceeds maximum limit (99,999,999).'; errEl.classList.remove('hidden'); return; }
+    if (!date) { errEl.textContent = 'Please select a valid date.'; errEl.classList.remove('hidden'); return; }
+    // Validate date is not in the future (with 1 day tolerance for timezone)
+    const inputDate = new Date(date + 'T23:59:59');
+    const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    if (inputDate > tomorrow) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
 
     // Prevent negative balance for Expense / Transfer Out
     if (type === 'Expense' || type === 'Transfer Out') {
@@ -567,3 +575,4 @@ const Finance = (() => {
   };
 
 })();
+window.Finance = Finance;

@@ -27,6 +27,7 @@ const Salary = (() => {
   ══════════════════════════════════════════ */
 
   function getRecords() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     const all = SupabaseSync.getAll(DB.salary);
     return all.sort((a, b) => {
       const aDate = a.paidDate || '';
@@ -49,7 +50,7 @@ const Salary = (() => {
     const y = parts[0]; const m = parts[1];
     const months = ['January','February','March','April','May','June',
                     'July','August','September','October','November','December'];
-    return (months[parseInt(m) - 1] || '?') + ' ' + y;
+    return (months[parseInt(m, 10) - 1] || '?') + ' ' + y;
   }
 
   function formatDate(dateStr) {
@@ -78,8 +79,8 @@ const Salary = (() => {
     const staffMember = HRStaff.getAll().find(function(s){ return s.staffId === staffId; });
     if (!staffMember) return;
     SupabaseSync.getAll(DB.salary).forEach(function(r) {
-      var matchById   = r.staffId   && r.staffId   === staffMember.staffId;
-      var matchByName = !r.staffId  && r.staffName && r.staffName === staffMember.name;
+      const matchById   = r.staffId   && r.staffId   === staffMember.staffId;
+      const matchByName = !r.staffId  && r.staffName && r.staffName === staffMember.name;
       if ((matchById || matchByName) && !r.paid) {
         SupabaseSync.update(DB.salary, r.id, {
           staffId:    staffMember.staffId,
@@ -126,38 +127,38 @@ const Salary = (() => {
   /* ══════════════════════════════════════════
      DATE DROPDOWN BUILDER
   ══════════════════════════════════════════ */
+  // ✅ Fix #10: upgraded from ES5 var/function to ES6 const/let/arrow functions
   function _buildDateDropdowns(prefix, dd, mm, yyyy) {
-    var months = [
+    const months = [
       ['01','January'],['02','February'],['03','March'],['04','April'],
       ['05','May'],['06','June'],['07','July'],['08','August'],
       ['09','September'],['10','October'],['11','November'],['12','December']
     ];
-    var currentYear = new Date().getFullYear();
-    var years = [];
-    for (var i = 0; i < 6; i++) years.push(currentYear - 2 + i);
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({ length: 6 }, (_, i) => currentYear - 2 + i);
 
-    var dayOpts = '';
-    for (var d = 1; d <= 31; d++) {
-      var v = String(d).padStart(2,'0');
-      dayOpts += '<option value="' + v + '"' + (dd === v ? ' selected' : '') + '>' + v + '</option>';
+    let dayOpts = '';
+    for (let d = 1; d <= 31; d++) {
+      const v = String(d).padStart(2, '0');
+      dayOpts += `<option value="${v}"${dd === v ? ' selected' : ''}>${v}</option>`;
     }
-    var mmOpts  = months.map(function(mn){ return '<option value="' + mn[0] + '"' + (mm === mn[0] ? ' selected' : '') + '>' + mn[1] + '</option>'; }).join('');
-    var yrOpts  = years.map(function(y){ return '<option value="' + y + '"' + (yyyy === String(y) ? ' selected' : '') + '>' + y + '</option>'; }).join('');
+    const mmOpts = months.map(mn => `<option value="${mn[0]}"${mm === mn[0] ? ' selected' : ''}>${mn[1]}</option>`).join('');
+    const yrOpts = years.map(y  => `<option value="${y}"${yyyy === String(y) ? ' selected' : ''}>${y}</option>`).join('');
 
-    return '<div style="display:flex; gap:6px;">' +
-      '<select id="' + prefix + '-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + dayOpts + '</select>' +
-      '<select id="' + prefix + '-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + mmOpts + '</select>' +
-      '<select id="' + prefix + '-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate(\'' + prefix + '\')">' + yrOpts + '</select>' +
-      '</div>' +
-      '<input type="hidden" id="' + prefix + '" value="' + yyyy + '-' + mm + '-' + dd + '" />';
+    return `<div style="display:flex; gap:6px;">` +
+      `<select id="${prefix}-dd" class="form-control" style="flex:0 0 70px;" onchange="Salary._syncPayDate('${prefix}')">${dayOpts}</select>` +
+      `<select id="${prefix}-mm" class="form-control" style="flex:1;" onchange="Salary._syncPayDate('${prefix}')">${mmOpts}</select>` +
+      `<select id="${prefix}-yyyy" class="form-control" style="flex:0 0 90px;" onchange="Salary._syncPayDate('${prefix}')">${yrOpts}</select>` +
+      `</div>` +
+      `<input type="hidden" id="${prefix}" value="${yyyy}-${mm}-${dd}" />`;
   }
 
   function _syncPayDate(prefix) {
-    var dd   = (document.getElementById(prefix + '-dd')   || {}).value || '';
-    var mm   = (document.getElementById(prefix + '-mm')   || {}).value || '';
-    var yyyy = (document.getElementById(prefix + '-yyyy') || {}).value || '';
-    var hidden = document.getElementById(prefix);
-    if (hidden) hidden.value = (yyyy && mm && dd) ? yyyy + '-' + mm + '-' + dd : '';
+    const dd   = (document.getElementById(`${prefix}-dd`)   || {}).value || '';
+    const mm   = (document.getElementById(`${prefix}-mm`)   || {}).value || '';
+    const yyyy = (document.getElementById(`${prefix}-yyyy`) || {}).value || '';
+    const hidden = document.getElementById(prefix);
+    if (hidden) hidden.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
   /* ══════════════════════════════════════════
@@ -219,8 +220,8 @@ const Salary = (() => {
             '<div style="display:flex; align-items:center; gap:12px;">' +
               '<div style="width:40px; height:40px; border-radius:50%; background:rgba(0,212,255,0.15); border:1px solid rgba(0,212,255,0.2); display:flex; align-items:center; justify-content:center;"><i class="fa fa-user" style="color:#00d4ff;"></i></div>' +
               '<div>' +
-                '<div style="font-weight:700; color:#fff; font-size:1.05rem;">' + (r.staffName || '—') + '</div>' +
-                '<div style="font-size:.78rem; color:var(--text-muted);">' + (r.role || 'Staff') + (r.phone ? ' <i class="fa fa-phone" style="margin:0 4px; opacity:.6;"></i>' + r.phone : '') + '</div>' +
+                '<div style="font-weight:700; color:#fff; font-size:1.05rem;">' + Utils.esc(r.staffName || '—') + '</div>' +
+                '<div style="font-size:.78rem; color:var(--text-muted);">' + Utils.esc(r.role || 'Staff') + (r.phone ? ' <i class="fa fa-phone" style="margin:0 4px; opacity:.6;"></i>' + Utils.esc(r.phone) : '') + '</div>' +
               '</div>' +
             '</div>' +
             '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">' +
@@ -304,11 +305,16 @@ const Salary = (() => {
     }
     activeStaff.forEach(function(s) {
       SupabaseSync.insert(DB.salary, {
-        staffId: s.staffId, staffName: s.name, role: s.role || '', phone: s.phone || '',
-        month: month, baseSalary: Utils.safeNum(s.salary),
-        bonus: 0, deduction: 0, paidAmount: 0,
-        paid: false, paidDate: '', method: 'Cash', note: '',
+        staffId: s.staffId,   staff_id:   s.staffId,
+        staffName: s.name,    staff_name: s.name,
+        role: s.role || '', phone: s.phone || '',
+        month: month,
+        baseSalary: Utils.safeNum(s.salary), base_salary: Utils.safeNum(s.salary),
+        bonus: 0, deduction: 0,
+        paidAmount: 0, paid_amount: 0,
+        paid: false, paidDate: '', paid_date: '', method: 'Cash', note: '',
       });
+
     });
     renderContent();
     Utils.toast(activeStaff.length + ' salary sheets created ✓', 'success');
@@ -339,8 +345,8 @@ const Salary = (() => {
         '<div style="background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:10px; padding:16px; margin-bottom:20px;">' +
           '<div style="display:flex; align-items:center; gap:12px;">' +
             '<div style="width:44px; height:44px; border-radius:50%; background:rgba(0,212,255,0.15); display:flex; align-items:center; justify-content:center;"><i class="fa fa-user" style="color:#00d4ff; font-size:1.2rem;"></i></div>' +
-            '<div><div style="font-weight:800; color:#fff; font-size:1.1rem;">' + r.staffName + '</div>' +
-            '<div style="font-size:.8rem; color:#00d4ff;">' + (r.role || 'Staff') + ' &nbsp;|&nbsp; ' + monthLabel(r.month) + '</div></div>' +
+            '<div><div style="font-weight:800; color:#fff; font-size:1.1rem;">' + Utils.esc(r.staffName) + '</div>' +
+            '<div style="font-size:.8rem; color:#00d4ff;">' + Utils.esc(r.role || 'Staff') + ' &nbsp;|&nbsp; ' + monthLabel(r.month) + '</div></div>' +
             '<div style="margin-left:auto; text-align:right;">' +
               '<div style="font-size:.7rem; color:var(--text-muted);">Net Salary</div>' +
               '<div style="font-size:1.3rem; font-weight:800; color:#00ff88;">৳' + Utils.formatMoneyPlain(net) + '</div>' +
@@ -444,7 +450,7 @@ const Salary = (() => {
     var staffOpts = '<option value="">-- HR থেকে Staff বেছে নিন --</option>' +
       allStaff.map(function(s) {
         return '<option value="' + s.staffId + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
-          ' data-name="' + (Utils.escapeHtml ? Utils.escapeHtml(s.name) : s.name) + '"' +
+          ' data-name="' + Utils.esc(s.name) + '"' +
           ' data-role="' + (s.role || '') + '"' +
           ' data-phone="' + (s.phone || '') + '"' +
           ' data-salary="' + Utils.safeNum(s.salary) + '">' +
@@ -573,18 +579,19 @@ const Salary = (() => {
     var autoFullyPaid = (payAmount >= net && net > 0);
 
     var entry = {
-      staffId:    staffId,
+      staffId:    staffId,    staff_id:   staffId,
       staffName:  (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
+      staff_name: (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
       role:       (staffOpt && staffOpt.dataset.role)  || (existingRecord && existingRecord.role)       || '',
       phone:      (staffOpt && staffOpt.dataset.phone) || (existingRecord && existingRecord.phone)      || '',
       month:      (document.getElementById('sal-month') || {}).value || getSelectedMonth(),
-      baseSalary: base,
+      baseSalary: base,  base_salary: base,
       bonus:      bonus,
       deduction:  deduction,
-      paidAmount: payAmount,
+      paidAmount: payAmount, paid_amount: payAmount,
       method:     method,
       paid:       isPaid || autoFullyPaid,
-      paidDate:   (isPaid || payAmount > 0) ? payDate : '',
+      paidDate:   (isPaid || payAmount > 0) ? payDate : '', paid_date: (isPaid || payAmount > 0) ? payDate : '',
       note:       ((document.getElementById('sal-note') || {}).value || '').trim(),
     };
 
@@ -648,7 +655,7 @@ const Salary = (() => {
         return '<tr>' +
           '<td style="font-weight:700; color:' + (r.paid ? '#00ff88' : paid_amt > 0 ? '#00d4ff' : '#ffb703') + ';">' + (r.paidDate ? formatDate(r.paidDate) : '—') + '</td>' +
           '<td style="color:#00d4ff; font-weight:700;">' + monthLabel(r.month) + '</td>' +
-          '<td><div style="font-weight:700; color:#fff;">' + (r.staffName || '—') + '</div><div style="font-size:.73rem; color:var(--text-muted);">' + (r.role || 'Staff') + '</div></td>' +
+          '<td><div style="font-weight:700; color:#fff;">' + Utils.esc(r.staffName || '—') + '</div><div style="font-size:.73rem; color:var(--text-muted);">' + Utils.esc(r.role || 'Staff') + '</div></td>' +
           '<td>৳' + Utils.formatMoneyPlain(r.baseSalary || 0) + '</td>' +
           '<td style="color:#00d4ff;">' + (r.bonus ? '৳' + Utils.formatMoneyPlain(r.bonus) : '—') + '</td>' +
           '<td style="color:#ff4757;">' + (r.deduction ? '৳' + Utils.formatMoneyPlain(r.deduction) : '—') + '</td>' +
@@ -737,3 +744,4 @@ const Salary = (() => {
   };
 
 })();
+window.Salary = Salary;

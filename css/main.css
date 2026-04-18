@@ -1848,6 +1848,7 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   #sidebar {
     transform: translateX(-100%);
     box-shadow: var(--shadow-lg);
+    z-index: 150; /* ✅ Fix #5: sit above content & overlay when open */
   }
   #sidebar.open { transform: translateX(0); }
 
@@ -1860,6 +1861,9 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   .page-section { padding: 16px; }
 
   .form-grid { grid-template-columns: 1fr 1fr; }
+
+  /* ✅ Fix #9: reset notice banner on mobile (sidebar hidden) */
+  #noticeBoardBanner { left: 0 !important; }
 }
 
 @media (max-width: 480px) {

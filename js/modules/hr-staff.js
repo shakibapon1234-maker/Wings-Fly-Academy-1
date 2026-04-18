@@ -11,8 +11,9 @@ const HRStaff = (() => {
 
   /* ─── Roles ─── */
   function getRoles() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return ['Admin', 'Instructor', 'Staff'];
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    return cfg.employee_roles ? JSON.parse(cfg.employee_roles) : ['Admin', 'Instructor', 'Staff'];
+    return cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
   }
 
   function init() {
@@ -20,6 +21,7 @@ const HRStaff = (() => {
   }
 
   function getStaff() {
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
     return Utils.sortBy(SupabaseSync.getAll(DB.staff), 'joiningDate', 'desc');
   }
 
@@ -129,7 +131,7 @@ const HRStaff = (() => {
     if (!data.length) return `
       <div class="empty-state">
         <i class="fa fa-users" style="font-size:3rem;opacity:.3"></i>
-        <p>No Staff not found। First Staff Add।</p>
+        <p>কোনো স্টাফ পাওয়া যায়নি। প্রথমে স্টাফ যোগ করুন।</p>
       </div>`;
 
     return `
@@ -180,23 +182,7 @@ const HRStaff = (() => {
       </table>`;
   }
 
-  function applyFilter() {
-    const q      = (document.getElementById('staff-search')?.value || '').toLowerCase();
-    const role   = document.getElementById('staff-role-filter')?.value || '';
-    const status = document.getElementById('staff-status-filter')?.value || '';
 
-    const staffList = getStaff();
-    const filtered = staffList.filter(s => {
-      const matchQ = !q || s.name.toLowerCase().includes(q) ||
-                     (s.phone || '').includes(q) || (s.staffId || '').toLowerCase().includes(q);
-      const matchRole   = !role   || s.role === role;
-      const matchStatus = !status || s.status === status;
-      return matchQ && matchRole && matchStatus;
-    });
-
-    const wrapper = document.getElementById('staff-table-wrapper');
-    if (wrapper) wrapper.innerHTML = renderTable(filtered);
-  }
 
   /* ─── Modal: Add ─── */
   function openAddModal() {
@@ -264,7 +250,7 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>FULL NAME <span class="req">*</span></label>
-            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" />
+            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" maxlength="100" autocomplete="name" />
           </div>
           <div class="form-group">
             <label>ROLE / DESIGNATION <span class="req">*</span></label>
@@ -276,17 +262,17 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>DEPARTMENT</label>
-            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" />
+            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" maxlength="100" />
           </div>
           <div class="form-group">
             <label>PHONE NUMBER</label>
-            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" />
+            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>EMAIL ADDRESS</label>
-            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" />
+            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" maxlength="150" />
           </div>
         </div>
       </div>
@@ -364,7 +350,7 @@ const HRStaff = (() => {
     if (typeof Salary !== 'undefined') Salary.syncFromHR(entry.staffId);
 
     Utils.closeModal();
-    renderContent();
+    render();
     editingId = null;
   }
 
@@ -374,7 +360,7 @@ const HRStaff = (() => {
     if (!s) return;
     const newStatus = s.status === 'Active' ? 'Inactive' : 'Active';
     SupabaseSync.update(DB.staff, id, { status: newStatus });
-    renderContent();
+    render();
     Utils.toast(`Status changed to: ${newStatus}`, 'info');
   }
 
@@ -383,7 +369,7 @@ const HRStaff = (() => {
     const ok = await Utils.confirm('Delete this staff member?', 'Delete Staff');
     if (!ok) return;
     SupabaseSync.remove(DB.staff, id);
-    renderContent();
+    render();
     Utils.toast('Staff has been deleted', 'warning');
   }
 
@@ -416,3 +402,4 @@ const HRStaff = (() => {
            getAll: () => getStaff() };
 
 })();
+window.HRStaff = HRStaff;

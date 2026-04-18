@@ -100,8 +100,7 @@ const Attendance = (() => {
     const overlay = document.getElementById('attendance-modal-overlay');
     if (overlay) overlay.classList.remove('open');
     document.body.style.overflow = '';
-    // Navigate back to dashboard
-    if (typeof App !== 'undefined') App.navigateTo('dashboard');
+    // ✅ Fix #2: removed App.navigateTo('dashboard') — just close the overlay
   }
 
   function renderModal() {
@@ -524,6 +523,8 @@ const Attendance = (() => {
 
     let filtered = records.filter(r => r.date && r.date.startsWith(month) && r.type === 'student');
     if (batch) filtered = filtered.filter(r => r.batch === batch);
+    // সর্বশেষ তারিখের রেকর্ড আগে (latest on top)
+    filtered = filtered.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
     if (!filtered.length) {
       wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">No records found for this month</div></div>`;
@@ -668,7 +669,7 @@ const Attendance = (() => {
   /* ─── Blank Sheet ─── */
   function generateBlankSheet(sheetType = 'portrait') {
     const batch = document.getElementById('att-blank-batch')?.value;
-    const daysCount = Math.min(31, Math.max(1, parseInt(document.getElementById('att-blank-days')?.value || '26')));
+    const daysCount = Math.min(31, Math.max(1, parseInt(document.getElementById('att-blank-days')?.value || '26', 10)));
     const sessionLabel = document.getElementById('att-blank-label')?.value || '';
     const startDateVal = document.getElementById('att-blank-startdate')?.value || '';
     const wrapper = document.getElementById('att-blank-result');
@@ -1288,3 +1289,4 @@ const Attendance = (() => {
   };
 
 })();
+window.Attendance = Attendance;

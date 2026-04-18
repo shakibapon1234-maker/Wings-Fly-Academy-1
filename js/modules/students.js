@@ -171,7 +171,7 @@ const Students = (() => {
   }
 
   function changePage(p) { currentPage = p; render(); }
-  function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
+  function changePageSize(s) { pageSize = parseInt(s, 10); currentPage = 1; render(); }
 
   /* ══════════════════════════════════════════
      ADD MODAL
@@ -182,7 +182,7 @@ const Students = (() => {
     const newId = Utils.generateStudentId(all.map(s => s.student_id));
     const today = Utils.today();
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-user-graduate"></i> Add Student', `
       <style>
@@ -294,11 +294,11 @@ const Students = (() => {
           <div class="sf-grid-2" style="margin-bottom:12px;">
             <div class="sf-field">
               <label class="sf-label">Full Name <span class="req">*</span></label>
-              <input id="sf-name" class="sf-input" placeholder="Student's full name" />
+              <input id="sf-name" class="sf-input" placeholder="Student's full name" maxlength="100" autocomplete="name" />
             </div>
             <div class="sf-field">
               <label class="sf-label">Phone Number <span class="req">*</span></label>
-              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" />
+              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" maxlength="20" pattern="[0-9+\-() ]{7,20}" />
             </div>
           </div>
           <div class="sf-grid-2">
@@ -377,7 +377,7 @@ const Students = (() => {
           <div class="sf-grid-2" style="margin-bottom:12px;">
             <div class="sf-field">
               <label class="sf-label">Address</label>
-              <input id="sf-address" class="sf-input" placeholder="Present address" />
+              <input id="sf-address" class="sf-input" placeholder="Present address" maxlength="300" />
             </div>
             <div class="sf-field">
               <label class="sf-label">Status</label>
@@ -414,7 +414,7 @@ const Students = (() => {
     editingId = id;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? JSON.parse(cfg.courses) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
 
     Utils.openModal('<i class="fa fa-pen"></i> Student Edit', `
       <div class="form-row">
@@ -430,11 +430,11 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Full Name <span class="req">*</span></label>
-          <input id="sf-name" class="form-control" value="${s.name||''}" />
+          <input id="sf-name" class="form-control" value="${s.name||''}" maxlength="100" />
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${s.phone||''}" />
+          <input id="sf-phone" class="form-control" value="${s.phone||''}" maxlength="20" pattern="[0-9+\-() ]{7,20}" />
         </div>
       </div>
       <div class="form-row">
@@ -489,7 +489,7 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Address</label>
-          <input id="sf-address" class="form-control" value="${s.address||''}" />
+          <input id="sf-address" class="form-control" value="${s.address||''}" maxlength="300" />
         </div>
         <div class="form-group">
           <label>Status</label>
@@ -550,14 +550,14 @@ const Students = (() => {
       </div>
       
       <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 300)">
-        <i class="fa fa-sack-dollar"></i> ADD PAYMENT
+        <i class="fa fa-sack-dollar"></i> PAYMENTS & HISTORY
       </button>
       
-      <button class="action-btn-glow btn-cyan" onclick="Utils.closeModal(); setTimeout(()=>IdCards && IdCards.previewCard('${id}'), 300)">
+      <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${id}')">
         <i class="fa fa-id-badge"></i> VIEW ID CARD
       </button>
       
-      <button class="action-btn-glow btn-orange" onclick="Utils.closeModal(); setTimeout(()=>Certificates && Certificates.previewCertificate('${id}'), 300)">
+      <button class="action-btn-glow btn-orange" onclick="CertificatesModule && CertificatesModule.previewCertificate('${id}')">
         <i class="fa fa-award"></i> GENERATE CERTIFICATE
       </button>
       
@@ -712,10 +712,35 @@ const Students = (() => {
     const name  = Utils.formVal('sf-name');
     const sid   = Utils.formVal('sf-sid');
     const phone = Utils.formVal('sf-phone');
+    const email = Utils.formVal('sf-email');
+    const course = Utils.formVal('sf-course');
+    const batch  = Utils.formVal('sf-batch');
     const errEl = document.getElementById('sf-error');
 
+    // ✅ Phase 2: Comprehensive form validation
     if (!name) { errEl.textContent='Name is required'; errEl.classList.remove('hidden'); return; }
+    if (name.length < 2) { errEl.textContent='Name must be at least 2 characters'; errEl.classList.remove('hidden'); return; }
     if (!sid && !editingId) { errEl.textContent='Student ID Required'; errEl.classList.remove('hidden'); return; }
+
+    // Phone validation: BD format (01X-XXXXXXXX) — 11 digits starting with 01
+    if (phone && !/^01[3-9]\d{8}$/.test(phone.replace(/[\s\-()]/g, ''))) {
+      errEl.textContent='Invalid phone number. BD format: 01XXXXXXXXX (11 digits)';
+      errEl.classList.remove('hidden'); return;
+    }
+
+    // Email validation
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      errEl.textContent='Invalid email format (e.g. name@example.com)';
+      errEl.classList.remove('hidden'); return;
+    }
+
+    // Course & Batch required for new students
+    if (!editingId) {
+      if (!course) { errEl.textContent='Course is required'; errEl.classList.remove('hidden'); return; }
+      if (!batch) { errEl.textContent='Batch is required'; errEl.classList.remove('hidden'); return; }
+    }
+
+    errEl.classList.add('hidden');
 
     // ── Duplicate Check (name + phone) ────────────────────────
     if (!editingId && !_dupWarningAcknowledged) {
@@ -1257,7 +1282,7 @@ const Students = (() => {
     }
     // Notice Board-এ entry তৈরি করো
     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-      SupabaseSync.insert(DB.notices || 'notices', {
+      SupabaseSync.insert(DB.notices, {
         title:   `🔔 Reminder: ${name}`,
         message: note,
         date:    date,
@@ -1268,6 +1293,8 @@ const Students = (() => {
     }
     Utils.closeModal();
     Utils.toast(`Reminder saved for ${name} — Notice Board-এ যোগ হয়েছে ✓`, 'success');
+    // Refresh notice-board indicator if it's mounted
+    try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.render(); } catch { /* ignore */ }
   }
 
   return {
@@ -1284,3 +1311,4 @@ const Students = (() => {
   };
 
 })();
+window.Students = Students;

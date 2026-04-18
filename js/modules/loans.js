@@ -13,6 +13,9 @@ const Loans = (() => {
   function render() {
     const container = document.getElementById('loans-content');
     if (!container) return;
+    if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
+      console.warn('[Loans] Core dependencies not loaded'); return;
+    }
 
     const loans = Utils.sortBy(SupabaseSync.getAll(DB.loans),'date','desc');
 
@@ -55,7 +58,7 @@ const Loans = (() => {
           return `
           <div class="loan-person-card" onclick="Loans.showPersonDetail('${person.replace(/'/g,"\\'")}')" data-person="${person.toLowerCase()}">
             <div class="person-avatar">${letter}</div>
-            <div class="person-name">${person}</div>
+            <div class="person-name">${Utils.esc(person)}</div>
             <div class="person-owe" style="color:${net>0?'#ff4757':'#00ff88'}">
               ${net > 0 ? 'We Owe: ' : 'They Owe: '}${Utils.takaEn(Math.abs(net))}
             </div>
@@ -96,7 +99,7 @@ const Loans = (() => {
             <tbody>
               ${pageData.items.map(l=>`<tr>
                 <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
-                <td style="font-weight:600">${l.person_name || l.person || '—'}</td>
+                <td style="font-weight:600">${Utils.esc(l.person_name || l.person || '—')}</td>
                 <td>${(l.type==='Loan Giving' || l.direction==='given')
                   ? '<span class="badge-expense">Given</span>'
                   : '<span class="badge-income">Taken</span>'}</td>
@@ -252,9 +255,9 @@ const Loans = (() => {
                 data-received='${JSON.stringify(receivedPersons)}'
                 data-all='${JSON.stringify(allPersons)}'>
                 <option value="">-- Select existing person --</option>
-                ${allPersons.map(p => `<option value="${p}" ${(d.person_name===p||d.person===p)?'selected':''}>${p}</option>`).join('')}
+                ${allPersons.map(p => `<option value="${Utils.esc(p)}" ${(d.person_name===p||d.person===p)?'selected':''}>${Utils.esc(p)}</option>`).join('')}
               </select>
-              <input id="lf-person" class="lf-input" value="${d.person_name||d.person||''}" placeholder="Or enter new name" />
+              <input id="lf-person" class="lf-input" value="${Utils.esc(d.person_name||d.person||'')}" placeholder="Or enter new name" />
             </div>
             <div class="lf-hint">
               <i class="fa fa-info-circle"></i> <span id="lf-hint-text">Select from dropdown or enter a new name</span>
@@ -464,7 +467,7 @@ const Loans = (() => {
   }
 
   async function deleteLoan(id) {
-    const ok = await Utils.confirm('Delete this loan record? RecycleBin-এ যাবে এবং Restore করা যাবে।', 'Delete Loan');
+    const ok = await Utils.confirm('Delete this loan record?', 'Delete Loan');
     if (!ok) return;
 
     const record = SupabaseSync.getById(DB.loans, id);
@@ -480,14 +483,6 @@ const Loans = (() => {
       f.date === record.date
     );
     const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
-
-    // ── RecycleBin এ save করো (linked finance id সহ) ─────────────────
-    SupabaseSync.insert(DB.recycle || 'recycle', {
-      ...record,
-      _deletedFrom:       'loans',
-      _deletedAt:         Utils.today(),
-      _linkedFinanceId:   linkedFinanceId,   // restore করার সময় কাজে লাগবে
-    });
 
     // ── Loan remove ───────────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id);
@@ -509,7 +504,7 @@ const Loans = (() => {
       SupabaseSync.remove(DB.finance, linkedFinanceId);
     }
 
-    Utils.toast('Loan deleted — RecycleBin-এ আছে, Restore করা যাবে', 'warning');
+    Utils.toast('Loan deleted', 'warning');
     render();
   }
 
@@ -525,7 +520,7 @@ const Loans = (() => {
     const loans = SupabaseSync.getAll(DB.loans).filter(l => (l.person_name === person || l.person === person));
     const given = loans.filter(l=>l.type==='Loan Giving' || l.direction==='given').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
     const recv  = loans.filter(l=>l.type==='Loan Receiving' || l.direction==='received').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
-    Utils.openModal(`<i class="fa fa-user"></i> ${person} — Loan History`, `
+    Utils.openModal(`<i class="fa fa-user"></i> ${Utils.esc(person)} — Loan History`, `
       <div style="display:flex;gap:16px;margin-bottom:16px">
         <div style="flex:1;text-align:center;padding:12px;background:rgba(255,71,87,0.08);border-radius:10px">
           <div style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase">Given</div>
@@ -552,36 +547,8 @@ const Loans = (() => {
   function changePage(p) { currentPage = p; render(); }
   function changePageSize(s) { pageSize = parseInt(s); currentPage = 1; render(); }
 
-  /* ── RecycleBin থেকে Restore ──────────────────────────────────────── */
-  async function restoreLoan(recycleId) {
-    const recycled = SupabaseSync.getById(DB.recycle || 'recycle', recycleId);
-    if (!recycled) { Utils.toast('Record not found', 'error'); return; }
-
-    // Loan restore
-    const { _deletedFrom, _deletedAt, _linkedFinanceId, id: _rid, ...loanData } = recycled;
-    SupabaseSync.insert(DB.loans, loanData);
-
-    // Finance entry restore
-    SupabaseSync.insert(DB.finance, {
-      type:        loanData.type,
-      method:      loanData.method,
-      category:    'Loan',
-      description: `${loanData.type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${loanData.person_name || loanData.person}`,
-      amount:      loanData.amount,
-      date:        loanData.date,
-      note:        loanData.note || '',
-      person_name: loanData.person_name || loanData.person,
-      _isLoan:     true,
-    });
-
-    // RecycleBin থেকে সরাও
-    SupabaseSync.remove(DB.recycle || 'recycle', recycleId);
-
-    Utils.toast('Loan Restored ✓ — Loans ও Finance উভয়ে ফিরে এসেছে', 'success');
-    render();
-  }
-
-  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, restoreLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
+  return { render, openAddModal, openEditModal, saveLoan, toggleStatus, deleteLoan, filterCards, showPersonDetail, changePage, changePageSize, _onPersonSelect, _onTypeChange, _syncDate };
 
 })();
+window.Loans = Loans;
 

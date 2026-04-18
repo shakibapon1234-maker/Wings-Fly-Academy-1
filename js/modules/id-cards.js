@@ -16,7 +16,13 @@ const IDCardsModule = (() => {
 
     const isStudent = type === 'student';
     const idNumber = person.studentId || person.employeeId || person.id || 'N/A';
-    const initials = person.name ? person.name[0].toUpperCase() : 'S';
+    // ✅ Fix #7: use first letter of first name + first letter of last name
+    const nameParts  = (person.name || '').trim().split(/\s+/).filter(Boolean);
+    const initials   = nameParts.length >= 2
+      ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+      : nameParts.length === 1
+        ? nameParts[0][0].toUpperCase()
+        : 'S';
 
     // Date calculations
     const enrollDate = new Date(person.admissionDate || person.enrollDate || Date.now());
@@ -72,11 +78,11 @@ const IDCardsModule = (() => {
       <div style="width:90%;padding:4px 0;flex-shrink:0;">
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">ID Number</div>
-          <div style="color:#fff;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${idNumber}</div>
+          <div style="color:#fff;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${Utils.esc(idNumber)}</div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Blood Group</div>
-          <div style="color:#ff6b6b;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${person.bloodGroup || 'N/A'}</div>
+          <div style="color:#ff6b6b;font-size:7.5px;font-weight:600;flex:1;text-align:right;">${Utils.esc(person.bloodGroup || 'N/A')}</div>
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Joining Date</div>
@@ -84,7 +90,7 @@ const IDCardsModule = (() => {
         </div>
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Course</div>
-          <div style="color:#aaa;font-size:7px;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${person.course || 'N/A'}</div>
+          <div style="color:#aaa;font-size:7px;flex:1;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:110px;">${Utils.esc(person.course || 'N/A')}</div>
         </div>
         <div style="display:flex;justify-content:space-between;">
           <div style="color:#c9a227;font-size:7px;font-weight:bold;text-transform:uppercase;width:80px;">Valid Till</div>
@@ -231,5 +237,36 @@ const IDCardsModule = (() => {
     printBulk(students, 'student');
   }
 
-  return { buildCardHTML, renderPreview, printCard, printBulk, render, previewStudent, printStudent, printAllStudents };
+  // ✅ Global-safe preview — works from ANY page via Utils.openModal()
+  // Called from Students MANAGE action → VIEW ID CARD button
+  function previewCard(id) {
+    const students = SupabaseSync.getAll(DB.students);
+    const s = students.find(st => st.id === id);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    // Try own modal first (if on ID Cards page)
+    const ownModal = document.getElementById('idcard-preview-modal');
+    const ownArea  = document.getElementById('idcard-preview-area');
+    if (ownModal && ownArea) {
+      ownArea.innerHTML = buildCardHTML(s, 'student');
+      ownModal.style.display = 'flex';
+      return;
+    }
+
+    // Fallback: use global Utils modal (works from Students page)
+    const cardHTML = buildCardHTML(s, 'student');
+    Utils.openModal(
+      `<i class="fa fa-id-badge" style="color:#00d9ff"></i> ID Card &mdash; ${Utils.esc(s.name)}`,
+      `<div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px 0;">
+        <div>${cardHTML}</div>
+        <button class="btn btn-primary" onclick="IDCardsModule.printStudent('${id}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
+          <i class="fa fa-print"></i> Print ID Card
+        </button>
+      </div>`,
+      'modal-sm'
+    );
+  }
+
+  return { buildCardHTML, renderPreview, printCard, printBulk, render, previewStudent, previewCard, printStudent, printAllStudents };
 })();
+window.IDCardsModule = IDCardsModule;

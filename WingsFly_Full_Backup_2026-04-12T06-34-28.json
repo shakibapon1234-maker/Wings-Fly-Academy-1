@@ -3218,7 +3218,7 @@
       "academy_address": null,
       "academy_phone": null,
       "academy_email": null,
-      "admin_password": "admin123",
+      "admin_password": "",
       "currency": "BDT",
       "timezone": "Asia/Dhaka",
       "logo_url": null,
