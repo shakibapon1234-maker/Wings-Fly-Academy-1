@@ -108,7 +108,7 @@ const Exam = (() => {
       </td>
       <td>${Utils.esc(e.batch || '—')}</td>
       <td>${Utils.esc(e.subject || '—')}</td>
-      <td style="font-size:0.82rem">${Utils.formatDate(e.exam_date)}</td>
+      <td style="font-size:0.82rem">${Utils.formatDateDMY(e.exam_date)}</td>
       <td style="font-family:var(--font-ui)">${Utils.takaEn(e.exam_fee)}</td>
       <td><strong>${e.grade || '—'}</strong></td>
       <td>${Utils.statusBadge(e.status || 'Registered')}</td>
@@ -463,6 +463,11 @@ const Exam = (() => {
             amount: record.exam_fee, method: method, date: record.exam_date,
           });
           SupabaseSync.updateAccountBalance(method, record.exam_fee, 'in');
+          // ✅ লজিক ৬: Exam fee specific activity log
+          if (typeof SupabaseSync.logActivity === 'function') {
+            SupabaseSync.logActivity('payment', 'exams',
+              `Exam Fee Paid: ${studentName} (${studentId}) — ${subject} ৳${Utils.formatMoneyPlain(record.exam_fee)} via ${method}`);
+          }
         }
       }
     }

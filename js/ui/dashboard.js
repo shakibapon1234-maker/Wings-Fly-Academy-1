@@ -166,7 +166,7 @@ const DashboardModule = (() => {
       <th>Date</th><th>Description</th><th>Type</th><th>Method</th><th class="text-right">Amount</th>
     </tr></thead><tbody>
     ${rows.map(r => `<tr>
-      <td style="font-size:.82rem">${Utils.formatDate(r.date)}</td>
+      <td style="font-size:.82rem">${Utils.formatDateDMY(r.date)}</td>
       <td>${Utils.truncate(r.description||'—',28)}</td>
       <td>${r.type==='Income' ? Utils.badge('Income','success') : Utils.badge('Expense','danger')}</td>
       <td>${Utils.methodBadge(r.method||'Cash')}</td>
@@ -204,7 +204,7 @@ const DashboardModule = (() => {
       <div class="notice-item notice-${n.type||'info'}">
         <span class="badge ${typeMap[n.type]||'badge-info'}">${labelMap[n.type]||'Info'}</span>
         <p style="margin-top:6px;font-size:.9rem">${n.text||''}</p>
-        ${n.expires_at ? `<small class="text-muted">Expires: ${Utils.formatDate(n.expires_at)}</small>` : ''}
+        ${n.expires_at ? `<small class="text-muted">Expires: ${Utils.formatDateDMY(n.expires_at)}</small>` : ''}
       </div>`).join('');
   }
 

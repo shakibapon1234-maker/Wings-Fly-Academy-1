@@ -98,7 +98,7 @@ const Loans = (() => {
             <thead><tr><th>Date</th><th>Person</th><th>Type</th><th>Amount</th><th>Status</th><th class="no-print">Action</th></tr></thead>
             <tbody>
               ${pageData.items.map(l=>`<tr>
-                <td style="font-size:0.82rem">${Utils.formatDate(l.date)}</td>
+                <td style="font-size:0.82rem">${Utils.formatDateDMY(l.date)}</td>
                 <td style="font-weight:600">${Utils.esc(l.person_name || l.person || '—')}</td>
                 <td>${(l.type==='Loan Giving' || l.direction==='given')
                   ? '<span class="badge-expense">Given</span>'
@@ -452,6 +452,13 @@ const Loans = (() => {
         SupabaseSync.updateAccountBalance(method, amount, 'in');
       }
 
+      // ✅ লজিক ৬: Loan specific activity log
+      if (typeof SupabaseSync.logActivity === 'function') {
+        const actionStr = type === 'Loan Giving' ? 'Given' : 'Received';
+        SupabaseSync.logActivity('payment', 'loans',
+          `Loan ${actionStr}: ${person} ৳${Utils.formatMoneyPlain(amount)} via ${method}`);
+      }
+
       Utils.toast('Loan Added ✓', 'success');
     }
 
@@ -534,7 +541,7 @@ const Loans = (() => {
       <div class="table-wrapper"><table>
         <thead><tr><th>Date</th><th>Direction</th><th>Amount</th><th>Status</th></tr></thead>
         <tbody>${loans.map(l => `<tr>
-          <td>${Utils.formatDate(l.date)}</td>
+          <td>${Utils.formatDateDMY(l.date)}</td>
           <td>${(l.type==='Loan Giving' || l.direction==='given')?'<span class="badge-expense">Given</span>':'<span class="badge-income">Taken</span>'}</td>
           <td style="font-weight:600">${Utils.takaEn(l.amount)}</td>
           <td>${Utils.statusBadge(l.status||'Outstanding')}</td>

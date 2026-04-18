@@ -832,17 +832,18 @@ const SettingsModule = (() => {
   }
 
   function removeCategory(key, item) {
-    // ✅ Req 2: push to recycle bin before deleting so it can be restored
-    const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
-    bin.unshift({
-      table: 'settings_category',
-      type:  'category',
-      name:  `"${item}" (${key})`,
-      data:  { key, item },
-      deletedAt: new Date().toISOString(),
-    });
-    if (bin.length > 500) bin.length = 500;
-    localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+    // ✅ Modified: Push to Keep Record instead of recycle bin, as requested
+    const notes = getKeepRecords();
+    const entry = { 
+      title: `Deleted: ${item}`, 
+      content: `Category "${item}" removed from ${key} list.`, 
+      color: 'red', 
+      tags: ['deleted', 'settings', 'category'], 
+      pinned: false, 
+      date: new Date().toLocaleDateString('en-GB') 
+    };
+    notes.unshift(entry);
+    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
 
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
@@ -2374,7 +2375,7 @@ ${expenseEntries.length > 0 ? `
                   <tr>
                     <td style="font-weight:600">${v.table}</td>
                     <td class="text-right" style="font-family:var(--font-ui)">${v.localCount}</td>
-                    <td style="font-size:.78rem;color:var(--text-muted)">${v.lastUpdated !== '—' ? (typeof Utils !== 'undefined' ? Utils.formatDate(v.lastUpdated) : v.lastUpdated) : '—'}</td>
+                    <td style="font-size:.78rem;color:var(--text-muted)">${v.lastUpdated !== '—' ? (typeof Utils !== 'undefined' ? Utils.formatDateDMY(v.lastUpdated) : v.lastUpdated) : '—'}</td>
                     <td><button class="btn btn-outline btn-xs" onclick="SettingsModule.viewTableData('${v.table}')" title="View"><i class="fa fa-eye"></i></button></td>
                   </tr>
                 `).join('')}
@@ -4359,8 +4360,22 @@ ${expenseEntries.length > 0 ? `
 
   function deleteCustomTheme(tId) {
     let custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+    const themeName = custom.find(t => t.id === tId)?.name || tId;
     custom = custom.filter(t => t.id !== tId);
     localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
+
+    // ✅ Put deleted theme info in Keep Record
+    const notes = getKeepRecords();
+    const entry = { 
+      title: `Deleted Theme: ${themeName}`, 
+      content: `Custom Theme "${themeName}" (${tId}) was deleted from settings.`, 
+      color: 'red', 
+      tags: ['deleted', 'settings', 'theme'], 
+      pinned: false, 
+      date: new Date().toLocaleDateString('en-GB') 
+    };
+    notes.unshift(entry);
+    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
     if (localStorage.getItem('wfa_theme') === tId) {
       applyTheme('neon-space');
     } else {

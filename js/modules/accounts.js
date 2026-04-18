@@ -482,7 +482,7 @@ const Accounts = (() => {
             const to = toDesc.length > 1 ? toDesc[1] : '?';
             return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
               <td style="padding:12px; color:var(--text-muted);">${i+1}</td>
-              <td style="padding:12px; font-size:0.85rem;">${Utils.formatDate(t.date)}</td>
+              <td style="padding:12px; font-size:0.85rem;">${Utils.formatDateDMY(t.date)}</td>
               <td style="padding:12px; font-weight:700;">${from}</td>
               <td style="padding:12px; font-weight:700;">${to}</td>
               <td style="padding:12px; text-align:right; font-weight:700; font-family:var(--font-en); color:#ffd700;">${Utils.takaEn(t.amount)}</td>
@@ -723,6 +723,14 @@ const Accounts = (() => {
     if (!from || !to) { errEl.textContent='Please select both accounts'; errEl.classList.remove('hidden'); return; }
     if (from===to) { errEl.textContent='Cannot transfer to the same account'; errEl.classList.remove('hidden'); return; }
     if (!amount||amount<=0) { errEl.textContent='Amount required'; errEl.classList.remove('hidden'); return; }
+
+    // ✅ লজিক ৬: Transfer করার আগে balance check
+    const fromBalance = Utils.getAccountBalance ? Utils.getAccountBalance(from) : Infinity;
+    if (amount > fromBalance) {
+      errEl.textContent = `Insufficient funds in ${from}. Only ৳${Utils.formatMoneyPlain(fromBalance)} available.`;
+      errEl.classList.remove('hidden');
+      return;
+    }
     errEl.classList.add('hidden');
 
     SupabaseSync.insert(DB.finance, {
@@ -736,6 +744,12 @@ const Accounts = (() => {
       description:`${from} → ${to}`, amount, date, note: notes
     });
     SupabaseSync.updateAccountBalance(to, amount, 'in');
+
+    // ✅ লজিক ৬: Transfer specific activity log
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('transfer', 'accounts',
+        `Transfer: ${from} → ${to} ৳${Utils.formatMoneyPlain(amount)}`);
+    }
 
     Utils.toast(`Transfer completed ✓`,'success');
     Utils.closeModal();

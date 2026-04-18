@@ -160,7 +160,7 @@ const HRStaff = (() => {
               <td>${Utils.esc(s.phone || "—")}</td>
               <td>${s.email || '—'}</td>
               <td>৳${Utils.formatMoneyPlain(s.salary || 0)}</td>
-              <td>${s.joiningDate ? Utils.formatDate(s.joiningDate) : '—'}</td>
+              <td>${s.joiningDate ? Utils.formatDateDMY(s.joiningDate) : '—'}</td>
               <td>
                 <span class="badge ${s.status === 'Active' ? 'badge-green' : 'badge-red'}">
                   ${s.status === 'Active' ? 'Active' : 'Inactive'}
@@ -360,6 +360,13 @@ const HRStaff = (() => {
     if (!s) return;
     const newStatus = s.status === 'Active' ? 'Inactive' : 'Active';
     SupabaseSync.update(DB.staff, id, { status: newStatus });
+    
+    // ✅ লজিক ৬: Status update specific activity log
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('update', 'hr-staff',
+        `Staff Status Updated: ${s.name} → ${newStatus}`);
+    }
+
     render();
     Utils.toast(`Status changed to: ${newStatus}`, 'info');
   }
