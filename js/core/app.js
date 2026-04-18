@@ -282,6 +282,12 @@ const App = (() => {
     if (faceBtn) {
        faceBtn.style.display = localStorage.getItem('wfa_admin_face_descriptor') ? 'flex' : 'none';
     }
+
+    // Pattern Lock button visibility
+    const patBtn = document.getElementById('pattern-lock-login-btn');
+    if (patBtn) {
+       patBtn.style.display = localStorage.getItem('wfa_admin_pattern') ? 'flex' : 'none';
+    }
   }
 
   function showApp(fromLogin = false) {

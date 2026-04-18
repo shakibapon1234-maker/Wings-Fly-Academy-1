@@ -1100,6 +1100,24 @@ const SettingsModule = (() => {
          </div>
       </div>
 
+      <!-- Pattern Lock Setup -->
+      <div class="settings-card glow-cyan" style="margin-top:16px; border: 1px solid rgba(0, 217, 255, 0.2)">
+         <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:12px; align-items:center">
+               <div style="width:40px; height:40px; border-radius:8px; background:rgba(0,217,255,0.1); display:flex; align-items:center; justify-content:center; font-size:1.2rem; border:1px solid rgba(0,217,255,0.2)">
+                  <i class="fa fa-lock" style="color:#00d4ff"></i>
+               </div>
+               <div>
+                  <div style="font-weight:700; font-size:1.05rem; color:#fff">Pattern Lock</div>
+                  <div style="font-size:0.8rem; color:#00d4ff">ডট মিলিয়ে সিক্রেট প্যাটার্ন তৈরি করুন</div>
+               </div>
+            </div>
+            <button class="btn" style="background:linear-gradient(135deg, #00d4ff, #0066ff); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('register'); else alert('Pattern Lock module not loaded.')">
+               <i class="fa fa-pen"></i> Set Pattern
+            </button>
+         </div>
+      </div>
+
       <!-- Staff / Sub-account Access -->
       <div class="settings-card glow-cyan" style="margin-top:16px; border: 1px solid rgba(0, 217, 255, 0.2)">
          <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('sub-account-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down, i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">

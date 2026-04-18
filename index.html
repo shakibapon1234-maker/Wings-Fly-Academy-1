@@ -96,6 +96,11 @@
         <button type="button" class="login-btn" id="face-id-login-btn" style="display:none;background:rgba(0, 255, 136, 0.1);border:1px solid rgba(0, 255, 136, 0.4);color:#00ff88;margin-top:10px" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('login')">
           <span class="login-btn-text"><i class="fa fa-face-smile"></i>&nbsp; Face ID Login</span>
         </button>
+
+        <!-- Pattern Lock Option -->
+        <button type="button" class="login-btn" id="pattern-lock-login-btn" style="display:none;background:rgba(0, 217, 255, 0.1);border:1px solid rgba(0, 217, 255, 0.4);color:#00d4ff;margin-top:10px" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('login')">
+          <span class="login-btn-text"><i class="fa fa-lock"></i>&nbsp; Pattern Lock</span>
+        </button>
       </form>
 
       <button type="button" class="login-forgot-link" onclick="LoginUI.showForgotModal()">
@@ -427,6 +432,10 @@
   <!-- Face Recognition -->
   <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js" defer></script>
   <script src="js/modules/face-id.js" defer></script>
+
+  <!-- Wow Features (Phase 4) -->
+  <script src="js/modules/command-palette.js" defer></script>
+  <script src="js/modules/pattern-lock.js" defer></script>
 
   <!-- PWA -->
   <script>
