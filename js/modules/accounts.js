@@ -129,8 +129,12 @@ const Accounts = (() => {
           <div class="form-group">
             <label class="filter-label" style="color:#00d4ff">Select Account</label>
             <select id="acc-search-type" class="form-control" style="border-color:rgba(0,212,255,0.3)">
-              <option value="">-- Select an Account --</option>
-              ${CATEGORIES.map(t=>`<option value="${t}" ${searchResMethod===t?'selected':''}>${t}</option>`).join('')}
+              <option value="__all__" ${searchResMethod==='__all__'?'selected':''}>🏦 All Accounts</option>
+              <optgroup label="── Cash ──">
+                <option value="Cash" ${searchResMethod==='Cash'?'selected':''}>💵 Cash</option>
+              </optgroup>
+              ${bankDetails.length?`<optgroup label="── Bank ──">${bankDetails.map(b=>`<option value="${Utils.escAttr(b.name)}" ${searchResMethod===b.name?'selected':''}>🏦 ${Utils.esc(b.name)}</option>`).join('')}</optgroup>`:''}
+              ${mobileDetails.length?`<optgroup label="── Mobile Banking ──">${mobileDetails.map(m=>`<option value="${Utils.escAttr(m.name)}" ${searchResMethod===m.name?'selected':''}>📱 ${Utils.esc(m.name)}</option>`).join('')}</optgroup>`:''}
             </select>
           </div>
           <div class="form-group">
@@ -285,39 +289,121 @@ const Accounts = (() => {
 
   function renderSearchResults(finance, accounts) {
     if (!searchResMethod && !searchResFrom && !searchResTo) return '';
-    let filtered = searchResMethod
-      ? finance.filter(f => Utils.financeMatchesAccountCategory(f.method, searchResMethod, accounts))
-      : finance;
-    if (searchResFrom) filtered = filtered.filter(f => f.date >= searchResFrom);
-    if (searchResTo)   filtered = filtered.filter(f => f.date <= searchResTo);
-    filtered = Utils.sortBy(filtered, 'date', 'desc');
 
-    if (filtered.length === 0) return `<div style="text-align:center; padding:20px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed rgba(255,255,255,0.1);">No transactions found for this search.</div>`;
+    const isAll = (searchResMethod === '__all__' || !searchResMethod);
 
+    // Apply date filters first
+    let dateFiltered = finance;
+    if (searchResFrom) dateFiltered = dateFiltered.filter(f => f.date >= searchResFrom);
+    if (searchResTo)   dateFiltered = dateFiltered.filter(f => f.date <= searchResTo);
+
+    let filtered;
+    if (isAll) {
+      // All accounts: show everything
+      filtered = Utils.sortBy(dateFiltered, 'date', 'desc');
+    } else {
+      // Specific account: match by method/account name exactly
+      filtered = dateFiltered.filter(f => {
+        const method = f.method || 'Cash';
+        // Exact match by account name (Cash, bank name, mobile name)
+        if (method === searchResMethod) return true;
+        // Also match settlement key for composite methods
+        if (typeof Utils.getSettlementKey === 'function') {
+          return Utils.getSettlementKey(method) === searchResMethod;
+        }
+        return false;
+      });
+      filtered = Utils.sortBy(filtered, 'date', 'desc');
+    }
+
+    if (filtered.length === 0) return `<div style="text-align:center; padding:20px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed rgba(255,255,255,0.1);">No transactions found for this filter.</div>`;
+
+    // ── Export/Print bar ────────────────────────────────────
+    const exportBar = `
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-bottom:10px;">
+        <button class="btn btn-sm" style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:#00ff88;border-radius:6px;padding:5px 14px;font-size:0.8rem;font-weight:700;cursor:pointer;" onclick="Accounts.exportSearchExcel()">
+          <i class="fa fa-file-excel"></i> EXCEL
+        </button>
+        <button class="btn btn-sm" style="background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:6px;padding:5px 14px;font-size:0.8rem;font-weight:700;cursor:pointer;" onclick="Accounts.printSearch()">
+          <i class="fa fa-print"></i> PRINT
+        </button>
+        <button class="btn btn-sm" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:#ff4757;border-radius:6px;padding:5px 14px;font-size:0.8rem;font-weight:700;cursor:pointer;" onclick="Accounts.clearSearch()">
+          <i class="fa fa-times"></i>
+        </button>
+      </div>`;
+
+    // ── All Accounts Summary Card ───────────────────────────
+    let summaryHTML = '';
+    if (isAll) {
+      const cashTx   = filtered.filter(f => (f.method||'Cash') === 'Cash' || Utils.getPaymentMethodBucket(f.method, accounts) === 'cash');
+      const bankTx   = filtered.filter(f => Utils.getPaymentMethodBucket(f.method, accounts) === 'bank');
+      const mobileTx = filtered.filter(f => Utils.getPaymentMethodBucket(f.method, accounts) === 'mobile');
+
+      const sum = (txs, positive) => txs
+        .filter(f => positive ? ['Income','Loan Receiving','Transfer In'].includes(f.type) : ['Expense','Loan Giving','Transfer Out'].includes(f.type))
+        .reduce((s,f) => s + Utils.safeNum(f.amount), 0);
+
+      const cashNet   = sum(cashTx, true)   - sum(cashTx, false);
+      const bankNet   = sum(bankTx, true)   - sum(bankTx, false);
+      const mobileNet = sum(mobileTx, true) - sum(mobileTx, false);
+      const totalNet  = cashNet + bankNet + mobileNet;
+
+      summaryHTML = `
+        <div style="background:linear-gradient(135deg,rgba(0,20,60,0.9),rgba(0,10,40,0.95));border:1px solid rgba(0,212,255,0.25);border-radius:12px;padding:20px;margin-bottom:16px;box-shadow:0 4px 32px rgba(0,0,0,0.4);">
+          <div style="font-size:0.75rem;font-weight:800;letter-spacing:2px;color:#00d4ff;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <i class="fa fa-building-columns"></i> ALL ACCOUNTS SUMMARY
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            <div style="flex:1;min-width:100px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:14px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;">CASH</div>
+              <div style="color:#00ff88;font-size:1.3rem;font-weight:800;font-family:var(--font-en);">${Utils.takaEn(cashNet)}</div>
+            </div>
+            <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:14px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;">BANK</div>
+              <div style="color:#00d4ff;font-size:1.3rem;font-weight:800;font-family:var(--font-en);">${Utils.takaEn(bankNet)}</div>
+            </div>
+            <div style="flex:1;min-width:100px;background:rgba(180,100,255,0.08);border:1px solid rgba(180,100,255,0.25);border-radius:10px;padding:14px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;">MOBILE</div>
+              <div style="color:#b464ff;font-size:1.3rem;font-weight:800;font-family:var(--font-en);">${Utils.takaEn(mobileNet)}</div>
+            </div>
+            <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:10px;padding:14px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;">TOTAL</div>
+              <div style="color:#ffd700;font-size:1.3rem;font-weight:800;font-family:var(--font-en);">${Utils.takaEn(totalNet)}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── Transaction Table ───────────────────────────────────
     let html = `<div class="table-wrapper" style="border-radius:8px; overflow:hidden; border:1px solid rgba(0,212,255,0.2); margin-bottom:20px;">
       <table class="table" style="margin:0; width:100%; border-collapse:collapse;">
         <thead style="background:rgba(0,212,255,0.05); border-bottom:1px solid rgba(0,212,255,0.2);">
           <tr>
-             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Date</th>
-             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Type</th>
-             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Account</th>
-             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">Description</th>
-             <th style="padding:10px;text-align:right;color:#00d4ff;font-size:0.8rem;">Amount</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">DATE</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">TYPE</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">ACCOUNT</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">CATEGORY</th>
+             <th style="padding:10px;text-align:left;color:#00d4ff;font-size:0.8rem;">DETAILS</th>
+             <th style="padding:10px;text-align:right;color:#00d4ff;font-size:0.8rem;">AMOUNT</th>
           </tr>
         </thead>
         <tbody>`;
     html += filtered.map(f => {
       const isPos = ['Income','Loan Receiving','Transfer In'].includes(f.type);
-      return `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-        <td style="padding:10px;font-size:0.85rem;">${Utils.formatDate(f.date)}</td>
-        <td style="padding:10px;">${f.type}</td>
+      const typeColor = isPos ? 'rgba(0,255,136,0.15)' : 'rgba(255,71,87,0.15)';
+      const typeTextColor = isPos ? '#00ff88' : '#ff4757';
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:10px 10px;font-size:0.82rem;color:var(--text-secondary);white-space:nowrap;">${f.date ? f.date.slice(0,10) : '—'}</td>
+        <td style="padding:10px;"><span style="background:${typeColor};color:${typeTextColor};padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;">${f.type}</span></td>
         <td style="padding:10px;">${Utils.methodBadge(f.method||'Cash')}</td>
-        <td style="padding:10px;font-size:0.85rem;color:var(--text-secondary);">${Utils.truncate(f.description||f.category||'—', 35)}</td>
-        <td style="padding:10px;text-align:right;font-family:var(--font-en);font-weight:700;color:${isPos?'#00ff88':'#ff4757'}">${isPos?'+':'-'}${Utils.takaEn(f.amount)}</td>
+        <td style="padding:10px;font-size:0.82rem;color:var(--text-muted);">${Utils.esc(f.category||'—')}</td>
+        <td style="padding:10px;font-size:0.82rem;color:var(--text-secondary);max-width:220px;word-break:break-word;">${Utils.esc(Utils.truncate(f.description||'—', 40))}</td>
+        <td style="padding:10px;text-align:right;font-family:var(--font-en);font-weight:700;font-size:0.9rem;color:${typeTextColor};white-space:nowrap;">${isPos?'+':'-'}${Utils.takaEn(f.amount)}</td>
       </tr>`;
     }).join('');
     html += `</tbody></table></div>`;
-    return html;
+
+    return exportBar + summaryHTML + html;
   }
 
   function renderTransferHistory(finance) {
@@ -614,11 +700,31 @@ const Accounts = (() => {
 
   /* Filters */
   function doSearch() {
-    searchResMethod = Utils.formVal('acc-search-type');
+    searchResMethod = Utils.formVal('acc-search-type') || '__all__';
     searchResFrom = Utils.formVal('acc-search-from');
     searchResTo = Utils.formVal('acc-search-to');
-    if (!searchResMethod) { Utils.toast('Select an account to search', 'warn'); return; }
     render();
+  }
+
+  function exportSearchExcel() {
+    const finance  = SupabaseSync.getAll(DB.finance);
+    const accounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
+    const isAll = (searchResMethod === '__all__' || !searchResMethod);
+    let filtered = finance;
+    if (searchResFrom) filtered = filtered.filter(f => f.date >= searchResFrom);
+    if (searchResTo)   filtered = filtered.filter(f => f.date <= searchResTo);
+    if (!isAll) filtered = filtered.filter(f => (f.method||'Cash') === searchResMethod || (typeof Utils.getSettlementKey === 'function' && Utils.getSettlementKey(f.method||'Cash') === searchResMethod));
+    const rows = filtered.map(f => ({
+      'Date': f.date||'', 'Type': f.type||'', 'Account': f.method||'Cash',
+      'Category': f.category||'', 'Details': f.description||'',
+      'Amount': Utils.safeNum(f.amount)
+    }));
+    Utils.exportExcel(rows, `accounts_${searchResMethod}_${Utils.today()}`, 'Transactions');
+  }
+
+  function printSearch() {
+    const area = document.getElementById('acc-search-results-area');
+    if (area) Utils.printArea('acc-search-results-area');
   }
   function clearSearch() {
     searchResMethod = ''; searchResFrom = ''; searchResTo = '';
@@ -635,12 +741,13 @@ const Accounts = (() => {
   }
 
   return {
-    render, 
-    openSetModal, saveBalance, 
+    render,
+    openSetModal, saveBalance,
     openBankModal, saveBank, deleteBank,
     openMobileModal, saveMobile, deleteMobile,
     openTransferModal, doTransfer,
-    doSearch, clearSearch, filterHistory, clearHistoryFilter
+    doSearch, clearSearch, filterHistory, clearHistoryFilter,
+    exportSearchExcel, printSearch
   };
 
 })();
