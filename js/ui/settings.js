@@ -1082,6 +1082,24 @@ const SettingsModule = (() => {
          </div>
       </div>
 
+      <!-- Face ID Setup -->
+      <div class="settings-card glow-green" style="margin-top:16px; border: 1px solid rgba(0, 255, 136, 0.2)">
+         <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; gap:12px; align-items:center">
+               <div style="width:40px; height:40px; border-radius:8px; background:rgba(0,255,136,0.1); display:flex; align-items:center; justify-content:center; font-size:1.2rem; border:1px solid rgba(0,255,136,0.2)">
+                  <i class="fa fa-face-smile" style="color:#00ff88"></i>
+               </div>
+               <div>
+                  <div style="font-weight:700; font-size:1.05rem; color:#fff">Face ID Login</div>
+                  <div style="font-size:0.8rem; color:#00ff88">ক্যামেরা ব্যবহার করে দ্রুত লগইন করুন</div>
+               </div>
+            </div>
+            <button class="btn" style="background:linear-gradient(135deg, #00b09b, #96c93d); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('register'); else alert('Face ID module not loaded.')">
+               <i class="fa fa-camera"></i> Register Face
+            </button>
+         </div>
+      </div>
+
       <!-- Staff / Sub-account Access -->
       <div class="settings-card glow-cyan" style="margin-top:16px; border: 1px solid rgba(0, 217, 255, 0.2)">
          <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('sub-account-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down, i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">

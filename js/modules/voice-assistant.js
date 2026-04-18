@@ -165,7 +165,7 @@ const VoiceAssistant = (() => {
     for (let nav of navigations) {
       if (nav.trigger.some(t => cmd.includes(t))) {
         // Trigger click on corresponding nav item
-        const navBtn = document.querySelector(\`button[data-section="\${nav.tab}"]\`);
+        const navBtn = document.querySelector(`button[data-section="${nav.tab}"]`);
         if (navBtn) {
           navBtn.click();
           if (typeof Utils !== 'undefined') Utils.toast(nav.speak, 'success');
