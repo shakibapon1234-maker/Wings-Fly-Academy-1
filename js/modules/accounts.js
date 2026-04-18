@@ -283,6 +283,12 @@ const Accounts = (() => {
              <div style="color:#00ff88; font-size:2.2rem; font-weight:900; text-shadow:0 0 15px rgba(0,255,136,0.4); font-family:var(--font-en);">${Utils.takaEn(mobileBal)}</div>
           </div>
         </div>
+        <!-- Grand Total Row -->
+        <div style="text-align:center; margin-top:28px; padding-top:24px; border-top:1px solid rgba(255,255,255,0.07);">
+          <div style="color:#888; font-size:0.72rem; font-weight:700; letter-spacing:2px; margin-bottom:10px;">★ GRAND TOTAL</div>
+          <div style="color:#ffd700; font-size:3rem; font-weight:900; font-family:var(--font-en); text-shadow:0 0 30px rgba(255,215,0,0.5); line-height:1;">${Utils.takaEn(totalAll)}</div>
+          <div style="color:var(--text-muted); font-size:0.78rem; margin-top:8px;">Cash + Bank + Mobile Banking Combined</div>
+        </div>
       </div>
     `;
   }
@@ -403,7 +409,45 @@ const Accounts = (() => {
     }).join('');
     html += `</tbody></table></div>`;
 
-    return exportBar + summaryHTML + html;
+    // ── Per-Account Transaction Summary (for specific account search) ──
+    let perAccountSummary = '';
+    if (!isAll) {
+      const totalIn  = filtered
+        .filter(f => ['Income','Loan Receiving','Transfer In'].includes(f.type))
+        .reduce((s,f) => s + Utils.safeNum(f.amount), 0);
+      const totalOut = filtered
+        .filter(f => ['Expense','Loan Giving','Transfer Out'].includes(f.type))
+        .reduce((s,f) => s + Utils.safeNum(f.amount), 0);
+      const netTotal = totalIn - totalOut;
+      const netColor = netTotal >= 0 ? '#00ff88' : '#ff4757';
+
+      perAccountSummary = `
+        <div style="background:linear-gradient(135deg,rgba(0,10,40,0.95),rgba(0,20,60,0.9));border:1px solid rgba(0,212,255,0.2);border-radius:12px;padding:20px;margin-top:4px;box-shadow:0 4px 32px rgba(0,0,0,0.4);">
+          <div style="font-size:0.72rem;font-weight:800;letter-spacing:2px;color:#00d4ff;margin-bottom:16px;display:flex;align-items:center;gap:8px;">
+            <i class="fa fa-chart-pie"></i> TRANSACTION SUMMARY
+            <span style="font-size:0.68rem;color:#555;font-weight:500;margin-left:4px;">
+              ${searchResFrom||'All'} → ${searchResTo||'Today'} &nbsp;·&nbsp; ${filtered.length} transactions
+            </span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:12px;">
+            <div style="flex:1;min-width:120px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);border-radius:10px;padding:16px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;"><i class="fa fa-arrow-down"></i> TOTAL IN</div>
+              <div style="color:#00ff88;font-size:1.4rem;font-weight:800;font-family:var(--font-en);">+${Utils.takaEn(totalIn)}</div>
+            </div>
+            <div style="flex:1;min-width:120px;background:rgba(255,71,87,0.07);border:1px solid rgba(255,71,87,0.2);border-radius:10px;padding:16px;text-align:center;">
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;"><i class="fa fa-arrow-up"></i> TOTAL OUT</div>
+              <div style="color:#ff4757;font-size:1.4rem;font-weight:800;font-family:var(--font-en);">-${Utils.takaEn(totalOut)}</div>
+            </div>
+            <div style="flex:1.5;min-width:140px;background:rgba(255,215,0,0.07);border:2px solid ${netColor}44;border-radius:10px;padding:16px;text-align:center;position:relative;overflow:hidden;">
+              <div style="position:absolute;inset:0;background:linear-gradient(135deg,${netColor}08,transparent);border-radius:10px;"></div>
+              <div style="color:#888;font-size:0.68rem;font-weight:700;letter-spacing:1px;margin-bottom:6px;position:relative;">★ NET TOTAL</div>
+              <div style="color:${netColor};font-size:1.7rem;font-weight:900;font-family:var(--font-en);text-shadow:0 0 16px ${netColor}66;position:relative;">${netTotal>=0?'+':''}${Utils.takaEn(netTotal)}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    return exportBar + summaryHTML + html + perAccountSummary;
   }
 
   function renderTransferHistory(finance) {
