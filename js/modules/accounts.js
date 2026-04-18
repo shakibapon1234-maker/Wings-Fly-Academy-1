@@ -8,6 +8,37 @@ const Accounts = (() => {
 
   const CATEGORIES = ['Cash', 'Bank', 'Mobile Banking'];
 
+  // ── Opening Balance Helper ──────────────────────────────────────────────
+  // Account-এ balance set করলে Finance-এ একটা Income entry তৈরি/আপডেট করে
+  // যাতে SyncGuard-এর balance audit মিলে যায়।
+  function _upsertOpeningEntry(accountName, balance) {
+    if (!accountName || typeof SupabaseSync === 'undefined') return;
+    try {
+      const all = SupabaseSync.getAll(DB.finance);
+      const existing = all.find(f =>
+        f.category === 'Opening Balance' &&
+        (f.method === accountName || f.account === accountName)
+      );
+      const entry = {
+        type: 'Income',
+        category: 'Opening Balance',
+        method: accountName,
+        account: accountName,
+        amount: balance,
+        date: Utils.today ? Utils.today() : new Date().toISOString().split('T')[0],
+        note: `Opening balance for ${accountName}`,
+        description: `Opening balance for ${accountName}`,
+      };
+      if (existing) {
+        SupabaseSync.update(DB.finance, existing.id, entry);
+      } else if (balance > 0) {
+        SupabaseSync.insert(DB.finance, entry);
+      }
+    } catch (e) {
+      console.warn('[Accounts] _upsertOpeningEntry error:', e);
+    }
+  }
+
   let searchResMethod = '';
   let searchResFrom = '';
   let searchResTo = '';
@@ -351,10 +382,21 @@ const Accounts = (() => {
 
   function saveBalance(type, existingId) {
     const bal = Utils.safeNum(Utils.formVal('acc-bal'));
+    const accountName = type; // Cash, etc.
+
     if (existingId) {
+      // Get old balance to calculate difference
+      const old = SupabaseSync.getById(DB.accounts, existingId);
+      const oldBal = parseFloat(old?.balance) || 0;
       SupabaseSync.update(DB.accounts, existingId, { type, balance: bal });
+
+      // Adjust opening balance finance entry if balance changed
+      if (bal !== oldBal) {
+        _upsertOpeningEntry(accountName, bal);
+      }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal });
+      if (bal > 0) _upsertOpeningEntry(accountName, bal);
     }
     Utils.toast('Balance updated ✓','success');
     Utils.closeModal();
@@ -414,10 +456,14 @@ const Accounts = (() => {
     };
 
     if (id) {
+       const old = SupabaseSync.getById(DB.accounts, id);
+       const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
+       if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
        Utils.toast('Bank account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
+       if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
        Utils.toast('Bank account added','success');
     }
     Utils.closeModal();
@@ -473,10 +519,14 @@ const Accounts = (() => {
     };
 
     if (id) {
+       const old = SupabaseSync.getById(DB.accounts, id);
+       const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
+       if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
        Utils.toast('Mobile account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
+       if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
        Utils.toast('Mobile account added','success');
     }
     Utils.closeModal();
