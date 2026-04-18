@@ -448,5 +448,6 @@ const NoticeBoardModule = (() => {
   return { init, render, updateNoticeDot, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };
 })();
 window.NoticeBoard = NoticeBoardModule;
+window.NoticeBoardModule = NoticeBoardModule;
 
 document.addEventListener('DOMContentLoaded', () => { setTimeout(NoticeBoardModule.init, 1000); });

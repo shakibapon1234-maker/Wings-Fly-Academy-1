@@ -544,3 +544,4 @@ const Exam = (() => {
 
 })();
 window.ExamModule = Exam;
+window.Exam = Exam;
