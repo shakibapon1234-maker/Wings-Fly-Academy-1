@@ -14,7 +14,8 @@ const DashboardModule = (() => {
     return {
       runningBatch:  (cfg.running_batch != null && cfg.running_batch !== '') ? String(cfg.running_batch) : '',
       expenseMonth:  cfg.expense_month  || '',
-      monthlyTarget: Utils.safeNum(cfg.monthly_target),
+      // Bug #4 fix: guard against Utils being undefined when this runs early
+      monthlyTarget: (typeof Utils !== 'undefined') ? Utils.safeNum(cfg.monthly_target) : (parseFloat(cfg.monthly_target) || 0),
     };
   }
 

@@ -234,3 +234,6 @@ const CommandPalette = (() => {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => CommandPalette.init(), 1200);
 });
+
+// Bug #2 fix: export to window so other modules can access CommandPalette
+window.CommandPalette = CommandPalette;

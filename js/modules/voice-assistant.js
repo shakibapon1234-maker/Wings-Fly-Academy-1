@@ -209,3 +209,6 @@ const VoiceAssistant = (() => {
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => VoiceAssistant.init(), 1500);
 });
+
+// Bug #2 fix: export to window so other modules can access VoiceAssistant
+window.VoiceAssistant = VoiceAssistant;

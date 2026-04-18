@@ -369,7 +369,15 @@ const SyncGuard = (() => {
 
   // ── Auto Fix logic ───────────────────────────────────────
   async function autoFix() {
+    // TODO (Bug #5): Replace window.confirm() with a custom modal in future
+    //                Some browsers/environments block window.confirm().
     if (!window.confirm("Auto-Fix will recalculate negative/discrepant balances based on actual ledger entries. Continue?")) return;
+
+    // Bug #1 fix: guard against SupabaseSync not being available
+    if (!window.SupabaseSync) {
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('SupabaseSync not ready. Please try again.', 'error');
+      return;
+    }
     
     let fixed = 0;
     const b = auditBalances();
