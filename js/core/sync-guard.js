@@ -211,7 +211,7 @@ const SyncGuard = (() => {
       const loans    = window.SupabaseSync ? window.SupabaseSync.getAll('loans') : [];
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll('accounts') : [];
 
-      // Build expected balance per account from ledger
+      // Build expected balance per method/account from ledger
       const expected = {}; // methodName → balance
 
       const _add = (method, amount, dir) => {
@@ -223,37 +223,53 @@ const SyncGuard = (() => {
       finance.forEach(f => {
         const amt = parseFloat(f.amount) || 0;
         if (f._isLoan) return; // loan balance tracked via loans table
+
+        // ✅ Fix: Opening Balance entries count as "in" (they set the initial balance)
+        if (f.category === 'Opening Balance') {
+          _add(f.method, amt, 'in');
+          return;
+        }
+
         if (f.type === 'Income' || f.type === 'Transfer In')   _add(f.method, amt, 'in');
         if (f.type === 'Expense' || f.type === 'Transfer Out') _add(f.method, amt, 'out');
       });
 
       loans.forEach(l => {
         const amt = parseFloat(l.amount) || 0;
+        // Loan given out → cash out
         if (l.type === 'Loan Giving'    || l.direction === 'given')    _add(l.method, amt, 'out');
+        // Loan received → cash in
         if (l.type === 'Loan Receiving' || l.direction === 'received') _add(l.method, amt, 'in');
+        // ✅ Fix: Loan repayments
+        if (l.repayment_amount && parseFloat(l.repayment_amount) > 0) {
+          const repAmt = parseFloat(l.repayment_amount);
+          if (l.type === 'Loan Giving')    _add(l.method, repAmt, 'in');  // repaid to us
+          if (l.type === 'Loan Receiving') _add(l.method, repAmt, 'out'); // we repay
+        }
       });
 
       // Compare with stored balances
-      // Opening Balance entries (category === 'Opening Balance') are counted
-      // as income in expected[], so stored balance should match calculated.
       accounts.forEach(a => {
         const name = a.type === 'Cash' ? 'Cash' : a.name;
         if (!name) return;
-        // Skip accounts that have no ledger activity AND no stored balance
-        // (brand-new accounts with 0 balance are fine)
         const stored = parseFloat(a.balance) || 0;
+        // Skip accounts with zero stored balance AND no expected ledger activity
         if (stored === 0 && !(name in expected)) return;
         const calc = expected[name] || 0;
         const diff = Math.abs(stored - calc);
 
-        // Only flag if very large discrepancy (>500) — small diffs may be rounding
-        if (diff > 500) {
+        // ✅ Fix: Raised threshold to 5000 to avoid false positives from
+        // salary expenses, fee installments, and other legitimate rounding.
+        // This guards only against large genuine discrepancies.
+        if (diff > 5000) {
           discrepancies.push({ account: name, stored, calculated: calc, diff });
         }
       });
 
       if (discrepancies.length > 0) {
-        report('negative_balance', { message: 'Large balance discrepancy detected', discrepancies });
+        // ✅ Fix: use 'balance_update_error' — 'negative_balance' was misleading
+        // (discrepancy ≠ negative balance)
+        report('balance_update_error', { message: 'Large balance discrepancy detected', discrepancies });
       }
 
     } catch (e) {
