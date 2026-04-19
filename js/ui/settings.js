@@ -806,9 +806,12 @@ const SettingsModule = (() => {
         </div>
         <div class="category-list" id="cat-list-${key}">
           ${items.map(item => `
-            <div class="category-item">
-              <span>${item}</span>
-              <button class="cat-delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
+            <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
+              <span class="cat-item-label">${item}</span>
+              <div class="cat-item-actions">
+                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
+                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
+              </div>
             </div>
           `).join('')}
         </div>
@@ -853,6 +856,107 @@ const SettingsModule = (() => {
     saveConfig(cfg);
     refreshModal();
     logActivity('delete', 'category', `Removed "${item}" from ${key}`);
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // RENAME CATEGORY — inline edit with student/staff auto-update
+  // ════════════════════════════════════════════════════════════════
+  function startRenameCategory(key, oldName) {
+    // Find the item row and replace span with an inline input
+    const safeId = oldName.replace(/[^a-z0-9]/gi, '_');
+    const row = document.getElementById(`cat-item-${key}-${safeId}`);
+    if (!row) return;
+
+    const label = row.querySelector('.cat-item-label');
+    const actions = row.querySelector('.cat-item-actions');
+    if (!label) return;
+
+    // Build inline edit UI
+    label.innerHTML = `<input
+      id="rename-input-${key}-${safeId}"
+      class="cat-rename-input form-control"
+      value="${oldName.replace(/"/g, '&quot;')}"
+      style="flex:1;padding:3px 8px;font-size:0.85rem;border-radius:6px;"
+    />`;
+    actions.innerHTML = `
+      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✔</button>
+      <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✕</button>
+    `;
+
+    // Focus the input
+    const inp = document.getElementById(`rename-input-${key}-${safeId}`);
+    if (inp) { inp.focus(); inp.select(); }
+
+    // Allow pressing Enter to save, Escape to cancel
+    inp && inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter')  SettingsModule.confirmRenameCategory(key, oldName);
+      if (e.key === 'Escape') SettingsModule.cancelRenameCategory(key, oldName);
+    });
+  }
+
+  function cancelRenameCategory(key, oldName) {
+    // Just re-render the modal to restore original state
+    refreshModal();
+  }
+
+  function confirmRenameCategory(key, oldName) {
+    const safeId  = oldName.replace(/[^a-z0-9]/gi, '_');
+    const inp     = document.getElementById(`rename-input-${key}-${safeId}`);
+    const newName = inp ? inp.value.trim() : '';
+
+    if (!newName) {
+      Utils.toast('নাম খালি রাখা যাবে না!', 'error');
+      return;
+    }
+    if (newName === oldName) {
+      refreshModal();
+      return;
+    }
+
+    // ── 1. Settings list আপডেট করো ──────────────────────────────
+    const cfg   = getConfig();
+    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
+    if (items.includes(newName)) {
+      Utils.toast(`"${newName}" ইতিমধ্যে আছে!`, 'error');
+      return;
+    }
+    const idx = items.indexOf(oldName);
+    if (idx > -1) items[idx] = newName;
+    cfg[key] = JSON.stringify(items);
+    saveConfig(cfg);
+
+    // ── 2. যদি course rename হয় → সব Students আপডেট করো ────────
+    let updatedCount = 0;
+    if (key === 'courses') {
+      const allStudents = SupabaseSync.getAll(DB.students) || [];
+      allStudents.forEach(s => {
+        if (s.course === oldName) {
+          SupabaseSync.update(DB.students, s.id, { ...s, course: newName });
+          updatedCount++;
+        }
+      });
+    }
+
+    // ── 3. যদি employee_roles rename হয় → সব Staff আপডেট করো ──
+    if (key === 'employee_roles') {
+      const allStaff = SupabaseSync.getAll(DB.staff) || [];
+      allStaff.forEach(st => {
+        if (st.role === oldName) {
+          SupabaseSync.update(DB.staff, st.id, { ...st, role: newName });
+          updatedCount++;
+        }
+      });
+    }
+
+    // ── 4. Activity log ──────────────────────────────────────────
+    logActivity('edit', 'category', `Renamed "${oldName}" → "${newName}" in ${key}${updatedCount > 0 ? ` (${updatedCount} record${updatedCount>1?'s':''} updated)` : ''}`);
+
+    // ── 5. Toast & refresh ───────────────────────────────────────
+    const msg = updatedCount > 0
+      ? `✅ "${oldName}" → "${newName}" — ${updatedCount}টি রেকর্ড আপডেট হয়েছে!`
+      : `✅ "${oldName}" → "${newName}" renamed!`;
+    Utils.toast(msg, 'success');
+    refreshModal();
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -4593,7 +4697,7 @@ ${expenseEntries.length > 0 ? `
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
-    addCategory, removeCategory,
+    addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory,
     clearActivityLog, logActivity, refreshActivityPanel,
     restoreItem, permanentDelete, emptyRecycleBin,
     addNote, saveNote, deleteNote, editNote, saveEditedNote, filterNotes, clearNoteFilters,

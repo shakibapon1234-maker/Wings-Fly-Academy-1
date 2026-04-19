@@ -2958,6 +2958,53 @@ thead th {
 }
 .category-item .cat-delete:hover { opacity: 1; }
 
+/* ── Rename button & inline edit ── */
+.cat-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.cat-item-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+.category-item .cat-rename {
+  background: none;
+  border: none;
+  font-size: 0.85rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  padding: 2px 5px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.category-item:hover .cat-rename { opacity: 0.7; }
+.category-item .cat-rename:hover { opacity: 1 !important; background: rgba(0,212,255,0.12); }
+
+.cat-rename-input {
+  width: 100%;
+  height: 28px;
+  padding: 2px 8px !important;
+  font-size: 0.85rem !important;
+}
+.cat-rename-save,
+.cat-rename-cancel {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s, opacity 0.15s;
+}
+.cat-rename-save  { color: #00ff88; }
+.cat-rename-cancel { color: var(--error); }
+.cat-rename-save:hover  { background: rgba(0,255,136,0.15); }
+.cat-rename-cancel:hover { background: rgba(255,71,87,0.15); }
+
 .category-add-row {
   display: flex;
   gap: 8px;
