@@ -15,153 +15,70 @@ const CertificatesModule = (() => {
     'F':  { label: 'Failed',      color: '#8a1a1a' },
   };
 
-  // ── Build Certificate HTML (Legacy Inline-Style Design) ────
+  // ── Build Certificate HTML (Original Absolute-Position Layout) ────
   function buildCertHTML(data) {
     const settings = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
     const academyName = settings.academy_name || 'Wings Fly Aviation Academy';
-    const logoLinear = 'assets/wings_logo_linear.png';
-    const logoPremium = 'assets/wings_logo_premium.png';
     const sigShakib = 'assets/shakib_sign.png';
-    const sigChairman = 'assets/chairman_sign.jpeg';
+    const sigChairman = 'assets/ferdous_sign.png';
     const issueDate = data.issueDate || (typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'));
-
-    const today = new Date();
-    const dateStr = today.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
-
-    // Session calculation
-    let sessionLabel = 'Date';
-    let sessionValue = dateStr;
-    if (data.sessionStart && data.duration) {
-      const startDate = new Date(data.sessionStart);
-      const endDate = new Date(data.sessionStart);
-      endDate.setMonth(endDate.getMonth() + parseInt(data.duration));
-      endDate.setDate(endDate.getDate() - 1);
-      const fmt = (d) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      sessionLabel = 'Session';
-      sessionValue = fmt(startDate) + ' — ' + fmt(endDate);
-    } else if (data.session) {
-      sessionLabel = 'Session';
-      sessionValue = data.session;
-    }
-
-    // Photo
-    // ✅ Fix #12: Sanitize photo URL — only allow http/https/data:image to prevent XSS
-    const _rawPhoto   = data.photo || '';
-    const _safePhoto  = /^(https?:\/\/|data:image\/)/i.test(_rawPhoto) ? _rawPhoto : '';
-    const photoSrc    = _safePhoto || `https://ui-avatars.com/api/?background=f59e0b&color=fff&size=100&name=${encodeURIComponent(data.studentName || 'S')}`;
+    
+    const certNumber = data.certNumber || 'WFA-' + new Date().getFullYear();
+    const studentId = typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A');
+    const courseName = (data.courseName || 'N/A').toUpperCase();
+    const studentName = (data.studentName || 'N/A').toUpperCase();
+    const batch = typeof Utils !== 'undefined' ? Utils.esc(data.batch) : (data.batch || 'N/A');
+    
+    // Fallback images logic if blank_cert is not yet placed
+    // The main background is handled via CSS: background-image: url('../assets/blank_cert.jpeg');
 
     return `
-    <div id="certContent" style="
-      position: relative;
-      width: 100%;
-      max-width: 794px;
-      margin: 0 auto;
-      font-family: 'Georgia', serif;
-      background: linear-gradient(135deg, #0a1628 0%, #0d2240 50%, #0a1628 100%);
-      border: 3px solid #c9a227;
-      border-radius: 12px;
-      padding: 40px 50px;
-      color: #fff;
-      box-shadow: 0 0 40px rgba(201,162,39,0.3), inset 0 0 80px rgba(0,0,0,0.3);
-      text-align: center;
-      overflow: hidden;
-    ">
-      <!-- Corner decorations -->
-      <div style="position:absolute;top:10px;left:10px;width:40px;height:40px;border-top:3px solid #c9a227;border-left:3px solid #c9a227;border-radius:4px 0 0 0;"></div>
-      <div style="position:absolute;top:10px;right:10px;width:40px;height:40px;border-top:3px solid #c9a227;border-right:3px solid #c9a227;border-radius:0 4px 0 0;"></div>
-      <div style="position:absolute;bottom:10px;left:10px;width:40px;height:40px;border-bottom:3px solid #c9a227;border-left:3px solid #c9a227;border-radius:0 0 0 4px;"></div>
-      <div style="position:absolute;bottom:10px;right:10px;width:40px;height:40px;border-bottom:3px solid #c9a227;border-right:3px solid #c9a227;border-radius:0 0 4px 0;"></div>
-
-      <!-- Top right logo -->
-      <div style="position:absolute;top:16px;right:20px;
-        background:rgba(255,255,255,0.07);
-        border:1.5px solid rgba(201,162,39,0.5);
-        border-radius:10px;
-        padding:5px 12px;
-        box-shadow:0 0 12px rgba(201,162,39,0.25), inset 0 0 8px rgba(255,255,255,0.03);">
-        <img src="${logoLinear}" style="height:38px;object-fit:contain;opacity:0.92;" onerror="this.style.display='none'">
+    <div class="cert-v2-container">
+      <div class="cert-title">CERTIFICATE</div>
+      <div class="cert-subtitle" style="text-transform: capitalize; font-size: 28px; top: 35.5%; color: #333;">Of Appreciation</div>
+      <div class="cert-presented-to" style="top: 40.5%; font-size: 21px; letter-spacing: 0.5px;">This certificate is proudly presented for honorable achievment to</div>
+      
+      <div class="cert-student-name">${studentName}</div>
+      
+      <div class="cert-details" style="display:flex; justify-content: center; gap: 30px; align-items:center;">
+        <span>BATCH - ${batch}</span> 
+        <span>STUDENT ID : ${studentId}</span>
+      </div>
+      
+      <div class="cert-course-text">CERTIFICATION ON TRAINING ABOUT THE "${courseName}".</div>
+      
+      <img src="assets/wings_logo_linear.png" style="position: absolute; top: 6%; left: 6%; height: 50px;" onerror="this.src='assets/logo.jpg'; this.style.height='60px';">
+      
+      <div style="position: absolute; top: 15%; left: 6%; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 14px; font-weight: 700; color: #1a1a1a; letter-spacing: 0.5px;">
+         Certificate No: ${certNumber}
       </div>
 
-      <!-- Academy Name -->
-      <div style="margin-bottom:8px;">
-        <div style="height:1px;background:linear-gradient(to right, transparent, #c9a227, transparent);margin:6px 0;"></div>
-      </div>
-
-      <!-- Certificate Title -->
-      <div style="font-size:28px;font-weight:bold;letter-spacing:3px;color:#c9a227;text-transform:uppercase;margin:10px 0 4px 0;text-shadow:0 0 10px rgba(201,162,39,0.5);">Certificate</div>
-      <div style="font-size:14px;letter-spacing:6px;color:#aaa;text-transform:uppercase;margin-bottom:16px;">of Completion</div>
-
-      <!-- Round Academy Logo center -->
-      <div style="margin:0 auto 12px auto;width:90px;height:90px;border-radius:50%;border:3px solid #c9a227;overflow:hidden;box-shadow:0 0 20px rgba(201,162,39,0.5);">
-        <img src="${logoPremium}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">
-      </div>
-
-      <!-- This is to certify -->
-      <div style="font-size:13px;color:#aaa;margin-bottom:6px;">This is to certify that</div>
-
-      <!-- Student Name -->
-      <div style="font-size:26px;font-weight:bold;color:#c9a227;margin:8px 0;padding:6px 0;border-bottom:2px solid rgba(201,162,39,0.4);display:inline-block;text-transform:uppercase;letter-spacing:2px;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentName) : (data.studentName || 'N/A')}</div>
-
-      <!-- Student details -->
-      <div style="font-size:12px;color:#aaa;margin:10px 0;line-height:1.8;">
-        ID: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A')}</span> &nbsp;|&nbsp;
-        Course: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'N/A')}</span> &nbsp;|&nbsp;
-        Batch: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.batch) : (data.batch || 'N/A')}</span>
-      </div>
-
-      <!-- Completion text -->
-      <div style="font-size:13px;color:#ccc;margin:12px 30px;line-height:1.7;">
-        has successfully completed the <span style="color:#c9a227;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(data.courseName) : (data.courseName || 'training program')}</span> 
-        training program conducted by <span style="color:#c9a227;">${typeof Utils !== 'undefined' ? Utils.esc(academyName) : academyName}</span>.
-        ${sessionValue ? `<br>${sessionLabel}: <span style="color:#fff;font-weight:bold;">${typeof Utils !== 'undefined' ? Utils.esc(sessionValue) : sessionValue}</span>` : ''}
-      </div>
-
-      ${data.grade ? `
-      <div style="margin:10px 0;">
-        <span style="color:#aaa;font-size:12px;">Grade: </span>
-        <span style="color:#c9a227;font-size:18px;font-weight:bold;">${data.grade}</span>
-        <span style="color:#aaa;font-size:11px;"> (${(GRADES[data.grade] || {}).label || ''})</span>
-      </div>` : ''}
-
-      <!-- Congratulations -->
-      <div style="font-size:11px;color:#888;margin:12px 40px;line-height:1.7;font-style:italic;">
-        We congratulate ${(data.studentName || 'the candidate').split(' ')[0]} for this achievement and wish continued success in aviation.
-      </div>
-
-      <!-- Divider -->
-      <div style="height:1px;background:linear-gradient(to right, transparent, #c9a227, transparent);margin:16px 0;"></div>
-
-      <!-- Footer with signatures -->
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;padding:0 20px;">
-        <!-- Left signature - Shakib (Chief Instructor) -->
-        <div style="text-align:center;flex:1;">
-          <img src="${sigShakib}" style="height:40px;object-fit:contain;filter:invert(1);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
-          <div style="width:120px;height:1px;background:#c9a227;margin:0 auto 4px;"></div>
-          <div style="color:#c9a227;font-size:9px;font-weight:bold;">Shakib Ibna Mustafa</div>
-          <div style="color:#666;font-size:7px;">Chief Instructor</div>
+      <div class="cert-signature" style="bottom: 3%; left: 10%; right: auto; text-align:center;">
+        <img src="${sigShakib}" style="height: 50px; margin-bottom: 5px; filter: invert(1); mix-blend-mode: screen; opacity: 0.9;" onerror="this.style.display='none'">
+        <div class="cert-signature-name" style="font-family: Arial, sans-serif; font-size: 14px; border-top: 2px solid #c9a227; padding-top: 5px; color: #ffffff;">
+           <span style="font-weight: 800;">Shakib Ibna Mustafa</span><br>
+           <span style="font-size: 12px; color: #f1f1f1;">Course Coordinator</span>
         </div>
-
-        <!-- Center seal -->
-        <div style="flex:1;text-align:center;">
-          <div style="width:70px;height:70px;border:2px solid #c9a227;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center;background:rgba(201,162,39,0.08);">
-            <div style="color:#c9a227;font-size:8px;font-weight:bold;text-align:center;line-height:1.3;">OFFICIAL<br>SEAL</div>
-          </div>
-        </div>
-
-        <!-- Right signature - Chairman (Ferdous Ahmed) -->
-        <div style="text-align:center;flex:1;">
-          <img src="${sigChairman}" style="height:40px;object-fit:contain;filter:invert(1);mix-blend-mode:screen;margin-bottom:4px;" onerror="this.style.display='none'">
-          <div style="width:120px;height:1px;background:#c9a227;margin:0 auto 4px;"></div>
-          <div style="color:#c9a227;font-size:9px;font-weight:bold;">Ferdous Ahmed</div>
-          <div style="color:#666;font-size:7px;">Academy Director / Chairman</div>
+        <!-- Spacer to structurally align exactly with Chairman block's height -->
+        <div style="margin-top: 15px; font-size: 12px; font-family: 'Segoe UI', sans-serif; color: transparent; text-align: center; height: 16px;">
+           -
         </div>
       </div>
 
-      <!-- Certificate number & date -->
-      <div style="display:flex;justify-content:space-between;margin-top:16px;padding:0 20px;font-size:8px;color:#666;">
-        <span>Certificate No: ${data.certNumber || 'WFA-' + new Date().getFullYear()}</span>
-        <span>${issueDate}</span>
-        <span>Student ID: ${data.studentId || 'N/A'}</span>
+      <div class="cert-signature" style="bottom: 3%; right: 10%; left: auto; text-align:center;">
+        <img src="${sigChairman}" style="height: 50px; margin-bottom: 5px; opacity: 0.9; mix-blend-mode: multiply;" onerror="this.style.display='none'">
+        <div class="cert-signature-name" style="font-family: Arial, sans-serif; font-size: 14px; border-top: 2px solid #c9a227; padding-top: 5px; color: #1a1a1a;">
+           <span style="font-weight: 800;">CHAIRMAN</span><br>
+           <span style="font-size: 12px; color: #333; font-weight: 600;">FERDOUS AHMED</span>
+        </div>
+        <!-- Align structurally with left block -->
+        <div style="margin-top: 15px; font-size: 12px; font-family: 'Segoe UI', sans-serif; color: transparent; text-align: center; height: 16px;">
+           -
+        </div>
+      </div>
+      
+      <div class="cert-website" style="position: absolute; bottom: 5%; left: 0; width: 100%; text-align: center; font-family: 'Segoe UI', Arial, sans-serif; font-size: 16px; font-weight: 700; color: #ffffff; letter-spacing: 1px;">
+         wingsflyaviationacademy.com
       </div>
     </div>`;
   }
@@ -213,9 +130,10 @@ const CertificatesModule = (() => {
     const html = buildCertHTML(data);
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate - ${data.studentName || ''}</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a1628;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
-    @media print{body{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:10mm;}}</style>
-    </head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
+    <link rel="stylesheet" href="css/cert-v2.css" />
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
+    @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
+    </head><body><div style="zoom: 0.85;">${html}</div><script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
     win.document.close();
   }
 
@@ -311,7 +229,8 @@ const CertificatesModule = (() => {
     const modal = document.getElementById('cert-preview-modal');
     const area = document.getElementById('cert-preview-area');
     if (modal && area) {
-      area.innerHTML = buildCertHTML(buildDataFromStudent(s));
+      // Zoom out specifically for the preview modal so it fits completely on-screen
+      area.innerHTML = `<div style="zoom: 0.65; display: flex; justify-content: center; width: 100%;">${buildCertHTML(buildDataFromStudent(s))}</div>`;
       modal.style.display = 'flex';
     }
   }
@@ -329,9 +248,10 @@ const CertificatesModule = (() => {
     const allHTML = students.map(s => buildCertHTML(buildDataFromStudent(s))).join('<div style="page-break-after:always;"></div>');
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificates — Bulk Print</title>
-    <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;padding:20px;background:#0a1628;}
-    @media print{body{background:#0a1628!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:10mm;}}</style>
-    </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
+    <link rel="stylesheet" href="css/cert-v2.css" />
+    <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;background:#fff;}
+    @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
+    </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
     win.document.close();
   }
 
