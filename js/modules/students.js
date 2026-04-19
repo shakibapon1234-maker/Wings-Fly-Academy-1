@@ -345,10 +345,10 @@ const Students = (() => {
           <div class="sf-grid-3">
             <div class="sf-field">
               <label class="sf-label">Course <span class="req">*</span></label>
-              <input id="sf-course" class="sf-input" list="course-list" placeholder="Select or type" />
-              <datalist id="course-list">
-                ${courses.map(c => `<option value="${c}">`).join('')}
-              </datalist>
+              <select id="sf-course" class="sf-input sf-select">
+                <option value="">-- Select Course --</option>
+                ${courses.map(c => `<option value="${c}">${c}</option>`).join('')}
+              </select>
             </div>
             <div class="sf-field">
               <label class="sf-label">Batch <span class="req">*</span></label>
@@ -476,10 +476,10 @@ const Students = (() => {
       <div class="form-row-3">
         <div class="form-group">
           <label>Course</label>
-          <input id="sf-course" class="form-control" list="edit-course-list" value="${s.course||''}" />
-          <datalist id="edit-course-list">
-            ${courses.map(c => `<option value="${c}">`).join('')}
-          </datalist>
+          <select id="sf-course" class="form-control">
+            <option value="">-- Select Course --</option>
+            ${courses.map(c => `<option value="${c}" ${s.course===c?'selected':''}>${c}</option>`).join('')}
+          </select>
         </div>
         <div class="form-group">
           <label>Batch</label>

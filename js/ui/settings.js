@@ -789,7 +789,7 @@ const SettingsModule = (() => {
 
         ${buildCategoryCard('Income Categories', 'income_categories', incomeCats, 'green', 'success')}
         ${buildCategoryCard('Expense Categories', 'expense_categories', expenseCats, 'red', 'error')}
-        ${buildCategoryCard('Course / Program Names', 'courses', courses, 'cyan', 'brand-primary')}
+        ${buildCategoryCardWithAutoDetect('Course / Program Names', 'courses', courses, 'cyan', 'brand-primary')}
         ${buildCategoryCard('Employee Roles / Designations', 'employee_roles', roles, 'purple', 'brand-accent')}
 
       </div>
@@ -817,6 +817,61 @@ const SettingsModule = (() => {
         </div>
       </div>
     `;
+  }
+
+  function buildCategoryCardWithAutoDetect(title, key, items, colorClass, cssVar) {
+    return `
+      <div class="settings-card glow-${colorClass === 'cyan' ? 'cyan' : 'purple'}">
+        <div class="settings-card-title" style="color:var(--${cssVar}); display:flex; justify-content:space-between; align-items:center;">
+          <span>${title.toUpperCase()}</span>
+          <button onclick="SettingsModule.autoDetectCourses()"
+            style="font-size:0.7rem;padding:3px 9px;border-radius:6px;border:1px solid rgba(0,212,255,0.4);background:rgba(0,212,255,0.08);color:var(--brand-primary);cursor:pointer;font-weight:700;"
+            title="Existing students থেকে সব course নাম এনে list-এ যোগ করুন">
+            🔍 Auto-detect
+          </button>
+        </div>
+        <div class="category-add-row">
+          <input id="cat-add-${key}" class="form-control" placeholder="Add new course..." />
+          <button class="category-add-btn ${colorClass}" onclick="SettingsModule.addCategory('${key}')">+ ADD</button>
+        </div>
+        <div class="category-list" id="cat-list-${key}">
+          ${items.length === 0 ? `<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 4px;">কোনো course নেই। "+ ADD" বা "🔍 Auto-detect" ব্যবহার করুন।</div>` : ''}
+          ${items.map(item => `
+            <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
+              <span class="cat-item-label">${item}</span>
+              <div class="cat-item-actions">
+                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
+                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function autoDetectCourses() {
+    const cfg      = getConfig();
+    const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
+
+    // সব students থেকে unique course নাম বের করো
+    const allStudents  = SupabaseSync.getAll(DB.students) || [];
+    const fromStudents = [...new Set(allStudents.map(s => s.course).filter(Boolean))];
+
+    // যেগুলো already list-এ নেই সেগুলোই যোগ হবে
+    const toAdd = fromStudents.filter(c => !existing.includes(c));
+
+    if (toAdd.length === 0) {
+      Utils.toast('সব course ইতিমধ্যে list-এ আছে!', 'info');
+      return;
+    }
+
+    const merged = [...existing, ...toAdd];
+    cfg.courses = JSON.stringify(merged);
+    saveConfig(cfg);
+    logActivity('edit', 'settings', `Auto-detected ${toAdd.length} course(s): ${toAdd.join(', ')}`);
+    Utils.toast(`✅ ${toAdd.length}টি course যোগ হয়েছে: ${toAdd.join(', ')}`, 'success');
+    refreshModal();
   }
 
   function addCategory(key) {
@@ -4709,7 +4764,7 @@ ${expenseEntries.length > 0 ? `
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
-    addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory,
+    addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel,
     restoreItem, permanentDelete, emptyRecycleBin,
     addNote, saveNote, deleteNote, editNote, saveEditedNote, filterNotes, clearNoteFilters,
