@@ -862,7 +862,6 @@ const SettingsModule = (() => {
   // RENAME CATEGORY — inline edit with student/staff auto-update
   // ════════════════════════════════════════════════════════════════
   function startRenameCategory(key, oldName) {
-    // Find the item row and replace span with an inline input
     const safeId = oldName.replace(/[^a-z0-9]/gi, '_');
     const row = document.getElementById(`cat-item-${key}-${safeId}`);
     if (!row) return;
@@ -871,41 +870,49 @@ const SettingsModule = (() => {
     const actions = row.querySelector('.cat-item-actions');
     if (!label) return;
 
-    // Build inline edit UI
+    // Store in global so click handler can always access the value
+    window._wfaRename = { key, oldName, val: oldName };
+
     label.innerHTML = `<input
       id="rename-input-${key}-${safeId}"
       class="cat-rename-input form-control"
       value="${oldName.replace(/"/g, '&quot;')}"
+      oninput="window._wfaRename && (window._wfaRename.val = this.value)"
       style="flex:1;padding:3px 8px;font-size:0.85rem;border-radius:6px;"
     />`;
     actions.innerHTML = `
-      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✔</button>
-      <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✕</button>
+      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\'")}')">✔</button>
+      <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory()">✕</button>
     `;
 
-    // Focus the input
     const inp = document.getElementById(`rename-input-${key}-${safeId}`);
-    if (inp) { inp.focus(); inp.select(); }
-
-    // Allow pressing Enter to save, Escape to cancel
-    inp && inp.addEventListener('keydown', function(e) {
-      if (e.key === 'Enter')  SettingsModule.confirmRenameCategory(key, oldName);
-      if (e.key === 'Escape') SettingsModule.cancelRenameCategory(key, oldName);
-    });
+    if (inp) {
+      inp.focus();
+      inp.select();
+      inp.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter')  SettingsModule.confirmRenameCategory(key, oldName);
+        if (e.key === 'Escape') SettingsModule.cancelRenameCategory();
+      });
+    }
   }
 
-  function cancelRenameCategory(key, oldName) {
-    // Just re-render the modal to restore original state
+  function cancelRenameCategory() {
+    window._wfaRename = null;
     refreshModal();
   }
 
   function confirmRenameCategory(key, oldName) {
-    const safeId  = oldName.replace(/[^a-z0-9]/gi, '_');
-    const inp     = document.getElementById(`rename-input-${key}-${safeId}`);
-    const newName = inp ? inp.value.trim() : '';
+    // Read from global tracker — reliable across all browsers/click events
+    const newName = (window._wfaRename && window._wfaRename.val
+      ? window._wfaRename.val
+      : (document.querySelector('.cat-rename-input') || {}).value || ''
+    ).trim();
+
+    window._wfaRename = null;
 
     if (!newName) {
       Utils.toast('নাম খালি রাখা যাবে না!', 'error');
+      refreshModal();
       return;
     }
     if (newName === oldName) {
@@ -918,10 +925,15 @@ const SettingsModule = (() => {
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     if (items.includes(newName)) {
       Utils.toast(`"${newName}" ইতিমধ্যে আছে!`, 'error');
+      refreshModal();
       return;
     }
     const idx = items.indexOf(oldName);
-    if (idx > -1) items[idx] = newName;
+    if (idx > -1) {
+      items[idx] = newName;
+    } else {
+      items.push(newName);
+    }
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
 
@@ -948,7 +960,7 @@ const SettingsModule = (() => {
       });
     }
 
-    // ── 4. Activity log ──────────────────────────────────────────
+    // ── 4. Activity log ────────────────────────────────────────────
     logActivity('edit', 'category', `Renamed "${oldName}" → "${newName}" in ${key}${updatedCount > 0 ? ` (${updatedCount} record${updatedCount>1?'s':''} updated)` : ''}`);
 
     // ── 5. Toast & refresh ───────────────────────────────────────
