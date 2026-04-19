@@ -826,7 +826,7 @@ const SupabaseSync = (() => {
     return _balanceLocks[lockKey];
   }
 
-  function _updateBalanceCore(methodName, amount, direction, force = false) {
+  async function _updateBalanceCore(methodName, amount, direction, force = false) {
     try {
       const accounts = getAll('accounts');
       let accountIdx = -1;
@@ -859,7 +859,8 @@ const SupabaseSync = (() => {
           };
           accounts.push(newAcc);
           setAll('accounts', accounts);
-          return _pushRecord('accounts', newAcc);
+          await _pushRecord('accounts', newAcc);
+          return true;
         }
         return;
       }
@@ -888,10 +889,18 @@ const SupabaseSync = (() => {
         updated_at: new Date().toISOString(),
       };
       setAll('accounts', accounts);
-      return _pushRecord('accounts', accounts[accountIdx]);
+      // ✅ Fix: await _pushRecord so any cloud push errors are caught below,
+      // not swallowed as unhandled Promise rejections that trigger balance_update_error.
+      await _pushRecord('accounts', accounts[accountIdx]);
+      return true;
     } catch (e) {
       console.warn('[Sync] _updateBalanceCore failed:', e);
-      SyncGuard && SyncGuard.report('balance_update_error', { methodName, amount, direction, error: e?.message });
+      // ✅ Fix: Only report balance_update_error for genuine local logic failures.
+      // Cloud push errors are handled inside _pushRecord (queued for retry) and
+      // should NOT surface as balance_update_error — the local balance was already saved.
+      if (!(e && (e.code || e.status || e.message?.includes('fetch')))) {
+        SyncGuard && SyncGuard.report('balance_update_error', { methodName, amount, direction, error: e?.message });
+      }
     }
   }
 

@@ -269,7 +269,17 @@ const SyncGuard = (() => {
       if (discrepancies.length > 0) {
         // ✅ Fix: use 'balance_update_error' — 'negative_balance' was misleading
         // (discrepancy ≠ negative balance)
-        report('balance_update_error', { message: 'Large balance discrepancy detected', discrepancies });
+        // ✅ Fix: Deduplicate — only report if discrepancy signature has changed
+        // since last report, to avoid spamming the log on every 10-min audit cycle.
+        const sig = JSON.stringify(discrepancies.map(d => `${d.account}:${Math.round(d.diff)}`).sort());
+        const lastSig = (() => { try { return localStorage.getItem('wfa_sg_last_disc_sig') || ''; } catch { return ''; } })();
+        if (sig !== lastSig) {
+          try { localStorage.setItem('wfa_sg_last_disc_sig', sig); } catch { /* ignore */ }
+          report('balance_update_error', { message: 'Large balance discrepancy detected', discrepancies });
+        }
+      } else {
+        // Clear signature when audit passes so future discrepancies are re-reported
+        try { localStorage.removeItem('wfa_sg_last_disc_sig'); } catch { /* ignore */ }
       }
 
     } catch (e) {
