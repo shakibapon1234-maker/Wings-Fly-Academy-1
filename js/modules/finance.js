@@ -73,11 +73,11 @@ const Finance = (() => {
           <option value="">All Methods</option>
           ${Utils.getPaymentMethodsHTML(filterMethod)}
         </select>
-        <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:4px 10px;flex-shrink:0">
+        <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:4px 10px;flex-shrink:0;color-scheme:dark">
           <i class="fa fa-calendar" style="color:var(--brand-primary);font-size:0.75rem"></i>
-          <input id="fin-from" type="date" style="background:none;border:none;outline:none;color:var(--text-primary);font-size:0.8rem;width:118px;cursor:pointer" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
+          <input id="fin-from" type="date" style="background:none;border:none;outline:none;color:#a0c4ff;font-size:0.8rem;width:118px;cursor:pointer;color-scheme:dark" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
           <span style="color:var(--text-muted);font-size:0.75rem;margin:0 2px">→</span>
-          <input id="fin-to"   type="date" style="background:none;border:none;outline:none;color:var(--text-primary);font-size:0.8rem;width:118px;cursor:pointer" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)" title="End Date" />
+          <input id="fin-to"   type="date" style="background:none;border:none;outline:none;color:#a0c4ff;font-size:0.8rem;width:118px;cursor:pointer;color-scheme:dark" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)" title="End Date" />
         </div>
         <button class="btn-secondary btn-sm" onclick="Finance.resetFilters()"><i class="fa fa-rotate-left"></i></button>
         <button class="btn-success btn-sm"   onclick="Finance.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>

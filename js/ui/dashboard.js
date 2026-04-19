@@ -407,34 +407,39 @@ const DashboardModule = (() => {
       </div>
 
       <div class="stat-grid grid-5">
-        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL STUDENTS</div>
-          <div class="stat-value" style="font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,255,255,0.3);">${totalStudents}</div>
-          <div class="stat-subtext" style="color:var(--brand-primary)">Total Enrolled</div>
+        <!-- All Students -->
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(0,229,255,0.15); padding:16px; background:rgba(0,229,255,0.04);">
+          <div class="stat-header" style="color:#00e5ff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL STUDENTS</div>
+          <div class="stat-value" style="color:#fff; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(0,229,255,0.4);">${totalStudents}</div>
+          <div class="stat-subtext" style="color:#00e5ff">Total Enrolled</div>
         </div>
 
-        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL COLLECTION</div>
-          <div class="stat-value" style="font-size:1.6rem; color:var(--success); font-weight:800; text-shadow:0 0 10px rgba(0,255,136,0.3);">${Utils.takaEn(totalIncome)}</div>
-          <div class="stat-subtext" style="color:var(--brand-primary)">Student Fees</div>
+        <!-- All Collection -->
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(0,255,136,0.15); padding:16px; background:rgba(0,255,136,0.04);">
+          <div class="stat-header" style="color:#00ff88; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ALL COLLECTION</div>
+          <div class="stat-value" style="font-size:1.6rem; color:#00ff88; font-weight:800; text-shadow:0 0 10px rgba(0,255,136,0.3);">${Utils.takaEn(totalIncome)}</div>
+          <div class="stat-subtext" style="color:#00ff88">Student Fees</div>
         </div>
 
-        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">TOTAL EXPENSE</div>
-          <div class="stat-value" style="font-size:1.6rem; color:var(--error); font-weight:800; text-shadow:0 0 10px rgba(255,71,87,0.3);">${Utils.takaEn(totalExpense)}</div>
-          <div class="stat-subtext" style="color:var(--brand-primary)">All Time Costs</div>
+        <!-- Total Expense -->
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,71,87,0.15); padding:16px; background:rgba(255,71,87,0.04);">
+          <div class="stat-header" style="color:#ff4757; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">TOTAL EXPENSE</div>
+          <div class="stat-value" style="font-size:1.6rem; color:#ff4757; font-weight:800; text-shadow:0 0 10px rgba(255,71,87,0.3);">${Utils.takaEn(totalExpense)}</div>
+          <div class="stat-subtext" style="color:#ff4757">All Time Costs</div>
         </div>
 
-        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">NET PROFIT/LOSS</div>
-          <div class="stat-value" style="font-size:1.6rem; font-weight:800; color:${netProfit>=0?'var(--success)':'#ff4757'}; text-shadow:0 0 10px ${netProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(Math.abs(netProfit))}</div>
+        <!-- Net Profit/Loss -->
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(${netProfit>=0?'0,229,255':'255,107,53'},0.15); padding:16px; background:rgba(${netProfit>=0?'0,229,255':'255,107,53'},0.04);">
+          <div class="stat-header" style="color:${netProfit>=0?'#00e5ff':'#ff6b35'}; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">NET PROFIT/LOSS</div>
+          <div class="stat-value" style="font-size:1.6rem; font-weight:800; color:${netProfit>=0?'#00ff88':'#ff4757'}; text-shadow:0 0 10px ${netProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'}">${Utils.takaEn(Math.abs(netProfit))}</div>
           <div class="stat-subtext" style="color:${netProfit>=0?'#00ff88':'#ff4757'}; font-weight:700; font-size:0.78rem; letter-spacing:0.5px;">${netProfit>=0?'▲ Net Profit':'▼ Net Loss'}</div>
         </div>
 
-        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,255,255,0.05); padding:16px;">
-          <div class="stat-header" style="color:#fff; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ACCOUNT BALANCE</div>
-          <div class="stat-value" style="font-size:1.6rem; color:var(--info); font-weight:800; text-shadow:0 0 10px rgba(0,212,255,0.3);">${Utils.takaEn(totalBalance)}</div>
-          <div class="stat-subtext" style="color:var(--brand-primary)">Cash + Bank + Mobile</div>
+        <!-- Account Balance -->
+        <div class="stat-card lifetime-card" style="box-shadow:none; border:1px solid rgba(255,170,0,0.15); padding:16px; background:rgba(255,170,0,0.04);">
+          <div class="stat-header" style="color:#ffaa00; font-size:0.85rem; font-weight:700; letter-spacing:0.05em;">ACCOUNT BALANCE</div>
+          <div class="stat-value" style="font-size:1.6rem; color:#ffaa00; font-weight:800; text-shadow:0 0 10px rgba(255,170,0,0.3);">${Utils.takaEn(totalBalance)}</div>
+          <div class="stat-subtext" style="color:#ffaa00">Cash + Bank + Mobile</div>
         </div>
       </div>
 

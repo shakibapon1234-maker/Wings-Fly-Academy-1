@@ -37,10 +37,10 @@ const Students = (() => {
     container.innerHTML = `
       <!-- Summary Cards -->
       <div class="dashboard-grid" style="margin-bottom:16px">
-        ${sCard('fa-users','blue','Total Student', filtered.length)}
-        ${sCard('fa-money-bill-wave','amber','Total Fee', Utils.takaEn(totalFee))}
-        ${sCard('fa-circle-check','green','Paid', Utils.takaEn(totalPaid))}
-        ${sCard('fa-circle-xmark','red','Due', Utils.takaEn(totalDue))}
+        ${sCard('fa-users','blue','Total Students', filtered.length,'#00e5ff')}
+        ${sCard('fa-money-bill-wave','amber','Total Fee', Utils.takaEn(totalFee),'#ffaa00')}
+        ${sCard('fa-circle-check','green','Paid', Utils.takaEn(totalPaid),'#00ff88')}
+        ${sCard('fa-circle-xmark','red','Due', Utils.takaEn(totalDue),'#ff4757')}
       </div>
 
       <!-- Filter Bar -->
@@ -99,6 +99,32 @@ const Students = (() => {
           const pageData = Utils.paginate(filtered, currentPage, pageSize);
           return (pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Students') : '';
         })()}
+
+        <!-- Totals Footer -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding:14px 18px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:10px;align-items:center">
+          <span style="font-size:0.72rem;font-weight:800;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-right:4px">Σ Summary:</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-users" style="color:#00e5ff;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">STUDENTS</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#00e5ff">${filtered.length}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-money-bill-wave" style="color:#ffaa00;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">TOTAL FEE</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#ffaa00;font-family:var(--font-ui)">${Utils.takaEn(totalFee)}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-circle-check" style="color:#00ff88;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">PAID</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#00ff88;font-family:var(--font-ui)">${Utils.takaEn(totalPaid)}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-circle-xmark" style="color:#ff4757;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">DUE</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#ff4757;font-family:var(--font-ui)">${Utils.takaEn(totalDue)}</span>
+          </span>
+          ${(searchQuery||filterBatch||filterCourse||filterStatus)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filtered.length} of ${all.length} students</span>`:''}
+        </div>
       </div>
     `;
   }
@@ -129,10 +155,10 @@ const Students = (() => {
       </tr>`).join('');
   }
 
-  function sCard(icon, color, label, value) {
+  function sCard(icon, color, label, value, valColor) {
     return `<div class="stat-card">
       <div class="stat-icon ${color}"><i class="fa ${icon}"></i></div>
-      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>
+      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value" style="color:${valColor||'inherit'};text-shadow:0 0 10px ${valColor?valColor+'55':'transparent'}">${value}</div></div>
     </div>`;
   }
 
