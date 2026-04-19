@@ -194,6 +194,19 @@ const LoginUI = (() => {
     if (m) m.classList.add('hidden');
   }
 
+  /* ── SHA-256 helper (same as app.js _hashPw) ──────────────── */
+  async function _hashPw(pw) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    } catch (e) {
+      let hash = 0;
+      for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
+      return 'fb_' + Math.abs(hash).toString(16);
+    }
+  }
+
   /* ── Security-question verify ─────────────────────────────── */
   function checkSecurityAnswer() {
     const input  = document.getElementById('forgot-answer-input');
@@ -208,23 +221,126 @@ const LoginUI = (() => {
       result.innerHTML = `<span style="color:#ff6b7a">Please enter your answer.</span>`;
       return;
     }
+
     if (given === correct) {
-      // SECURITY: পাসওয়ার্ড কখনো দেখানো হবে না — শুধু reset করতে বলো
-      result.innerHTML = `
+      // ✅ FIX: Security answer সঠিক — সাথে সাথে নতুন পাসওয়ার্ড সেট করার form দেখাও
+      // Settings-এ ঢুকতে login লাগে, তাই এখানেই reset করার সুযোগ দিতে হবে
+      const body = document.getElementById('forgot-pw-body');
+      if (!body) return;
+      body.innerHTML = `
         <div style="background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);
-                    border-radius:8px;padding:10px 14px;color:#00ff88;text-align:left">
+                    border-radius:10px;padding:12px 14px;color:#00ff88;margin-bottom:16px;font-size:.85rem">
           <i class="fa fa-check-circle" style="margin-right:6px"></i>
-          Correct answer! For security, your password cannot be displayed.
-          <div style="margin-top:8px;font-size:.82rem;color:#aaa">
-            Please go to <strong style="color:#fff">Settings → Change Password</strong> to set a new password.
-          </div>
-        </div>`;
+          <strong>Identity Verified!</strong> Set your new password below.
+        </div>
+
+        <div style="position:relative;margin-bottom:12px">
+          <input type="password" id="reset-new-pw"
+            placeholder="New password (min 4 characters)"
+            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
+                   border:1.5px solid rgba(0,217,255,0.3);border-radius:10px;
+                   color:#fff;font-size:.9rem;padding:11px 44px 11px 14px;
+                   outline:none;font-family:var(--font-ui);" />
+          <i class="fa fa-eye" id="reset-eye-icon"
+             style="position:absolute;right:13px;top:50%;transform:translateY(-50%);
+                    color:rgba(0,217,255,0.5);cursor:pointer;font-size:.85rem"
+             onclick="const p=document.getElementById('reset-new-pw');
+                      p.type=p.type==='password'?'text':'password';
+                      document.getElementById('reset-eye-icon').className=
+                      p.type==='password'?'fa fa-eye':'fa fa-eye-slash';"></i>
+        </div>
+
+        <div style="position:relative;margin-bottom:14px">
+          <input type="password" id="reset-confirm-pw"
+            placeholder="Confirm new password"
+            onkeydown="if(event.key==='Enter')LoginUI.applyNewPassword()"
+            style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
+                   border:1.5px solid rgba(0,217,255,0.3);border-radius:10px;
+                   color:#fff;font-size:.9rem;padding:11px 14px;
+                   outline:none;font-family:var(--font-ui);" />
+        </div>
+
+        <div id="reset-result" style="min-height:24px;margin-bottom:10px;font-size:.83rem;text-align:center"></div>
+
+        <button onclick="LoginUI.applyNewPassword()" style="
+          width:100%;background:linear-gradient(90deg,#00a8f0,#1565ff);border:none;
+          border-radius:10px;color:#fff;font-weight:800;padding:13px;cursor:pointer;
+          font-size:.9rem;letter-spacing:.5px;font-family:var(--font-ui);
+        "><i class="fa fa-floppy-disk"></i>&nbsp; Save New Password</button>`;
+
+      setTimeout(() => {
+        const f = document.getElementById('reset-new-pw');
+        if (f) f.focus();
+      }, 80);
+
     } else {
       result.innerHTML = `<span style="color:#ff6b7a">
         <i class="fa fa-xmark" style="margin-right:4px"></i>Incorrect answer. Try again.
       </span>`;
       input.style.borderColor = 'rgba(255,71,87,0.6)';
       setTimeout(() => { input.style.borderColor = 'rgba(0,217,255,0.22)'; }, 1500);
+    }
+  }
+
+  /* ── Apply new password after security verification ────────── */
+  async function applyNewPassword() {
+    const newPwEl  = document.getElementById('reset-new-pw');
+    const confEl   = document.getElementById('reset-confirm-pw');
+    const resultEl = document.getElementById('reset-result');
+    if (!newPwEl || !confEl || !resultEl) return;
+
+    const newPw  = (newPwEl.value  || '').trim();
+    const confPw = (confEl.value   || '').trim();
+
+    if (!newPw || newPw.length < 4) {
+      resultEl.innerHTML = `<span style="color:#ff6b7a">Password must be at least 4 characters.</span>`;
+      return;
+    }
+    if (newPw !== confPw) {
+      resultEl.innerHTML = `<span style="color:#ff6b7a"><i class="fa fa-xmark" style="margin-right:4px"></i>Passwords do not match.</span>`;
+      confEl.style.borderColor = 'rgba(255,71,87,0.6)';
+      setTimeout(() => { confEl.style.borderColor = 'rgba(0,217,255,0.3)'; }, 1500);
+      return;
+    }
+
+    resultEl.innerHTML = `<span style="color:#aaa"><i class="fa fa-spinner fa-spin" style="margin-right:4px"></i>Saving…</span>`;
+
+    try {
+      const newHash = await _hashPw(newPw);
+
+      // SupabaseSync দিয়ে save করো
+      if (window.SupabaseSync && window.DB) {
+        const allSettings = window.SupabaseSync.getAll(window.DB.settings);
+        const row = allSettings.find(s => s.admin_password) || allSettings[0];
+        if (row && row.id) {
+          row.admin_password = newHash;
+          window.SupabaseSync.update(window.DB.settings, row.id, row);
+        } else {
+          // কোনো row নেই — নতুন তৈরি করো
+          window.SupabaseSync.insert(window.DB.settings, {
+            id: window.SupabaseSync.generateId(),
+            admin_password: newHash,
+          });
+        }
+      }
+
+      resultEl.innerHTML = `
+        <div style="background:rgba(0,255,136,0.12);border:1px solid rgba(0,255,136,0.35);
+                    border-radius:8px;padding:10px 14px;color:#00ff88">
+          <i class="fa fa-check-circle" style="margin-right:6px"></i>
+          <strong>Password saved!</strong> You can now log in with your new password.
+        </div>`;
+
+      // ৩ সেকেন্ড পরে modal বন্ধ করো এবং password field focus
+      setTimeout(() => {
+        closeForgotModal();
+        const pwField = document.getElementById('login-password');
+        if (pwField) { pwField.value = ''; pwField.focus(); }
+        if (typeof Utils !== 'undefined') Utils.toast('Password reset successful! Please log in.', 'success', 4000);
+      }, 2500);
+
+    } catch (e) {
+      resultEl.innerHTML = `<span style="color:#ff6b7a">Error saving password: ${e.message}</span>`;
     }
   }
 
@@ -293,6 +409,6 @@ const LoginUI = (() => {
   }
 
   document.addEventListener('DOMContentLoaded', init);
-  return { showForgotModal, closeForgotModal, checkSecurityAnswer, checkMasterPin };
+  return { showForgotModal, closeForgotModal, checkSecurityAnswer, checkMasterPin, applyNewPassword };
 })();
 window.LoginUI = LoginUI;
