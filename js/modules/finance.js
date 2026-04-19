@@ -48,19 +48,19 @@ const Finance = (() => {
     container.innerHTML = `
       <!-- Summary -->
       <div class="dashboard-grid" style="margin-bottom:16px">
-        ${sCard('fa-arrow-trend-up','green','Total Income',Utils.takaEn(income))}
-        ${sCard('fa-arrow-trend-down','red','Total Expense',Utils.takaEn(expense))}
-        ${sCard('fa-scale-balanced',net>=0?'green':'red','Net',Utils.takaEn(net))}
-        ${sCard('fa-hand-holding-dollar','amber','Loan (Given)',Utils.takaEn(loanGiv))}
+        ${sCard('fa-arrow-trend-up','green','Total Income',Utils.takaEn(income),'#00ff88')}
+        ${sCard('fa-arrow-trend-down','red','Total Expense',Utils.takaEn(expense),'#ff4757')}
+        ${sCard('fa-scale-balanced',net>=0?'green':'red','Net',Utils.takaEn(net),net>=0?'#00e5ff':'#ff6b35')}
+        ${sCard('fa-hand-holding-dollar','amber','Loan (Given)',Utils.takaEn(loanGiv),'#ffaa00')}
       </div>
 
       <!-- Filter Bar -->
-      <div class="filter-bar">
-        <div class="search-input-wrapper">
+      <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center">
+        <div class="search-input-wrapper" style="flex:1;min-width:160px">
           <i class="fa fa-search"></i>
           <input id="fin-search" class="form-control" placeholder="Description Search…" value="${searchQuery}" oninput="Finance.onSearch(this.value)" />
         </div>
-        <select class="form-control" onchange="Finance.onFilter('type',this.value)">
+        <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('type',this.value)">
           <option value="">All Types</option>
           <option value="Income"         ${filterType==='Income'?'selected':''}>Income</option>
           <option value="Expense"        ${filterType==='Expense'?'selected':''}>Expense</option>
@@ -69,12 +69,16 @@ const Finance = (() => {
           <option value="Transfer In"    ${filterType==='Transfer In'?'selected':''}>Transfer In</option>
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
         </select>
-        <select class="form-control" onchange="Finance.onFilter('method',this.value)">
+        <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
           ${Utils.getPaymentMethodsHTML(filterMethod)}
         </select>
-        <input id="fin-from" type="date" class="form-control" style="max-width:150px" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
-        <input id="fin-to"   type="date" class="form-control" style="max-width:150px" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)"   title="End Date (blank = no limit)" placeholder="End date" />
+        <div style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,0.04);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:4px 10px;flex-shrink:0">
+          <i class="fa fa-calendar" style="color:var(--brand-primary);font-size:0.75rem"></i>
+          <input id="fin-from" type="date" style="background:none;border:none;outline:none;color:var(--text-primary);font-size:0.8rem;width:118px;cursor:pointer" value="${filterFrom}" onchange="Finance.onFilter('from',this.value)" title="Start Date" />
+          <span style="color:var(--text-muted);font-size:0.75rem;margin:0 2px">→</span>
+          <input id="fin-to"   type="date" style="background:none;border:none;outline:none;color:var(--text-primary);font-size:0.8rem;width:118px;cursor:pointer" value="${filterTo}"   onchange="Finance.onFilter('to',this.value)" title="End Date" />
+        </div>
         <button class="btn-secondary btn-sm" onclick="Finance.resetFilters()"><i class="fa fa-rotate-left"></i></button>
         <button class="btn-success btn-sm"   onclick="Finance.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('finance-print-area')"><i class="fa fa-print"></i></button>
@@ -109,6 +113,27 @@ const Finance = (() => {
           const pageData = Utils.paginate(withBalance, currentPage, pageSize);
           return (pageData.pages > 1 || pageSize !== 20) ? Utils.renderPaginationUI(pageData.total, currentPage, pageSize, 'Finance') : '';
         })()}
+
+        <!-- Totals Footer -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:14px;padding:14px 18px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.07);border-radius:10px;align-items:center">
+          <span style="font-size:0.72rem;font-weight:800;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;margin-right:4px">Σ Totals:</span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-arrow-trend-up" style="color:#00ff88;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">INCOME</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#00ff88;font-family:var(--font-ui)">${Utils.takaEn(income)}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.2);border-radius:20px;padding:4px 14px">
+            <i class="fa fa-arrow-trend-down" style="color:#ff4757;font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">EXPENSE</span>
+            <span style="font-size:0.92rem;font-weight:800;color:#ff4757;font-family:var(--font-ui)">${Utils.takaEn(expense)}</span>
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;background:${net>=0?'rgba(0,229,255,0.08)':'rgba(255,107,53,0.08)'};border:1px solid ${net>=0?'rgba(0,229,255,0.2)':'rgba(255,107,53,0.2)'};border-radius:20px;padding:4px 14px">
+            <i class="fa fa-scale-balanced" style="color:${net>=0?'#00e5ff':'#ff6b35'};font-size:0.72rem"></i>
+            <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">NET</span>
+            <span style="font-size:0.92rem;font-weight:800;color:${net>=0?'#00e5ff':'#ff6b35'};font-family:var(--font-ui)">${net>=0?'+':''}${Utils.takaEn(net)}</span>
+          </span>
+          ${(filterFrom||filterTo||filterType||filterMethod||searchQuery)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filterFrom?Utils.formatDateDMY(filterFrom):'All'} → ${filterTo?Utils.formatDateDMY(filterTo):'Today'} &nbsp;&bull;&nbsp; ${filtered.length} records</span>`:''}
+        </div>
       </div>
     `;
   }
@@ -151,10 +176,10 @@ const Finance = (() => {
     return Utils.badge(label, type2);
   }
 
-  function sCard(icon,color,label,val) {
+  function sCard(icon, color, label, val, valColor) {
     return `<div class="stat-card">
       <div class="stat-icon ${color}"><i class="fa ${icon}"></i></div>
-      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value">${val}</div></div>
+      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value" style="color:${valColor||'inherit'};text-shadow:0 0 10px ${valColor?valColor+'55':'transparent'}">${val}</div></div>
     </div>`;
   }
 
