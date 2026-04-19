@@ -1431,7 +1431,7 @@ const SyncEngine = (() => {
     pull({ silent: true }).then(() => {
       startRealtime();
       // ✅ App চালু হলে সব device-এর activity log pull করো
-      _pullActivityFromCloud();
+      SupabaseSync.pullActivityLog && SupabaseSync.pullActivityLog();
     });
   }
 
@@ -1444,7 +1444,7 @@ const SyncEngine = (() => {
     window.addEventListener('online', () => {
       console.log('[Sync] Back online');
       setStatus('syncing');
-      syncAll({ silent: true }).then(() => { startRealtime(); _pullActivityFromCloud(); });
+      syncAll({ silent: true }).then(() => { startRealtime(); SupabaseSync.pullActivityLog && SupabaseSync.pullActivityLog(); });
     });
 
     window.addEventListener('offline', () => {
