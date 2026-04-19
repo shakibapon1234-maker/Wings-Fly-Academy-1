@@ -702,7 +702,30 @@ const Students = (() => {
   function calcDue() {
     const total = Utils.safeNum(Utils.formVal('sf-total-fee'));
     const paid  = Utils.safeNum(Utils.formVal('sf-paid'));
-    Utils.formSet('sf-due', Math.max(0, total - paid));
+    const dueEl = document.getElementById('sf-due');
+    const errEl = document.getElementById('sf-error');
+
+    if (total > 0 && paid > total) {
+      // Overpayment — show error, set due to 0
+      Utils.formSet('sf-due', 0);
+      if (dueEl) {
+        dueEl.style.borderColor = '#ff4757';
+        dueEl.style.boxShadow = '0 0 8px rgba(255,71,87,0.4)';
+      }
+      if (errEl) {
+        errEl.textContent = `⚠️ Paid amount (৳${paid.toLocaleString('en-IN')}) exceeds Total Fee (৳${total.toLocaleString('en-IN')}). Overpayment is not allowed.`;
+        errEl.classList.remove('hidden');
+      }
+    } else {
+      Utils.formSet('sf-due', Math.max(0, total - paid));
+      if (dueEl) {
+        dueEl.style.borderColor = '';
+        dueEl.style.boxShadow = '';
+      }
+      if (errEl && errEl.textContent.includes('Overpayment')) {
+        errEl.classList.add('hidden');
+      }
+    }
   }
 
   // Duplicate warning state — একবার warn করার পর force করতে পারবে
@@ -790,6 +813,14 @@ const Students = (() => {
 
     const total = Utils.safeNum(Utils.formVal('sf-total-fee'));
     const paid  = Utils.safeNum(Utils.formVal('sf-paid'));
+
+    // ✅ Overpayment Guard: paid > total_fee হলে block করো
+    if (total > 0 && paid > total) {
+      errEl.textContent = `⚠️ Paid amount (৳${paid.toLocaleString('en-IN')}) exceeds Total Fee (৳${total.toLocaleString('en-IN')}). Overpayment is not allowed!`;
+      errEl.classList.remove('hidden');
+      return;
+    }
+
     const due   = Math.max(0, total - paid);
 
     const record = {
