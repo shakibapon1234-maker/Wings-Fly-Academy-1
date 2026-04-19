@@ -6,16 +6,48 @@
 // ============================================================
 
 const FaceIDModule = (() => {
-  let isModelsLoaded = false;
-  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
-  let videoStream = null;
-  let detectionInterval = null; // FIX: track interval to prevent duplicates
-  let playListenerAttached = false; // FIX: prevent duplicate play listeners
+  let isModelsLoaded    = false;
+  let isLibraryLoading  = false;
+  const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
+  const MODEL_URL    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  let videoStream       = null;
+  let detectionInterval = null;
+  let playListenerAttached = false;
+
+  // ✅ Fix: Lazy load face-api library — শুধু প্রথম use এর সময় ~900KB download হবে।
+  // Page load এ কোনো impact নেই।
+  function _loadLibrary() {
+    return new Promise((resolve, reject) => {
+      if (typeof faceapi !== 'undefined') { resolve(); return; }
+      if (isLibraryLoading) {
+        // already loading — poll until ready
+        const poll = setInterval(() => {
+          if (typeof faceapi !== 'undefined') { clearInterval(poll); resolve(); }
+        }, 200);
+        return;
+      }
+      isLibraryLoading = true;
+      if (typeof Utils !== 'undefined') Utils.toast('Face ID library loading… (first use only)', 'info', 4000);
+      const script = document.createElement('script');
+      script.src = FACE_API_CDN;
+      script.onload  = () => { isLibraryLoading = false; resolve(); };
+      script.onerror = () => { isLibraryLoading = false; reject(new Error('face-api CDN load failed')); };
+      document.head.appendChild(script);
+    });
+  }
 
   async function loadModels() {
     if (isModelsLoaded) return true;
+    // ✅ Lazy: library আগে load করো, তারপর models
+    try {
+      await _loadLibrary();
+    } catch (e) {
+      console.error('[FaceID] Library load failed:', e);
+      if (typeof Utils !== 'undefined') Utils.toast('Face ID library could not load. Check internet.', 'error');
+      return false;
+    }
     if (typeof faceapi === 'undefined') {
-      console.error('[FaceID] face-api.js library not loaded');
+      console.error('[FaceID] face-api.js library not available after load');
       return false;
     }
     if (typeof Utils !== 'undefined') Utils.toast('Loading Face ID models… (~2MB, first time only)', 'info');

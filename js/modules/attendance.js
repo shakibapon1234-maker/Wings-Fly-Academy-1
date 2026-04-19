@@ -17,25 +17,50 @@ const Attendance = (() => {
   }
 
   function load() {
-    // SupabaseSync থেকে লোড করো — আগের wf_attendance key থেকে migrate করো যদি থাকে
+    // ✅ Fix: SupabaseSync + IDB উভয়ই ready কিনা নিশ্চিত করো
     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined' && DB.attendance) {
       records = SupabaseSync.getAll(DB.attendance) || [];
-      // Legacy migration: পুরনো wf_attendance key থেকে এক বারের জন্য migrate
-      const legacy = localStorage.getItem('wf_attendance');
-      if (legacy && records.length === 0) {
-        try {
-          const legacyRecords = JSON.parse(legacy) || [];
-          if (legacyRecords.length > 0) {
-            legacyRecords.forEach(r => {
-              if (!r.id) r.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-              SupabaseSync.insert(DB.attendance, r);
-            });
-            records = SupabaseSync.getAll(DB.attendance) || [];
-            localStorage.removeItem('wf_attendance'); // migrate হয়ে গেলে পুরনোটা সরাও
+
+      // ✅ Fix: Legacy migration — শুধুমাত্র যদি:
+      //   1. localStorage এ পুরনো data আছে (wf_attendance key)
+      //   2. SupabaseSync এ কিছু নেই (records.length === 0)
+      //   3. migration আগে হয়নি (wfa_att_migrated flag নেই)
+      // এই তিনটি condition একসাথে true হলেই migrate করো — এরপর flag set করো।
+      const migratedFlag = localStorage.getItem('wfa_att_migrated');
+      if (!migratedFlag) {
+        const legacy = localStorage.getItem('wf_attendance');
+        if (legacy && records.length === 0) {
+          try {
+            const legacyRecords = JSON.parse(legacy) || [];
+            if (legacyRecords.length > 0) {
+              legacyRecords.forEach(r => {
+                if (!r.id) r.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                SupabaseSync.insert(DB.attendance, r);
+              });
+              records = SupabaseSync.getAll(DB.attendance) || [];
+              localStorage.removeItem('wf_attendance');
+              console.info('[Attendance] Legacy data migrated:', legacyRecords.length, 'records');
+            }
+          } catch (e) {
+            console.warn('[Attendance] Legacy migration failed:', e);
           }
-        } catch { /* ignore */ }
+        }
+        // ✅ migration চেষ্টা হয়ে গেছে — পরবর্তী load() তে আর চেষ্টা করবে না
+        localStorage.setItem('wfa_att_migrated', '1');
       }
+
+      // ✅ Fix: যদি SupabaseSync থেকে data না পাওয়া গেল (IDB এখনো sync হয়নি),
+      // তাহলে records empty রাখো — empty array দেখানো ভুল data দেখানোর চেয়ে নিরাপদ।
+      // Sync complete হলে wfa:synced event fire হবে এবং render() আবার call হবে।
+      if (records.length === 0) {
+        window.addEventListener('wfa:synced', function _attSyncRetry() {
+          records = SupabaseSync.getAll(DB.attendance) || [];
+          window.removeEventListener('wfa:synced', _attSyncRetry);
+        }, { once: true });
+      }
+
     } else {
+      // Fallback: SupabaseSync load হওয়ার আগে কেউ load() call করলে
       try { records = JSON.parse(localStorage.getItem('wf_attendance') || '[]'); }
       catch { records = []; }
     }

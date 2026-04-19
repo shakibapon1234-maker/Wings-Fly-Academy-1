@@ -771,21 +771,29 @@ window.App = App;
 // ── Phase 4.2: Production Console Log Management ────────────────────
 // Enable verbose logs: localStorage.setItem('wfa_debug_mode', 'true')
 // Disable (default): localStorage.removeItem('wfa_debug_mode')
+// ✅ Fix: console.error & console.warn are NEVER suppressed — critical errors must always show.
 (function() {
   const isDebug = localStorage.getItem('wfa_debug_mode') === 'true';
   if (!isDebug) {
-    const _origLog = console.log;
+    const _origLog  = console.log;
     const _origInfo = console.info;
+    // Only filter out noisy log/info — errors and warnings are always visible
     console.log = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth|Scheduler)\]/.test(args[0])) {
+        _origLog.apply(console, args);
+      }
+      // styled %c logs (e.g. Auth reset success) — always pass through
+      if (args[0] && typeof args[0] === 'string' && args[0].startsWith('%c')) {
         _origLog.apply(console, args);
       }
     };
     console.info = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth)\]/.test(args[0])) {
+      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth|Scheduler)\]/.test(args[0])) {
         _origInfo.apply(console, args);
       }
     };
+    // ✅ console.error and console.warn are intentionally NOT overridden.
+    // Any module error (students, finance, salary, etc.) must be visible in DevTools.
   }
 })();
 
