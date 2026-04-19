@@ -379,22 +379,22 @@ const DashboardModule = (() => {
           <div class="stat-badge" style="background:rgba(255,107,53,.12);color:#ff6b35;border-color:rgba(255,107,53,.35);box-shadow:0 0 8px rgba(255,107,53,0.2)">↓ -3%</div>
         </div>
 
-        <!-- Net Profit/Loss -->
+        <!-- Net Profit/Loss: GOLD when profit, RED when loss -->
         <div class="stat-card animated-glow glow-purple">
           <div class="stat-header">NET PROFIT/LOSS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-calculator"></i></div>
-          <div class="stat-value counter-val" style="color:${rNetProfit>=0?'var(--success)':'#ff4757'}; text-shadow:0 0 10px ${rNetProfit>=0?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.3)'};" data-target="${Utils.takaEn(Math.abs(rNetProfit))}">0</div>
-          <div class="stat-subtext" style="color:${rNetProfit>=0?'#00ff88':'#ff4757'}; font-weight:700; font-size:0.8rem; letter-spacing:0.5px;">${rNetProfit >= 0 ? '▲ Net Profit' : '▼ Net Loss'}</div>
-          <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.12);color:${rNetProfit>=0?'#00ff88':'#ff4757'};border-color:rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'0,255,136':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Loss'}</div>
+          <div class="stat-value counter-val" style="color:${rNetProfit>=0?'#f7b731':'#ff4757'}; text-shadow:0 0 10px ${rNetProfit>=0?'rgba(247,183,49,0.4)':'rgba(255,71,87,0.3)'};" data-target="${Utils.takaEn(Math.abs(rNetProfit))}">0</div>
+          <div class="stat-subtext" style="color:${rNetProfit>=0?'#f7b731':'#ff4757'}; font-weight:700; font-size:0.8rem; letter-spacing:0.5px;">${rNetProfit >= 0 ? '▲ Net Profit' : '▼ Net Loss'}</div>
+          <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},.12);color:${rNetProfit>=0?'#f7b731':'#ff4757'};border-color:rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Loss'}</div>
         </div>
 
-        <!-- Account Balance -->
-        <div class="stat-card animated-glow glow-cyan" onclick="App.navigateTo('accounts')" style="cursor:pointer; --glow-color:#00bcd4;">
+        <!-- Account Balance: VIOLET/PURPLE -->
+        <div class="stat-card animated-glow glow-purple" onclick="App.navigateTo('accounts')" style="cursor:pointer">
           <div class="stat-header">ACCOUNT BALANCE</div>
           <div class="stat-icon-wrapper"><i class="fa fa-building-columns"></i></div>
-          <div class="stat-value counter-val" data-target="${Utils.takaEn(totalBalance)}">0</div>
+          <div class="stat-value counter-val" style="color:#c084fc; text-shadow:0 0 10px rgba(192,132,252,0.4);" data-target="${Utils.takaEn(totalBalance)}">0</div>
           <div class="stat-subtext">Cash + Bank + Mobile</div>
-          <div class="stat-badge" style="background:rgba(0,212,255,.12);color:#00d4ff;border-color:rgba(0,212,255,.35);box-shadow:0 0 8px rgba(0,212,255,0.2)">⊕ Assets</div>
+          <div class="stat-badge" style="background:rgba(168,85,247,.12);color:#c084fc;border-color:rgba(168,85,247,.35);box-shadow:0 0 8px rgba(168,85,247,0.2)">⊕ Assets</div>
         </div>
       </div>
 
