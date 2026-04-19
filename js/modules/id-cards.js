@@ -9,10 +9,142 @@ const IDCardsModule = (() => {
   function buildCardHTML(person, type = 'student') {
     const settings = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
     const academyName = settings.academy_name || 'Wings Fly Aviation Academy';
-    const logoUrl = 'assets/wings_logo_linear.png';
-    const logoRoundUrl = 'assets/wings_logo_premium.png';
-    const sigShakib = 'assets/shakib_sign.png';
-    const sigChairman = 'assets/chairman_sign.jpeg';
+    const logoUrl     = 'assets/wings_logo_linear.png';
+    const sigShakib   = 'assets/shakib_sign.png';
+
+    const isStudent  = type === 'student';
+    const idNumber   = person.studentId || person.employeeId || person.id || 'N/A';
+    const nameParts  = (person.name || '').trim().split(/\s+/).filter(Boolean);
+    const initials   = nameParts.length >= 2
+      ? (nameParts[0][0] + nameParts[nameParts.length - 1][0]).toUpperCase()
+      : nameParts.length === 1 ? nameParts[0][0].toUpperCase() : 'S';
+
+    const enrollDate = new Date(person.admissionDate || person.enrollDate || Date.now());
+    const expiryDate = new Date(enrollDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 1);
+    const fmtDate = (d) => d.toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
+
+    const photoHTML = (person.photo && person.photo.length > 10)
+      ? `<img src="${person.photo}" style="width:100%;height:100%;object-fit:cover;object-position:top;">`
+      : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+           background:linear-gradient(135deg,#06b6d4,#8b5cf6);color:#fff;font-size:38px;font-weight:800;letter-spacing:-1px;">${initials}</div>`;
+
+    const roleColor  = isStudent ? '#06b6d4' : '#a855f7';
+    const roleLabel  = isStudent ? 'STUDENT' : 'STAFF';
+    const roleIcon   = isStudent ? '🎓' : '👤';
+
+    return `<div id="idCardRender" style="
+      width:220px; height:350px;
+      background: linear-gradient(160deg, #0f0c29 0%, #1a1040 40%, #0d1f3c 100%);
+      border: 2px solid rgba(6,182,212,0.5);
+      border-radius: 18px;
+      position: relative;
+      overflow: hidden;
+      font-family: 'Segoe UI', sans-serif;
+      box-shadow: 0 0 30px rgba(6,182,212,0.25), 0 0 60px rgba(139,92,246,0.1);
+      display: flex; flex-direction: column; align-items: center;
+    ">
+
+      <!-- Glowing BG circles -->
+      <div style="position:absolute;top:-30px;right:-30px;width:100px;height:100px;border-radius:50%;
+        background:radial-gradient(circle,rgba(139,92,246,0.25),transparent);pointer-events:none;"></div>
+      <div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;border-radius:50%;
+        background:radial-gradient(circle,rgba(6,182,212,0.2),transparent);pointer-events:none;"></div>
+
+      <!-- Top bar: cyan→purple gradient -->
+      <div style="width:100%;height:6px;background:linear-gradient(to right,#06b6d4,#8b5cf6,#ec4899);flex-shrink:0;"></div>
+
+      <!-- Corner accents -->
+      <div style="position:absolute;top:8px;left:8px;width:14px;height:14px;
+        border-top:2px solid #06b6d4;border-left:2px solid #06b6d4;border-radius:3px 0 0 0;"></div>
+      <div style="position:absolute;top:8px;right:8px;width:14px;height:14px;
+        border-top:2px solid #a855f7;border-right:2px solid #a855f7;border-radius:0 3px 0 0;"></div>
+
+      <!-- Header -->
+      <div style="width:100%;padding:7px 10px 4px;text-align:center;border-bottom:1px solid rgba(6,182,212,0.2);flex-shrink:0;">
+        <img src="${logoUrl}" style="height:22px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(6,182,212,0.6));" onerror="this.style.display='none'">
+        <div style="color:rgba(6,182,212,0.7);font-size:5.5px;letter-spacing:1.2px;margin-top:3px;font-weight:600;">AVIATION &amp; CAREER DEVELOPMENT ACADEMY</div>
+      </div>
+
+      <!-- Photo -->
+      <div style="margin:10px auto 6px;width:88px;height:100px;
+        border:2px solid transparent;
+        background:linear-gradient(#0f0c29,#0f0c29) padding-box,
+                   linear-gradient(135deg,#06b6d4,#8b5cf6,#ec4899) border-box;
+        border-radius:12px;overflow:hidden;
+        box-shadow:0 0 18px rgba(6,182,212,0.35),0 0 8px rgba(139,92,246,0.2);flex-shrink:0;">
+        ${photoHTML}
+      </div>
+
+      <!-- Name -->
+      <div style="text-align:center;padding:0 10px;flex-shrink:0;">
+        <div style="color:#ffffff;font-size:12px;font-weight:800;letter-spacing:0.5px;
+          text-transform:uppercase;line-height:1.2;
+          text-shadow:0 0 8px rgba(6,182,212,0.4);">
+          ${Utils.esc(person.name || 'N/A')}
+        </div>
+      </div>
+
+      <!-- Role badge -->
+      <div style="margin:5px auto; background:linear-gradient(90deg,#06b6d4,#8b5cf6);
+        border-radius:20px;padding:3px 16px;flex-shrink:0;">
+        <div style="color:#fff;font-size:7.5px;font-weight:800;letter-spacing:2.5px;">
+          ${roleIcon} ${roleLabel}
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div style="width:88%;height:1px;background:linear-gradient(to right,transparent,#06b6d4,#8b5cf6,transparent);margin:5px auto;flex-shrink:0;"></div>
+
+      <!-- Info rows -->
+      <div style="width:92%;padding:2px 0;flex-shrink:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <div style="color:#06b6d4;font-size:6.5px;font-weight:700;text-transform:uppercase;">ID No.</div>
+          <div style="color:#e2e8f0;font-size:7px;font-weight:700;letter-spacing:0.3px;">${Utils.esc(idNumber)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <div style="color:#a855f7;font-size:6.5px;font-weight:700;text-transform:uppercase;">Blood</div>
+          <div style="color:#f87171;font-size:7px;font-weight:700;">${Utils.esc(person.bloodGroup || 'N/A')}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <div style="color:#06b6d4;font-size:6.5px;font-weight:700;text-transform:uppercase;">Joined</div>
+          <div style="color:#e2e8f0;font-size:6.5px;">${fmtDate(enrollDate)}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+          <div style="color:#a855f7;font-size:6.5px;font-weight:700;text-transform:uppercase;">Course</div>
+          <div style="color:#e2e8f0;font-size:6px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${Utils.esc(person.course || 'N/A')}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div style="color:#06b6d4;font-size:6.5px;font-weight:700;text-transform:uppercase;">Valid Till</div>
+          <div style="color:#34d399;font-size:6.5px;font-weight:600;">${fmtDate(expiryDate)}</div>
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div style="width:88%;height:1px;background:linear-gradient(to right,transparent,#8b5cf6,#06b6d4,transparent);margin:5px auto;flex-shrink:0;"></div>
+
+      <!-- Footer -->
+      <div style="width:100%;padding:4px 12px;display:flex;justify-content:space-between;align-items:center;margin-top:auto;flex-shrink:0;">
+        <div style="text-align:center;">
+          <img src="${sigShakib}" style="height:18px;object-fit:contain;filter:invert(1) drop-shadow(0 0 3px rgba(6,182,212,0.6));mix-blend-mode:screen;" onerror="this.style.display='none'">
+          <div style="color:rgba(6,182,212,0.7);font-size:5px;margin-top:1px;">Authorized Sign</div>
+        </div>
+        <div style="color:rgba(255,255,255,0.3);font-size:5.5px;text-align:center;">STP-DHA-002261</div>
+        <div style="background:rgba(139,92,246,0.2);border:1px solid rgba(139,92,246,0.4);
+          border-radius:8px;padding:2px 6px;
+          color:#c084fc;font-size:6px;font-weight:700;">BATCH ${person.batch || 'N/A'}</div>
+      </div>
+
+      <!-- Bottom bar -->
+      <div style="width:100%;height:5px;background:linear-gradient(to right,#ec4899,#8b5cf6,#06b6d4);flex-shrink:0;"></div>
+
+      <!-- Bottom corners -->
+      <div style="position:absolute;bottom:8px;left:8px;width:14px;height:14px;
+        border-bottom:2px solid #ec4899;border-left:2px solid #ec4899;border-radius:0 0 0 3px;"></div>
+      <div style="position:absolute;bottom:8px;right:8px;width:14px;height:14px;
+        border-bottom:2px solid #06b6d4;border-right:2px solid #06b6d4;border-radius:0 0 3px 0;"></div>
+    </div>`;
+  }
 
     const isStudent = type === 'student';
     const idNumber = person.studentId || person.employeeId || person.id || 'N/A';
@@ -167,22 +299,38 @@ const IDCardsModule = (() => {
       <div id="idcard-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;">
         ${students.length === 0 ? '<div style="grid-column:1/-1; text-align:center; padding:60px 20px; color:var(--text-muted);">No students found. Add students first.</div>' : ''}
         ${filterStudents(students).map(s => `
-          <div style="background:var(--card-bg); border-radius:12px; padding:16px; border:1px solid var(--border); transition:all 0.3s;">
-            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px;">
-              <div style="width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, var(--accent), var(--accent-hover)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold; font-size:1.1rem;">
+          <div style="background:linear-gradient(135deg,rgba(6,182,212,0.08),rgba(139,92,246,0.08));
+            border-radius:14px; padding:14px;
+            border:1px solid rgba(6,182,212,0.2);
+            transition:all 0.3s; position:relative; overflow:hidden;">
+            <!-- Accent top bar -->
+            <div style="position:absolute;top:0;left:0;right:0;height:3px;
+              background:linear-gradient(to right,#06b6d4,#8b5cf6,#ec4899);"></div>
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; margin-top:4px;">
+              <div style="width:44px; height:44px; border-radius:50%;
+                background:linear-gradient(135deg,#06b6d4,#8b5cf6);
+                display:flex; align-items:center; justify-content:center;
+                color:#fff; font-weight:800; font-size:1.1rem;
+                box-shadow:0 0 12px rgba(6,182,212,0.3);">
                 ${(s.name || '?')[0].toUpperCase()}
               </div>
               <div style="flex:1;">
-                <div style="font-weight:600; color:var(--text);">${Utils.esc(s.name || "Unknown")}</div>
-                <div style="font-size:0.82rem; color:var(--text-muted);">${s.student_id || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
+                <div style="font-weight:700; color:#fff; font-size:0.92rem;">${Utils.esc(s.name || 'Unknown')}</div>
+                <div style="font-size:0.78rem; color:rgba(6,182,212,0.7); margin-top:2px;">${s.student_id || s.id} &middot; ${s.course || '—'} &middot; Batch ${s.batch || '—'}</div>
               </div>
             </div>
             <div style="display:flex; gap:8px;">
-              <button class="btn btn-sm" style="flex:1; background:var(--accent); color:#fff; border:none; padding:6px 0; border-radius:6px; cursor:pointer;"
+              <button style="flex:1; background:linear-gradient(135deg,#06b6d4,#0891b2);
+                color:#fff; border:none; padding:7px 0; border-radius:8px; cursor:pointer;
+                font-weight:700; font-size:0.82rem;
+                box-shadow:0 0 10px rgba(6,182,212,0.25);transition:all 0.2s;"
                 onclick="IDCardsModule.previewStudent('${s.id}')">
-                <i class="fa fa-eye"></i> Preview
+                <i class="fa fa-id-card"></i> Preview
               </button>
-              <button class="btn btn-sm" style="flex:1; background:transparent; color:var(--accent); border:1px solid var(--accent); padding:6px 0; border-radius:6px; cursor:pointer;"
+              <button style="flex:1; background:transparent;
+                color:#a855f7; border:1px solid rgba(139,92,246,0.5);
+                padding:7px 0; border-radius:8px; cursor:pointer;
+                font-weight:700; font-size:0.82rem; transition:all 0.2s;"
                 onclick="IDCardsModule.printStudent('${s.id}')">
                 <i class="fa fa-print"></i> Print
               </button>
