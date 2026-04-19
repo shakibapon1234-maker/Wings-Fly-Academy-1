@@ -1259,7 +1259,7 @@ const SettingsModule = (() => {
               `<tr><td colspan="6" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle bin is empty.</td></tr>` :
               deleted.map((d, i) => `
                 <tr>
-                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : 'fa-file'}"></i></td>
+                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : d.type === 'নোট' ? 'fa-bookmark' : 'fa-file'}"></i></td>
                   <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || '—'}</td>
                   <td><span class="badge badge-muted">${d.type || 'item'}</span></td>
                   <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || '—'}</td>
@@ -1363,18 +1363,23 @@ const SettingsModule = (() => {
 
         <!-- Filter Bar -->
         <div style="padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,0.15)">
-          <input type="date" id="kr-date-filter" class="form-control" style="width:160px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
+          <!-- Date Range Filter -->
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">📅 থেকে</span>
+            <input type="date" id="kr-date-from" class="form-control" style="width:145px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
+            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">পর্যন্ত</span>
+            <input type="date" id="kr-date-to" class="form-control" style="width:145px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
+          </div>
           <select id="kr-tag-filter" class="form-control" style="width:140px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()">
             <option value="">সব ট্যাগ</option>
             ${tags.map(t => `<option value="${t}">${t}</option>`).join('')}
           </select>
-          <div style="flex:1;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px">
+          <div style="flex:1;min-width:150px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px">
             <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.82rem"></i>
             <input type="text" id="kr-search" placeholder="সার্চ করুন..." style="background:none;border:none;outline:none;color:#fff;font-size:.85rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterNotes()" />
           </div>
           <button onclick="SettingsModule.clearNoteFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.55);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.8rem">✕ ক্লিয়ার</button>
         </div>
-
         <!-- Notes Grid -->
         <div id="kr-notes-grid" style="padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;max-height:520px;overflow-y:auto">
           ${notes.length === 0
@@ -1388,8 +1393,9 @@ const SettingsModule = (() => {
                 const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
                 return `
                 <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-                  ${n.pinned ? '<div style="position:absolute;top:10px;right:38px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}
-                  <button onclick="SettingsModule.deleteNote(${i})" title="Delete" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
+                  ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}
+                  <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button>
+                  <button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
                   <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
                   ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
                   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
@@ -1409,16 +1415,26 @@ const SettingsModule = (() => {
   }
 
   function filterNotes() {
-    const dateVal   = document.getElementById('kr-date-filter')?.value || '';
+    const dateFrom  = document.getElementById('kr-date-from')?.value || '';
+    const dateTo    = document.getElementById('kr-date-to')?.value || '';
     const tagVal    = document.getElementById('kr-tag-filter')?.value || '';
     const searchVal = (document.getElementById('kr-search')?.value || '').toLowerCase();
     const colorMap  = { red:'#ff4757', green:'#00ff88', blue:'#00d9ff', yellow:'#ffd700', purple:'#b537f2', orange:'#ff6b35' };
     const bgMap     = { red:'rgba(255,71,87,0.10)', green:'rgba(0,255,136,0.08)', blue:'rgba(0,217,255,0.08)', yellow:'rgba(255,215,0,0.08)', purple:'rgba(181,55,242,0.10)', orange:'rgba(255,107,53,0.10)' };
     const borderMap = { red:'rgba(255,71,87,0.30)', green:'rgba(0,255,136,0.25)', blue:'rgba(0,217,255,0.25)', yellow:'rgba(255,215,0,0.25)', purple:'rgba(181,55,242,0.30)', orange:'rgba(255,107,53,0.25)' };
 
+    // Parse note date (DD/MM/YYYY) to YYYY-MM-DD for comparison
+    function parseNoteDate(d) {
+      if (!d) return '';
+      const parts = d.split('/');
+      if (parts.length === 3) return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      return d; // fallback if already ISO
+    }
+
     let notes = getKeepRecords();
-    if (dateVal) notes = notes.filter(n => n.date && n.date.startsWith(dateVal));
-    if (tagVal)  notes = notes.filter(n => (n.tags||[]).includes(tagVal));
+    if (dateFrom) notes = notes.filter(n => { const nd = parseNoteDate(n.date); return nd && nd >= dateFrom; });
+    if (dateTo)   notes = notes.filter(n => { const nd = parseNoteDate(n.date); return nd && nd <= dateTo; });
+    if (tagVal)   notes = notes.filter(n => (n.tags||[]).includes(tagVal));
     if (searchVal) notes = notes.filter(n =>
       (n.title||'').toLowerCase().includes(searchVal) ||
       (n.content||'').toLowerCase().includes(searchVal)
@@ -1437,8 +1453,9 @@ const SettingsModule = (() => {
       const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
       return `
         <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-          ${n.pinned ? '<div style="position:absolute;top:10px;right:38px;font-size:.75rem;color:#ffd700">📌</div>' : ''}
-          <button onclick="SettingsModule.deleteNote(${i})" title="Delete" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
+          ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700">📌</div>' : ''}
+          <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button>
+          <button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
           <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
           ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
@@ -1452,9 +1469,10 @@ const SettingsModule = (() => {
   }
 
   function clearNoteFilters() {
-    const d = document.getElementById('kr-date-filter'); if(d) d.value = '';
-    const t = document.getElementById('kr-tag-filter');  if(t) t.value = '';
-    const s = document.getElementById('kr-search');      if(s) s.value = '';
+    const df = document.getElementById('kr-date-from');  if(df) df.value = '';
+    const dt = document.getElementById('kr-date-to');    if(dt) dt.value = '';
+    const t  = document.getElementById('kr-tag-filter'); if(t)  t.value  = '';
+    const s  = document.getElementById('kr-search');     if(s)  s.value  = '';
     filterNotes();
   }
 
@@ -2537,6 +2555,30 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
+    // ✅ keep_records: restore note back to localStorage
+    if (item && item.table === 'keep_records') {
+      const noteData = item.data;
+      if (noteData) {
+        const notes = getKeepRecords();
+        // avoid duplicate (match by title + date)
+        const exists = notes.some(n => n.title === noteData.title && n.date === noteData.date);
+        if (!exists) {
+          if (noteData.pinned) notes.unshift(noteData);
+          else notes.push(noteData);
+          localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+        }
+      }
+      bin.splice(index, 1);
+      if (isIDB && typeof SupabaseSync !== 'undefined') {
+        SupabaseSync.setAll('recycle_bin', bin);
+      }
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      Utils.toast(`নোট "${item.data?.title || 'Untitled'}" রিস্টোর হয়েছে ✓`, 'success');
+      logActivity('restore', 'note', `Restored note: ${item.data?.title || 'Untitled'}`);
+      refreshModal();
+      return;
+    }
+
     // Standard restore via SupabaseSync for all other DB records
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
@@ -2631,9 +2673,99 @@ ${expenseEntries.length > 0 ? `
 
   function deleteNote(index) {
     const notes = getKeepRecords();
+    const victim = notes[index];
+    if (!victim) return;
+    // ✅ Fix: Send note to Recycle Bin before removing
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+      SupabaseSync._addToRecycleBinPublic('keep_records', victim);
+    } else {
+      // Fallback: write directly to localStorage recycle bin
+      try {
+        const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+        bin.unshift({
+          table: 'keep_records',
+          data: (typeof structuredClone === 'function') ? structuredClone(victim) : JSON.parse(JSON.stringify(victim)),
+          deletedAt: new Date().toISOString(),
+          type: 'নোট',
+          name: victim.title || 'Untitled Note',
+          tableLabel: 'Keep Record',
+        });
+        if (bin.length > 200) bin.length = 200;
+        localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+        // Also sync to IDB cache via SupabaseSync if available
+        if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
+          SupabaseSync.setAll('recycle_bin', bin);
+        }
+      } catch(e) { console.warn('[Recycle] note delete failed:', e); }
+    }
     notes.splice(index, 1);
     localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
-    Utils.toast('নোট মুছে গেছে', 'info');
+    Utils.toast('নোট রিসাইকেল বিনে গেছে 🗑️', 'info');
+    logActivity('delete', 'note', `Deleted note: ${victim.title || 'Untitled'}`);
+    refreshModal();
+  }
+
+  function editNote(index) {
+    const notes = getKeepRecords();
+    const n = notes[index];
+    if (!n) return;
+    openSettingsInternalModal('✏️ নোট এডিট করুন', `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">টাইটেল <span style="color:#ff4757">*</span></label>
+          <input id="note-title" class="form-control" placeholder="নোটের টাইটেল..." value="${Utils.esc(n.title||'')}" style="width:100%;box-sizing:border-box" />
+        </div>
+        <div>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">রঙ বেছে নিন</label>
+          <select id="note-color" class="form-control" style="width:100%;box-sizing:border-box">
+            <option value="blue" ${n.color==='blue'?'selected':''}>🔵 নীল</option>
+            <option value="green" ${n.color==='green'?'selected':''}>🟢 সবুজ</option>
+            <option value="purple" ${n.color==='purple'?'selected':''}>🟣 বেগুনি</option>
+            <option value="yellow" ${n.color==='yellow'?'selected':''}>🟡 হলুদ</option>
+            <option value="red" ${n.color==='red'?'selected':''}>🔴 লাল</option>
+            <option value="orange" ${n.color==='orange'?'selected':''}>🟠 কমলা</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">বিস্তারিত / কনটেন্ট</label>
+        <textarea id="note-content" class="form-control" rows="4" placeholder="নোট লিখুন..." style="width:100%;box-sizing:border-box;resize:vertical">${Utils.esc(n.content||'')}</textarea>
+      </div>
+      <div style="margin-bottom:16px">
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">ট্যাগ (comma দিয়ে আলাদা করুন)</label>
+        <input id="note-tags" class="form-control" placeholder="যেমন: গুরুত্বপূর্ণ, ফাইন্যান্স, স্টাফ" value="${Utils.esc((n.tags||[]).join(', '))}" style="width:100%;box-sizing:border-box" />
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
+        <input type="checkbox" id="note-pin" ${n.pinned?'checked':''} style="width:16px;height:16px;cursor:pointer" />
+        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">📌 উপরে পিন করুন</label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">বাতিল</button>
+        <button onclick="SettingsModule.saveEditedNote(${index})" style="background:linear-gradient(135deg,#00d9ff,#0099bb);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-save" style="margin-right:6px"></i>আপডেট করুন</button>
+      </div>
+    `);
+  }
+
+  function saveEditedNote(index) {
+    const title   = document.getElementById('note-title')?.value?.trim();
+    const content = document.getElementById('note-content')?.value?.trim();
+    const color   = document.getElementById('note-color')?.value || 'blue';
+    const tagsRaw = document.getElementById('note-tags')?.value || '';
+    const pinned  = document.getElementById('note-pin')?.checked || false;
+    if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
+    const tags  = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
+    const notes = getKeepRecords();
+    if (!notes[index]) { Utils.toast('নোট পাওয়া যায়নি', 'error'); return; }
+    const oldDate = notes[index].date; // preserve original creation date
+    notes[index] = { title: title||'Untitled', content: content||'', color, tags, pinned, date: oldDate, editedAt: new Date().toLocaleDateString('en-GB') };
+    // Re-sort: pinned notes first
+    const pinnedNotes   = notes.filter(n => n.pinned);
+    const unpinnedNotes = notes.filter(n => !n.pinned);
+    const sorted = [...pinnedNotes, ...unpinnedNotes];
+    localStorage.setItem('wfa_keep_records', JSON.stringify(sorted));
+    closeSettingsInternalModal();
+    Utils.toast('নোট আপডেট হয়েছে ✓', 'success');
+    logActivity('edit', 'note', `Edited note: ${title}`);
     refreshModal();
   }
 
@@ -4403,7 +4535,7 @@ ${expenseEntries.length > 0 ? `
     addCategory, removeCategory,
     clearActivityLog, logActivity,
     restoreItem, permanentDelete, emptyRecycleBin,
-    addNote, saveNote, deleteNote, filterNotes, clearNoteFilters,
+    addNote, saveNote, deleteNote, editNote, saveEditedNote, filterNotes, clearNoteFilters,
     renderBatchReport,
     printBatchReport,
     exportBatchReportExcel,
