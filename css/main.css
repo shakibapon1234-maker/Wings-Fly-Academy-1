@@ -2975,13 +2975,12 @@ thead th {
   border: none;
   font-size: 0.85rem;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s;
+  opacity: 0.5;
+  transition: opacity 0.15s, background 0.15s;
   padding: 2px 5px;
   border-radius: 4px;
   line-height: 1;
 }
-.category-item:hover .cat-rename { opacity: 0.7; }
 .category-item .cat-rename:hover { opacity: 1 !important; background: rgba(0,212,255,0.12); }
 
 .cat-rename-input {
