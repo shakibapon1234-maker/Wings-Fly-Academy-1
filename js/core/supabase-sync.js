@@ -427,19 +427,110 @@ const SupabaseSync = (() => {
     catch { return []; }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  // Activity Log — Supabase Cloud Sync (All Devices)
+  // ══════════════════════════════════════════════════════════════
+  // প্রতিটি activity log entry Supabase 'activity_log' table-এ push হবে।
+  // এতে সব device-এ একই activity log দেখা যাবে।
+  // Required SQL (run once in Supabase SQL Editor):
+  //   CREATE TABLE IF NOT EXISTS activity_log (
+  //     id TEXT PRIMARY KEY, action TEXT, type TEXT, description TEXT,
+  //     status TEXT DEFAULT 'success', "user" TEXT, device_id TEXT,
+  //     time TEXT, created_at TIMESTAMPTZ DEFAULT NOW()
+  //   );
+  //   ALTER TABLE activity_log ENABLE ROW LEVEL SECURITY;
+  //   CREATE POLICY "allow_all" ON activity_log FOR ALL USING (true) WITH CHECK (true);
+  // ══════════════════════════════════════════════════════════════
+
+  const _ACTIVITY_TABLE = 'activity_log';
+  let _activityTableMissing = false; // once confirmed missing, stop retrying
+
+  async function _pushActivityToCloud(entry) {
+    if (_activityTableMissing) return;
+    try {
+      const { client } = window.SUPABASE_CONFIG;
+      if (!client) return;
+      const clean = {
+        id:          entry.id,
+        action:      entry.action,
+        type:        entry.type,
+        description: String(entry.description || '').slice(0, 500),
+        status:      entry.status || 'success',
+        user:        entry.user || 'Admin',
+        device_id:   entry.device_id || _deviceId(),
+        time:        entry.time,
+        created_at:  entry.created_at,
+      };
+      const { error } = await client.from(_ACTIVITY_TABLE).upsert([clean], { onConflict: 'id' });
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          _activityTableMissing = true;
+          console.warn('[ActivityLog] activity_log table not found. Please create it in Supabase.');
+          return;
+        }
+        console.warn('[ActivityLog] Cloud push failed:', error.message);
+      }
+    } catch (e) {
+      console.warn('[ActivityLog] Push error:', e?.message || e);
+    }
+  }
+
+  // সব device-এর activity log Supabase থেকে pull করে localStorage-এ merge করে
+  async function _pullActivityFromCloud() {
+    if (_activityTableMissing) return;
+    try {
+      const { client } = window.SUPABASE_CONFIG;
+      if (!client) return;
+      const { data, error } = await client
+        .from(_ACTIVITY_TABLE)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500);
+      if (error) {
+        if (error.code === '42P01' || error.message?.includes('does not exist')) {
+          _activityTableMissing = true;
+          return;
+        }
+        console.warn('[ActivityLog] Pull failed:', error.message);
+        return;
+      }
+      if (!data || !data.length) return;
+
+      // Local + Cloud merge — union by id, newest first
+      const local = _getActivityLogs();
+      const mergedMap = new Map(local.map(l => [l.id, l]));
+      data.forEach(row => {
+        if (!mergedMap.has(row.id)) mergedMap.set(row.id, row);
+      });
+      const merged = Array.from(mergedMap.values())
+        .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+        .slice(0, 500);
+      localStorage.setItem('wfa_activity_log', JSON.stringify(merged));
+    } catch (e) {
+      console.warn('[ActivityLog] Pull error:', e?.message || e);
+    }
+  }
+
   function _logActivity(action, type, description, status = 'success') {
     try {
-      const logs = _getActivityLogs();
-      logs.unshift({
+      const now = new Date();
+      const entry = {
+        id:         generateId(),
         action,
         type,
         description,
         status,
-        user: localStorage.getItem('wfa_user_name') || 'Admin',
-        time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-      });
+        user:       localStorage.getItem('wfa_user_name') || 'Admin',
+        device_id:  _deviceId(),
+        time:       now.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        created_at: now.toISOString(),
+      };
+      const logs = _getActivityLogs();
+      logs.unshift(entry);
       if (logs.length > 500) logs.length = 500;
       localStorage.setItem('wfa_activity_log', JSON.stringify(logs));
+      // Async push to Supabase — fire and forget
+      _pushActivityToCloud(entry);
     } catch { /* ignore */ }
   }
 
@@ -911,6 +1002,7 @@ const SupabaseSync = (() => {
     updateAccountBalance,
     TABLE_COLUMNS,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
+    pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
   };
 })();
 window.SupabaseSync = SupabaseSync;
@@ -1338,6 +1430,8 @@ const SyncEngine = (() => {
 
     pull({ silent: true }).then(() => {
       startRealtime();
+      // ✅ App চালু হলে সব device-এর activity log pull করো
+      _pullActivityFromCloud();
     });
   }
 
@@ -1350,7 +1444,7 @@ const SyncEngine = (() => {
     window.addEventListener('online', () => {
       console.log('[Sync] Back online');
       setStatus('syncing');
-      syncAll({ silent: true }).then(() => startRealtime());
+      syncAll({ silent: true }).then(() => { startRealtime(); _pullActivityFromCloud(); });
     });
 
     window.addEventListener('offline', () => {

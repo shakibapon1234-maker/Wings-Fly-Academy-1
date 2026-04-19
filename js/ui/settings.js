@@ -1183,17 +1183,34 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelActivity() {
     const logs = getActivityLogs();
-    const addCount = logs.filter(l => l.action === 'add').length;
-    const editCount = logs.filter(l => l.action === 'edit').length;
+    const addCount    = logs.filter(l => l.action === 'add').length;
+    const editCount   = logs.filter(l => l.action === 'edit').length;
     const deleteCount = logs.filter(l => l.action === 'delete').length;
+
+    // Panel render হলেই Supabase থেকে সব device-এর log pull করো (async)
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
+      SupabaseSync.pullActivityLog().then(() => {
+        const panel = document.querySelector('[data-panel="activity"]');
+        if (panel && panel.classList.contains('active')) {
+          refreshActivityPanel();
+        }
+      }).catch(() => {});
+    }
 
     return `
     <div class="settings-panel ${activeTab === 'activity' ? 'active' : ''}" data-panel="activity">
       <div class="settings-card-title" style="color:var(--brand-primary)">
         <i class="fa fa-list-check"></i> FULL ACTIVITY LOG
-        <button class="settings-top-action" onclick="SettingsModule.clearActivityLog()">
-          <i class="fa fa-trash-can"></i> CLEAR ALL
-        </button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="settings-top-action"
+            style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
+            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=\'fa fa-rotate fa-spin\'></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{SettingsModule.refreshActivityPanel();me.innerHTML='<i class=\'fa fa-rotate\'></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=\'fa fa-rotate\'></i> SYNC';})}">
+            <i class="fa fa-rotate"></i> SYNC
+          </button>
+          <button class="settings-top-action" onclick="SettingsModule.clearActivityLog()">
+            <i class="fa fa-trash-can"></i> CLEAR ALL
+          </button>
+        </div>
       </div>
 
       <div class="activity-stats">
@@ -1201,34 +1218,26 @@ const SettingsModule = (() => {
         <span class="activity-stat-badge" style="background:var(--success-bg);color:var(--success)">+ ${addCount}</span>
         <span class="activity-stat-badge" style="background:var(--info-bg);color:var(--info)">✏ ${editCount}</span>
         <span class="activity-stat-badge" style="background:var(--error-bg);color:var(--error)">🗑 ${deleteCount}</span>
+        <span class="activity-stat-badge" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);color:#00d4ff;font-size:.74rem">
+          <i class="fa fa-wifi"></i> সব device sync
+        </span>
       </div>
 
       <div class="table-wrapper" style="max-height:450px;overflow:auto">
         <table>
           <thead>
             <tr>
-              <th>Icon</th>
+              <th></th>
               <th>Action</th>
               <th>Type</th>
               <th>Description</th>
               <th>Status</th>
+              <th>Device</th>
               <th style="text-align:right">⏱ Time</th>
             </tr>
           </thead>
           <tbody>
-            ${logs.length === 0 ? `<tr><td colspan="6" class="no-data"><i class="fa fa-inbox"></i> No activity log</td></tr>` :
-              logs.slice(0, 100).map(l => `
-                <tr>
-                  <td><i class="fa ${l.action === 'add' ? 'fa-plus-circle' : l.action === 'edit' ? 'fa-pen' : 'fa-trash'}"
-                        style="color:${l.action === 'add' ? 'var(--success)' : l.action === 'edit' ? 'var(--info)' : 'var(--error)'}"></i></td>
-                  <td><span class="badge ${l.action === 'add' ? 'badge-success' : l.action === 'edit' ? 'badge-info' : 'badge-error'}" style="text-transform:uppercase">${l.action}</span></td>
-                  <td style="font-size:.82rem">${l.type || '—'}</td>
-                  <td style="font-size:.82rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.description || ''}</td>
-                  <td style="font-size:.82rem">${l.status === 'failed' ? '<span style="color:var(--error);font-weight:600">Failed</span>' : '<span style="color:var(--success);font-weight:600">Success</span>'}</td>
-                  <td style="text-align:right;font-size:.78rem;color:var(--text-muted)">${l.time || '—'}</td>
-                </tr>
-              `).join('')
-            }
+            ${_buildActivityRows(logs)}
           </tbody>
         </table>
       </div>
@@ -2483,21 +2492,73 @@ ${expenseEntries.length > 0 ? `
     return Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
   }
 
+  // ✅ Fix: settings.js logActivity এখন SupabaseSync.logActivity ব্যবহার করে
+  // এতে সব device-এ activity log Supabase-এ sync হবে
   function logActivity(action, type, description) {
-    const logs = getActivityLogs();
-    logs.unshift({
-      action, type, description,
-      user: 'Admin',
-      time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
-    });
-    if (logs.length > 500) logs.length = 500;
-    localStorage.setItem('wfa_activity_log', JSON.stringify(logs));
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+      SupabaseSync.logActivity(action, type, description);
+    } else {
+      // Fallback: local only
+      const logs = getActivityLogs();
+      logs.unshift({
+        action, type, description,
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+        user: 'Admin',
+        time: new Date().toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+        created_at: new Date().toISOString(),
+      });
+      if (logs.length > 500) logs.length = 500;
+      localStorage.setItem('wfa_activity_log', JSON.stringify(logs));
+    }
   }
 
   function clearActivityLog() {
     localStorage.setItem('wfa_activity_log', '[]');
     Utils.toast('Activity log cleared', 'info');
     refreshModal();
+  }
+
+  // Activity log panel-এর tbody ও stats live refresh (modal reload ছাড়াই)
+  function refreshActivityPanel() {
+    const fresh  = getActivityLogs();
+    const panel  = document.querySelector('[data-panel="activity"]');
+    if (!panel) return;
+    const addC   = fresh.filter(l => l.action === 'add').length;
+    const editC  = fresh.filter(l => l.action === 'edit').length;
+    const delC   = fresh.filter(l => l.action === 'delete').length;
+    const badges = panel.querySelectorAll('.activity-stat-badge');
+    if (badges[0]) badges[0].textContent = `মোট: ${fresh.length}`;
+    if (badges[1]) badges[1].textContent = `+ ${addC}`;
+    if (badges[2]) badges[2].textContent = `✏ ${editC}`;
+    if (badges[3]) badges[3].textContent = `🗑 ${delC}`;
+    const tbody = panel.querySelector('tbody');
+    if (!tbody) return;
+    tbody.innerHTML = _buildActivityRows(fresh);
+  }
+
+  function _buildActivityRows(logs) {
+    if (!logs || logs.length === 0)
+      return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> কোনো activity নেই</td></tr>`;
+    return logs.slice(0, 200).map(l => {
+      const isAdd = l.action === 'add';
+      const isDel = l.action === 'delete';
+      const icon  = isAdd ? 'fa-plus-circle' : isDel ? 'fa-trash' : 'fa-pen';
+      const color = isAdd ? 'var(--success)' : isDel ? 'var(--error)' : 'var(--info)';
+      const badge = isAdd ? 'badge-success' : isDel ? 'badge-error' : 'badge-info';
+      const devShort = l.device_id ? '📱 ' + String(l.device_id).slice(-6) : '—';
+      const statusHtml = l.status === 'failed'
+        ? '<span style="color:var(--error);font-weight:600">Failed</span>'
+        : '<span style="color:var(--success);font-weight:600">OK</span>';
+      return `<tr>
+        <td><i class="fa ${icon}" style="color:${color}"></i></td>
+        <td><span class="badge ${badge}" style="text-transform:uppercase">${l.action}</span></td>
+        <td style="font-size:.82rem">${l.type || '—'}</td>
+        <td style="font-size:.82rem;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(l.description||'').replace(/"/g,'&quot;')}">${l.description || ''}</td>
+        <td style="font-size:.82rem">${statusHtml}</td>
+        <td style="font-size:.78rem;color:var(--text-muted);white-space:nowrap">${devShort}</td>
+        <td style="text-align:right;font-size:.78rem;color:var(--text-muted);white-space:nowrap">${l.time || '—'}</td>
+      </tr>`;
+    }).join('');
   }
 
   // ─── Recycle Bin ───────────────────────────────────────────────────────
@@ -4533,7 +4594,7 @@ ${expenseEntries.length > 0 ? `
     startMigration, importFromJSON,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory,
-    clearActivityLog, logActivity,
+    clearActivityLog, logActivity, refreshActivityPanel,
     restoreItem, permanentDelete, emptyRecycleBin,
     addNote, saveNote, deleteNote, editNote, saveEditedNote, filterNotes, clearNoteFilters,
     renderBatchReport,
