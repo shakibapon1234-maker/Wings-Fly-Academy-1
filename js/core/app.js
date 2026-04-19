@@ -497,73 +497,174 @@ const App = (() => {
     const hamburger = document.getElementById('btn-hamburger');
     if (hamburger) hamburger.addEventListener('click', toggleSidebar);
 
-    // Global Search — searches students, staff, visitors, finance
+    // Global Search — searches ALL sections simultaneously and shows grouped dropdown
     const searchInput = document.getElementById('global-search');
     if (searchInput) {
-      searchInput.addEventListener('input', Utils.debounce((e) => {
-        const q = e.target.value.trim().toLowerCase();
-        if (!q) return;
+      // ── Create search results dropdown overlay ──────────────
+      let _srDropdown = document.getElementById('global-search-dropdown');
+      if (!_srDropdown) {
+        _srDropdown = document.createElement('div');
+        _srDropdown.id = 'global-search-dropdown';
+        _srDropdown.style.cssText = [
+          'display:none', 'position:absolute', 'top:calc(100% + 6px)', 'left:0', 'right:0',
+          'background:var(--bg-secondary,#1a1a2e)', 'border:1px solid rgba(0,212,255,0.25)',
+          'border-radius:14px', 'max-height:420px', 'overflow-y:auto', 'z-index:9999',
+          'box-shadow:0 12px 40px rgba(0,0,0,0.5)', 'backdrop-filter:blur(16px)'
+        ].join(';');
+        // Parent must be position:relative for dropdown to anchor
+        const wrap = searchInput.closest('.search-wrapper, .header-search, [class*=search]') || searchInput.parentElement;
+        wrap.style.position = 'relative';
+        wrap.appendChild(_srDropdown);
+      }
 
-        // Students
-        const allStudents = SupabaseSync.getAll(DB.students) || [];
-        const matchedStudents = allStudents.filter(s =>
+      function _closeSearchDropdown() {
+        _srDropdown.style.display = 'none';
+      }
+
+      function _navigateToResult(section, rawValue) {
+        const sectionSearchId = {
+          students:  'stu-search',
+          'hr-staff': 'staff-search',
+          visitors:  'visitor-search',
+          finance:   'fin-search',
+        }[section];
+        navigateTo(section);
+        setTimeout(() => {
+          const sInput = document.getElementById(sectionSearchId);
+          if (sInput) { sInput.value = rawValue; sInput.dispatchEvent(new Event('input')); }
+        }, 600);
+        _closeSearchDropdown();
+        searchInput.value = '';
+      }
+
+      function _buildResultItem(icon, color, title, sub, section, rawValue) {
+        const div = document.createElement('div');
+        div.style.cssText = 'padding:10px 16px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);display:flex;gap:12px;align-items:center;transition:background 0.15s';
+        div.innerHTML = `<i class="fa ${icon}" style="color:${color};width:16px;flex-shrink:0"></i>
+          <div><div style="font-weight:600;color:#fff;font-size:0.9rem">${Utils.esc(title)}</div>
+          <div style="font-size:0.75rem;color:var(--text-muted,#888)">${Utils.esc(sub)}</div></div>`;
+        div.addEventListener('mouseenter', () => div.style.background = 'rgba(255,255,255,0.06)');
+        div.addEventListener('mouseleave', () => div.style.background = '');
+        div.addEventListener('click', () => _navigateToResult(section, rawValue));
+        return div;
+      }
+
+      function _buildGroupHeader(emoji, label, count, color) {
+        const hdr = document.createElement('div');
+        hdr.style.cssText = `padding:7px 16px;font-size:0.68rem;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:1.2px;background:${color}0d`;
+        hdr.textContent = `${emoji} ${label} (${count})`;
+        return hdr;
+      }
+
+      searchInput.addEventListener('input', Utils.debounce((e) => {
+        const raw = e.target.value;
+        const q   = raw.trim().toLowerCase();
+        if (!q) { _closeSearchDropdown(); return; }
+
+        // ── Search all sections ─────────────────────────────
+        const matchedStudents = (SupabaseSync.getAll(DB.students) || []).filter(s =>
           (s.name || '').toLowerCase().includes(q) ||
           (s.student_id || '').toLowerCase().includes(q) ||
           (s.phone || '').toLowerCase().includes(q)
         );
-
-        // Staff
-        const allStaff = SupabaseSync.getAll(DB.staff) || [];
-        const matchedStaff = allStaff.filter(s =>
+        const matchedStaff = (SupabaseSync.getAll(DB.staff) || []).filter(s =>
           (s.name || '').toLowerCase().includes(q) ||
           (s.phone || '').toLowerCase().includes(q) ||
           (s.designation || '').toLowerCase().includes(q)
         );
-
-        // Visitors
-        const allVisitors = SupabaseSync.getAll(DB.visitors) || [];
-        const matchedVisitors = allVisitors.filter(v =>
+        const matchedVisitors = (SupabaseSync.getAll(DB.visitors) || []).filter(v =>
           (v.name || '').toLowerCase().includes(q) ||
           (v.phone || '').toLowerCase().includes(q) ||
           (v.purpose || '').toLowerCase().includes(q)
         );
-
-        // Finance
-        const allFinance = SupabaseSync.getAll(DB.finance) || [];
-        const matchedFinance = allFinance.filter(f =>
+        const matchedFinance = (SupabaseSync.getAll(DB.finance) || []).filter(f =>
           (f.description || '').toLowerCase().includes(q) ||
           (f.category || '').toLowerCase().includes(q)
         );
 
-        if (matchedStudents.length > 0) {
-          navigateTo('students');
-          setTimeout(() => {
-            // ✅ Use correct ID: 'stu-search' (as defined in students.js)
-            const sInput = document.getElementById('stu-search');
-            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 600);
-        } else if (matchedStaff.length > 0) {
-          navigateTo('hr-staff');
-          setTimeout(() => {
-            const sInput = document.getElementById('staff-search');
-            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 600);
-        } else if (matchedVisitors.length > 0) {
-          navigateTo('visitors');
-          setTimeout(() => {
-            const sInput = document.getElementById('visitor-search');
-            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 600);
-        } else if (matchedFinance.length > 0) {
-          navigateTo('finance');
-          setTimeout(() => {
-            const sInput = document.getElementById('fin-search');
-            if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 600);
-        } else {
-          Utils.toast('"' + Utils.esc(e.target.value) + '" — কোথাও পাওয়া যায়নি', 'info');
+        const total = matchedStudents.length + matchedStaff.length + matchedVisitors.length + matchedFinance.length;
+
+        _srDropdown.innerHTML = '';
+
+        if (total === 0) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'padding:20px;text-align:center;color:var(--text-muted,#888);font-size:0.9rem';
+          empty.innerHTML = `<i class="fa fa-magnifying-glass" style="font-size:1.6rem;display:block;margin-bottom:8px;opacity:0.3"></i>"${Utils.esc(raw)}" — কোথাও পাওয়া যায়নি`;
+          _srDropdown.appendChild(empty);
+          _srDropdown.style.display = 'block';
+          return;
         }
-      }, 300)); // ✅ Fix #6: reduced from 400ms → 300ms for snappier search response
+
+        // ── Students ────────────────────────────────────────
+        if (matchedStudents.length > 0) {
+          _srDropdown.appendChild(_buildGroupHeader('👩‍🎓', 'Students', matchedStudents.length, '#00d4ff'));
+          matchedStudents.slice(0, 5).forEach(s => {
+            _srDropdown.appendChild(_buildResultItem(
+              'fa-user', '#00d4ff',
+              s.name, `${s.student_id || ''} • ${s.phone || ''}`,
+              'students', raw
+            ));
+          });
+          if (matchedStudents.length > 5) {
+            const more = document.createElement('div');
+            more.style.cssText = 'padding:7px 16px;font-size:0.78rem;color:var(--text-muted,#888);cursor:pointer';
+            more.textContent = `+ ${matchedStudents.length - 5} more — click to see all`;
+            more.addEventListener('click', () => _navigateToResult('students', raw));
+            _srDropdown.appendChild(more);
+          }
+        }
+
+        // ── Staff ───────────────────────────────────────────
+        if (matchedStaff.length > 0) {
+          _srDropdown.appendChild(_buildGroupHeader('👥', 'Staff', matchedStaff.length, '#00ff88'));
+          matchedStaff.slice(0, 3).forEach(s => {
+            _srDropdown.appendChild(_buildResultItem(
+              'fa-id-badge', '#00ff88',
+              s.name, `${s.designation || ''} • ${s.phone || ''}`,
+              'hr-staff', raw
+            ));
+          });
+        }
+
+        // ── Visitors ────────────────────────────────────────
+        if (matchedVisitors.length > 0) {
+          _srDropdown.appendChild(_buildGroupHeader('🚶', 'Visitors', matchedVisitors.length, '#ffb703'));
+          matchedVisitors.slice(0, 3).forEach(v => {
+            _srDropdown.appendChild(_buildResultItem(
+              'fa-person-walking', '#ffb703',
+              v.name, `${v.purpose || ''} • ${v.phone || ''}`,
+              'visitors', raw
+            ));
+          });
+        }
+
+        // ── Finance ─────────────────────────────────────────
+        if (matchedFinance.length > 0) {
+          _srDropdown.appendChild(_buildGroupHeader('💰', 'Finance', matchedFinance.length, '#ff6b6b'));
+          matchedFinance.slice(0, 3).forEach(f => {
+            _srDropdown.appendChild(_buildResultItem(
+              'fa-coins', '#ff6b6b',
+              f.description || f.category || 'Transaction',
+              `${f.category || ''} • ${f.amount ? '৳' + f.amount : ''}`,
+              'finance', raw
+            ));
+          });
+        }
+
+        _srDropdown.style.display = 'block';
+      }, 300));
+
+      // Close dropdown on outside click
+      document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !_srDropdown.contains(e.target)) {
+          _closeSearchDropdown();
+        }
+      });
+
+      // Close on Escape key
+      searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') { _closeSearchDropdown(); searchInput.value = ''; }
+      });
     }
 
     // Logout
@@ -664,6 +765,7 @@ const App = (() => {
     document.addEventListener('keypress', resetIdleTimer);
     document.addEventListener('mousemove', Utils.debounce(resetIdleTimer, 1000));
     document.addEventListener('touchstart', resetIdleTimer);
+    document.addEventListener('touchmove', Utils.debounce(resetIdleTimer, 1000)); // ✅ Fix #4: mobile idle timer
   }
 
   // ── Init ──────────────────────────────────────────────────

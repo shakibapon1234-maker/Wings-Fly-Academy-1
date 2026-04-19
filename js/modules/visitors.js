@@ -22,6 +22,38 @@ const VisitorsModule = (() => {
     render();
   }
 
+  // ── Event Delegation: table + search input ─────────────────────────
+  // Container-এ event delegation attach করা হয় — re-render এর পরোও কাজ করে
+  function _initDelegation(container) {
+    if (container._visitorsDelegated) return;
+    container._visitorsDelegated = true;
+
+    container.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-action]');
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const id     = btn.dataset.id;
+      if (action === 'vis-convert') convertToStudent(id);
+      else if (action === 'vis-edit')   openEditModal(id);
+      else if (action === 'vis-delete') deleteRecord(id);
+    });
+
+    container.addEventListener('input', (e) => {
+      if (e.target.id === 'visitor-search') onSearch(e.target.value);
+    });
+  }
+
+  // ── Modal Event Delegation ────────────────────────────────────
+  // Modal বড় করার পরেই modal-body-তে event bind করা হয়
+  function _bindModalEvents() {
+    const body = document.getElementById('modal-body');
+    if (!body) return;
+    const saveBtn   = body.querySelector('[data-action="vis-save"]');
+    const cancelBtn = body.querySelector('[data-action="vis-cancel"]');
+    if (saveBtn)   saveBtn.addEventListener('click', saveRecord);
+    if (cancelBtn) cancelBtn.addEventListener('click', () => Utils.closeModal());
+  }
+
   function render() {
     const container = document.getElementById('visitors-content');
     if (!container) return; // Silent return if not rendered
@@ -51,7 +83,6 @@ const VisitorsModule = (() => {
           class="form-control"
           placeholder="Search by name, phone, or course…"
           value="${Utils.escAttr(searchQuery)}"
-          oninput="VisitorsModule.onSearch(this.value)"
           style="max-width:400px; font-family:inherit;"
         />
       </div>
@@ -120,9 +151,9 @@ const VisitorsModule = (() => {
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
-                    <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" onclick="VisitorsModule.convertToStudent('${v.id}')" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
-                    <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 12px;" onclick="VisitorsModule.openEditModal('${v.id}')"><i class="fa fa-pen"></i> Edit</button>
-                    <button class="btn btn-secondary btn-sm" style="border-radius:20px; padding:4px 10px;" onclick="VisitorsModule.deleteRecord('${v.id}')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-convert" data-id="${v.id}" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-edit"    data-id="${v.id}" style="border-radius:20px; padding:4px 12px;"><i class="fa fa-pen"></i> Edit</button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-delete"  data-id="${v.id}" style="border-radius:20px; padding:4px 10px;" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
                   </td>
                 </tr>
                 `;
@@ -134,12 +165,14 @@ const VisitorsModule = (() => {
     }
 
     container.innerHTML = html;
+    _initDelegation(container); // ✅ Issue #2: event delegation (CSP-safe)
   }
 
   /* ─── Modals ─── */
   function openAddModal() {
     editingId = null;
     Utils.openModal('<i class="fa fa-person" style="color:#00d4ff;"></i> ADD VISITOR', formHTML(null));
+    setTimeout(_bindModalEvents, 30); // ✅ Issue #2: bind modal buttons after render
   }
 
   function openEditModal(id) {
@@ -147,6 +180,7 @@ const VisitorsModule = (() => {
     const r = SupabaseSync.getById(DB.visitors, id);
     if (!r) return;
     Utils.openModal('<i class="fa fa-pen" style="color:#00d4ff;"></i> EDIT VISITOR', formHTML(r));
+    setTimeout(_bindModalEvents, 30); // ✅ Issue #2: bind modal buttons after render
   }
 
   function formHTML(r) {
@@ -194,8 +228,8 @@ const VisitorsModule = (() => {
       </div>
 
       <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">
-        <button class="btn-secondary" style="border-radius:24px; padding: 10px 24px; font-weight: 700; color: #fff; background: rgba(255,255,255,0.1); border: none;" onclick="Utils.closeModal()">CANCEL</button>
-        <button class="btn-primary" style="border-radius:24px; padding: 10px 24px; font-weight: 700; border:none; color:#fff; background: linear-gradient(135deg, #00d4ff, #7c3aed);" onclick="VisitorsModule.saveRecord()">SAVE VISITOR</button>
+        <button class="btn-secondary" data-action="vis-cancel" style="border-radius:24px; padding: 10px 24px; font-weight: 700; color: #fff; background: rgba(255,255,255,0.1); border: none;">CANCEL</button>
+        <button class="btn-primary"   data-action="vis-save"   style="border-radius:24px; padding: 10px 24px; font-weight: 700; border:none; color:#fff; background: linear-gradient(135deg, #00d4ff, #7c3aed);">SAVE VISITOR</button>
       </div>
     `;
   }
