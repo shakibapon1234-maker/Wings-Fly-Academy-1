@@ -236,22 +236,36 @@ const App = (() => {
       const allSettings = SupabaseSync.getAll(DB.settings);
       if (allSettings.length <= 1) return 0;
 
-      // প্রথম row রাখো, বাকিগুলো remove করো
-      const keeper = allSettings[0];
+      // ✅ Fix: admin_password আছে এমন row-কে keeper হিসেবে prefer করো
+      // এতে login failure হবে না যদি password অন্য row-এ থাকে
+      const keeper = allSettings.find(s => s.admin_password) || allSettings[0];
+
       let removed = 0;
-      for (let i = 1; i < allSettings.length; i++) {
-        const dup = allSettings[i];
-        // যদি duplicate-এ admin_password থাকে এবং keeper-এ না থাকে, সেটা merge করো
-        if (dup.admin_password && !keeper.admin_password) {
-          keeper.admin_password = dup.admin_password;
+      for (let i = 0; i < allSettings.length; i++) {
+        const row = allSettings[i];
+        if (row.id === keeper.id) continue; // keeper skip করো
+
+        // অন্য কোনো row-এ extra fields থাকলে keeper-এ merge করো
+        let needsUpdate = false;
+        const mergeFields = ['security_question','security_answer','academy_name',
+                             'running_batch','expense_month','monthly_target',
+                             'admin_username','theme'];
+        for (const field of mergeFields) {
+          if (row[field] && !keeper[field]) {
+            keeper[field] = row[field];
+            needsUpdate = true;
+          }
+        }
+        if (needsUpdate) {
           SupabaseSync.update(DB.settings, keeper.id, keeper);
         }
+
         // ✅ সঠিক function: remove (delete নয়)
-        SupabaseSync.remove(DB.settings, dup.id);
+        SupabaseSync.remove(DB.settings, row.id);
         removed++;
       }
       if (removed > 0) {
-        console.log(`%c[Auth] Removed ${removed} duplicate settings row(s). Login will now use the correct password.`, 'color: #00d4ff; font-weight: bold');
+        console.log(`%c[Auth] Removed ${removed} duplicate settings row(s). Keeper row: ${keeper.id}. Login will now use the correct password.`, 'color: #00d4ff; font-weight: bold');
       }
       return removed;
     } catch (e) {
