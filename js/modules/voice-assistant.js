@@ -1,22 +1,26 @@
 /**
- * Wings Fly Academy — AI Voice Assistant Module (v3.0)
+ * Wings Fly Academy — AI Voice Assistant Module (v3.1)
  *
- * NEW COMMANDS:
- *  - "give me batch 19 full report"      → batch-specific report
- *  - "batch nineteen due"                → due for a specific batch
- *  - "last 10 days expense"              → recent expense report
- *  - "last 7 days income"                → recent income report
- *  - "last week expense"                 → last 7 days expense
- *
- * EXISTING COMMANDS:
- *  - "today's report"                    → daily summary
- *  - "salary report april"               → monthly salary
- *  - "student report"                    → student overview
- *  - "finance summary"                   → income & expense
- *  - "pending due" / "total due"         → all-batch due
- *  - "account balance"                   → account balances
- *  - "help"                              → command list
- *  - "open [tab]"                        → navigation
+ * COMMANDS:
+ *  - "give me batch 19 full report"           → batch-specific report
+ *  - "batch nineteen due"                     → due for a specific batch
+ *  - "last 10 days expense"                   → recent expense report
+ *  - "last 7 days income"                     → recent income report
+ *  - "last week expense"                      → last 7 days expense
+ *  - "expense report this month"              → current month expenses ✦ NEW
+ *  - "income report this month"               → current month income  ✦ NEW
+ *  - "give me expense reports of this month"  → current month expenses ✦ NEW
+ *  - "april expense" / "march income"         → named-month report    ✦ NEW
+ *  - "this year expense" / "year summary"     → full year report      ✦ NEW
+ *  - "this year income"                       → full year income      ✦ NEW
+ *  - "today's report"                         → daily summary
+ *  - "salary report april"                    → monthly salary
+ *  - "student report"                         → student overview
+ *  - "finance summary"                        → income & expense
+ *  - "pending due" / "total due"              → all-batch due
+ *  - "account balance"                        → account balances
+ *  - "help"                                   → command list
+ *  - "open [tab]"                             → navigation
  */
 
 const VoiceAssistant = (() => {
@@ -196,6 +200,103 @@ const VoiceAssistant = (() => {
     const d = new Date();
     d.setDate(d.getDate() - n);
     return d.toISOString().split('T')[0];
+  }
+
+  // Detect "this month" / "current month" / "this month's" patterns
+  function isThisMonth(cmd) {
+    return /\b(this month|current month|this month'?s|month report|monthly)\b/.test(cmd);
+  }
+
+  // Detect "this year" / "current year" / "yearly" patterns
+  function isThisYear(cmd) {
+    return /\b(this year|current year|this year'?s|year report|yearly|year summary|annual)\b/.test(cmd);
+  }
+
+  // Report income/expense for a specific year-month
+  function reportMonthFinance(year, month, monthName, type) {
+    const finance = dbAll('finance');
+    const mm      = String(month).padStart(2, '0');
+    const prefix  = `${year}-${mm}`;
+    const period  = finance.filter(f => (f.date || '').startsWith(prefix));
+    const income  = period.filter(f => f.type === 'Income').reduce((s, f) => s + safeNum(f.amount), 0);
+    const expense = period.filter(f => f.type === 'Expense').reduce((s, f) => s + safeNum(f.amount), 0);
+    const net     = income - expense;
+    const label   = `${monthName} ${year}`;
+
+    let rows, voiceText, title;
+    if (type === 'expense') {
+      const items = period.filter(f => f.type === 'Expense')
+        .sort((a, b) => safeNum(b.amount) - safeNum(a.amount))
+        .slice(0, 6)
+        .map(f => [`  📌 ${f.category || f.description || 'Expense'}`, taka(safeNum(f.amount)), '#ff6b35']);
+      rows = [
+        [`📅 ${label} Total Expense`, taka(expense), '#ff4757'],
+        ['--------', '---', ''],
+        ...items,
+        ...(period.filter(f => f.type === 'Expense').length > 6
+          ? [[`  …${period.filter(f => f.type === 'Expense').length - 6} more`, '', '#888']] : []),
+      ];
+      title = `${label} — Expense Report`;
+      voiceText = `${label} total expense is ${taka(expense)}.`;
+    } else if (type === 'income') {
+      const items = period.filter(f => f.type === 'Income')
+        .sort((a, b) => safeNum(b.amount) - safeNum(a.amount))
+        .slice(0, 6)
+        .map(f => [`  📌 ${f.category || f.description || 'Income'}`, taka(safeNum(f.amount)), '#00c853']);
+      rows = [
+        [`📅 ${label} Total Income`, taka(income), '#00ff88'],
+        ['--------', '---', ''],
+        ...items,
+        ...(period.filter(f => f.type === 'Income').length > 6
+          ? [[`  …${period.filter(f => f.type === 'Income').length - 6} more`, '', '#888']] : []),
+      ];
+      title = `${label} — Income Report`;
+      voiceText = `${label} total income is ${taka(income)}.`;
+    } else {
+      rows = [
+        [`📅 ${label} Income`,  taka(income),                '#00ff88'],
+        [`📅 ${label} Expense`, taka(expense),               '#ff4757'],
+        [`📊 ${label} Net`,     (net >= 0 ? '+' : '') + taka(Math.abs(net)), net >= 0 ? '#f7b731' : '#ff4757'],
+      ];
+      title = `${label} — Finance Report`;
+      voiceText = `${label}: income ${taka(income)}, expense ${taka(expense)}, net ${taka(net)}.`;
+    }
+    showReport(title, 'fa-chart-line', rows, null, voiceText);
+  }
+
+  // Report income/expense for a full year
+  function reportYearFinance(year, type) {
+    const finance = dbAll('finance');
+    const period  = finance.filter(f => (f.date || '').startsWith(`${year}`));
+    const income  = period.filter(f => f.type === 'Income').reduce((s, f) => s + safeNum(f.amount), 0);
+    const expense = period.filter(f => f.type === 'Expense').reduce((s, f) => s + safeNum(f.amount), 0);
+    const net     = income - expense;
+
+    let rows, title, voiceText;
+    if (type === 'expense') {
+      rows = [
+        [`📅 ${year} Total Expense`, taka(expense), '#ff4757'],
+        [`📊 ${year} Net`,           (net >= 0 ? '+' : '') + taka(Math.abs(net)), net >= 0 ? '#f7b731' : '#ff4757'],
+      ];
+      title = `${year} — Annual Expense`;
+      voiceText = `${year} total annual expense is ${taka(expense)}.`;
+    } else if (type === 'income') {
+      rows = [
+        [`📅 ${year} Total Income`, taka(income), '#00ff88'],
+        [`📊 ${year} Net`,          (net >= 0 ? '+' : '') + taka(Math.abs(net)), net >= 0 ? '#f7b731' : '#ff4757'],
+      ];
+      title = `${year} — Annual Income`;
+      voiceText = `${year} total annual income is ${taka(income)}.`;
+    } else {
+      rows = [
+        [`💰 ${year} Income`,  taka(income),  '#00ff88'],
+        [`💸 ${year} Expense`, taka(expense), '#ff4757'],
+        [`📈 ${year} Net`,     (net >= 0 ? '+' : '') + taka(Math.abs(net)), net >= 0 ? '#00e5ff' : '#ff4757'],
+      ];
+      title = `${year} — Annual Summary`;
+      voiceText = `${year} annual income ${taka(income)}, expense ${taka(expense)}, net ${taka(net)}.`;
+    }
+    showReport(title, 'fa-calendar-days', rows, null, voiceText);
   }
 
   function dbAll(key) {
@@ -555,21 +656,25 @@ const VoiceAssistant = (() => {
       'Voice Commands Help',
       'fa-circle-question',
       [
-        ['📅 "today\'s report"',          'Daily summary',           '#00e5ff'],
-        ['📚 "batch 19 full report"',     'Per-batch report',        '#00ff88'],
-        ['⏳ "batch 19 due"',             'Due for a batch',         '#ff4757'],
-        ['📉 "last 10 days expense"',     'Recent expense',          '#ff4757'],
-        ['📈 "last 7 days income"',       'Recent income',           '#00ff88'],
-        ['💰 "salary report april"',      'Monthly salary',          '#ffaa00'],
-        ['🎓 "student report"',           'Student overview',        '#00e5ff'],
-        ['📊 "finance summary"',          'Income & expense',        '#c084fc'],
-        ['💸 "pending due"',              'All pending dues',        '#ff4757'],
-        ['🏦 "account balance"',          'Account totals',          '#f7b731'],
-        ['🚪 "logout"',                   'Sign out',                '#ff6b35'],
-        ['📂 "open students" etc.',       'Navigate to tab',         '#a0c4ff'],
+        ['📅 "today\'s report"',             'Daily summary',           '#00e5ff'],
+        ['📚 "batch 19 full report"',        'Per-batch report',        '#00ff88'],
+        ['⏳ "batch 19 due"',                'Due for a batch',         '#ff4757'],
+        ['📉 "last 10 days expense"',        'Recent expense',          '#ff4757'],
+        ['📈 "last 7 days income"',          'Recent income',           '#00ff88'],
+        ['🗓️ "expense report this month"',   'Current month expense',   '#ff4757'],
+        ['🗓️ "income report this month"',    'Current month income',    '#00ff88'],
+        ['📆 "april expense"',               'Named month expense',     '#ffaa00'],
+        ['🗒️ "this year expense"',           'Annual expense total',    '#ff4757'],
+        ['💰 "salary report april"',         'Monthly salary',          '#ffaa00'],
+        ['🎓 "student report"',              'Student overview',        '#00e5ff'],
+        ['📊 "finance summary"',             'Income & expense',        '#c084fc'],
+        ['💸 "pending due"',                 'All pending dues',        '#ff4757'],
+        ['🏦 "account balance"',             'Account totals',          '#f7b731'],
+        ['🚪 "logout"',                      'Sign out',                '#ff6b35'],
+        ['📂 "open students" etc.',          'Navigate to tab',         '#a0c4ff'],
       ],
-      '💡 Tip: Say batch name/number clearly e.g. "batch 19" or "batch nineteen"',
-      'Here are all available voice commands. You can ask for reports, batch data, recent expenses, and more.'
+      '💡 Tip: Say "this month", "this year", or a month name like "april" with "expense" or "income"',
+      'Here are all available voice commands. You can ask for reports, batch data, monthly expenses, and more.'
     );
   }
 
@@ -603,6 +708,48 @@ const VoiceAssistant = (() => {
         reportLastDays(lastDays, 'income'); handled = true;
       } else {
         reportLastDays(lastDays, 'all'); handled = true; // general last N days
+      }
+    }
+
+    // ── 3b. THIS MONTH / CURRENT MONTH ───────────
+    if (!handled && isThisMonth(cmd)) {
+      const now = new Date();
+      const monthName = now.toLocaleString('default', { month: 'long' });
+      if (cmd.includes('expense') || cmd.includes('spend') || cmd.includes('cost')) {
+        reportMonthFinance(now.getFullYear(), now.getMonth() + 1, monthName, 'expense'); handled = true;
+      } else if (cmd.includes('income') || cmd.includes('earn') || cmd.includes('collection') || cmd.includes('revenue')) {
+        reportMonthFinance(now.getFullYear(), now.getMonth() + 1, monthName, 'income'); handled = true;
+      } else {
+        reportMonthFinance(now.getFullYear(), now.getMonth() + 1, monthName, 'all'); handled = true;
+      }
+    }
+
+    // ── 3c. THIS YEAR / ANNUAL ───────────────────
+    if (!handled && isThisYear(cmd)) {
+      const year = new Date().getFullYear();
+      if (cmd.includes('expense') || cmd.includes('spend') || cmd.includes('cost')) {
+        reportYearFinance(year, 'expense'); handled = true;
+      } else if (cmd.includes('income') || cmd.includes('earn') || cmd.includes('collection') || cmd.includes('revenue')) {
+        reportYearFinance(year, 'income'); handled = true;
+      } else {
+        reportYearFinance(year, 'all'); handled = true;
+      }
+    }
+
+    // ── 3d. NAMED MONTH (e.g. "april expense", "march income report") ─
+    if (!handled) {
+      const namedMonth = getMonthIndex(cmd);
+      if (namedMonth && (cmd.includes('expense') || cmd.includes('income') ||
+          cmd.includes('report') || cmd.includes('summary') || cmd.includes('collection'))) {
+        const now  = new Date();
+        const year = now.getFullYear();
+        if (cmd.includes('expense') || cmd.includes('spend') || cmd.includes('cost')) {
+          reportMonthFinance(year, namedMonth.idx + 1, namedMonth.name, 'expense'); handled = true;
+        } else if (cmd.includes('income') || cmd.includes('earn') || cmd.includes('collection') || cmd.includes('revenue')) {
+          reportMonthFinance(year, namedMonth.idx + 1, namedMonth.name, 'income'); handled = true;
+        } else {
+          reportMonthFinance(year, namedMonth.idx + 1, namedMonth.name, 'all'); handled = true;
+        }
       }
     }
 
