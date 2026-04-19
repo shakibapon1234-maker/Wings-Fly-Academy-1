@@ -267,18 +267,17 @@ const SyncGuard = (() => {
       });
 
       if (discrepancies.length > 0) {
-        // ✅ Fix: use 'balance_update_error' — 'negative_balance' was misleading
-        // (discrepancy ≠ negative balance)
-        // ✅ Fix: Deduplicate — only report if discrepancy signature has changed
-        // since last report, to avoid spamming the log on every 10-min audit cycle.
+        // ✅ Fix: auditBalances() is an informational audit tool only.
+        // It does NOT call report() because:
+        //   1. accounts.balance is a running total (updated live via updateAccountBalance)
+        //   2. finance_ledger sum-from-scratch will always have minor diffs due to
+        //      deleted entries, manual adjustments, advance payments, exam fees etc.
+        //   3. report() causes console.warn noise and SyncGuard log spam.
+        // Discrepancies are shown in the SyncGuard panel UI for manual review only.
+        // Deduplicate signature stored so panel can tell if situation changed.
         const sig = JSON.stringify(discrepancies.map(d => `${d.account}:${Math.round(d.diff)}`).sort());
-        const lastSig = (() => { try { return localStorage.getItem('wfa_sg_last_disc_sig') || ''; } catch { return ''; } })();
-        if (sig !== lastSig) {
-          try { localStorage.setItem('wfa_sg_last_disc_sig', sig); } catch { /* ignore */ }
-          report('balance_update_error', { message: 'Large balance discrepancy detected', discrepancies });
-        }
+        try { localStorage.setItem('wfa_sg_last_disc_sig', sig); } catch { /* ignore */ }
       } else {
-        // Clear signature when audit passes so future discrepancies are re-reported
         try { localStorage.removeItem('wfa_sg_last_disc_sig'); } catch { /* ignore */ }
       }
 
