@@ -460,19 +460,25 @@ const Finance = (() => {
       if (oldEntry && oldEntry.method && !oldEntry._isLoan) {
         const oldDir = _balanceDir(oldEntry.type);
         const reverseDir = oldDir === 'in' ? 'out' : oldDir === 'out' ? 'in' : null;
-        if (reverseDir) SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
+        if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
+        }
       }
       SupabaseSync.update(DB.finance, editingId, record);
       if (!isLoanType) {
         const newDir = _balanceDir(type);
-        if (newDir) SupabaseSync.updateAccountBalance(method, amount, newDir);
+        if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(method, amount, newDir);
+        }
       }
       Utils.toast('Transaction updated ✓','success');
     } else {
       SupabaseSync.insert(DB.finance, record);
       if (!isLoanType) {
         const newDir = _balanceDir(type);
-        if (newDir) SupabaseSync.updateAccountBalance(method, amount, newDir);
+        if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(method, amount, newDir);
+        }
       }
       Utils.toast('Transaction added ✓','success');
     }
@@ -509,7 +515,7 @@ const Finance = (() => {
       'Transfer In':  'in',
     };
     const dir = dirMap[record.type];
-    if (dir && record.method && record.amount > 0) {
+    if (dir && record.method && record.amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(record.method, record.amount, dir);
     }
 
@@ -528,7 +534,9 @@ const Finance = (() => {
     if (entry && entry.method && !entry._isLoan) {
       const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in' };
       const reverseDir = dirMap[entry.type];
-      if (reverseDir) SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
+      if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
+      }
 
       // ── Student Fee হলে student-এর paid/due ও reverse করো ──
       if (entry.type === 'Income' && entry.category === 'Student Fee' && entry.ref_id) {

@@ -541,25 +541,25 @@ const App = (() => {
             // ✅ Use correct ID: 'stu-search' (as defined in students.js)
             const sInput = document.getElementById('stu-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 300);
+          }, 600);
         } else if (matchedStaff.length > 0) {
           navigateTo('hr-staff');
           setTimeout(() => {
             const sInput = document.getElementById('staff-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 300);
+          }, 600);
         } else if (matchedVisitors.length > 0) {
           navigateTo('visitors');
           setTimeout(() => {
             const sInput = document.getElementById('visitor-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 300);
+          }, 600);
         } else if (matchedFinance.length > 0) {
           navigateTo('finance');
           setTimeout(() => {
             const sInput = document.getElementById('fin-search');
             if (sInput) { sInput.value = e.target.value; sInput.dispatchEvent(new Event('input')); }
-          }, 300);
+          }, 600);
         } else {
           Utils.toast('"' + Utils.esc(e.target.value) + '" — কোথাও পাওয়া যায়নি', 'info');
         }

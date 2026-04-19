@@ -832,7 +832,9 @@ const Students = (() => {
             note:        record.note,
             ref_id:      studentUUID, // ✅ UUID — restore logic কাজ করবে
           });
-          SupabaseSync.updateAccountBalance(method, paid, 'in');
+          if (typeof SupabaseSync.updateAccountBalance === 'function') {
+            SupabaseSync.updateAccountBalance(method, paid, 'in');
+          }
         }
       }
       Utils.toast('New student added ✓', 'success');
@@ -894,7 +896,9 @@ const Students = (() => {
     });
 
     // Account balance-এ যোগ করো (Income → 'in')
-    SupabaseSync.updateAccountBalance(method, amount, 'in');
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(method, amount, 'in');
+    }
 
     Utils.toast('Payment added ✓', 'success');
     // ✅ লজিক ৫: Student payment specific log
@@ -922,7 +926,7 @@ const Students = (() => {
     }
 
     // Account balance reverse করো (Income ছিল → 'out' করো)
-    if (payment.method) {
+    if (payment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out');
     }
 
@@ -1216,7 +1220,9 @@ const Students = (() => {
     const allFinance = SupabaseSync.getAll(DB.finance);
     const studentPayments = allFinance.filter(f => f.ref_id === id && f.category === 'Student Fee');
     studentPayments.forEach(f => {
-      if (f.method) SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out');
+      if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out');
+      }
       SupabaseSync.remove(DB.finance, f.id);
     });
 
