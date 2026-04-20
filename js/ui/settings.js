@@ -3002,17 +3002,17 @@ ${expenseEntries.length > 0 ? `
   }
 
   // ─── Settings-এর ভেতরে নিজস্ব modal (z-index সমস্যা সমাধান) ───
-  function openSettingsInternalModal(title, bodyHTML) {
+  function openSettingsInternalModal(title, bodyHTML, maxWidth = '480px') {
     const old = document.getElementById('settings-inner-modal');
     if (old) old.remove();
     const wrap = document.createElement('div');
     wrap.id = 'settings-inner-modal';
-    wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:999999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);';
+    wrap.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:999999;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);padding:20px;box-sizing:border-box;';
     wrap.innerHTML = `
-      <div style="background:var(--bg-surface,#0e1628);border:1px solid rgba(0,212,255,0.25);border-radius:14px;padding:28px;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,0.7);position:relative;animation:fadeUp .2s ease;">
+      <div style="background:var(--bg-surface,#0e1628);border:1px solid rgba(0,212,255,0.25);border-radius:14px;padding:28px;width:100%;max-width:${maxWidth};max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.7);position:relative;animation:fadeUp .2s ease;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
           <div style="font-size:1rem;font-weight:800;color:#fff">${title}</div>
-          <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;">✕</button>
+          <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
         </div>
         ${bodyHTML}
       </div>`;
@@ -3601,7 +3601,7 @@ ${expenseEntries.length > 0 ? `
         \u09b2\u09be\u09b8\u09cd\u099f \u09e7\u09e6\u099f\u09be financial transaction \u098f\u0996\u09be\u09a8\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7\u0964 \u09af\u09c7\u0995\u09cb\u09a8\u09cb row \u09a4\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7 \u09b8\u09c7\u0987 \u09b8\u09ae\u09af\u09bc\u09c7\u09b0 Account Balance Snapshot.
       </div>
       `
-    );
+    , '720px');
   }
 
   // ─── Diagnostic Functions ─────────────────────────────────────
@@ -3811,13 +3811,13 @@ ${expenseEntries.length > 0 ? `
 
     // ✅ Fix: use openSettingsInternalModal so it appears ON TOP of the Settings modal
     openSettingsInternalModal(`📋 ${tableName} (${rows.length} records)`, `
-      <div class="table-wrapper" style="max-height:380px;overflow:auto">
-        <table><thead><tr>${headerHTML}</tr></thead><tbody>${bodyHTML}</tbody></table>
+      <div class="table-wrapper" style="max-height:480px;overflow:auto">
+        <table style="width:100%;min-width:600px"><thead><tr>${headerHTML}</tr></thead><tbody>${bodyHTML}</tbody></table>
       </div>
       <p style="font-size:.8rem;color:var(--text-muted);margin-top:8px">
         ${rows.length > 20 ? `Showing first 20 (Total ${rows.length})` : `Total ${rows.length} records`}
       </p>
-    `);
+    `, '860px');
   }
 
   // ── Export All Data ───────────────────────────────────────────
