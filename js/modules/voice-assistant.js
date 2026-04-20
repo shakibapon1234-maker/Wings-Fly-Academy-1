@@ -564,15 +564,11 @@ const VoiceAssistant = (() => {
 
   function greetUser() {
     if (localStorage.getItem('wfa_logged_in') === 'true') {
-      const hour = new Date().getHours();
-      const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+      let userName = localStorage.getItem('wfa_user_name') || 'Shakib';
+      if (userName.toLowerCase() === 'admin') userName = 'Shakib';
+      const displayName = userName + ' Sir';
       
-      // ★ NEW: Get actual username from localStorage
-      const userName = localStorage.getItem('wfa_user_name') || 'Admin';
-      const displayName = userName === 'admin' ? 'Admin' : userName + ' Sir';
-      
-      const msg = `${greeting}, ${displayName}! Welcome back. I am ready to assist. How are you, ${displayName}? If you need anything, just call me. 
-                   I now support English and Bengali. Click once to start continuous listening, then press Escape to stop. Say "help" to hear all my commands.`;
+      const msg = `Welcome back, ${displayName}, How are you? If you need anything, just call me. I am here to assist you.`;
       speak(msg);
       
       // ★ NEW: After greeting, go offline automatically
@@ -680,6 +676,7 @@ const VoiceAssistant = (() => {
   function extractLastDays(cmd) {
     const n = normalizeNumbers(cmd);
     let m = n.match(/last\s+(\d+)\s+day/i); if (m) return parseInt(m[1]);
+    m = n.match(/(\d+)\s+day/i); if (m) return parseInt(m[1]); // Catch expressions like "3 day report" that translate easily
     if (cmd.includes('last week'))  return 7;
     if (cmd.includes('last month')) return 30;
     if (cmd.includes('last year'))  return 365;
@@ -831,7 +828,16 @@ const VoiceAssistant = (() => {
     'ফি': 'fee',
     'টিউশন': 'tuition',
     'ছাড়': 'discount',
-    'ফেরত': 'refund'
+    'ফেরত': 'refund',
+    'দিনের': 'day',
+    'দিন': 'day',
+    'দাও': 'give',
+    'দেন': 'give',
+    'কাজের': 'work',
+    'কাজ': 'work',
+    'নাম্বার': 'number',
+    'নাম্বারের': 'number',
+    'ব্যাচের': 'batch'
   };
 
   // ★ NEW: Translate Bengali command to English
