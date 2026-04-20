@@ -564,6 +564,9 @@ const VoiceAssistant = (() => {
 
   function greetUser() {
     if (localStorage.getItem('wfa_logged_in') === 'true') {
+      if (sessionStorage.getItem('wfa_greeted') === 'true') return;
+      sessionStorage.setItem('wfa_greeted', 'true');
+
       let userName = localStorage.getItem('wfa_user_name') || 'Shakib';
       if (userName.toLowerCase() === 'admin') userName = 'Shakib';
       const displayName = userName + ' Sir';

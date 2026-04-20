@@ -357,6 +357,7 @@ const App = (() => {
     localStorage.removeItem('wfa_user_role');
     localStorage.removeItem('wfa_user_name');
     localStorage.removeItem('wfa_user_permissions');
+    sessionStorage.removeItem('wfa_greeted'); // clear greeting state so next login triggers it
     showLogin();
     SyncEngine.stopAutoSync();
   }
