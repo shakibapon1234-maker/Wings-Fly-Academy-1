@@ -1,0 +1,147 @@
+/* 
+ * WFA AI Assistant — Angel Doll Design (v4.0)
+ * SVG-based doll: floating angel with wings, halo, sparkles, talking animation.
+ */
+
+#ai-avatar-container {
+    position: fixed;
+    bottom: 30px;
+    right: 120px;
+    width: 160px;
+    height: 220px;
+    z-index: 9999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#ai-doll {
+    position: relative;
+    width: 160px;
+    height: 220px;
+    animation: doll-float 4s ease-in-out infinite;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+@keyframes doll-float {
+    0%, 100% { transform: translateY(0px) rotateY(-5deg); }
+    50%       { transform: translateY(-18px) rotateY(5deg); }
+}
+
+#ai-doll-svg {
+    width: 160px;
+    height: 210px;
+    overflow: visible;
+    filter: drop-shadow(0 8px 24px rgba(180,60,255,0.45));
+}
+
+#ai-wing-left {
+    transform-origin: 50px 100px;
+    animation: wing-left 3s ease-in-out infinite alternate;
+}
+#ai-wing-right {
+    transform-origin: 110px 100px;
+    animation: wing-right 3s ease-in-out infinite alternate;
+}
+@keyframes wing-left {
+    from { transform: rotate(-5deg) scaleX(1); }
+    to   { transform: rotate(12deg) scaleX(1.1); }
+}
+@keyframes wing-right {
+    from { transform: rotate(5deg) scaleX(1); }
+    to   { transform: rotate(-12deg) scaleX(1.1); }
+}
+
+#ai-halo { animation: halo-glow 2.5s ease-in-out infinite; }
+@keyframes halo-glow {
+    0%,100%{ opacity:0.85; filter:drop-shadow(0 0 4px #ffd700); }
+    50%    { opacity:1;    filter:drop-shadow(0 0 14px #ffe96a); }
+}
+
+#ai-eye-l, #ai-eye-r { animation: eye-blink 4s ease-in-out infinite; }
+@keyframes eye-blink {
+    0%,88%,100% { transform: scaleY(1); }
+    92%          { transform: scaleY(0.08); }
+}
+
+#ai-panel-2 { animation: shimmer 4s infinite ease-in-out; }
+#ai-panel-3 { animation: shimmer 4s infinite ease-in-out 1s; }
+#ai-panel-4 { animation: shimmer 4s infinite ease-in-out 2s; }
+@keyframes shimmer {
+    0%,100%{ opacity:0.25; }
+    50%    { opacity:0.75; }
+}
+
+.ai-skirt-dot { animation: dot-blink 2s ease-in-out infinite; }
+.ai-skirt-dot:nth-child(2){ animation-delay:0.7s; }
+.ai-skirt-dot:nth-child(3){ animation-delay:1.4s; }
+@keyframes dot-blink {
+    0%,100%{ opacity:0.9; }
+    50%    { opacity:0.15; }
+}
+
+#ai-arm-left  { transform-origin: 70px 122px; animation: arm-l 2.5s infinite alternate ease-in-out; }
+#ai-arm-right { transform-origin: 110px 122px; animation: arm-r 2.5s infinite alternate ease-in-out; }
+@keyframes arm-l { from{transform:rotate(-28deg);} to{transform:rotate(-52deg);} }
+@keyframes arm-r { from{transform:rotate(28deg);}  to{transform:rotate(52deg);}  }
+
+#ai-leg-left  { transform-origin: 80px 188px; animation: leg-l 3s infinite alternate ease-in-out; }
+#ai-leg-right { transform-origin: 100px 188px; animation: leg-r 3s infinite alternate ease-in-out; animation-delay:1.5s; }
+@keyframes leg-l { from{transform:rotate(-7deg);} to{transform:rotate(7deg);}  }
+@keyframes leg-r { from{transform:rotate(7deg);}  to{transform:rotate(-7deg);} }
+
+#ai-base-ring { animation: ring-spin 6s linear infinite; transform-origin: 80px 213px; }
+@keyframes ring-spin { from{transform:rotate(0deg);} to{transform:rotate(360deg);} }
+
+.ai-float-sparkle {
+    position: absolute;
+    font-size: 13px;
+    pointer-events: none;
+    animation: sparkle-float 3s ease-in-out infinite;
+}
+.ai-float-sparkle:nth-child(1){ top:25px; left:-12px; animation-delay:0s; }
+.ai-float-sparkle:nth-child(2){ top:55px; right:-10px; animation-delay:1.1s; }
+.ai-float-sparkle:nth-child(3){ top:8px;  right:8px;  animation-delay:2.1s; }
+@keyframes sparkle-float {
+    0%,100%{ opacity:0; transform:translateY(0) scale(0.5); }
+    50%    { opacity:1; transform:translateY(-14px) scale(1.3); }
+}
+
+/* ── TALKING ── */
+#ai-avatar-container.talking #ai-doll {
+    animation: doll-talk-bounce 0.3s ease-in-out infinite alternate;
+}
+@keyframes doll-talk-bounce {
+    from{ transform:translateY(-16px) scale(1); }
+    to  { transform:translateY(-21px) scale(1.03); }
+}
+#ai-avatar-container.talking #ai-wing-left  { animation: wing-talk 0.4s ease-in-out infinite alternate; }
+#ai-avatar-container.talking #ai-wing-right { animation: wing-talk 0.4s ease-in-out infinite alternate-reverse; }
+@keyframes wing-talk {
+    from{ transform:rotate(-6deg) scaleX(1); }
+    to  { transform:rotate(20deg) scaleX(1.22); }
+}
+#ai-avatar-container.talking #ai-mouth-path {
+    animation: mouth-talk 0.22s ease-in-out infinite alternate;
+}
+@keyframes mouth-talk {
+    from{ d:path("M74 105 Q80 109 86 105"); }
+    to  { d:path("M74 105 Q80 115 86 105"); }
+}
+
+/* ── LISTENING ── */
+#ai-avatar-container.listening #ai-base-ring {
+    stroke: #00ff88 !important;
+    filter: drop-shadow(0 0 10px #00ff88);
+    animation: ring-spin 2s linear infinite;
+}
+#ai-avatar-container.listening #ai-doll {
+    animation: listening-pulse 0.9s ease-in-out infinite alternate;
+}
+@keyframes listening-pulse {
+    from{ filter:drop-shadow(0 0 6px rgba(0,255,136,0.35)); }
+    to  { filter:drop-shadow(0 0 22px rgba(0,255,136,0.85)); }
+}
