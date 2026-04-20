@@ -787,6 +787,13 @@ const App = (() => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
       cleanupDuplicateSettings();
       if (isLoggedIn()) {
+        // ✅ Fix: যদি role না থাকে (refresh/session restore) তাহলে admin default করো
+        // কারণ sub-account logout করলে wfa_logged_in cleared হয়, কিন্তু
+        // কখনো কখনো role missing থাকে। Single-user app হওয়ায় logged_in=true মানেই admin।
+        if (!localStorage.getItem('wfa_user_role')) {
+          localStorage.setItem('wfa_user_role', 'admin');
+          localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+        }
         showApp(false);
       } else {
         showLogin();

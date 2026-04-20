@@ -2653,10 +2653,10 @@ thead th {
 
 /* ── Modal Container ─────────────────────────────────────────── */
 .settings-modal {
-  width: 92vw;
-  max-width: 1200px;
-  height: 85vh;
-  max-height: 750px;
+  width: 95vw;
+  max-width: 1400px;
+  height: 92vh;
+  max-height: 920px;
   background: linear-gradient(135deg, rgba(10,14,39,0.98), rgba(15,10,40,0.98));
   border-radius: 16px;
   border: 1.5px solid rgba(0, 217, 255, 0.25);
@@ -2839,9 +2839,11 @@ thead th {
 /* ── Content Area ────────────────────────────────────────────── */
 .settings-content-area {
   flex: 1;
-  padding: 28px;
+  padding: 24px 28px;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
+  scrollbar-width: thin;
 }
 
 .settings-panel { display: none; animation: settingsPanelIn 0.25s ease; }

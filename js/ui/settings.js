@@ -295,7 +295,7 @@ const SettingsModule = (() => {
                 <div style="width:75%;height:3px;border-radius:3px;background:rgba(255,255,255,0.15)"></div>
               </div>
               ${currentTheme === t.id ? `<div class="theme-active-badge"><i class="fa fa-check"></i> Active</div>` : ''}
-              ${t.isCustom ? `<button class="btn btn-xs" style="position:absolute;bottom:10px;right:10px;background:rgba(255,71,87,0.8);border:none;border-radius:4px" onclick="event.stopPropagation();SettingsModule.deleteCustomTheme('${t.id}')" title="Delete Theme"><i class="fa fa-trash-can"></i></button>` : ''}
+              ${t.isCustom ? `<div style="position:absolute;bottom:8px;right:8px;display:flex;gap:4px" onclick="event.stopPropagation()"><button class="btn btn-xs" style="background:rgba(0,180,255,0.85);border:none;border-radius:4px;padding:3px 7px" onclick="SettingsModule.openThemeBuilderModal('${t.id}')" title="Edit Theme"><i class="fa fa-pen"></i></button><button class="btn btn-xs" style="background:rgba(255,71,87,0.85);border:none;border-radius:4px;padding:3px 7px" onclick="SettingsModule.deleteCustomTheme('${t.id}')" title="Delete Theme"><i class="fa fa-trash-can"></i></button></div>` : ''}
             </div>
             <div class="theme-info">
               <div class="theme-name">${t.emoji} ${t.name}</div>
@@ -2538,7 +2538,7 @@ ${expenseEntries.length > 0 ? `
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 financial transactions. Click a row to view the account balance snapshot at that moment.</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 20 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
 
         <div class="table-wrapper">
           <table>
@@ -2546,7 +2546,7 @@ ${expenseEntries.length > 0 ? `
             <tbody>
               ${recentChanges.length === 0 ?
                 `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No financial transactions found — add income, expense or student fees to populate this list.</td></tr>` :
-                recentChanges.slice(0, 10).map((c, i) => {
+                recentChanges.slice(0, 20).map((c, i) => {
                   const badgeCls = c.type === 'Delete' ? 'badge-error' : c.type === 'Update' ? 'badge-warning' : 'badge-success';
                   return `
                   <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${allChanges.indexOf(c)})" title="Click for saved snapshot at this transaction">
@@ -4653,62 +4653,238 @@ ${expenseEntries.length > 0 ? `
     `;
   }
 
-  function openThemeBuilderModal() {
+  // ── Color presets for the theme builder ──
+  const _THEME_PRESETS = [
+    { label: '🌊 Ocean', bg: '#030d1a', primary: '#00c8ff', secondary: '#0066ff', neon: '#00ffdd' },
+    { label: '🌸 Cherry', bg: '#120008', primary: '#ff3ca0', secondary: '#ff7043', neon: '#ff9ff3' },
+    { label: '🌿 Forest', bg: '#050f05', primary: '#00e676', secondary: '#69f0ae', neon: '#b9f6ca' },
+    { label: '🔥 Lava',  bg: '#1a0500', primary: '#ff5722', secondary: '#ff1744', neon: '#ffab40' },
+    { label: '👾 Cyber', bg: '#050512', primary: '#b537f2', secondary: '#00d9ff', neon: '#ff00ff' },
+    { label: '🌙 Dusk',  bg: '#0d0015', primary: '#e040fb', secondary: '#7c4dff', neon: '#ea80fc' },
+  ];
+
+  function _updateThemePreview() {
+    const bg = document.getElementById('ct-bg1')?.value || '#050a15';
+    const pr = document.getElementById('ct-primary')?.value || '#00d9ff';
+    const sc = document.getElementById('ct-secondary')?.value || '#b537f2';
+    const nn = document.getElementById('ct-neon')?.value || '#00ff88';
+    const pv = document.getElementById('ct-preview');
+    if (!pv) return;
+    pv.style.background = `linear-gradient(135deg, ${bg} 0%, #000 100%)`;
+    pv.querySelector('.pv-sidebar').style.background = `linear-gradient(180deg, color-mix(in srgb,${bg} 80%,black) 0%, ${bg} 100%)`;
+    pv.querySelector('.pv-sidebar').style.borderRight = `1.5px solid ${pr}44`;
+    pv.querySelector('.pv-nav-active').style.background = `${pr}22`;
+    pv.querySelector('.pv-nav-active').style.color = pr;
+    pv.querySelector('.pv-nav-active').style.borderLeft = `3px solid ${pr}`;
+    pv.querySelector('.pv-btn').style.background = `linear-gradient(135deg,${pr},${sc})`;
+    pv.querySelector('.pv-glow').style.boxShadow = `0 0 18px ${nn}55, 0 0 6px ${pr}44`;
+    pv.querySelector('.pv-glow').style.borderColor = `${nn}88`;
+    pv.querySelector('.pv-accent').style.color = sc;
+    // update hex labels
+    ['bg1','primary','secondary','neon'].forEach(k => {
+      const el = document.getElementById(`ct-${k}-hex`);
+      const inp = document.getElementById(`ct-${k === 'bg1' ? 'bg1' : k}`);
+      if (el && inp) el.textContent = inp.value.toUpperCase();
+    });
+  }
+
+  function _applyThemeBuilderPreset(idx) {
+    const p = _THEME_PRESETS[idx];
+    if (!p) return;
+    document.getElementById('ct-bg1').value = p.bg;
+    document.getElementById('ct-primary').value = p.primary;
+    document.getElementById('ct-secondary').value = p.secondary;
+    document.getElementById('ct-neon').value = p.neon;
+    _updateThemePreview();
+  }
+
+  function openThemeBuilderModal(editId) {
+    // If editing, load existing theme data
+    let editTheme = null;
+    if (editId) {
+      const custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+      editTheme = custom.find(t => t.id === editId) || null;
+    }
+
+    const defBg   = editTheme?.colors?.[0] || '#050a15';
+    const defPr   = editTheme?.colors?.[1] || '#00d9ff';
+    const defSc   = editTheme?.colors?.[2] || '#b537f2';
+    const defNn   = editTheme?.colors?.[3] || '#00ff88';
+    const defName = editTheme?.name || '';
+
     const m = document.createElement('div');
     m.id = 'theme-builder-modal';
     m.className = 'modal-backdrop open';
     m.style.zIndex = '9999';
+
+    const presetsHTML = _THEME_PRESETS.map((p, i) =>
+      `<button onclick="SettingsModule._applyThemeBuilderPreset(${i})"
+        title="${p.label}"
+        style="background:linear-gradient(135deg,${p.primary},${p.secondary});border:none;border-radius:6px;width:36px;height:36px;cursor:pointer;font-size:1rem;transition:transform .15s"
+        onmouseover="this.style.transform='scale(1.15)'" onmouseout="this.style.transform='scale(1)'"
+      >${p.label.split(' ')[0]}</button>`
+    ).join('');
+
     m.innerHTML = `
-      <div class="modal-box" style="max-width:500px">
+      <div class="modal-box" style="max-width:600px;width:95vw">
         <div class="modal-header">
           <span class="modal-title bn">🎨 Custom Theme Builder</span>
           <button class="modal-close" onclick="document.getElementById('theme-builder-modal').remove()"><i class="fa fa-xmark"></i></button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:12px;padding:10px">
-          <div>
-            <label style="font-size:.8rem;color:var(--text-muted)">Theme Name</label>
-            <input type="text" id="ct-name" class="form-control" placeholder="My Awesome Theme">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px 10px 10px">
+
+          <!-- LEFT: Controls -->
+          <div style="display:flex;flex-direction:column;gap:12px">
+
+            <!-- Theme Name -->
+            <div>
+              <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">THEME NAME</label>
+              <input type="text" id="ct-name" class="form-control" placeholder="My Awesome Theme"
+                value="${defName}" style="margin-top:4px">
+            </div>
+
+            <!-- Quick Presets -->
+            <div>
+              <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">⚡ QUICK PRESETS</label>
+              <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${presetsHTML}</div>
+            </div>
+
+            <!-- Color Pickers -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+              <div>
+                <label style="font-size:.75rem;color:var(--text-muted)">🌑 Background</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="color" id="ct-bg1" value="${defBg}"
+                    oninput="SettingsModule._updateThemePreview()"
+                    style="width:38px;height:38px;border-radius:8px;border:1px solid rgba(255,255,255,.15);cursor:pointer;padding:2px;background:transparent">
+                  <span id="ct-bg1-hex" style="font-size:.72rem;color:rgba(255,255,255,.5);font-family:monospace">${defBg.toUpperCase()}</span>
+                </div>
+              </div>
+              <div>
+                <label style="font-size:.75rem;color:var(--text-muted)">✨ Primary Accent</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="color" id="ct-primary" value="${defPr}"
+                    oninput="SettingsModule._updateThemePreview()"
+                    style="width:38px;height:38px;border-radius:8px;border:1px solid rgba(255,255,255,.15);cursor:pointer;padding:2px;background:transparent">
+                  <span id="ct-primary-hex" style="font-size:.72rem;color:rgba(255,255,255,.5);font-family:monospace">${defPr.toUpperCase()}</span>
+                </div>
+              </div>
+              <div>
+                <label style="font-size:.75rem;color:var(--text-muted)">🎆 Secondary Accent</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="color" id="ct-secondary" value="${defSc}"
+                    oninput="SettingsModule._updateThemePreview()"
+                    style="width:38px;height:38px;border-radius:8px;border:1px solid rgba(255,255,255,.15);cursor:pointer;padding:2px;background:transparent">
+                  <span id="ct-secondary-hex" style="font-size:.72rem;color:rgba(255,255,255,.5);font-family:monospace">${defSc.toUpperCase()}</span>
+                </div>
+              </div>
+              <div>
+                <label style="font-size:.75rem;color:var(--text-muted)">💡 Neon Glow</label>
+                <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+                  <input type="color" id="ct-neon" value="${defNn}"
+                    oninput="SettingsModule._updateThemePreview()"
+                    style="width:38px;height:38px;border-radius:8px;border:1px solid rgba(255,255,255,.15);cursor:pointer;padding:2px;background:transparent">
+                  <span id="ct-neon-hex" style="font-size:.72rem;color:rgba(255,255,255,.5);font-family:monospace">${defNn.toUpperCase()}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Save + Cancel -->
+            <div style="display:flex;gap:8px;margin-top:4px">
+              <button class="btn btn-primary" style="flex:1;font-weight:700"
+                onclick="SettingsModule.saveCustomThemeFromBuilder('${editId || ''}')">
+                💾 ${editTheme ? 'Update Theme' : 'Save Theme'}
+              </button>
+              <button class="btn" style="flex:0 0 auto;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.15)"
+                onclick="document.getElementById('theme-builder-modal').remove()">
+                Cancel
+              </button>
+            </div>
           </div>
+
+          <!-- RIGHT: Live Preview -->
           <div>
-            <label style="font-size:.8rem;color:var(--text-muted)">Base Background Color</label>
-            <input type="color" id="ct-bg1" value="#050a15" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
+            <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">👁️ LIVE PREVIEW</label>
+            <div id="ct-preview" style="margin-top:6px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);height:240px;display:flex;font-size:.75rem;transition:all .2s;background:linear-gradient(135deg,${defBg} 0%,#000 100%)">
+              <!-- Mini Sidebar -->
+              <div class="pv-sidebar" style="width:90px;padding:10px 0;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,${defBg} 0%,${defBg} 100%);border-right:1.5px solid ${defPr}44">
+                <div style="text-align:center;padding:6px;font-size:1rem;margin-bottom:4px">🦅</div>
+                <div class="pv-nav-active" style="padding:5px 8px;border-radius:0 6px 6px 0;font-weight:600;color:${defPr};background:${defPr}22;border-left:3px solid ${defPr}">📊 Dash</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">📚 Course</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">👥 Students</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">💰 Finance</div>
+              </div>
+              <!-- Mini Content -->
+              <div style="flex:1;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden">
+                <div style="font-weight:700;font-size:.82rem;color:#fff;margin-bottom:2px">Dashboard</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
+                  <div class="pv-glow" style="background:rgba(255,255,255,.06);border-radius:6px;padding:6px;border:1px solid ${defNn}88;box-shadow:0 0 18px ${defNn}55">
+                    <div style="color:rgba(255,255,255,.4);font-size:.68rem">Students</div>
+                    <div style="color:#fff;font-weight:700;font-size:.9rem">124</div>
+                  </div>
+                  <div style="background:rgba(255,255,255,.06);border-radius:6px;padding:6px;border:1px solid rgba(255,255,255,.08)">
+                    <div style="color:rgba(255,255,255,.4);font-size:.68rem">Revenue</div>
+                    <div class="pv-accent" style="font-weight:700;font-size:.9rem;color:${defSc}">৳ 18k</div>
+                  </div>
+                </div>
+                <div style="background:rgba(255,255,255,.05);border-radius:6px;padding:8px;border:1px solid rgba(255,255,255,.07);flex:1">
+                  <div style="color:rgba(255,255,255,.35);font-size:.68rem;margin-bottom:4px">Recent Activity</div>
+                  <div style="height:4px;border-radius:2px;background:rgba(255,255,255,.1);overflow:hidden"><div style="height:100%;width:70%;background:linear-gradient(90deg,${defPr},${defSc})"></div></div>
+                </div>
+                <button class="pv-btn" style="border:none;border-radius:6px;padding:5px 10px;color:#fff;font-weight:700;cursor:pointer;font-size:.72rem;background:linear-gradient(135deg,${defPr},${defSc})">+ Add Student</button>
+              </div>
+            </div>
+            <div style="text-align:center;font-size:.7rem;color:rgba(255,255,255,.3);margin-top:6px">রং পরিবর্তন করলে সাথে সাথে preview আপডেট হবে</div>
           </div>
-          <div>
-            <label style="font-size:.8rem;color:var(--text-muted)">Primary Accent (e.g. Buttons/Links)</label>
-            <input type="color" id="ct-primary" value="#00d9ff" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
-          </div>
-          <div>
-            <label style="font-size:.8rem;color:var(--text-muted)">Secondary Accent (e.g. Gradients)</label>
-            <input type="color" id="ct-secondary" value="#b537f2" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
-          </div>
-          <div>
-            <label style="font-size:.8rem;color:var(--text-muted)">Neon Glow Color</label>
-            <input type="color" id="ct-neon" value="#00ff88" style="width:100%;height:40px;padding:0;cursor:pointer;border-radius:4px">
-          </div>
-          <button class="btn btn-primary" style="margin-top:10px" onclick="SettingsModule.saveCustomThemeFromBuilder()">💾 Save Theme</button>
+
         </div>
       </div>
     `;
     document.body.appendChild(m);
   }
 
-  function saveCustomThemeFromBuilder() {
+  function saveCustomThemeFromBuilder(editId) {
     const name = document.getElementById('ct-name').value.trim() || 'My Theme';
     const bg1 = document.getElementById('ct-bg1').value;
     const p = document.getElementById('ct-primary').value;
     const s = document.getElementById('ct-secondary').value;
     const n = document.getElementById('ct-neon').value;
 
-    const custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
-    if(custom.length >= 5) {
-      if(typeof Utils !== 'undefined') Utils.toast('You can only save up to 5 custom themes.', 'error');
+    let custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
+
+    if (editId) {
+      // Edit mode: update existing theme
+      const idx = custom.findIndex(t => t.id === editId);
+      if (idx !== -1) {
+        custom[idx] = {
+          ...custom[idx],
+          name,
+          colors: [bg1, p, s, n],
+          bg: 'linear-gradient(135deg, ' + bg1 + ' 0%, #000 100%)',
+        };
+        localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
+        // If this theme is currently active, re-apply it
+        if (localStorage.getItem('wfa_theme') === editId) {
+          _injectCustomThemeStyle(custom[idx]);
+        }
+        document.getElementById('theme-builder-modal').remove();
+        if (typeof Utils !== 'undefined') Utils.toast('✅ Theme updated!', 'success');
+        refreshModal();
+        switchTab('theme');
+        return;
+      }
+    }
+
+    // Create mode
+    if (custom.length >= 5) {
+      if (typeof Utils !== 'undefined') Utils.toast('সর্বোচ্চ ৫টি custom theme সেভ করা যাবে।', 'error');
       return;
     }
 
     const tId = 'custom_' + Date.now();
     custom.push({
       id: tId,
-      name: name,
+      name,
       desc: 'Custom user-defined theme.',
       emoji: '🎨',
       colors: [bg1, p, s, n],
@@ -4717,7 +4893,7 @@ ${expenseEntries.length > 0 ? `
     });
     localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
     document.getElementById('theme-builder-modal').remove();
-    if(typeof Utils !== 'undefined') Utils.toast('Theme saved! Select it from the Theme panel.', 'success');
+    if (typeof Utils !== 'undefined') Utils.toast('🎨 Theme saved! Theme panel থেকে select করুন।', 'success');
     refreshModal();
     switchTab('theme');
   }
@@ -4754,6 +4930,7 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
   return {
     deleteCustomTheme, openThemeBuilderModal, saveCustomThemeFromBuilder, _getAllThemes,
+    _updateThemePreview, _applyThemeBuilderPreset, _THEME_PRESETS,
     render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
