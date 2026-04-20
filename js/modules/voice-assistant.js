@@ -62,50 +62,106 @@ const VoiceAssistant = (() => {
     btn.title = 'AI Assistant (Click to speak)';
     btn.innerHTML = `
       <div id="ai-doll">
-        <div class="ai-halo"></div>
-        
-        <div class="ai-wings-container">
-          <div class="ai-wing left"></div>
-          <div class="ai-wing right"></div>
-        </div>
+        <span class="ai-float-sparkle">✨</span>
+        <span class="ai-float-sparkle">💫</span>
+        <span class="ai-float-sparkle">⭐</span>
+        <svg id="ai-doll-svg" viewBox="0 0 160 220" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="wfa-skin" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stop-color="#fce4cc"/>
+              <stop offset="100%" stop-color="#f5c5a0"/>
+            </radialGradient>
+            <radialGradient id="wfa-dress" cx="50%" cy="30%" r="70%">
+              <stop offset="0%" stop-color="#f472e8"/>
+              <stop offset="100%" stop-color="#9b40e8"/>
+            </radialGradient>
+            <radialGradient id="wfa-wing" cx="50%" cy="50%" r="60%">
+              <stop offset="0%" stop-color="rgba(230,190,255,0.92)"/>
+              <stop offset="100%" stop-color="rgba(160,90,230,0.38)"/>
+            </radialGradient>
+          </defs>
 
-        <div class="ai-head-container">
-          <div class="ai-hair-back"></div>
-          <div class="ai-head">
-            <div class="ai-hair-front"></div>
-            <div class="ai-eyes">
-              <div class="ai-eye"></div>
-              <div class="ai-eye"></div>
-            </div>
-            <div class="ai-mouth"></div>
-          </div>
-        </div>
+          <!-- Wings -->
+          <ellipse id="ai-wing-left"  cx="42"  cy="115" rx="40" ry="26" fill="url(#wfa-wing)" stroke="#c880ff" stroke-width="0.8" opacity="0.88"/>
+          <ellipse id="ai-wing-right" cx="118" cy="115" rx="40" ry="26" fill="url(#wfa-wing)" stroke="#c880ff" stroke-width="0.8" opacity="0.88"/>
+          <ellipse id="ai-wing-left"  cx="38"  cy="132" rx="26" ry="16" fill="url(#wfa-wing)" stroke="#c880ff" stroke-width="0.6" opacity="0.68"/>
+          <ellipse id="ai-wing-right" cx="122" cy="132" rx="26" ry="16" fill="url(#wfa-wing)" stroke="#c880ff" stroke-width="0.6" opacity="0.68"/>
 
-        <div class="ai-torso">
-          <div class="ai-arms">
-            <div class="ai-arm left"></div>
-            <div class="ai-arm right"></div>
-          </div>
-        </div>
+          <!-- Glow under skirt -->
+          <ellipse cx="80" cy="210" rx="44" ry="8" fill="rgba(180,60,255,0.18)"/>
 
-        <div class="ai-skirt">
-          <div class="ai-skirt-panel panel-1"></div>
-          <div class="ai-skirt-panel panel-2"></div>
-          <div class="ai-skirt-panel panel-3"></div>
-          <div class="ai-skirt-panel panel-4"></div>
-          <div class="ai-skirt-hearts">
-            <div class="ai-heart"></div>
-            <div class="ai-heart"></div>
-            <div class="ai-heart"></div>
-          </div>
-        </div>
+          <!-- Skirt -->
+          <path d="M44 138 Q38 175 36 198 Q80 212 124 198 Q122 175 116 138 Z" fill="url(#wfa-dress)"/>
+          <!-- Skirt shimmer panels -->
+          <path id="ai-panel-2" d="M52 140 Q48 168 46 192 Q62 200 78 202 Q66 175 60 145 Z" fill="#ffeaa7" opacity="0.3"/>
+          <path id="ai-panel-3" d="M108 140 Q112 168 114 192 Q98 200 82 202 Q94 175 100 145 Z" fill="#55efc4" opacity="0.3"/>
+          <path id="ai-panel-4" d="M65 195 Q80 210 95 195 Q88 205 80 207 Q72 205 65 195 Z" fill="#81ecec" opacity="0.3"/>
+          <!-- Skirt sparkle dots -->
+          <circle class="ai-skirt-dot" cx="62" cy="168" r="3" fill="#ffccff" opacity="0.9"/>
+          <circle class="ai-skirt-dot" cx="80" cy="178" r="3.5" fill="#ff99ee" opacity="0.85"/>
+          <circle class="ai-skirt-dot" cx="98" cy="166" r="3" fill="#ccaaff" opacity="0.9"/>
+          <!-- Heart on dress -->
+          <path d="M73 148 Q73 144 80 148 Q87 144 87 148 Q87 154 80 159 Q73 154 73 148Z" fill="#ff80d0" opacity="0.9"/>
 
-        <div class="ai-legs">
-          <div class="ai-leg left"></div>
-          <div class="ai-leg right"></div>
-        </div>
+          <!-- Body -->
+          <rect x="63" y="108" width="34" height="34" rx="8" fill="url(#wfa-skin)"/>
+          <!-- Dress top -->
+          <path d="M56 122 Q80 113 104 122 L108 138 Q80 128 52 138 Z" fill="url(#wfa-dress)"/>
 
-        <div class="ai-base-ring"></div>
+          <!-- Arms -->
+          <path id="ai-arm-left"  d="M63 118 Q48 124 44 134" stroke="#f5c6a0" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <path id="ai-arm-right" d="M97 118 Q112 124 116 134" stroke="#f5c6a0" stroke-width="7" stroke-linecap="round" fill="none"/>
+          <circle cx="43" cy="135" r="5.5" fill="#fce4cc"/>
+          <circle cx="117" cy="135" r="5.5" fill="#fce4cc"/>
+
+          <!-- Head -->
+          <ellipse cx="80" cy="84" rx="26" ry="28" fill="url(#wfa-skin)"/>
+          <!-- Hair back -->
+          <ellipse cx="80" cy="72" rx="28" ry="24" fill="#c0521a"/>
+          <!-- Hair front -->
+          <path d="M54 78 Q57 54 80 52 Q103 54 106 78 Q98 64 80 62 Q62 64 54 78Z" fill="#d4611a"/>
+          <!-- Hair sides -->
+          <path d="M54 80 Q48 98 50 112 Q57 102 60 88" fill="#c0521a"/>
+          <path d="M106 80 Q112 98 110 112 Q103 102 100 88" fill="#c0521a"/>
+
+          <!-- Eyes -->
+          <ellipse cx="71" cy="85" rx="4.5" ry="5" fill="#fff"/>
+          <ellipse cx="89" cy="85" rx="4.5" ry="5" fill="#fff"/>
+          <ellipse id="ai-eye-l" cx="71" cy="86" rx="3.2" ry="3.8" fill="#4a90d9"/>
+          <ellipse id="ai-eye-r" cx="89" cy="86" rx="3.2" ry="3.8" fill="#4a90d9"/>
+          <circle cx="72" cy="85" r="1.4" fill="#1a3a6a"/>
+          <circle cx="90" cy="85" r="1.4" fill="#1a3a6a"/>
+          <circle cx="72.8" cy="84.2" r="0.9" fill="#fff"/>
+          <circle cx="90.8" cy="84.2" r="0.9" fill="#fff"/>
+          <!-- Lashes -->
+          <line x1="68" y1="81" x2="66" y2="78" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <line x1="71" y1="80" x2="70" y2="77" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <line x1="75" y1="81" x2="75" y2="78" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <line x1="86" y1="81" x2="86" y2="78" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <line x1="89" y1="80" x2="90" y2="77" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <line x1="93" y1="81" x2="95" y2="78" stroke="#3a2010" stroke-width="0.9" stroke-linecap="round"/>
+          <!-- Blush -->
+          <ellipse cx="64" cy="91" rx="5.5" ry="3.5" fill="#ffaacc" opacity="0.5"/>
+          <ellipse cx="96" cy="91" rx="5.5" ry="3.5" fill="#ffaacc" opacity="0.5"/>
+          <!-- Nose -->
+          <path d="M78 92 Q80 95 82 92" stroke="#d4935a" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+          <!-- Mouth -->
+          <path id="ai-mouth-path" d="M74 100 Q80 106 86 100" stroke="#e06090" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+
+          <!-- Halo -->
+          <ellipse id="ai-halo" cx="80" cy="53" rx="19" ry="5" fill="none" stroke="#ffd700" stroke-width="2.4" opacity="0.9"/>
+          <ellipse cx="80" cy="52" rx="19" ry="5" fill="none" stroke="#ffe96a" stroke-width="1" opacity="0.4"/>
+
+          <!-- Legs -->
+          <rect id="ai-leg-left"  x="68" y="188" width="11" height="24" rx="5" fill="url(#wfa-skin)"/>
+          <rect id="ai-leg-right" x="81" y="188" width="11" height="24" rx="5" fill="url(#wfa-skin)"/>
+
+          <!-- Base spinning ring -->
+          <ellipse id="ai-base-ring" cx="80" cy="213" rx="52" ry="10"
+            fill="none" stroke="rgba(0,229,255,0.5)" stroke-width="2.5"
+            stroke-dasharray="8 4"
+            style="filter:drop-shadow(0 0 6px rgba(0,229,255,0.6))"/>
+        </svg>
       </div>
     `;
     btn.onclick = toggleListening;
