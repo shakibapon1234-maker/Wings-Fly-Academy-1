@@ -566,8 +566,21 @@ const VoiceAssistant = (() => {
     if (localStorage.getItem('wfa_logged_in') === 'true') {
       const hour = new Date().getHours();
       const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-      const msg = `${greeting}, Admin! I am ready to assist. I now support English and Bengali. Click once to start continuous listening, then press Escape to stop. Say "help" to hear all my commands.`;
+      
+      // ★ NEW: Get actual username from localStorage
+      const userName = localStorage.getItem('wfa_user_name') || 'Admin';
+      const displayName = userName === 'admin' ? 'Admin' : userName + ' Sir';
+      
+      const msg = `${greeting}, ${displayName}! Welcome back. I am ready to assist. How are you, ${displayName}? If you need anything, just call me. 
+                   I now support English and Bengali. Click once to start continuous listening, then press Escape to stop. Say "help" to hear all my commands.`;
       speak(msg);
+      
+      // ★ NEW: After greeting, go offline automatically
+      setTimeout(() => {
+        if (isContinuous && isListening) {
+          stopContinuousListening();
+        }
+      }, msg.length * 50); // Wait for greeting to finish
     }
   }
 
@@ -624,18 +637,46 @@ const VoiceAssistant = (() => {
     'twenty five':25,'twenty six':26,'twenty seven':27,'twenty eight':28,
     'twenty nine':29,'thirty':30,'thirty one':31
   };
+  
+  // ★ NEW: Bengali number words to digits
+  const BENGALI_NUMS = {
+    'শূন্য':0, 'এক':1, 'দুই':2, 'তিন':3, 'চার':4, 'পাঁচ':5, 'ছয়':6, 'সাত':7, 'আট':8, 'নয়':9,
+    'দশ':10, 'এগার':11, 'বার':12, 'তের':13, 'চৌদ্দ':14, 'পনের':15, 'ষোল':16, 'সতের':17,
+    'আঠার':18, 'উনিশ':19, 'বিশ':20, 'একুশ':21, 'বাইশ':22, 'তেইশ':23, 'চব্বিশ':24,
+    'পঁচিশ':25, 'ছাব্বিশ':26, 'সাতাশ':27, 'আটাশ':28, 'উনত্রিশ':29, 'ত্রিশ':30, 'একত্রিশ':31
+  };
+  
   function normalizeNumbers(text) {
     let result = text;
+    // Convert Bengali number words to digits
+    for (const [word, num] of Object.entries(BENGALI_NUMS)) {
+      result = result.replace(new RegExp('\\b' + word + '\\b', 'gi'), num.toString());
+    }
+    // Convert English number words to digits
     const sorted = Object.keys(WORD_NUMS).sort((a,b)=>b.split(' ').length-a.split(' ').length);
     for (const w of sorted) result = result.replace(new RegExp('\\b'+w+'\\b','gi'), WORD_NUMS[w]);
     return result;
   }
+
+  // ★ ENHANCED: Extract batch with better number parsing
   function extractBatch(cmd) {
     const n = normalizeNumbers(cmd);
-    let m = n.match(/batch[\s\-#]*(\w+)/i); if (m) return m[1];
-    m = n.match(/(\w+)\s+batch/i); if (m) return m[1];
+    
+    // Pattern 1: "batch 19", "batch-19", "batch#19"
+    let m = n.match(/batch[\s\-#]*(\d+)/i); 
+    if (m) return m[1];
+    
+    // Pattern 2: "19 batch", "number 19 batch"
+    m = n.match(/(?:number|num|#)?\s*(\d+)\s+batch/i); 
+    if (m) return m[1];
+    
+    // Pattern 3: "in batch 19", "from batch 19"
+    m = n.match(/(?:in|from|of)\s+batch[\s\-#]*(\d+)/i); 
+    if (m) return m[1];
+    
     return null;
   }
+  
   function extractLastDays(cmd) {
     const n = normalizeNumbers(cmd);
     let m = n.match(/last\s+(\d+)\s+day/i); if (m) return parseInt(m[1]);
@@ -647,14 +688,33 @@ const VoiceAssistant = (() => {
   function safeNum(v) { return parseFloat(v) || 0; }
   function taka(n)    { return '৳' + Math.round(n).toLocaleString('en-IN'); }
   function today()    { return new Date().toISOString().split('T')[0]; }
+  // ★ ENHANCED: Month index with Bengali month names
   function getMonthIndex(cmd) {
-    const months=['january','february','march','april','may','june','july','august','september','october','november','december'];
-    for (let i=0;i<months.length;i++) if(cmd.includes(months[i])) return {idx:i,name:months[i].charAt(0).toUpperCase()+months[i].slice(1)};
+    const englishMonths = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+    const bengaliMonths = ['জানুয়ারি','ফেব্রুয়ারি','মার্চ','এপ্রিল','মে','জুন','জুলাই','অগাস্ট','সেপ্টেম্বর','অক্টোবর','নভেম্বর','ডিসেম্বর',
+                          'জানু','ফেব','মার্','এপ্রি','মে','জুন','জুলা','অগ','সেপ','অক্টো','নভে','ডিসে'];
+    
+    // Check English months
+    for (let i=0; i<englishMonths.length; i++) {
+      if(cmd.includes(englishMonths[i])) {
+        const name = englishMonths[i].charAt(0).toUpperCase() + englishMonths[i].slice(1);
+        return {idx:i, name: name};
+      }
+    }
+    
+    // Check Bengali months
+    for (let i=0; i<bengaliMonths.length; i++) {
+      if(cmd.includes(bengaliMonths[i])) {
+        const name = bengaliMonths[i];
+        return {idx: i % 12, name: name};
+      }
+    }
+    
     return null;
   }
   function daysAgoDate(n) { const d=new Date(); d.setDate(d.getDate()-n); return d.toISOString().split('T')[0]; }
-  function isThisMonth(cmd) { return /\b(this month|current month|monthly)\b/.test(cmd); }
-  function isThisYear(cmd)  { return /\b(this year|current year|yearly|year summary|annual)\b/.test(cmd); }
+  function isThisMonth(cmd) { return /\b(this month|current month|monthly|এই মাস|এই মাসে)\b/.test(cmd); }
+  function isThisYear(cmd)  { return /\b(this year|current year|yearly|year summary|annual|এই বছর|এই বছরে)\b/.test(cmd); }
   function isDetailedRequest(cmd) { return /\b(detail|details|detailed|breakdown|full detail|show all|all transaction|complete report|full report)\b/.test(cmd); }
   function isExpenseKeyword(cmd)  { return /\b(expense|expenses|spend|spending|cost|expenditure|outgoing)\b/.test(cmd); }
   function isIncomeKeyword(cmd)   { return /\b(income|earn|revenue|collection|received|incoming)\b/.test(cmd); }
@@ -748,6 +808,7 @@ const VoiceAssistant = (() => {
     'সর্বনিম্ন': 'lowest',
     'বেশি': 'most',
     'ব্যাচ': 'batch',
+    'নম্বর': 'number',
     'প্রতিবেদন': 'report',
     'রিপোর্ট': 'report',
     'সারাংশ': 'summary',
@@ -756,6 +817,7 @@ const VoiceAssistant = (() => {
     'আয়': 'income',
     'রাজস্ব': 'revenue',
     'সংগ্রহ': 'collection',
+    'পেমেন্ট': 'payment',
     'প্রাপ্ত': 'received',
     'মাসিক': 'monthly',
     'বার্ষিক': 'yearly',
@@ -765,7 +827,11 @@ const VoiceAssistant = (() => {
     'বছরের': 'year',
     'সপ্তাহ': 'week',
     'গত': 'last',
-    'পরবর্তী': 'next'
+    'পরবর্তী': 'next',
+    'ফি': 'fee',
+    'টিউশন': 'tuition',
+    'ছাড়': 'discount',
+    'ফেরত': 'refund'
   };
 
   // ★ NEW: Translate Bengali command to English
@@ -1307,6 +1373,17 @@ const VoiceAssistant = (() => {
       synth.cancel(); hideBubble(); speak(currentLang === 'bn-IN' ? 'ঠিক আছে, চুপ থাকছি।' : 'Okay, I\'ll be quiet.'); return;
     }
 
+    // ── YOU CAN GO NOW (Disable/Dismiss Assistant) ─────────────────
+    if (/\b(you can go|go now|dismiss|disable|turn off|shut down|যাও|যেতে পারো|বন্ধ করো|চলে যাও)\b/.test(cmd)) {
+      stopContinuousListening();
+      const msg = currentLang === 'bn-IN' 
+        ? 'ঠিক আছে স্যার, আমি চলে যাচ্ছি। প্রয়োজন হলে আবার ডাকবেন। বাই!'
+        : 'Okay sir, I am going offline now. Call me if you need anything. Bye!';
+      speak(msg);
+      showBubble(currentLang === 'bn-IN' ? '👋 চলে গেলাম!' : '👋 Going offline!', false);
+      return;
+    }
+
     // ── REPEAT ───────────────────────────────────────────────────
     if (/\b(repeat|say again|what did you say)\b/.test(cmd)) {
       if (lastSpeech) { speak(lastSpeech); } else { speak('Nothing to repeat.'); } return;
@@ -1327,6 +1404,100 @@ const VoiceAssistant = (() => {
 
     // ── JOKES ─────────────────────────────────────────────────────
     if (/\b(joke|funny|laugh|humor|make me laugh)\b/.test(cmd)) { tellJoke(); return; }
+
+    // ★ NEW: ADVANCED BATCH QUERIES ─────────────────────────────────
+    // Examples: "উনিশ ব্যাচে টোটাল স্টুডেন্ট কত?", "Batch 19 student count", "19 batch এ কত ছাত্র"
+    if (/\b(batch|ব্যাচ)\b/.test(cmd) && /\b(student|ছাত্র|শিক্ষার্থী|count|সংখ্যা|কত)\b/.test(cmd)) {
+      const batchId = extractBatch(cmd);
+      if (batchId) {
+        const students = dbAll('students');
+        const batchStudents = students.filter(s => {
+          const b = (s.batch || '').toLowerCase().replace(/batch[\s\-#]*/i, '').trim();
+          return b.includes(batchId) || (s.batch || '').toLowerCase().includes('batch ' + batchId) || (s.batch || '').toLowerCase().includes('batch-' + batchId) || (s.batch || '').includes(batchId);
+        });
+        if (batchStudents.length > 0) {
+          const msg = currentLang === 'bn-IN' 
+            ? `${batchId} নম্বর ব্যাচে মোট ${batchStudents.length} জন ছাত্র আছে।`
+            : `Batch ${batchId} has ${batchStudents.length} students in total.`;
+          speak(msg);
+          showBubble(`Batch ${batchId}: ${batchStudents.length} students`, false);
+          return;
+        }
+      }
+    }
+
+    // ★ NEW: MONTH-SPECIFIC FINANCE QUERIES ─────────────────────────
+    // Examples: "এপ্রিল মাসে খরচ কত?", "May expense", "জুন মাসের আয় কত"
+    if (/\b(month|মাস)\b/.test(cmd) && (/\b(expense|খরচ|খরচ|spend)\b/.test(cmd) || /\b(income|আয়|revenue)\b/.test(cmd))) {
+      const monthMatch = getMonthIndex(cmd);
+      if (monthMatch) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const mm = String(monthMatch.idx + 1).padStart(2, '0');
+        const finance = dbAll('finance');
+        const monthData = finance.filter(f => (f.date || '').startsWith(`${year}-${mm}`));
+        
+        if (/\b(expense|খরচ|spend)\b/.test(cmd)) {
+          const expenseTotal = monthData.filter(f => f.type === 'Expense').reduce((s, f) => s + safeNum(f.amount), 0);
+          const msg = currentLang === 'bn-IN'
+            ? `${monthMatch.name} মাসে মোট খরচ ${taka(expenseTotal)}`
+            : `Total expense in ${monthMatch.name}: ${taka(expenseTotal)}`;
+          speak(msg);
+          showBubble(msg, false);
+          return;
+        } else if (/\b(income|আয়|revenue)\b/.test(cmd)) {
+          const incomeTotal = monthData.filter(f => f.type === 'Income').reduce((s, f) => s + safeNum(f.amount), 0);
+          const msg = currentLang === 'bn-IN'
+            ? `${monthMatch.name} মাসে মোট আয় ${taka(incomeTotal)}`
+            : `Total income in ${monthMatch.name}: ${taka(incomeTotal)}`;
+          speak(msg);
+          showBubble(msg, false);
+          return;
+        }
+      }
+    }
+
+    // ★ NEW: BATCH + MONTH COMBINED QUERY ───────────────────────────
+    // Examples: "জুন ব্যাচে পেমেন্ট কত?", "Batch 15 collection", "19 ব্যাচের মোট ফি"
+    if (/\b(batch|ব্যাচ)\b/.test(cmd) && /\b(payment|পেমেন্ট|fee|ফি|collection|সংগ্রহ|due|বাকি)\b/.test(cmd)) {
+      const batchId = extractBatch(cmd);
+      if (batchId) {
+        const students = dbAll('students');
+        const batchStudents = students.filter(s => {
+          const b = (s.batch || '').toLowerCase().replace(/batch[\s\-#]*/i, '').trim();
+          return b.includes(batchId) || (s.batch || '').toLowerCase().includes('batch ' + batchId) || (s.batch || '').includes(batchId);
+        });
+        
+        if (batchStudents.length > 0) {
+          const totalFee = batchStudents.reduce((s, r) => s + safeNum(r.total_fee), 0);
+          const totalPaid = batchStudents.reduce((s, r) => s + safeNum(r.paid), 0);
+          const totalDue = batchStudents.reduce((s, r) => s + safeNum(r.due), 0);
+          
+          if (/\b(payment|পেমেন্ট|collection|সংগ্রহ)\b/.test(cmd)) {
+            const msg = currentLang === 'bn-IN'
+              ? `${batchId} নম্বর ব্যাচে মোট ${taka(totalPaid)} টাকা সংগ্রহ করা হয়েছে।`
+              : `Batch ${batchId}: Total collection is ${taka(totalPaid)}`;
+            speak(msg);
+            showBubble(msg, false);
+            return;
+          } else if (/\b(due|বাকি|outstanding)\b/.test(cmd)) {
+            const msg = currentLang === 'bn-IN'
+              ? `${batchId} নম্বর ব্যাচে মোট ${taka(totalDue)} টাকা বাকি আছে।`
+              : `Batch ${batchId}: Total due is ${taka(totalDue)}`;
+            speak(msg);
+            showBubble(msg, false);
+            return;
+          } else if (/\b(fee|ফি|total fee)\b/.test(cmd)) {
+            const msg = currentLang === 'bn-IN'
+              ? `${batchId} নম্বর ব্যাচে মোট ফি ${taka(totalFee)}।`
+              : `Batch ${batchId}: Total fee is ${taka(totalFee)}`;
+            speak(msg);
+            showBubble(msg, false);
+            return;
+          }
+        }
+      }
+    }
 
     // ── WHO AM I / SYSTEM ─────────────────────────────────────────
     if (/\b(who am i|who are you|about you|your name|system status|app status|health)\b/.test(cmd)) {
