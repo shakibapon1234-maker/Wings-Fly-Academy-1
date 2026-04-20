@@ -2767,7 +2767,7 @@ ${expenseEntries.length > 0 ? `
         saveConfig(cfg);
       }
       bin.splice(index, 1);
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
       Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
       refreshModal();
       return;
@@ -2781,7 +2781,7 @@ ${expenseEntries.length > 0 ? `
         localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       }
       bin.splice(index, 1);
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
       Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
       refreshModal();
       return;
@@ -2801,10 +2801,7 @@ ${expenseEntries.length > 0 ? `
         }
       }
       bin.splice(index, 1);
-      if (isIDB && typeof SupabaseSync !== 'undefined') {
-        SupabaseSync.setAll('recycle_bin', bin);
-      }
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
       Utils.toast(`নোট "${item.data?.title || 'Untitled'}" রিস্টোর হয়েছে ✓`, 'success');
       logActivity('restore', 'note', `Restored note: ${item.data?.title || 'Untitled'}`);
       refreshModal();
@@ -2824,10 +2821,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function permanentDelete(index) {
-    SupabaseSync.permanentDeleteRecycleBinItem(index);
-    // Also clean up legacy localStorage bin if present
-    const lsBin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
-    if (lsBin.length > 0) { lsBin.splice(index, 1); localStorage.setItem('wfa_recycle_bin', JSON.stringify(lsBin)); }
+    SupabaseSync.permanentDeleteRecycleBinItem(index); // ✅ IDB handled internally
     Utils.toast('Removed from recycle bin', 'info');
     refreshModal();
   }
@@ -2911,9 +2905,9 @@ ${expenseEntries.length > 0 ? `
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('keep_records', victim);
     } else {
-      // Fallback: write directly to localStorage recycle bin
+      // Fallback: write directly to IDB recycle bin (no localStorage)
       try {
-        const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+        const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
         bin.unshift({
           table: 'keep_records',
           data: (typeof structuredClone === 'function') ? structuredClone(victim) : JSON.parse(JSON.stringify(victim)),
@@ -2923,10 +2917,8 @@ ${expenseEntries.length > 0 ? `
           tableLabel: 'Keep Record',
         });
         if (bin.length > 200) bin.length = 200;
-        localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
-        // Also sync to IDB cache via SupabaseSync if available
         if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
-          SupabaseSync.setAll('recycle_bin', bin);
+          SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
         }
       } catch(e) { console.warn('[Recycle] note delete failed:', e); }
     }
@@ -4602,8 +4594,8 @@ ${expenseEntries.length > 0 ? `
     const subs = getSubAccounts();
     const target = subs[idx];
     if (target) {
-      // ✅ Req 2: push to recycle bin before deleting so it can be restored
-      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+      // ✅ Push to IDB recycle bin before deleting so it can be restored
+      const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
       bin.unshift({
         table: 'settings_subaccount',
         type:  'subaccount',
@@ -4612,7 +4604,7 @@ ${expenseEntries.length > 0 ? `
         deletedAt: new Date().toISOString(),
       });
       if (bin.length > 500) bin.length = 500;
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
 
       subs.splice(idx, 1);
       localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
