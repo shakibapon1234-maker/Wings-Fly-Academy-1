@@ -855,26 +855,28 @@ window.App = App;
       if (!el.hasAttribute('data-locale-fixed') && !el.closest('.flatpickr-calendar')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
-        // ✅ REQUIREMENT #4: Force DD/MM/YYYY format everywhere
+        // ✅ REQUIREMENT #4: Force DD/MM/YYYY display while keeping YYYY-MM-DD storage
         if (typeof flatpickr !== 'undefined' && !el._flatpickr) {
           try {
             flatpickr(el, {
-              dateFormat: 'd/m/Y',           // ✅ MAIN FORMAT: DD/MM/YYYY
-              altInput: false,               // No extra input field
-              altFormat: 'd/m/Y',
+              dateFormat: 'Y-m-d',           // ✅ Database storage: YYYY-MM-DD
+              altInput: true,                // ✅ Show display format in alt field
+              altFormat: 'd/m/Y',            // ✅ DISPLAY: DD/MM/YYYY
               allowInput: true,              // User can type dates
               locale: { firstDayOfWeek: 1 }, // Week starts Monday
               mode: 'single',
-              // Parse dates in DD/MM/YYYY format
+              // Parse dates — accept both DD/MM/YYYY and YYYY-MM-DD
               parseDate: (datestr) => {
                 if (!datestr) return null;
-                const parts = String(datestr).split('/');
-                if (parts.length === 3) {
-                  const [day, month, year] = parts.map(p => parseInt(p, 10));
+                const str = String(datestr).trim();
+                // Try DD/MM/YYYY format first
+                const dmy = str.split('/');
+                if (dmy.length === 3) {
+                  const [day, month, year] = dmy.map(p => parseInt(p, 10));
                   return new Date(year, month - 1, day);
                 }
-                // Fallback: try ISO format
-                return new Date(datestr);
+                // Fallback: try ISO format (YYYY-MM-DD)
+                return new Date(str);
               }
             });
           } catch (e) { 
