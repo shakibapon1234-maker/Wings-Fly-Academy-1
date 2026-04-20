@@ -191,6 +191,23 @@ const App = (() => {
   // Usage: App.resetAdminPassword('newPassword')
   // ✅ Security fix #2: now requires security question answer to prevent DevTools abuse
   async function resetAdminPassword(newPassword) {
+    // 🆕 BUG #6 FIX: Rate limiting to prevent brute force
+    const resetAttemptKey = 'wfa_reset_attempts';
+    const resetTimeoutKey = 'wfa_reset_timeout_until';
+    
+    const now = Date.now();
+    const timeoutUntil = parseInt(localStorage.getItem(resetTimeoutKey) || '0');
+    
+    if (now < timeoutUntil) {
+      const waitSeconds = Math.ceil((timeoutUntil - now) / 1000);
+      const msg = `❌ Too many failed attempts. Wait ${waitSeconds} seconds before trying again.`;
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(msg, 'error', 5000);
+      }
+      console.error('[Auth]', msg);
+      return false;
+    }
+
     if (!newPassword || newPassword.length < 4) {
       console.error('[Auth] Password must be at least 4 characters');
       return false;
@@ -205,11 +222,36 @@ const App = (() => {
       console.error('[Auth] ❌ No security answer configured — password reset blocked for safety. Configure a security question in Settings first.');
       return false;
     }
-    const givenAnswer = window.prompt(`🔒 Security Verification Required\n\nQuestion: ${question}\n\nEnter your answer:`);
+    
+    // 🆕 BUG #6 FIX: Use safer modal instead of prompt
+    const givenAnswer = await _showSecurityModal(question);
+    
     if (!givenAnswer || givenAnswer.toLowerCase().trim() !== correctAnswer) {
-      console.error('[Auth] ❌ Incorrect security answer. Password reset denied.');
+      // 🆕 BUG #6 FIX: Track failed attempts
+      const attempts = parseInt(localStorage.getItem(resetAttemptKey) || '0') + 1;
+      localStorage.setItem(resetAttemptKey, attempts.toString());
+      
+      if (attempts >= 3) {
+        // Lock out for 15 minutes
+        const lockoutTime = 15 * 60 * 1000;
+        localStorage.setItem(resetTimeoutKey, (Date.now() + lockoutTime).toString());
+        console.error('[Auth] ❌ Too many failed attempts (3). Locked for 15 minutes.');
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('❌ Too many failed attempts. Account locked for 15 minutes.', 'error', 5000);
+        }
+        return false;
+      }
+      
+      console.error(`[Auth] ❌ Incorrect security answer. Attempt ${attempts} of 3`);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`❌ Incorrect answer. Attempt ${attempts} of 3`, 'error', 3000);
+      }
       return false;
     }
+
+    // 🆕 BUG #6 FIX: Clear attempts on success
+    localStorage.removeItem(resetAttemptKey);
+    localStorage.removeItem(resetTimeoutKey);
 
     // Cleanup duplicates first, then reset
     cleanupDuplicateSettings();
@@ -224,7 +266,42 @@ const App = (() => {
       SupabaseSync.insert(DB.settings, fresh);
     }
     console.log('%c[Auth] ✅ Admin password reset successfully! Login with your new password.', 'color: #00ff88; font-weight: bold');
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast('✅ Password reset successful! Please login again.', 'success', 3000);
+    }
     return true;
+  }
+
+  // 🆕 BUG #6 FIX: Secure modal instead of prompt
+  function _showSecurityModal(question) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.id = 'security-modal-overlay';
+      overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
+      
+      const modal = document.createElement('div');
+      modal.style.cssText = 'background:#1a1a2e;border:1px solid #00d4ff;border-radius:12px;padding:24px;max-width:400px;color:#fff;text-align:center;box-shadow:0 0 20px rgba(0,212,255,0.3);';
+      modal.innerHTML = `
+        <h3 style="color:#00d4ff;margin:0 0 16px 0;font-size:1.2em;">🔒 Security Verification</h3>
+        <p style="margin:0 0 12px 0;font-size:0.95em;">${Utils.esc ? Utils.esc(question) : question}</p>
+        <input type="text" id="security-answer-input" placeholder="Your answer" 
+          style="width:100%;padding:10px;margin:12px 0;border:1px solid #00d4ff;border-radius:6px;background:#0f0f1e;color:#fff;font-size:0.95em;box-sizing:border-box;"
+          onkeypress="if(event.key==='Enter') document.getElementById('security-verify-btn').click();" />
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
+          <button onclick="document.getElementById('security-modal-overlay').remove(); window._securityResolve('');" 
+            style="padding:10px 16px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cancel</button>
+          <button id="security-verify-btn" onclick="const ans = document.getElementById('security-answer-input').value; document.getElementById('security-modal-overlay').remove(); window._securityResolve(ans);" 
+            style="padding:10px 16px;background:#00d4ff;color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;">Verify</button>
+        </div>
+      `;
+      
+      overlay.appendChild(modal);
+      window._securityResolve = resolve;
+      document.body.appendChild(overlay);
+      
+      // Focus the input
+      setTimeout(() => document.getElementById('security-answer-input')?.focus(), 100);
+    });
   }
 
 

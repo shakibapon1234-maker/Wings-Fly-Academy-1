@@ -75,28 +75,51 @@ const Accounts = (() => {
     const container = document.getElementById('accounts-content');
     if (!container) return;
 
-    const finance  = SupabaseSync.getAll(DB.finance);
-    const accounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
+    try {
+      // ✅ BUG FIX: Proper error handling for balance calculations
+      const finance  = SupabaseSync.getAll(DB.finance) || [];
+      const accounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts) || []);
 
-    // Filter accounts by class
-    const cashAcc = getPrimaryCashAccount(accounts);
-    const bankDetails = accounts.filter(a => a.type === 'Bank_Detail');
-    const mobileDetails = accounts.filter(a => a.type === 'Mobile_Detail');
+      // Filter accounts by class
+      const cashAcc = getPrimaryCashAccount(accounts) || { id: '', type: 'Cash', balance: 0 };
+      const bankDetails = (accounts.filter(a => a.type === 'Bank_Detail') || []);
+      const mobileDetails = (accounts.filter(a => a.type === 'Mobile_Detail') || []);
 
-    // Calculate initial sums
-    const bankInitialSum = bankDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
-    const mobileInitialSum = mobileDetails.reduce((s,a) => s + Utils.safeNum(a.balance), 0);
+      // Calculate initial sums with error handling
+      let bankInitialSum = 0;
+      try {
+        bankInitialSum = bankDetails.reduce((s, a) => {
+          const bal = Utils.safeNum(a?.balance || 0);
+          return s + (isNaN(bal) ? 0 : bal);
+        }, 0);
+      } catch (e) {
+        console.warn('[Accounts] Bank balance calculation error:', e);
+        bankInitialSum = 0;
+      }
 
-    // Account balances are already FINAL in the database
-    // They already include all transactions (income, expense, transfers)
-    // Just use them directly without recalculating
-    const cashBal = Utils.safeNum(cashAcc.balance);
-    const bankBal = bankInitialSum;
-    const mobileBal = mobileInitialSum;
+      let mobileInitialSum = 0;
+      try {
+        mobileInitialSum = mobileDetails.reduce((s, a) => {
+          const bal = Utils.safeNum(a?.balance || 0);
+          return s + (isNaN(bal) ? 0 : bal);
+        }, 0);
+      } catch (e) {
+        console.warn('[Accounts] Mobile balance calculation error:', e);
+        mobileInitialSum = 0;
+      }
 
-    const totalAll = cashBal + bankBal + mobileBal;
+      // Account balances are already FINAL in the database
+      // They already include all transactions (income, expense, transfers)
+      // Just use them directly without recalculating
+      const cashBal = Utils.safeNum(cashAcc?.balance || 0);
+      const bankBal = isNaN(bankInitialSum) ? 0 : bankInitialSum;
+      const mobileBal = isNaN(mobileInitialSum) ? 0 : mobileInitialSum;
 
-    container.innerHTML = `
+      const totalAll = cashBal + bankBal + mobileBal;
+
+      // ✅ BUG FIX: Wrap HTML generation in try-catch
+      try {
+        container.innerHTML = `
       <!-- Cash Hero Section -->
       <div style="background:var(--bg-surface); border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:20px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; box-shadow:inset 0 0 40px rgba(0,212,255,0.05); position:relative; overflow:hidden;">
         <div style="position:absolute; top:0; left:0; width:100%; height:100%; background-image:linear-gradient(rgba(0,212,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.05) 1px, transparent 1px); background-size:20px 20px; z-index:0;"></div>
@@ -291,6 +314,18 @@ const Accounts = (() => {
         </div>
       </div>
     `;
+      } catch (e) {
+        console.error('[Accounts] Render error:', e);
+        container.innerHTML = `<div style="color:#ff4757; padding:20px; text-align:center; background:rgba(255,71,87,0.1); border-radius:8px; border:1px solid rgba(255,71,87,0.3);">
+          ❌ Error loading accounts. Please refresh the page. <br><small style="color:var(--text-muted); margin-top:8px; display:block;">${Utils.esc(e.message||'Unknown error')}</small>
+        </div>`;
+      }
+    } catch (e) {
+      console.error('[Accounts] Render fatal error:', e);
+      if (container) {
+        container.innerHTML = `<div style="color:#ff4757; padding:20px; text-align:center;">Fatal error in accounts module</div>`;
+      }
+    }
   }
 
   function renderSearchResults(finance, accounts) {
@@ -798,6 +833,78 @@ const Accounts = (() => {
     render();
   }
 
+  // 🆕 BUG #5 FIX: Verify account balance against finance records
+  function verifyAccountBalance(accountName, storedBalance) {
+    try {
+      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return null;
+      const finance = SupabaseSync.getAll(DB.finance) || [];
+      
+      // Find all transactions for this account
+      let calculated = 0;
+      finance.forEach(f => {
+        if ((f.method === accountName || f.account === accountName) && f.type !== 'Loan Receiving' && f.type !== 'Loan Giving') {
+          const amt = Utils.safeNum(f.amount);
+          if (f.type === 'Income' || f.type === 'Transfer In') {
+            calculated += amt;
+          } else if (f.type === 'Expense' || f.type === 'Transfer Out') {
+            calculated -= amt;
+          }
+        }
+      });
+      
+      // Compare
+      const diff = Math.abs(calculated - storedBalance);
+      if (diff > 1) { // Allow 1 taka rounding difference
+        console.warn('[Accounts]', accountName, 'balance mismatch:', { stored: storedBalance, calculated: calculated, difference: diff });
+        return false; // Mismatch detected
+      }
+      return true;
+    } catch (e) {
+      console.error('[Accounts] Balance verification error:', e);
+      return null;
+    }
+  }
+
+  // 🆕 BUG #5 FIX: Recalculate balance from finance records
+  function recalculateBalance(accountName) {
+    try {
+      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return false;
+      const finance = SupabaseSync.getAll(DB.finance) || [];
+      let newBalance = 0;
+      
+      finance.forEach(f => {
+        if (f.method === accountName || f.account === accountName) {
+          const amt = Utils.safeNum(f.amount);
+          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') {
+            newBalance += amt;
+          } else {
+            newBalance -= amt;
+          }
+        }
+      });
+      
+      // Update account
+      const accounts = SupabaseSync.getAll(DB.accounts) || [];
+      const account = accounts.find(a => a.name === accountName);
+      if (account) {
+        account.balance = Math.max(0, newBalance);
+        SupabaseSync.update(DB.accounts, account.id, account);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('✅ Balance recalculated and updated', 'success');
+        }
+        render();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('[Accounts] Recalculate error:', e);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('❌ Recalculation failed', 'error');
+      }
+      return false;
+    }
+  }
+
   return {
     render,
     openSetModal, saveBalance,
@@ -805,7 +912,9 @@ const Accounts = (() => {
     openMobileModal, saveMobile, deleteMobile,
     openTransferModal, doTransfer,
     doSearch, clearSearch, filterHistory, clearHistoryFilter,
-    exportSearchExcel, printSearch
+    exportSearchExcel, printSearch,
+    // 🆕 BUG #5: Verification functions
+    verifyAccountBalance, recalculateBalance
   };
 
 })();

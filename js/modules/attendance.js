@@ -522,10 +522,22 @@ const Attendance = (() => {
           // আগের record আপডেট করো
           SupabaseSync.update(DB.attendance, newRecord.id, newRecord);
           records[existingIdx] = newRecord;
+          // ✅ REQUIREMENT #6: Log activity
+          if (typeof SupabaseSync.logActivity === 'function') {
+            SupabaseSync.logActivity('edit', 'attendance', 
+              `Marked ${entityName} as ${status} on ${date}`
+            );
+          }
         } else {
           // নতুন insert
           SupabaseSync.insert(DB.attendance, newRecord);
           records.push(newRecord);
+          // ✅ REQUIREMENT #6: Log activity
+          if (typeof SupabaseSync.logActivity === 'function') {
+            SupabaseSync.logActivity('add', 'attendance', 
+              `Marked ${entityName} as ${status} on ${date}`
+            );
+          }
         }
       } else {
         // Fallback: SupabaseSync নেই

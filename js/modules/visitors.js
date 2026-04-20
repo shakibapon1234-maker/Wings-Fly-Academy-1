@@ -256,9 +256,19 @@ const VisitorsModule = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.visitors, editingId, data);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'visitors', 
+          `Updated visitor: ${name} (${phone}) - Status: ${data.status}`
+        );
+      }
       Utils.toast('Visitor updated successfully', 'success');
     } else {
       SupabaseSync.insert(DB.visitors, data);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'visitors', 
+          `Added visitor: ${name} (${phone}) - Interested in: ${data.interested_course}`
+        );
+      }
       Utils.toast('Visitor added successfully', 'success');
     }
 
@@ -269,7 +279,13 @@ const VisitorsModule = (() => {
   async function deleteRecord(id) {
     const ok = await Utils.confirm('Are you sure you want to delete this visitor?', 'Delete Visitor');
     if (!ok) return;
+    const visitorData = SupabaseSync.getById(DB.visitors, id);
     SupabaseSync.remove(DB.visitors, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'visitors', 
+        `Deleted visitor: ${visitorData?.name || 'Unknown'} (${visitorData?.phone || 'N/A'})`
+      );
+    }
     render();
     Utils.toast('Visitor deleted', 'warning');
   }

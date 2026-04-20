@@ -446,9 +446,19 @@ const Exam = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.exams, editingId, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'exams', 
+          `Updated exam: ${subject} for ${studentName} (${studentId})`
+        );
+      }
       Utils.toast('Exam info updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.exams, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'exams', 
+          `Registered exam: ${subject} for ${studentName} (${studentId})`
+        );
+      }
       Utils.toast('Exam Registration Completed ✓', 'success');
 
       // Finance entry for exam fee
@@ -500,6 +510,11 @@ const Exam = (() => {
     }
 
     SupabaseSync.remove(DB.exams, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'exams', 
+        `Deleted exam registration: ${entry?.student_name || 'Unknown'} (${entry?.subject || 'Unknown'})`
+      );
+    }
     Utils.toast('Exam registration deleted', 'info');
     render();
   }

@@ -492,6 +492,11 @@ const Finance = (() => {
         }
       }
       SupabaseSync.update(DB.finance, editingId, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'finance', 
+          `Updated transaction: ${type} ৳${Utils.formatMoneyPlain(amount)} via ${method}`
+        );
+      }
       if (!isLoanType) {
         const newDir = _balanceDir(type);
         if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
@@ -501,6 +506,11 @@ const Finance = (() => {
       Utils.toast('Transaction updated ✓','success');
     } else {
       SupabaseSync.insert(DB.finance, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'finance', 
+          `Added transaction: ${type} ৳${Utils.formatMoneyPlain(amount)} via ${method}`
+        );
+      }
       if (!isLoanType) {
         const newDir = _balanceDir(type);
         if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
@@ -577,7 +587,14 @@ const Finance = (() => {
         }
       }
     }
-    SupabaseSync.remove(DB.finance, id); // RecycleBin-এ যাবে
+    SupabaseSync.remove(DB.finance, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      const typeStr = entry?.type || 'Unknown';
+      const amountStr = entry?.amount ? `৳${Utils.formatMoneyPlain(entry.amount)}` : 'N/A';
+      SupabaseSync.logActivity('delete', 'finance', 
+        `Deleted transaction: ${typeStr} ${amountStr}`
+      );
+    }
     Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');
     render();
   }

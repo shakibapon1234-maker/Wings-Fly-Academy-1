@@ -414,6 +414,11 @@ const NoticeBoardModule = (() => {
     };
     if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id);
     SupabaseSync.insert(DB.notices, payload);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('add', 'notices', 
+        `Published notice: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`
+      );
+    }
     Utils.toast('নোটিশ সফলভাবে প্রকাশিত হয়েছে!', 'success');
     activeNotice = payload;
     showBanner(payload);
@@ -425,6 +430,11 @@ const NoticeBoardModule = (() => {
     const ok = await Utils.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?', 'মুছে ফেলুন');
     if (!ok) return;
     SupabaseSync.remove(DB.notices, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'notices', 
+        `Deleted notice`
+      );
+    }
     if (activeNotice && activeNotice.id === id) { activeNotice = null; hideBanner(); }
     Utils.toast('নোটিশ মুছে গেছে', 'success');
     render();
@@ -434,6 +444,11 @@ const NoticeBoardModule = (() => {
     const ok = await Utils.confirm('সক্রিয় নোটিশ বন্ধ করবেন?', 'নোটিশ বন্ধ');
     if (!ok) return;
     if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'notices', 
+        `Deactivated notice`
+      );
+    }
     activeNotice = null;
     hideBanner();
     Utils.toast('নোটিশ বন্ধ করা হয়েছে', 'success');

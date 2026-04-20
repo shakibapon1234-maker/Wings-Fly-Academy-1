@@ -571,6 +571,42 @@ const Utils = (() => {
       displayEl.style.transition = 'all 0.3s ease';
     }
 
+    // 🆕 BUG #4 FIX: Input validation helper
+    function validateForm(fields) {
+      // fields = { 'id': 'Label', ... }
+      const errors = [];
+      
+      for (const [id, label] of Object.entries(fields)) {
+        const value = formVal(id);
+        
+        // Check empty
+        if (!value || String(value).trim() === '') {
+          errors.push(`${label} is required`);
+          continue;
+        }
+        
+        // Type-specific validation
+        if (id.includes('phone')) {
+          if (!/^[0-9\-\+\s()]{6,20}$/.test(value)) {
+            errors.push(`${label} must be a valid phone number`);
+          }
+        }
+        if (id.includes('email')) {
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+            errors.push(`${label} must be a valid email`);
+          }
+        }
+        if (id.includes('amount') || id.includes('fee') || id.includes('balance') || id.includes('price')) {
+          const num = parseFloat(value);
+          if (isNaN(num) || num < 0) {
+            errors.push(`${label} must be a positive number`);
+          }
+        }
+      }
+      
+      return errors; // Empty array = valid
+    }
+
     return {
       // Date
       today, todayISO, nowISO, formatDate, formatDateEN, formatDateDMY,
@@ -608,6 +644,8 @@ const Utils = (() => {
       escAttr,
       // ID generator (for attendance and other modules)
       generateId: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      // 🆕 BUG #4: Input validation helper
+      validateForm,
     };
 })();
 

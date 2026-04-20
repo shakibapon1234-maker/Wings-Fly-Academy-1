@@ -15,10 +15,36 @@ const Students = (() => {
   let currentPage  = 1;
   let pageSize     = 20;
 
+  // ✅ BUG #3 FIX: Filter state persistence
+  function _saveFilterState() {
+    sessionStorage.setItem('wfa_students_search', searchQuery);
+    sessionStorage.setItem('wfa_students_batch', filterBatch);
+    sessionStorage.setItem('wfa_students_course', filterCourse);
+    sessionStorage.setItem('wfa_students_status', filterStatus);
+    sessionStorage.setItem('wfa_students_page', String(currentPage));
+  }
+
+  function _loadFilterState() {
+    searchQuery  = sessionStorage.getItem('wfa_students_search') || '';
+    filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
+    filterCourse = sessionStorage.getItem('wfa_students_course') || '';
+    filterStatus = sessionStorage.getItem('wfa_students_status') || '';
+    currentPage  = parseInt(sessionStorage.getItem('wfa_students_page') || '1');
+  }
+
+  function _clearFilterState() {
+    sessionStorage.removeItem('wfa_students_search');
+    sessionStorage.removeItem('wfa_students_batch');
+    sessionStorage.removeItem('wfa_students_course');
+    sessionStorage.removeItem('wfa_students_status');
+    sessionStorage.removeItem('wfa_students_page');
+  }
+
   /* ══════════════════════════════════════════
      MAIN RENDER
   ══════════════════════════════════════════ */
   function render() {
+    _loadFilterState(); // ✅ BUG #3 FIX: Restore saved filters
     const container = document.getElementById('students-content');
     if (!container) return;
 
@@ -179,6 +205,7 @@ const Students = (() => {
   function onSearch(val) {
     searchQuery = val;
     currentPage = 1;
+    _saveFilterState(); // ✅ BUG #3 FIX: Save filter
     debouncedRender();
   }
 
@@ -187,12 +214,14 @@ const Students = (() => {
     if (type === 'course') filterCourse = val;
     if (type === 'status') filterStatus = val;
     currentPage = 1;
+    _saveFilterState(); // ✅ BUG #3 FIX: Save filter
     render();
   }
 
   function resetFilters() {
     searchQuery = filterBatch = filterCourse = filterStatus = '';
     currentPage = 1;
+    _clearFilterState(); // ✅ BUG #3 FIX: Clear saved filters
     render();
   }
 
@@ -869,10 +898,20 @@ const Students = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.students, editingId, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'students', 
+          `Updated student: ${name} (ID: ${record.student_id})`
+        );
+      }
       Utils.toast('Student info updated ✓', 'success');
     } else {
       // insert করো এবং UUID সহ returned record রাখো
       const inserted = SupabaseSync.insert(DB.students, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'students', 
+          `Added student: ${name} (ID: ${record.student_id}) - Batch: ${record.batch}`
+        );
+      }
       const studentUUID = inserted.id; // UUID — finance ref_id-এ ব্যবহার হবে
 
       // Initial payment থাকলে finance-এ log করো (ref_id = UUID)
@@ -1283,6 +1322,12 @@ const Students = (() => {
       SupabaseSync.remove(DB.finance, f.id);
     });
 
+    // ✅ FIX: Get student data BEFORE deletion to log correctly
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'students', 
+        `Deleted student: ${s?.name || 'Unknown'} (ID: ${s?.student_id || 'N/A'})`
+      );
+    }
     SupabaseSync.remove(DB.students, id);
     Utils.toast(`Student deleted — ${studentPayments.length} payment(s) also moved to RecycleBin`, 'info');
     render();

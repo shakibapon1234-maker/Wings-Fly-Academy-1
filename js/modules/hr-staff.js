@@ -340,9 +340,19 @@ const HRStaff = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.staff, editingId, entry);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'hr-staff', 
+          `Updated staff: ${entry.name} (${entry.role})`
+        );
+      }
       Utils.toast('Staff Info Updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.staff, entry);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'hr-staff', 
+          `Added staff: ${entry.name} (${entry.role}) - Dept: ${entry.department}`
+        );
+      }
       Utils.toast('New Staff Added ✓', 'success');
     }
 
@@ -373,9 +383,15 @@ const HRStaff = (() => {
 
   /* ─── Delete ─── */
   async function deleteStaff(id) {
+    const staffData = SupabaseSync.getById(DB.staff, id);
     const ok = await Utils.confirm('Delete this staff member?', 'Delete Staff');
     if (!ok) return;
     SupabaseSync.remove(DB.staff, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'hr-staff', 
+        `Deleted staff: ${staffData?.name || 'Unknown'} (${staffData?.role || 'N/A'})`
+      );
+    }
     render();
     Utils.toast('Staff has been deleted', 'warning');
   }

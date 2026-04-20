@@ -420,6 +420,11 @@ const Loans = (() => {
 
     if (editingId) {
       SupabaseSync.update(DB.loans, editingId, record);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'loans', 
+          `Updated loan record: ${record.person_name} ৳${Utils.formatMoneyPlain(record.amount)}`
+        );
+      }
       Utils.toast('Loan updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.loans, record);
@@ -493,6 +498,11 @@ const Loans = (() => {
 
     // ── Loan remove ───────────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'loans', 
+        `Deleted loan record: ${record.person_name} (${record.type})`
+      );
+    }
 
     // ── Account balance reverse করো ───────────────────────────────────
     // Loan Given ছিল → টাকা বের হয়েছিল → এখন ফেরত দাও = 'in'
