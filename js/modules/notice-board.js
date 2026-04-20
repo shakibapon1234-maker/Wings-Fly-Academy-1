@@ -406,8 +406,9 @@ const NoticeBoardModule = (() => {
     }
     const payload = {
       id: 'NOT_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      text, title: text, content: text, type,
-      date: new Date().toISOString(),
+      title: text,
+      text,
+      type,
       created_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString(),
       is_pinned: false,
