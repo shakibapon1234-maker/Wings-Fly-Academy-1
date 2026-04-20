@@ -3523,22 +3523,22 @@ ${expenseEntries.length > 0 ? `
           <i class="fa fa-graduation-cap"></i> RUNNING BATCH OVERVIEW
           <span style="background:rgba(0,212,255,0.12);padding:2px 10px;border-radius:20px;font-size:.65rem;color:#00d4ff;border:1px solid rgba(0,212,255,0.25)">${Utils.esc(runningBatch)}</span>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px">
-          <div style="text-align:center;padding:10px;background:rgba(0,229,255,0.07);border:1px solid rgba(0,229,255,0.18);border-radius:8px">
-            <div style="font-size:.62rem;color:#00e5ff;font-weight:700;letter-spacing:.8px;margin-bottom:4px">STUDENTS</div>
-            <div style="font-size:1.3rem;font-weight:900;color:#00e5ff">${batchStudents.length}</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div style="text-align:center;padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px">
+            <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#00e5ff">${batchStudents.length}</div>
           </div>
-          <div style="text-align:center;padding:10px;background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.15);border-radius:8px">
-            <div style="font-size:.62rem;color:#00ff88;font-weight:700;letter-spacing:.8px;margin-bottom:4px">COLLECTION</div>
-            <div style="font-size:1rem;font-weight:900;color:#00ff88">${Utils.takaEn(batchIncome)}</div>
+          <div style="text-align:center;padding:12px 14px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.18);border-radius:10px">
+            <div style="font-size:.68rem;color:rgba(0,255,136,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Collection</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#00ff88">${Utils.takaEn(batchIncome)}</div>
           </div>
-          <div style="text-align:center;padding:10px;background:rgba(255,71,87,0.07);border:1px solid rgba(255,71,87,0.15);border-radius:8px">
-            <div style="font-size:.62rem;color:#ff6b7a;font-weight:700;letter-spacing:.8px;margin-bottom:4px">EXPENSE</div>
-            <div style="font-size:1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(batchExpense)}</div>
+          <div style="text-align:center;padding:12px 14px;background:rgba(255,71,87,0.06);border:1px solid rgba(255,71,87,0.18);border-radius:10px">
+            <div style="font-size:.68rem;color:rgba(255,71,87,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Expense</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(batchExpense)}</div>
           </div>
-          <div style="text-align:center;padding:10px;background:rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.07);border:1px solid rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.18);border-radius:8px">
-            <div style="font-size:.62rem;color:${batchNetColor};font-weight:700;letter-spacing:.8px;margin-bottom:4px">NET P/L</div>
-            <div style="font-size:1rem;font-weight:900;color:${batchNetColor}">${Utils.takaEn(batchNet)}</div>
+          <div style="text-align:center;padding:12px 14px;background:rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.06);border:1px solid rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.18);border-radius:10px">
+            <div style="font-size:.68rem;color:${batchNetColor};opacity:.7;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Net P/L</div>
+            <div style="font-size:1.1rem;font-weight:900;color:${batchNetColor}">${Utils.takaEn(batchNet)}</div>
           </div>
         </div>
       </div>` : '';
