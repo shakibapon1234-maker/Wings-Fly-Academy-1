@@ -251,7 +251,7 @@ const VisitorsModule = (() => {
       visit_date: document.getElementById('vis-vdate')?.value || Utils.today(),
       follow_up_date: document.getElementById('vis-fdate')?.value || '',
       remarks: document.getElementById('vis-remarks')?.value.trim() || '',
-      createdAt: new Date().toISOString()
+      created_at: new Date().toISOString()
     };
 
     if (editingId) {

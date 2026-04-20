@@ -253,7 +253,7 @@ const TABLE_COLUMNS = {
   exams:         ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
   attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
   staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
-  visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
+  visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
   notices:       ['id','title','text','type','created_at','expires_at','is_pinned'],
 };
 
@@ -804,7 +804,7 @@ const SupabaseSync = (() => {
     exams:         ['id','reg_id','student_id','student_name','batch','session','subject', 'exam_date','exam_fee','fee_paid','grade','marks','status','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
     staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
-    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','createdAt'],
+    visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
     notices:       ['id','title','text','type','created_at','expires_at','is_pinned'],
   };
 
