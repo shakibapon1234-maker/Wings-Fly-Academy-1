@@ -244,7 +244,7 @@ WFA_IDB.init();
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
-  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username'],
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -696,7 +696,7 @@ const SupabaseSync = (() => {
       bin.unshift({
         table,
         // ✅ Fix #4: structuredClone is safer than JSON.parse(JSON.stringify()) for deep cloning
-      data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
+        data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
         deletedAt: new Date().toISOString(),
         type: _recycleTypeLabel(table),
         name: _recycleDisplayName(table, record),
@@ -704,8 +704,19 @@ const SupabaseSync = (() => {
       });
       if (bin.length > RECYCLE_MAX) bin.length = RECYCLE_MAX;
       setAll('recycle_bin', bin);
+      _syncRecycleBinToSettings();
     } catch (e) {
       console.warn('[Recycle] add failed:', e);
+    }
+  }
+
+  function _syncRecycleBinToSettings() {
+    if (typeof window.SettingsModule !== 'undefined' && typeof window.SettingsModule.syncRecycleBin === 'function') {
+      try {
+        window.SettingsModule.syncRecycleBin();
+      } catch (e) {
+        console.warn('[Sync] recycle bin sync failed:', e);
+      }
     }
   }
 
@@ -821,6 +832,7 @@ const SupabaseSync = (() => {
     const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
     if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
     setAll('recycle_bin', freshBinFinal);
+    _syncRecycleBinToSettings();
 
     _logRecentChange(table, 'insert', record);
     _logActivity('add', table, `Restored ${_recycleDisplayName(table, record)} from recycle bin to ${_tableDisplayName(table)}`);
@@ -838,6 +850,7 @@ const SupabaseSync = (() => {
     }
     bin.splice(index, 1);
     setAll('recycle_bin', bin);
+    _syncRecycleBinToSettings();
   }
 
   function emptyRecycleBin() {
@@ -849,14 +862,15 @@ const SupabaseSync = (() => {
     }
     // ✅ Use IDB (setAll) instead of legacy localStorage
     setAll('recycle_bin', []);
+    _syncRecycleBinToSettings();
     _logActivity('delete', 'system', 'Emptied recycle bin');
   }
 
   const _AUTO_COLS = new Set(['created_at', 'updated_at']);
 
   const _TABLE_COLS = {
-    // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username'],
+    // ✅ keep_records + recycle_bin_sync added for cross-device sync via settings table
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync'],
     salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -1062,6 +1076,8 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     TABLE_COLUMNS,
+    _addToRecycleBinPublic: _addToRecycleBin,
+    _syncRecycleBinToSettings,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
   };

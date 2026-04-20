@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Wings Fly Aviation Academy — Settings Module (Full Parity)
 // 11 Tabs matching legacy app design
 // ============================================================
@@ -776,7 +776,38 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   // TAB 2: CATEGORIES & COURSES
   // ════════════════════════════════════════════════════════════════
+
+  // ── Silent auto-detect: merges student course names into cfg without UI interruption ──
+  function _silentAutoDetect() {
+    try {
+      const cfg      = getConfig();
+      const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
+      const students = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.students) || []) : [];
+      const found    = [...new Set(students.map(s => s.course).filter(Boolean))];
+      const toAdd    = found.filter(c => !existing.includes(c));
+      if (toAdd.length > 0) {
+        cfg.courses = JSON.stringify([...existing, ...toAdd]);
+        saveConfig(cfg);
+        console.info('[Settings] Silent auto-detect: added courses:', toAdd);
+      }
+    } catch(e) { /* silent */ }
+  }
+
+  // ── Listen for Supabase pull events → re-run auto-detect silently ──
+  (function _initSettingsSyncListener() {
+    window.addEventListener('wfa:synced', (e) => {
+      if (e.detail?.direction === 'pull' || e.detail?.direction === 'realtime') {
+        _silentAutoDetect();
+        // Merge remote keep_records into local if settings table was updated
+        _mergeRemoteKeepRecords();
+        // Merge remote recycle bin into local IDB
+        _mergeRemoteRecycleBin();
+      }
+    });
+  })();
+
   function panelCategories() {
+    _silentAutoDetect(); // ✅ Always auto-detect on panel open — no manual click needed
     const cfg = getConfig();
     const incomeCats = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
     const expenseCats = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
@@ -901,7 +932,7 @@ const SettingsModule = (() => {
       date: new Date().toLocaleDateString('en-GB') 
     };
     notes.unshift(entry);
-    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+    _saveKeepRecords(notes); // ✅ synced to Supabase via settings
 
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
@@ -2769,7 +2800,7 @@ ${expenseEntries.length > 0 ? `
         saveConfig(cfg);
       }
       bin.splice(index, 1);
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
       Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
       refreshModal();
       return;
@@ -2783,7 +2814,7 @@ ${expenseEntries.length > 0 ? `
         localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       }
       bin.splice(index, 1);
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
       Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
       refreshModal();
       return;
@@ -2799,15 +2830,15 @@ ${expenseEntries.length > 0 ? `
         if (!exists) {
           if (noteData.pinned) notes.unshift(noteData);
           else notes.push(noteData);
-          localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+          _saveKeepRecords(notes); // fix: synced to Supabase
         }
       }
       bin.splice(index, 1);
-      if (isIDB && typeof SupabaseSync !== 'undefined') {
-        SupabaseSync.setAll('recycle_bin', bin);
-      }
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
-      Utils.toast(`নোট "${item.data?.title || 'Untitled'}" রিস্টোর হয়েছে ✓`, 'success');
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
+      _saveRecycleBinToSettings(); // fix: sync bin to Supabase
+      // recycle bin updated above
+      // (bin synced)
+
       logActivity('restore', 'note', `Restored note: ${item.data?.title || 'Untitled'}`);
       refreshModal();
       return;
@@ -2828,8 +2859,8 @@ ${expenseEntries.length > 0 ? `
   function permanentDelete(index) {
     SupabaseSync.permanentDeleteRecycleBinItem(index);
     // Also clean up legacy localStorage bin if present
-    const lsBin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
-    if (lsBin.length > 0) { lsBin.splice(index, 1); localStorage.setItem('wfa_recycle_bin', JSON.stringify(lsBin)); }
+    _saveRecycleBinToSettings(); // fix: sync bin to Supabase after permanent delete
+    // (legacy localStorage wfa_recycle_bin removed - IDB is the source of truth)
     Utils.toast('Removed from recycle bin', 'info');
     refreshModal();
   }
@@ -2840,9 +2871,79 @@ ${expenseEntries.length > 0 ? `
     refreshModal();
   }
 
-  // ─── Keep Record (Notes) ──────────────────────────────────────
+  // ─── Keep Record (Notes) — Synced via settings table ────────────
+  // ✅ Storage: cfg.keep_records (Supabase-backed) with localStorage migration
   function getKeepRecords() {
-    return Utils.safeJSON(localStorage.getItem('wfa_keep_records'), []);
+    try {
+      const cfg = getConfig();
+      // If cfg has keep_records, prefer it (synced source)
+      if (cfg.keep_records) {
+        const records = Utils.safeJSON(cfg.keep_records, null);
+        if (Array.isArray(records)) return records;
+      }
+      // Fallback & migration: read from localStorage, then migrate to cfg
+      const lsRecords = Utils.safeJSON(localStorage.getItem('wfa_keep_records'), []);
+      if (lsRecords.length > 0) {
+        // Migrate to cfg (one-time)
+        _saveKeepRecords(lsRecords);
+        localStorage.removeItem('wfa_keep_records');
+        console.info('[Settings] Migrated keep_records from localStorage to settings table.');
+      }
+      return lsRecords;
+    } catch { return []; }
+  }
+
+  // ✅ Save keep_records to the Supabase-synced settings table
+  function _saveKeepRecords(notes) {
+    try {
+      const cfg = getConfig();
+      cfg.keep_records = JSON.stringify(notes);
+      saveConfig(cfg);
+    } catch(e) { console.warn('[Settings] _saveKeepRecords failed:', e); }
+  }
+
+  // ✅ Merge remote keep_records from cfg into local view after a Supabase pull
+  function _mergeRemoteKeepRecords() {
+    try {
+      const cfg = getConfig();
+      if (!cfg.keep_records) return;
+      // Just re-read; getKeepRecords() already reads from cfg first
+      console.info('[Settings] Remote keep_records available after sync.');
+    } catch { /* silent */ }
+  }
+
+  // ─── Recycle Bin Sync — saves last 50 items to settings table ───
+  // ✅ This piggybacks on the settings Supabase sync for cross-device visibility
+  function _saveRecycleBinToSettings() {
+    try {
+      const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+      if (!Array.isArray(bin)) return;
+      const cfg = getConfig();
+      cfg.recycle_bin_sync = JSON.stringify(bin.slice(0, 50)); // last 50 items
+      saveConfig(cfg);
+    } catch(e) { console.warn('[Settings] _saveRecycleBinToSettings failed:', e); }
+  }
+
+  function syncRecycleBin() {
+    _saveRecycleBinToSettings();
+  }
+
+  // ✅ Merge remote recycle bin from settings into local IDB after a Supabase pull
+  function _mergeRemoteRecycleBin() {
+    try {
+      const cfg = getConfig();
+      if (!cfg.recycle_bin_sync) return;
+      const remote = Utils.safeJSON(cfg.recycle_bin_sync, []);
+      if (!Array.isArray(remote) || remote.length === 0) return;
+      const localBin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+      const localIds = new Set(localBin.map(b => b?.data?.id).filter(Boolean));
+      const toMerge = remote.filter(r => r?.data?.id && !localIds.has(r.data.id));
+      if (toMerge.length > 0) {
+        const merged = [...toMerge, ...localBin].slice(0, 500);
+        if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', merged);
+        console.info(`[Settings] Merged ${toMerge.length} remote recycle bin item(s) into local IDB.`);
+      }
+    } catch(e) { console.warn('[Settings] _mergeRemoteRecycleBin failed:', e); }
   }
 
   function addNote() {
@@ -2898,7 +2999,7 @@ ${expenseEntries.length > 0 ? `
       const pinEnd = notes.findLastIndex(n => n.pinned);
       notes.splice(pinEnd + 1, 0, entry);
     }
-    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+    _saveKeepRecords(notes); // ✅ synced to Supabase
     closeSettingsInternalModal();
     Utils.toast('নোট সেভ হয়েছে ✓', 'success');
     logActivity('add', 'note', `Added note: ${title}`);
@@ -2925,7 +3026,7 @@ ${expenseEntries.length > 0 ? `
           tableLabel: 'Keep Record',
         });
         if (bin.length > 200) bin.length = 200;
-        localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+        // localStorage write removed - IDB via SupabaseSync.setAll below is sufficient
         // Also sync to IDB cache via SupabaseSync if available
         if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
           SupabaseSync.setAll('recycle_bin', bin);
@@ -2933,7 +3034,8 @@ ${expenseEntries.length > 0 ? `
       } catch(e) { console.warn('[Recycle] note delete failed:', e); }
     }
     notes.splice(index, 1);
-    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+    _saveKeepRecords(notes); // ✅ synced to Supabase
+    _saveRecycleBinToSettings(); // ✅ sync recycle bin after note delete
     Utils.toast('নোট রিসাইকেল বিনে গেছে 🗑️', 'info');
     logActivity('delete', 'note', `Deleted note: ${victim.title || 'Untitled'}`);
     refreshModal();
@@ -2996,7 +3098,7 @@ ${expenseEntries.length > 0 ? `
     const pinnedNotes   = notes.filter(n => n.pinned);
     const unpinnedNotes = notes.filter(n => !n.pinned);
     const sorted = [...pinnedNotes, ...unpinnedNotes];
-    localStorage.setItem('wfa_keep_records', JSON.stringify(sorted));
+    _saveKeepRecords(sorted); // ✅ synced to Supabase
     closeSettingsInternalModal();
     Utils.toast('নোট আপডেট হয়েছে ✓', 'success');
     logActivity('edit', 'note', `Edited note: ${title}`);
@@ -4613,7 +4715,7 @@ ${expenseEntries.length > 0 ? `
         deletedAt: new Date().toISOString(),
       });
       if (bin.length > 500) bin.length = 500;
-      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
 
       subs.splice(idx, 1);
       localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
@@ -4916,7 +5018,7 @@ ${expenseEntries.length > 0 ? `
       date: new Date().toLocaleDateString('en-GB') 
     };
     notes.unshift(entry);
-    localStorage.setItem('wfa_keep_records', JSON.stringify(notes));
+    _saveKeepRecords(notes); // ✅ synced to Supabase
     if (localStorage.getItem('wfa_theme') === tId) {
       applyTheme('neon-space');
     } else {
@@ -4945,6 +5047,7 @@ ${expenseEntries.length > 0 ? `
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel,
     restoreItem, permanentDelete, emptyRecycleBin,
+    syncRecycleBin,
     addNote, saveNote, deleteNote, editNote, saveEditedNote, filterNotes, clearNoteFilters,
     renderBatchReport,
     printBatchReport,
