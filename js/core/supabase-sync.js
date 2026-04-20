@@ -122,8 +122,17 @@ const WFA_IDB = (() => {
             const rbData = JSON.parse(rb);
             _cache['recycle_bin'] = rbData;
             _writeToIDB('recycle_bin', rbData);
+            // ✅ Remove from localStorage after successful IDB migration
+            localStorage.removeItem('wfa_recycle_bin');
+            console.info('[IDB] Migrated recycle_bin from localStorage to IDB and cleaned up localStorage key.');
           } catch(e) { console.warn('[IDB] recycle_bin parse failed:', e); }
        }
+    } else {
+      // ✅ IDB already has recycle_bin data — clean up any stale localStorage key
+      if (localStorage.getItem('wfa_recycle_bin')) {
+        localStorage.removeItem('wfa_recycle_bin');
+        console.info('[IDB] Cleaned up stale wfa_recycle_bin from localStorage (IDB already populated).');
+      }
     }
     // Explicit migration for deleted tracker
     if (!_cache['deleted_items'] || _cache['deleted_items'].length === 0) {

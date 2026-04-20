@@ -314,3 +314,4 @@ const VisitorsModule = (() => {
 
 })();
 window.VisitorsModule = VisitorsModule;
+window.Visitors       = VisitorsModule; // ✅ Integrity Guard expects window.Visitors
