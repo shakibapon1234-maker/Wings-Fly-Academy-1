@@ -313,5 +313,4 @@ const VisitorsModule = (() => {
   return { init, render, onSearch, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
 
 })();
-window.Visitors = VisitorsModule;
 window.VisitorsModule = VisitorsModule;

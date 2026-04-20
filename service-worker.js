@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   './css/main.css',
   './css/attendance.css',
   './css/exam.css',
+  './css/cert-v2.css',
   './css/print.css',
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',
