@@ -47,19 +47,67 @@ const VoiceAssistant = (() => {
      INIT
   ════════════════════════════════════════════════ */
   function init() {
-    btn = document.createElement('button');
-    btn.id    = 'ai-voice-btn';
-    btn.title = 'Voice Assistant (Click to speak)';
-    btn.innerHTML = '<i class="fa fa-microphone"></i>';
-    btn.style.cssText = `
-      position:fixed; bottom:20px; right:20px; width:55px; height:55px;
-      border-radius:50%; background:linear-gradient(135deg,var(--brand-primary),var(--brand-accent));
-      color:#fff; border:none; font-size:1.4rem;
-      box-shadow:0 0 20px rgba(181,55,242,0.4); cursor:pointer;
-      z-index:9998; transition:transform 0.2s,box-shadow 0.2s; display:none;
+    // Inject Styles
+    if (!document.getElementById('ai-assistant-css')) {
+      const link = document.createElement('link');
+      link.id = 'ai-assistant-css';
+      link.rel = 'stylesheet';
+      link.href = 'css/ai-assistant.css';
+      document.head.appendChild(link);
+    }
+
+    // Create Avatar Container
+    btn = document.createElement('div');
+    btn.id = 'ai-avatar-container';
+    btn.title = 'AI Assistant (Click to speak)';
+    btn.innerHTML = `
+      <div id="ai-doll">
+        <div class="ai-halo"></div>
+        
+        <div class="ai-wings-container">
+          <div class="ai-wing left"></div>
+          <div class="ai-wing right"></div>
+        </div>
+
+        <div class="ai-head-container">
+          <div class="ai-hair-back"></div>
+          <div class="ai-head">
+            <div class="ai-hair-front"></div>
+            <div class="ai-eyes">
+              <div class="ai-eye"></div>
+              <div class="ai-eye"></div>
+            </div>
+            <div class="ai-mouth"></div>
+          </div>
+        </div>
+
+        <div class="ai-torso">
+          <div class="ai-arms">
+            <div class="ai-arm left"></div>
+            <div class="ai-arm right"></div>
+          </div>
+        </div>
+
+        <div class="ai-skirt">
+          <div class="ai-skirt-panel panel-1"></div>
+          <div class="ai-skirt-panel panel-2"></div>
+          <div class="ai-skirt-panel panel-3"></div>
+          <div class="ai-skirt-panel panel-4"></div>
+          <div class="ai-skirt-hearts">
+            <div class="ai-heart"></div>
+            <div class="ai-heart"></div>
+            <div class="ai-heart"></div>
+          </div>
+        </div>
+
+        <div class="ai-legs">
+          <div class="ai-leg left"></div>
+          <div class="ai-leg right"></div>
+        </div>
+
+        <div class="ai-base-ring"></div>
+      </div>
     `;
-    btn.onmouseover = () => btn.style.transform = 'scale(1.1)';
-    btn.onmouseout  = () => btn.style.transform = 'scale(1)';
     btn.onclick = toggleListening;
     document.body.appendChild(btn);
 
@@ -76,9 +124,7 @@ const VoiceAssistant = (() => {
 
       recognition.onstart = () => {
         isListening = true;
-        btn.style.boxShadow = '0 0 30px rgba(0,255,136,0.8)';
-        btn.style.animation = 'pulseCardGlow 1s infinite alternate';
-        btn.innerHTML = '<i class="fa fa-microphone-lines"></i>';
+        btn.classList.add('listening');
         if (typeof Utils !== 'undefined') Utils.toast('Listening… Speak now.', 'info');
       };
       recognition.onresult = (e) => {
@@ -126,7 +172,12 @@ const VoiceAssistant = (() => {
       const u = new SpeechSynthesisUtterance(text);
       if (!voiceInstance) setVoice();
       u.voice = voiceInstance;
-      u.pitch = 1; u.rate = 1;
+      u.pitch = 1.1; // Slightly higher pitch for "doll" effect
+      u.rate = 1;
+      
+      u.onstart = () => btn.classList.add('talking');
+      u.onend   = () => btn.classList.remove('talking');
+      
       synth.speak(u);
     } catch(e) { console.warn('[Voice] speak error:', e); }
   }
@@ -144,11 +195,8 @@ const VoiceAssistant = (() => {
 
   function stopUI() {
     isListening = false;
-    const b = document.getElementById('ai-voice-btn');
-    if (b) {
-      b.style.animation = 'none';
-      b.style.boxShadow = '0 0 20px rgba(181,55,242,0.4)';
-      b.innerHTML       = '<i class="fa fa-microphone"></i>';
+    if (btn) {
+      btn.classList.remove('listening');
     }
   }
 

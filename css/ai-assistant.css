@@ -1,0 +1,297 @@
+/* 
+ * WFA AI Assistant — Ultra Premium Angel Princess Design (v3.0)
+ * Symmetric Wings, Crown Halo, Glowing Multi-colored Dress.
+ */
+
+:root {
+    --ai-dress-p1: #ffeaa7; /* Yellow */
+    --ai-dress-p2: #55efc4; /* Green */
+    --ai-dress-p3: #81ecec; /* Blue */
+    --ai-dress-main: #fd79a8; /* Pink */
+    --ai-skin: #ffeaa7;
+    --ai-hair: #d63031;
+    --ai-halo: #fbbf24;
+    --ai-wings: rgba(255, 255, 255, 0.95);
+}
+
+#ai-avatar-container {
+    position: fixed;
+    bottom: 30px;
+    right: 120px; /* Moved further left as requested */
+    width: 160px;
+    height: 220px;
+    z-index: 9999;
+    cursor: pointer;
+    perspective: 1200px;
+}
+
+#ai-doll {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    animation: doll-float 4s ease-in-out infinite;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    transform-style: preserve-3d;
+}
+
+@keyframes doll-float {
+    0%, 100% { transform: translateY(0px) rotateY(-8deg); }
+    50% { transform: translateY(-25px) rotateY(8deg); }
+}
+
+/* Beautiful Crown Halo */
+.ai-halo {
+    position: relative;
+    width: 50px;
+    height: 15px;
+    border: 3px solid var(--ai-halo);
+    border-radius: 50%;
+    box-shadow: 0 0 25px var(--ai-halo), inset 0 0 15px var(--ai-halo);
+    margin-bottom: 8px;
+    background: rgba(251, 191, 36, 0.1);
+    animation: halo-dance 3s infinite ease-in-out;
+}
+
+.ai-halo::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 15px #fff;
+}
+
+@keyframes halo-dance {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.8; }
+    50% { transform: scale(1.2) rotate(5deg); opacity: 1; }
+}
+
+/* Perfectly Symmetric Large Wings */
+.ai-wings-container {
+    position: absolute;
+    top: 50px;
+    width: 220px;
+    height: 100px;
+    display: flex;
+    justify-content: space-between;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.ai-wing {
+    width: 90px;
+    height: 100px;
+    background: var(--ai-wings);
+    border-radius: 100% 10% 100% 30%;
+    box-shadow: 0 0 30px rgba(255,255,255,0.7);
+    transition: all 0.5s;
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.8));
+}
+
+.ai-wing.left {
+    transform-origin: right bottom;
+    animation: wing-flap-left 3s ease-in-out infinite alternate;
+}
+
+.ai-wing.right {
+    transform-origin: left bottom;
+    transform: scaleX(-1);
+    animation: wing-flap-right 3s ease-in-out infinite alternate;
+}
+
+@keyframes wing-flap-left { 
+    from { transform: rotate(15deg) skewX(-5deg); } 
+    to { transform: rotate(35deg) skewX(0deg); } 
+}
+
+@keyframes wing-flap-right { 
+    from { transform: scaleX(-1) rotate(15deg) skewX(-5deg); } 
+    to { transform: scaleX(-1) rotate(35deg) skewX(0deg); } 
+}
+
+/* Head & Long Hair */
+.ai-head-container {
+    position: relative;
+    width: 65px;
+    height: 65px;
+    z-index: 10;
+}
+
+.ai-hair-back {
+    position: absolute;
+    top: 15px;
+    left: -15px;
+    width: 95px;
+    height: 110px;
+    background: linear-gradient(to bottom, var(--ai-hair), #c0392b);
+    border-radius: 45px 45px 25px 25px;
+    z-index: -1;
+    box-shadow: inset 0 -20px 25px rgba(0,0,0,0.4);
+}
+
+.ai-head {
+    width: 55px;
+    height: 55px;
+    background: var(--ai-skin);
+    border-radius: 50%;
+    margin: 5px auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.ai-hair-front {
+    position: absolute;
+    top: -5px;
+    width: 70px;
+    height: 35px;
+    background: var(--ai-hair);
+    border-radius: 35px 35px 0 0;
+}
+
+.ai-eyes { display: flex; gap: 12px; margin-top: 5px; }
+.ai-eye { width: 7px; height: 7px; background: #2d3436; border-radius: 50%; animation: eye-blink 4s infinite; }
+@keyframes eye-blink { 0%, 90%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+
+.ai-mouth { width: 12px; height: 5px; background: #ff7675; border-radius: 5px; margin-top: 8px; transition: all 0.2s; }
+
+/* Torso & Elegant Arms */
+.ai-torso {
+    width: 40px;
+    height: 55px;
+    background: linear-gradient(to bottom, var(--ai-dress-main), #ef5777);
+    border-radius: 18px 18px 0 0;
+    margin-top: -12px;
+    position: relative;
+    z-index: 5;
+    box-shadow: inset 0 5px 10px rgba(255,255,255,0.3);
+}
+
+.ai-arms {
+    position: absolute;
+    top: 15px;
+    left: -35px;
+    width: 110px;
+    height: 18px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.ai-arm { width: 35px; height: 12px; background: var(--ai-skin); border-radius: 12px; filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1)); }
+.ai-arm.left { transform: rotate(-40deg); animation: arm-dance-l 2.5s infinite alternate; }
+.ai-arm.right { transform: rotate(40deg); animation: arm-dance-r 2.5s infinite alternate; }
+@keyframes arm-dance-l { from { transform: rotate(-30deg); } to { transform: rotate(-55deg); } }
+@keyframes arm-dance-r { from { transform: rotate(30deg); } to { transform: rotate(55deg); } }
+
+/* Glowing Princess Skirt with Panels */
+.ai-skirt {
+    width: 140px;
+    height: 110px;
+    margin-top: -8px;
+    position: relative;
+    z-index: 4;
+}
+
+.ai-skirt-panel {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    clip-path: polygon(15% 0%, 85% 0%, 100% 100%, 0% 100%);
+    border-radius: 0 0 50% 50%;
+    opacity: 0.9;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.4);
+}
+
+.panel-1 { background: radial-gradient(circle at 50% 50%, var(--ai-dress-main), #ef5777); z-index: 3; }
+.panel-2 { background: radial-gradient(circle at 20% 50%, var(--ai-dress-p1), transparent); z-index: 4; animation: glow-cycle 4s infinite; }
+.panel-3 { background: radial-gradient(circle at 80% 50%, var(--ai-dress-p2), transparent); z-index: 4; animation: glow-cycle 4s infinite 1s; }
+.panel-4 { background: radial-gradient(circle at 50% 80%, var(--ai-dress-p3), transparent); z-index: 4; animation: glow-cycle 4s infinite 2s; }
+
+@keyframes glow-cycle {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
+
+.ai-skirt-hearts {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    z-index: 5;
+    opacity: 0.5;
+}
+
+.ai-heart {
+    width: 20px;
+    height: 20px;
+    background: #fff;
+    clip-path: path('M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z');
+    box-shadow: 0 0 10px #fff;
+}
+
+/* Beautiful Legs */
+.ai-legs {
+    display: flex;
+    gap: 25px;
+    margin-top: -15px;
+    z-index: 3;
+}
+
+.ai-leg {
+    width: 12px;
+    height: 35px;
+    background: var(--ai-skin);
+    border-radius: 0 0 12px 12px;
+    box-shadow: inset 0 -8px 10px rgba(0,0,0,0.2);
+    animation: leg-kick 3s infinite alternate;
+}
+
+.ai-leg.right { animation-delay: 1.5s; }
+
+@keyframes leg-kick {
+    from { transform: rotate(-8deg) translateY(0); }
+    to { transform: rotate(8deg) translateY(-2px); }
+}
+
+/* Grand Base Magic Ring */
+.ai-base-ring {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%) rotateX(80deg);
+    width: 160px;
+    height: 160px;
+    border: 4px solid rgba(0, 229, 255, 0.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 60px rgba(0, 229, 255, 0.5), inset 0 0 30px rgba(0, 229, 255, 0.5);
+    animation: ring-spin-super 6s linear infinite;
+}
+
+@keyframes ring-spin-super { from { transform: translateX(-50%) rotateX(80deg) rotate(0deg); } to { transform: translateX(-50%) rotateX(80deg) rotate(360deg); } }
+
+/* States */
+.talking .ai-mouth {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    animation: talk-power 0.2s infinite;
+}
+
+@keyframes talk-power { 0% { transform: scale(0.8); } 100% { transform: scale(1.3); } }
+
+.listening .ai-base-ring {
+    border-color: #00ff88;
+    box-shadow: 0 0 80px #00ff88;
+    border-width: 6px;
+}
