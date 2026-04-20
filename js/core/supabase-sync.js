@@ -122,17 +122,8 @@ const WFA_IDB = (() => {
             const rbData = JSON.parse(rb);
             _cache['recycle_bin'] = rbData;
             _writeToIDB('recycle_bin', rbData);
-            // ✅ Remove from localStorage after successful IDB migration
-            localStorage.removeItem('wfa_recycle_bin');
-            console.info('[IDB] Migrated recycle_bin from localStorage to IDB and cleaned up localStorage key.');
           } catch(e) { console.warn('[IDB] recycle_bin parse failed:', e); }
        }
-    } else {
-      // ✅ IDB already has recycle_bin data — clean up any stale localStorage key
-      if (localStorage.getItem('wfa_recycle_bin')) {
-        localStorage.removeItem('wfa_recycle_bin');
-        console.info('[IDB] Cleaned up stale wfa_recycle_bin from localStorage (IDB already populated).');
-      }
     }
     // Explicit migration for deleted tracker
     if (!_cache['deleted_items'] || _cache['deleted_items'].length === 0) {
@@ -387,22 +378,30 @@ const SupabaseSync = (() => {
   function _logRecentChange(table, action, record) {
     try {
       if (!record || typeof record !== 'object') return;
-      const person = record.name || record.student_id || record.person_name || record.reg_id
-        || record.description || record.note || 'â€”';
+
+      // Monitor-e shudhu finance_ledger Income/Expense/Transfer transactions dekhabe.
+      // Students, accounts, settings, salary etc. changes monitor-e ashbe na.
+      if (table !== DB.finance) return;
+      const financeType = String(record.type || '').toLowerCase();
+      const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving'];
+      if (!allowedTypes.includes(financeType)) return;
+
+      const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
-      const typeLabel = action === 'delete' ? 'Delete' : (action === 'insert' ? 'Save' : 'Update');
       const entry = {
         date: new Date().toLocaleString(),
-        type: typeLabel,
+        type: record.type,         // Income / Expense / Transfer In / Transfer Out
         category: String(category).slice(0, 100),
         person: String(person).slice(0, 100),
+        amount: Number(record.amount || 0),
+        method: record.method || '',
         table,
         item: _recycleDisplayName(table, record),
         snapshot: _getMonitorSnapshot(),
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
-      if (arr.length > 120) arr.length = 120;
+      if (arr.length > 10) arr.length = 10; // Last 10 entries always
       localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
     } catch { /* ignore */ }
   }
@@ -410,28 +409,81 @@ const SupabaseSync = (() => {
   function _getMonitorSnapshot() {
     try {
       const students = getAll(DB.students);
-      const finance = getAll(DB.finance);
+      const finance  = getAll(DB.finance);
       const accounts = getAll(DB.accounts);
+
+      // All-time stats
       const totalStudents = students.length;
-      const totalFee = students.reduce((sum, row) => sum + Number(row.total_fee || 0), 0);
-      const totalPaid = students.reduce((sum, row) => sum + Number(row.paid || 0), 0);
-      const totalDue = students.reduce((sum, row) => sum + Number(row.due || 0), 0);
-      const accountBalance = accounts.reduce((sum, row) => sum + Number(row.balance || 0), 0);
-      const totalIncome = finance.filter(f => String(f.type).toLowerCase() === 'income').reduce((sum, row) => sum + Number(row.amount || 0), 0);
-      const totalExpense = finance.filter(f => String(f.type).toLowerCase() === 'expense').reduce((sum, row) => sum + Number(row.amount || 0), 0);
-      const accountList = accounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
+      const totalFee  = students.reduce((s, r) => s + Number(r.total_fee || 0), 0);
+      const totalPaid = students.reduce((s, r) => s + Number(r.paid || 0), 0);
+      const totalDue  = students.reduce((s, r) => s + Number(r.due  || 0), 0);
+      // Income = Income + Loan Receiving; Expense = Expense + Loan Giving
+      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
+      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
+      const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+
+      // Account balances — normalize same as DashboardModule to avoid duplicates
+      const seen = new Set();
+      const cleanAccounts = accounts.filter(a => {
+        const name = String(a.name || '').trim();
+        if (a.type === 'Cash' && name !== 'Cash') return false;
+        if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+          if (!name || /^\d+$/.test(name) || /^Bank \d+$/.test(name) || /^Mobile Banking \d+$/.test(name)) return false;
+        }
+        const key = `${a.type}||${name}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      const accountBalance = cleanAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+      const accountList = cleanAccounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
+
+      // Running Batch stats — read from settings so snapshot is accurate
+      const cfg = (() => { try { return (getAll(DB.settings) || [])[0] || {}; } catch { return {}; } })();
+      const runningBatch = cfg.running_batch || '';
+      const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
+      const batchStudents = runningBatch
+        ? students.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
+        : [];
+      const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
+      const normDate = d => {
+        if (!d) return '';
+        const str = String(d).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        const p = str.split('/');
+        if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`;
+        const dt = new Date(str);
+        return isNaN(dt) ? '' : dt.toISOString().split('T')[0];
+      };
+      const expStart = normDate(cfg.expense_start_date);
+      const today = new Date().toISOString().split('T')[0];
+      const batchExpense = expStart
+        ? finance.filter(f => {
+            if (!EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
+            const fd = normDate(f.date);
+            return fd && fd >= expStart && fd <= today;
+          }).reduce((s, f) => s + Number(f.amount || 0), 0)
+        : totalExpense;
+
       return {
         students: { totalStudents, totalFee, totalPaid, totalDue },
-        accounts: { count: accounts.length, totalBalance: accountBalance, list: accountList },
-        finance: { totalIncome, totalExpense },
+        accounts: { count: cleanAccounts.length, totalBalance: accountBalance, list: accountList },
+        finance:  { totalIncome, totalExpense },
+        batch: {
+          name:       runningBatch,
+          students:   batchStudents.length,
+          collection: batchCollection,
+          expense:    batchExpense,
+          net:        batchCollection - batchExpense,
+        },
         recordedAt: new Date().toISOString(),
       };
     } catch {
-      return { students: {}, accounts: {}, finance: {}, recordedAt: new Date().toISOString() };
+      return { students: {}, accounts: {}, finance: {}, batch: {}, recordedAt: new Date().toISOString() };
     }
   }
-
-  function _getActivityLogs() {
+    function _getActivityLogs() {
     try { return JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); }
     catch { return []; }
   }

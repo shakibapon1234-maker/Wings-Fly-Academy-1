@@ -2517,16 +2517,20 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
     const monitor = typeof SyncEngine !== 'undefined' ? SyncEngine.getDataMonitor() : {};
-    // ✅ Filter: only show financial transactions (no settings/activity entries)
-    const FINANCIAL_TABLES = new Set(['finance_ledger','students','loans','salary','accounts']);
-    const allChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
-    const recentChanges = allChanges.filter(c => {
-      if (!c) return false;
-      if (FINANCIAL_TABLES.has(c.table)) return true;
-      // Fallback: if table missing, check category is not 'settings'
-      return c.category && c.category !== 'settings';
-    });
+    // wfa_recent_changes এখন শুধু finance transactions রাখে (supabase-sync.js-এ fixed)
+    const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const totalRecords = Object.values(monitor).reduce((s, v) => s + (v.localCount || 0), 0);
+
+    // Transaction type badge color
+    const txBadge = type => {
+      const t = String(type || '').toLowerCase();
+      if (t === 'income')           return 'badge-success';
+      if (t === 'expense')          return 'badge-error';
+      if (t.startsWith('transfer')) return 'badge-warning';
+      if (t === 'loan giving')      return 'badge-warning';
+      if (t === 'loan receiving')   return 'badge-info';
+      return 'badge-info';
+    };
 
     return `
     <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
@@ -2538,26 +2542,25 @@ ${expenseEntries.length > 0 ? `
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 20 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th></tr></thead>
+            <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
             <tbody>
-              ${recentChanges.length === 0 ?
-                `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted)">No financial transactions found — add income, expense or student fees to populate this list.</td></tr>` :
-                recentChanges.slice(0, 20).map((c, i) => {
-                  const badgeCls = c.type === 'Delete' ? 'badge-error' : c.type === 'Update' ? 'badge-warning' : 'badge-success';
-                  return `
-                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${allChanges.indexOf(c)})" title="Click for saved snapshot at this transaction">
+              ${transactions.length === 0 ?
+                `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
+                transactions.map((c, i) => `
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
                     <td>${i + 1}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
-                    <td><span class="badge ${badgeCls}">${c.type || '—'}</span></td>
+                    <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
                     <td style="font-size:.82rem">${c.category || '—'}</td>
                     <td style="font-size:.82rem">${c.person || '—'}</td>
+                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
                   </tr>
-                  <tr><td colspan="5" style="padding:0"><div class="monitor-bar" style="width:${Math.max(20, 100 - i * 8)}%"></div></td></tr>`;
-                }).join('')
+                  <tr><td colspan="6" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`
+                ).join('')
               }
             </tbody>
           </table>
@@ -2584,7 +2587,6 @@ ${expenseEntries.length > 0 ? `
       </div>
     </div>`;
   }
-
   // ════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
   // ════════════════════════════════════════════════════════════════
@@ -2767,7 +2769,7 @@ ${expenseEntries.length > 0 ? `
         saveConfig(cfg);
       }
       bin.splice(index, 1);
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
       Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
       refreshModal();
       return;
@@ -2781,7 +2783,7 @@ ${expenseEntries.length > 0 ? `
         localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       }
       bin.splice(index, 1);
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
       Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
       refreshModal();
       return;
@@ -2801,7 +2803,10 @@ ${expenseEntries.length > 0 ? `
         }
       }
       bin.splice(index, 1);
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
+      if (isIDB && typeof SupabaseSync !== 'undefined') {
+        SupabaseSync.setAll('recycle_bin', bin);
+      }
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
       Utils.toast(`নোট "${item.data?.title || 'Untitled'}" রিস্টোর হয়েছে ✓`, 'success');
       logActivity('restore', 'note', `Restored note: ${item.data?.title || 'Untitled'}`);
       refreshModal();
@@ -2821,7 +2826,10 @@ ${expenseEntries.length > 0 ? `
   }
 
   function permanentDelete(index) {
-    SupabaseSync.permanentDeleteRecycleBinItem(index); // ✅ IDB handled internally
+    SupabaseSync.permanentDeleteRecycleBinItem(index);
+    // Also clean up legacy localStorage bin if present
+    const lsBin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
+    if (lsBin.length > 0) { lsBin.splice(index, 1); localStorage.setItem('wfa_recycle_bin', JSON.stringify(lsBin)); }
     Utils.toast('Removed from recycle bin', 'info');
     refreshModal();
   }
@@ -2905,9 +2913,9 @@ ${expenseEntries.length > 0 ? `
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('keep_records', victim);
     } else {
-      // Fallback: write directly to IDB recycle bin (no localStorage)
+      // Fallback: write directly to localStorage recycle bin
       try {
-        const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+        const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
         bin.unshift({
           table: 'keep_records',
           data: (typeof structuredClone === 'function') ? structuredClone(victim) : JSON.parse(JSON.stringify(victim)),
@@ -2917,8 +2925,10 @@ ${expenseEntries.length > 0 ? `
           tableLabel: 'Keep Record',
         });
         if (bin.length > 200) bin.length = 200;
+        localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
+        // Also sync to IDB cache via SupabaseSync if available
         if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
-          SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
+          SupabaseSync.setAll('recycle_bin', bin);
         }
       } catch(e) { console.warn('[Recycle] note delete failed:', e); }
     }
@@ -3454,23 +3464,33 @@ ${expenseEntries.length > 0 ? `
   }
 
   function showMonitorSnapshot(index) {
-    const recentChanges = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
-    const item = recentChanges[index];
+    const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
+    const item = transactions[index];
     if (!item) return showLiveAccountSnapshot();
 
-    const snapshot = item.snapshot || {};
-    const students = snapshot.students || {};
-    const accounts = snapshot.accounts || {};
-    const finance = snapshot.finance || {};
+    // ── Use the saved snapshot — no live re-calculation ───────────
+    const snapshot    = item.snapshot || {};
+    const students    = snapshot.students || {};
+    const accounts    = snapshot.accounts || {};
+    const finance     = snapshot.finance  || {};
+    const batchSnap   = snapshot.batch    || {};
     const accountList = accounts.list || [];
-    const grandTotal = accounts.totalBalance || 0;
+    const grandTotal  = accounts.totalBalance || 0;
+
     const snapshotTime = snapshot.recordedAt
       ? new Date(snapshot.recordedAt).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : (item.date || '—');
 
-    const typeBadgeColor = item.type === 'Delete' ? '#ff4757' : item.type === 'Update' ? '#ffaa00' : '#00ff88';
-    const typeBgColor   = item.type === 'Delete' ? 'rgba(255,71,87,0.12)' : item.type === 'Update' ? 'rgba(255,170,0,0.12)' : 'rgba(0,255,136,0.12)';
-    const typeBorderColor = item.type === 'Delete' ? 'rgba(255,71,87,0.30)' : item.type === 'Update' ? 'rgba(255,170,0,0.30)' : 'rgba(0,255,136,0.30)';
+    // Transaction type colors
+    const typeColorMap = {
+      'Income':           { bg:'rgba(0,255,136,0.12)',  border:'rgba(0,255,136,0.30)',  text:'#00ff88' },
+      'Expense':          { bg:'rgba(255,71,87,0.12)',  border:'rgba(255,71,87,0.30)',  text:'#ff4757' },
+      'Transfer In':      { bg:'rgba(255,170,0,0.12)',  border:'rgba(255,170,0,0.30)',  text:'#ffaa00' },
+      'Transfer Out':     { bg:'rgba(255,170,0,0.12)',  border:'rgba(255,170,0,0.30)',  text:'#ffaa00' },
+      'Loan Giving':      { bg:'rgba(255,107,53,0.12)', border:'rgba(255,107,53,0.30)', text:'#ff6b35' },
+      'Loan Receiving':   { bg:'rgba(0,212,255,0.12)',  border:'rgba(0,212,255,0.30)',  text:'#00d4ff' },
+    };
+    const tc = typeColorMap[item.type] || { bg:'rgba(255,255,255,0.08)', border:'rgba(255,255,255,0.2)', text:'#fff' };
 
     // Account balance cards
     const accountCards = accountList.length > 0
@@ -3492,50 +3512,38 @@ ${expenseEntries.length > 0 ? `
         }).join('')
       : `<div style="color:var(--text-muted);font-size:.85rem;padding:16px;text-align:center;grid-column:1/-1"><i class="fa fa-circle-info" style="margin-right:6px"></i>No account data in this snapshot.</div>`;
 
-    // Net profit
-    const netProfit = (finance.totalIncome || 0) - (finance.totalExpense || 0);
+    // Net profit (all-time)
+    const netProfit  = (finance.totalIncome || 0) - (finance.totalExpense || 0);
     const profitColor = netProfit >= 0 ? '#00ff88' : '#ff4757';
 
-    // ── Running Batch Stats ──────────────────────────────────────────
-    const cfg = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
-    const runningBatch = cfg.running_batch || '';
-    const allStudents = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll(DB.students) : [];
-    const allFinance  = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll(DB.finance) : [];
-    const batchStudents = runningBatch ? allStudents.filter(s => s.batch === runningBatch && s.status !== 'Inactive') : [];
-    const batchStudentIds = new Set(batchStudents.map(s => s.id));
-    const batchIncome  = allFinance.filter(f => f.type === 'Income' && batchStudentIds.has(f.ref_id)).reduce((s,f) => s + Utils.safeNum(f.amount), 0);
-    const batchExpense = allFinance.filter(f => f.type === 'Expense').reduce((s,f) => s + Utils.safeNum(f.amount), 0);
-    const batchNet     = batchIncome - batchExpense;
-    const batchNetColor = batchNet >= 0 ? '#00ff88' : '#ff4757';
-
-    const batchRow = runningBatch ? `
-      <!-- Running Batch Row -->
+    // Running Batch row — from snapshot (no live re-calc)
+    const batchName = batchSnap.name || '';
+    const batchRow = batchName ? `
       <div style="margin-bottom:14px;padding:12px 16px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
         <div style="font-size:.68rem;font-weight:800;letter-spacing:1.5px;color:#00d4ff;margin-bottom:10px;display:flex;align-items:center;gap:8px">
           <i class="fa fa-graduation-cap"></i> RUNNING BATCH OVERVIEW
-          <span style="background:rgba(0,212,255,0.12);padding:2px 10px;border-radius:20px;font-size:.65rem;color:#00d4ff;border:1px solid rgba(0,212,255,0.25)">${Utils.esc(runningBatch)}</span>
+          <span style="background:rgba(0,212,255,0.12);padding:2px 10px;border-radius:20px;font-size:.65rem;color:#00d4ff;border:1px solid rgba(0,212,255,0.25)">${Utils.esc(batchName)}</span>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
           <div style="text-align:center;padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px">
             <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
-            <div style="font-size:1.1rem;font-weight:900;color:#00e5ff">${batchStudents.length}</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#00e5ff">${batchSnap.students || 0}</div>
           </div>
           <div style="text-align:center;padding:12px 14px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.18);border-radius:10px">
             <div style="font-size:.68rem;color:rgba(0,255,136,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Collection</div>
-            <div style="font-size:1.1rem;font-weight:900;color:#00ff88">${Utils.takaEn(batchIncome)}</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#00ff88">${Utils.takaEn(batchSnap.collection || 0)}</div>
           </div>
           <div style="text-align:center;padding:12px 14px;background:rgba(255,71,87,0.06);border:1px solid rgba(255,71,87,0.18);border-radius:10px">
             <div style="font-size:.68rem;color:rgba(255,71,87,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Expense</div>
-            <div style="font-size:1.1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(batchExpense)}</div>
+            <div style="font-size:1.1rem;font-weight:900;color:#ff6b7a">${Utils.takaEn(batchSnap.expense || 0)}</div>
           </div>
-          <div style="text-align:center;padding:12px 14px;background:rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.06);border:1px solid rgba(${batchNet>=0?'0,255,136':'255,71,87'},0.18);border-radius:10px">
-            <div style="font-size:.68rem;color:${batchNetColor};opacity:.7;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Net P/L</div>
-            <div style="font-size:1.1rem;font-weight:900;color:${batchNetColor}">${Utils.takaEn(batchNet)}</div>
+          <div style="text-align:center;padding:12px 14px;background:rgba(${(batchSnap.net||0)>=0?'0,255,136':'255,71,87'},0.06);border:1px solid rgba(${(batchSnap.net||0)>=0?'0,255,136':'255,71,87'},0.18);border-radius:10px">
+            <div style="font-size:.68rem;color:${(batchSnap.net||0)>=0?'#00ff88':'#ff4757'};opacity:.7;font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Net P/L</div>
+            <div style="font-size:1.1rem;font-weight:900;color:${(batchSnap.net||0)>=0?'#00ff88':'#ff4757'}">${Utils.takaEn(batchSnap.net || 0)}</div>
           </div>
         </div>
       </div>` : '';
 
-    // ✅ Fix: Use openSettingsInternalModal (z-index:999999) so it appears ON TOP of Settings modal
     openSettingsInternalModal(
       `<span style="display:inline-flex;align-items:center;gap:8px"><i class="fa fa-camera" style="color:#00d9ff"></i><span>Monitor \u2014 Account Balances</span></span>`,
       `
@@ -3543,12 +3551,14 @@ ${expenseEntries.length > 0 ? `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
         <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:rgba(0,212,255,0.9);font-weight:700">
           <i class="fa fa-camera" style="font-size:.8rem"></i>
-          <span>Balance Snapshot \u2014 ${snapshotTime} \u2014 Latest Change</span>
+          <span>Balance Snapshot \u2014 ${snapshotTime}</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          <span style="background:${typeBgColor};border:1px solid ${typeBorderColor};color:${typeBadgeColor};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '\u2014'}</span>
+          <span style="background:${tc.bg};border:1px solid ${tc.border};color:${tc.text};padding:3px 10px;border-radius:20px;font-size:.72rem;font-weight:800">${item.type || '\u2014'}</span>
           <span style="font-size:.75rem;color:rgba(255,255,255,0.45)">${Utils.esc(item.category || '\u2014')}</span>
           ${item.person ? `<span style="font-size:.75rem;color:rgba(255,255,255,0.35)">\u2022 ${Utils.esc(item.person)}</span>` : ''}
+          ${item.amount ? `<span style="font-size:.8rem;font-weight:700;color:${tc.text};font-family:var(--font-ui)">${Utils.takaEn(item.amount)}</span>` : ''}
+          ${item.method ? `<span style="font-size:.72rem;color:rgba(255,255,255,0.35)">(${Utils.esc(item.method)})</span>` : ''}
         </div>
       </div>
 
@@ -3590,12 +3600,11 @@ ${expenseEntries.length > 0 ? `
       <!-- hint -->
       <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
-        \u09b2\u09be\u09b8\u09cd\u099f \u09e7\u09e6\u099f\u09be financial transaction \u098f\u0996\u09be\u09a8\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7\u0964 \u09af\u09c7\u0995\u09cb\u09a8\u09cb row \u09a4\u09c7 \u09a6\u09c7\u0996\u09be\u09ac\u09c7 \u09b8\u09c7\u0987 \u09b8\u09ae\u09af\u09bc\u09c7\u09b0 Account Balance Snapshot.
+        এই snapshot টি transaction-এর সময় automatically save হয়েছিল। Dashboard-এর actual data-ই দেখাচ্ছে, live re-calculation নয়।
       </div>
       `
     , '720px');
   }
-
   // ─── Diagnostic Functions ─────────────────────────────────────
   function runAutoHeal() {
     let checks = 0, fixes = 0;
@@ -4594,8 +4603,8 @@ ${expenseEntries.length > 0 ? `
     const subs = getSubAccounts();
     const target = subs[idx];
     if (target) {
-      // ✅ Push to IDB recycle bin before deleting so it can be restored
-      const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
+      // ✅ Req 2: push to recycle bin before deleting so it can be restored
+      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
       bin.unshift({
         table: 'settings_subaccount',
         type:  'subaccount',
@@ -4604,7 +4613,7 @@ ${expenseEntries.length > 0 ? `
         deletedAt: new Date().toISOString(),
       });
       if (bin.length > 500) bin.length = 500;
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // ✅ IDB-only
+      localStorage.setItem('wfa_recycle_bin', JSON.stringify(bin));
 
       subs.splice(idx, 1);
       localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
