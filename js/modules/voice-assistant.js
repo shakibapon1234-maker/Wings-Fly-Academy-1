@@ -43,6 +43,8 @@ const VoiceAssistant = (() => {
   let btn           = null;
   let lastSpeech    = '';
   let isNavigating  = false;
+  let isContinuous  = false;  // ★ NEW: Continuous listening mode
+  let currentLang   = 'en-US'; // ★ NEW: Current language (en-US or bn-IN)
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -65,7 +67,7 @@ const VoiceAssistant = (() => {
 
     btn = document.createElement('div');
     btn.id = 'ai-avatar-container';
-    btn.title = 'AI Assistant — Click to speak';
+    btn.title = 'AI Assistant — Click to start (Escape to stop) — English & Bengali supported';
     btn.innerHTML = buildDollHTML();
     btn.onclick = toggleListening;
     document.body.appendChild(btn);
@@ -88,19 +90,23 @@ const VoiceAssistant = (() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SR) {
       recognition = new SR();
-      recognition.continuous      = false;
-      recognition.lang            = 'en-US';
+      recognition.continuous      = true;  // ★ MODIFIED: Changed to true for continuous listening
+      recognition.lang            = currentLang;
       recognition.interimResults  = false;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         isListening = true;
         btn.classList.add('listening');
-        showBubble('🎤 Listening…', false);
-        if (typeof Utils !== 'undefined') Utils.toast('🎤 Listening… Speak now.', 'info');
+        const msg = currentLang === 'bn-IN' ? '🎤 শুনছি…' : '🎤 Listening…';
+        showBubble(msg, false);
+        if (typeof Utils !== 'undefined') {
+          const toast = currentLang === 'bn-IN' ? '🎤 শুনছি… এখন কথা বলুন।' : '🎤 Listening… Speak now.';
+          Utils.toast(toast, 'info');
+        }
       };
       recognition.onresult = (e) => {
-        const cmd = e.results[0][0].transcript.toLowerCase().trim();
+        const cmd = e.results[e.results.length - 1][0].transcript.toLowerCase().trim();
         console.log('[Voice v4] Command:', cmd);
         showBubble(`"${cmd}"`, false);
         processCommand(cmd);
@@ -108,9 +114,21 @@ const VoiceAssistant = (() => {
       recognition.onerror = (e) => {
         if (e.error !== 'no-speech' && typeof Utils !== 'undefined')
           Utils.toast('Mic error: ' + e.error, 'error');
-        stopUI();
+        // ★ MODIFIED: Don't stop on error, keep continuous listening
+        if (isContinuous) {
+          try { recognition.start(); } catch(ex) { console.warn(ex); }
+        } else {
+          stopUI();
+        }
       };
-      recognition.onend = stopUI;
+      recognition.onend = () => {
+        // ★ MODIFIED: Restart if continuous mode is on
+        if (isContinuous && isListening) {
+          try { recognition.start(); } catch(ex) { console.warn(ex); }
+        } else {
+          stopUI();
+        }
+      };
     } else {
       console.warn('[Voice] Speech Recognition not supported.');
       if (btn) btn.style.display = 'none';
@@ -121,6 +139,14 @@ const VoiceAssistant = (() => {
 
     window.addEventListener('wfa:navigate', (e) => {
       if (e.detail?.section === 'dashboard') setTimeout(greetUser, 1500);
+    });
+
+    // ★ NEW: Escape key to disable continuous listening
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isContinuous && isListening) {
+        e.preventDefault();
+        stopContinuousListening();
+      }
     });
   }
 
@@ -540,14 +566,48 @@ const VoiceAssistant = (() => {
     if (localStorage.getItem('wfa_logged_in') === 'true') {
       const hour = new Date().getHours();
       const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
-      speak(`${greeting}, Admin! I am ready to assist. Say "help" to hear all my commands.`);
+      const msg = `${greeting}, Admin! I am ready to assist. I now support English and Bengali. Click once to start continuous listening, then press Escape to stop. Say "help" to hear all my commands.`;
+      speak(msg);
     }
   }
 
   function toggleListening() {
     if (!recognition) return;
-    if (isListening) { recognition.stop(); stopUI(); }
-    else { try { recognition.start(); } catch(e) { console.warn(e); } }
+    // ★ MODIFIED: One click enables continuous listening
+    if (isListening && isContinuous) {
+      // Already in continuous mode, don't toggle off - only Escape will stop
+      showBubble(currentLang === 'bn-IN' ? '🎤 চলছে... (Escape এ থামান)' : '🎤 Running... (Press Escape to stop)', false);
+    } else if (!isListening) {
+      // Start continuous listening
+      startContinuousListening();
+    }
+  }
+
+  // ★ NEW: Start continuous listening mode
+  function startContinuousListening() {
+    if (!recognition) return;
+    isContinuous = true;
+    try { 
+      recognition.start(); 
+      isListening = true;
+      btn.classList.add('listening');
+      const msg = currentLang === 'bn-IN' 
+        ? '🎤 চলছে... Escape এ থামান'
+        : '🎤 Continuous mode ON... Press Escape to stop';
+      showBubble(msg, true);
+      if (typeof Utils !== 'undefined') Utils.toast(msg, 'info');
+    } catch(e) { console.warn(e); }
+  }
+
+  // ★ NEW: Stop continuous listening mode (triggered by Escape key)
+  function stopContinuousListening() {
+    if (!recognition) return;
+    isContinuous = false;
+    recognition.stop();
+    stopUI();
+    const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
+    showBubble(msg, false);
+    if (typeof Utils !== 'undefined') Utils.toast(msg, 'success');
   }
 
   function stopUI() {
@@ -598,6 +658,150 @@ const VoiceAssistant = (() => {
   function isDetailedRequest(cmd) { return /\b(detail|details|detailed|breakdown|full detail|show all|all transaction|complete report|full report)\b/.test(cmd); }
   function isExpenseKeyword(cmd)  { return /\b(expense|expenses|spend|spending|cost|expenditure|outgoing)\b/.test(cmd); }
   function isIncomeKeyword(cmd)   { return /\b(income|earn|revenue|collection|received|incoming)\b/.test(cmd); }
+  
+  /* ════════════════════════════════════════════════
+     ★ NEW: BENGALI COMMAND TRANSLATION
+  ════════════════════════════════════════════════ */
+  
+  // ★ NEW: Detect if a string contains Bengali characters
+  function isBengaliText(text) {
+    const bengaliRegex = /[\u0980-\u09FF]/; // Bengali Unicode range
+    return bengaliRegex.test(text);
+  }
+
+  const bengaliTranslations = {
+    // ── Navigation Commands ──
+    'ড্যাশবোর্ড': 'dashboard',
+    'হোম': 'home',
+    'ছাত্র': 'students',
+    'শিক্ষার্থী': 'students',
+    'আর্থিক': 'finance',
+    'অর্থ': 'finance',
+    'টাকা': 'finance',
+    'অ্যাকাউন্ট': 'accounts',
+    'ব্যাংক': 'accounts',
+    'ঋণ': 'loans',
+    'দর্শক': 'visitors',
+    'অতিথি': 'visitors',
+    'এইচআর': 'hr',
+    'কর্মী': 'staff',
+    'কর্মচারী': 'staff',
+    'পরীক্ষা': 'exam',
+    'ফলাফল': 'exam',
+    'বেতন': 'salary',
+    'পেমেন্ট': 'salary',
+    'উপস্থিতি': 'attendance',
+    'হাজিরা': 'attendance',
+    'আইডি': 'id-card',
+    'পরিচয়': 'id-card',
+    'সার্টিফিকেট': 'certificates',
+    'সনদ': 'certificates',
+    'ঘোষণা': 'notice',
+    'নোটিশ': 'notice',
+    'সেটিংস': 'settings',
+    'সাজসজ্জা': 'settings',
+    'থিম': 'settings',
+    
+    // ── Common Commands ──
+    'সাহায্য': 'help',
+    'কমান্ড': 'help',
+    'কি': 'what',
+    'করতে': 'do',
+    'করো': 'do',
+    'শুনো': 'hello',
+    'শোনো': 'hello',
+    'হাই': 'hi',
+    'হ্যালো': 'hello',
+    'সুপ্রভাত': 'good morning',
+    'সকাল': 'morning',
+    'সন্ধ্যা': 'evening',
+    'শুভ': 'good',
+    'রাত': 'night',
+    'বন্ধ': 'stop',
+    'চুপ': 'quiet',
+    'থামো': 'stop',
+    'থামুন': 'stop',
+    'আবার': 'repeat',
+    'বল': 'say',
+    'বলো': 'say',
+    'সময়': 'time',
+    'এখন': 'now',
+    'কত': 'how many',
+    'তারিখ': 'date',
+    'দিন': 'day',
+    'মজা': 'joke',
+    'হাসি': 'laugh',
+    'জোক': 'joke',
+    'অনলাইন': 'online',
+    'অফলাইন': 'offline',
+    'সিস্টেম': 'system',
+    'স্ট্যাটাস': 'status',
+    
+    // ── Reports & Data ──
+    'মোট': 'total',
+    'সংখ্যা': 'count',
+    'সাম্প্রতিক': 'recent',
+    'নতুন': 'new',
+    'বকেয়া': 'due',
+    'বাকি': 'outstanding',
+    'সর্বোচ্চ': 'highest',
+    'সর্বনিম্ন': 'lowest',
+    'বেশি': 'most',
+    'ব্যাচ': 'batch',
+    'প্রতিবেদন': 'report',
+    'রিপোর্ট': 'report',
+    'সারাংশ': 'summary',
+    'বিস্তারিত': 'detailed',
+    'খরচ': 'expense',
+    'আয়': 'income',
+    'রাজস্ব': 'revenue',
+    'সংগ্রহ': 'collection',
+    'প্রাপ্ত': 'received',
+    'মাসিক': 'monthly',
+    'বার্ষিক': 'yearly',
+    'আজকের': 'today',
+    'এই': 'this',
+    'মাসের': 'month',
+    'বছরের': 'year',
+    'সপ্তাহ': 'week',
+    'গত': 'last',
+    'পরবর্তী': 'next'
+  };
+
+  // ★ NEW: Translate Bengali command to English
+  function translateBengaliCommand(cmd) {
+    // Check if the command contains Bengali characters
+    if (!isBengaliText(cmd)) {
+      return cmd; // No Bengali, return as is
+    }
+    
+    // Update language if Bengali detected
+    if (currentLang !== 'bn-IN') {
+      currentLang = 'bn-IN';
+      if (recognition) recognition.lang = currentLang;
+    }
+    
+    // Split command into words and translate each word
+    let words = cmd.split(/\s+/);
+    let translated = words.map(word => {
+      // Try exact match first
+      if (bengaliTranslations[word]) {
+        return bengaliTranslations[word];
+      }
+      
+      // Try partial match
+      for (const [bengali, english] of Object.entries(bengaliTranslations)) {
+        if (word.includes(bengali)) {
+          return word.replace(bengali, english);
+        }
+      }
+      
+      return word; // No translation found, keep original
+    }).join(' ');
+    
+    return translated;
+  }
+
   function dbAll(key) {
     try { return (typeof SupabaseSync!=='undefined') ? SupabaseSync.getAll((typeof DB!=='undefined'?DB[key]:null)||key) : []; }
     catch(e) { return []; }
@@ -1047,51 +1251,60 @@ const VoiceAssistant = (() => {
   }
 
   function reportHelp() {
-    showReport('Voice Commands — v4.0','fa-circle-question',[
+    const helpText = `
+🎙️ CONTINUOUS LISTENING MODE (v4.1):
+• Click once to START - Assistant keeps listening
+• Press ESCAPE to STOP listening
+• Supports both ENGLISH & BENGALI commands
+
+📝 Say these commands:
+`;
+    
+    speak('I now support English and Bengali commands. Click to start continuous listening, press Escape to stop. ' +
+          'Try saying: open settings, how many students, what time is it, or tell me a joke.');
+    
+    showReport('Voice Commands — v4.1 (Bilingual)','fa-circle-question',[
+      ['🎙️ MODE ──────────────────','─────────',          '#00e5ff'],
+      ['Click avatar',               'Start listening',    '#00ff88'],
+      ['Press ESCAPE',               'Stop listening',     '#ff4757'],
+      ['Supports English',           'Yes ✓',              '#00e5ff'],
+      ['Supports Bengali',           'Yes ✓ (নতুন)',      '#00ff88'],
       ['── NAVIGATION ──────────────','─────────',         '#555'],
       ['"open settings"',            'Fly to Settings',    '#c084fc'],
       ['"go to students"',           'Fly to Students',    '#00e5ff'],
       ['"fly to finance"',           'Fly to Finance',     '#00ff88'],
       ['"walk to attendance"',       'Go to Attendance',   '#ffaa00'],
+      ['ড্যাশবোর্ড খোল',             'সেটিংস এ যাও',      '#c084fc'],
       ['── DATE & TIME ────────────','─────────',          '#555'],
       ['"what time is it"',          'Current time',       '#00e5ff'],
       ['"what is today"',            'Current date',       '#00e5ff'],
+      ['এখন কি সময়',                 'বর্তমান সময়',      '#00e5ff'],
       ['── STUDENT INFO ───────────','─────────',          '#555'],
       ['"how many students"',        'Student count',      '#00ff88'],
       ['"who has highest due"',      'Top due student',    '#ff4757'],
       ['"recent admissions"',        'Last 5 students',    '#00ff88'],
-      ['"how many batches"',         'Batch overview',     '#ffaa00'],
-      ['── REPORTS ────────────────','─────────',          '#555'],
-      ['"today\'s report"',          'Daily summary',      '#00e5ff'],
-      ['"detailed expense report"',  'Full expense',       '#ff4757'],
-      ['"top expenses"',             'Top 10 expenses',    '#ff6b35'],
-      ['"cash flow"',                'Income vs expense',  '#c084fc'],
-      ['"monthly summary"',          'Month-by-month',     '#a0c4ff'],
+      ['মোট ছাত্র কত',                'শিক্ষার্থী সংখ্যা',   '#00ff88'],
       ['── UTILITY ────────────────','─────────',          '#555'],
-      ['"read notice board"',        'Latest notices',     '#ffaa00'],
-      ['"any exam today"',           'Today\'s exams',     '#ff4757'],
-      ['"staff count"',              'HR staff total',     '#00e5ff'],
-      ['"system status"',            'App health',         '#c084fc'],
       ['"tell me a joke"',           'Aviation joke 😄',   '#00ff88'],
-      ['"scroll up / down"',         'Page scroll',        '#a0c4ff'],
-      ['"repeat"',                   'Repeat last speech', '#c084fc'],
-      ['"stop"',                     'Stop speaking',      '#ff4757'],
-      ['"print"',                    'Print page',         '#ffaa00'],
-      ['"refresh"',                  'Refresh data',       '#00e5ff'],
-    ],'💡 Say "fly to [module]" to see her navigate!','Here are all voice commands. Try saying fly to settings.');
+      ['"system status"',            'App health',         '#c084fc'],
+      ['"stop" or "थামो"',            'Stop speaking',      '#ff4757'],
+      ['"repeat"',                   'Repeat last',        '#c084fc'],
+    ],'💡 Use English OR Bengali! Try saying: "সেটিংস খোল" or "how many students"','Both languages work! Try voice commands now.');
   }
 
   /* ════════════════════════════════════════════════
      MAIN COMMAND PROCESSOR (v4.0)
   ════════════════════════════════════════════════ */
   function processCommand(raw) {
-    const cmd     = normalizeNumbers(raw);
+    // ★ NEW: Translate Bengali commands to English
+    let translatedCmd = translateBengaliCommand(raw.toLowerCase());
+    const cmd = normalizeNumbers(translatedCmd);
     let handled   = false;
     const detailed = isDetailedRequest(cmd);
 
     // ── STOP ─────────────────────────────────────────────────────
-    if (/\b(stop|quiet|shh|silence|shut up|be quiet)\b/.test(cmd)) {
-      synth.cancel(); hideBubble(); speak('Okay, I\'ll be quiet.'); return;
+    if (/\b(stop|quiet|shh|silence|shut up|be quiet|থামো|চুপ থাক)\b/.test(cmd)) {
+      synth.cancel(); hideBubble(); speak(currentLang === 'bn-IN' ? 'ঠিক আছে, চুপ থাকছি।' : 'Okay, I\'ll be quiet.'); return;
     }
 
     // ── REPEAT ───────────────────────────────────────────────────
