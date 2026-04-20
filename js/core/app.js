@@ -851,21 +851,35 @@ window.App = App;
 // ── Date Input locale fix: force DD/MM/YYYY everywhere ──────────────
 (function enforceDateLocale() {
   function fixDateInputs() {
-    document.querySelectorAll('input[type="date"]').forEach(el => {
-      if (!el.hasAttribute('data-locale-fixed')) {
+    document.querySelectorAll('input[type="date"], .date-picker, [class*="date"]').forEach(el => {
+      if (!el.hasAttribute('data-locale-fixed') && !el.closest('.flatpickr-calendar')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
-        // ✅ Phase 2: Auto-init Flatpickr for consistent DD/MM/YYYY display
-        if (typeof flatpickr !== 'undefined' && !el._flatpickr && !el.closest('.flatpickr-calendar')) {
+        // ✅ REQUIREMENT #4: Force DD/MM/YYYY format everywhere
+        if (typeof flatpickr !== 'undefined' && !el._flatpickr) {
           try {
             flatpickr(el, {
-              dateFormat: 'Y-m-d',
-              altInput: true,
+              dateFormat: 'd/m/Y',           // ✅ MAIN FORMAT: DD/MM/YYYY
+              altInput: false,               // No extra input field
               altFormat: 'd/m/Y',
-              allowInput: true,
-              locale: { firstDayOfWeek: 1 },
+              allowInput: true,              // User can type dates
+              locale: { firstDayOfWeek: 1 }, // Week starts Monday
+              mode: 'single',
+              // Parse dates in DD/MM/YYYY format
+              parseDate: (datestr) => {
+                if (!datestr) return null;
+                const parts = String(datestr).split('/');
+                if (parts.length === 3) {
+                  const [day, month, year] = parts.map(p => parseInt(p, 10));
+                  return new Date(year, month - 1, day);
+                }
+                // Fallback: try ISO format
+                return new Date(datestr);
+              }
             });
-          } catch { /* ignore if already initialized */ }
+          } catch (e) { 
+            console.warn('[Date] Flatpickr init error:', e);
+          }
         }
       }
     });
