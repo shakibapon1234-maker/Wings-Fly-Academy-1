@@ -556,9 +556,11 @@ const App = (() => {
         });
         break;
       case 'transaction':
-        waitAndOpen('finance', 'finance-content', () => {
-          if (typeof Finance !== 'undefined') Finance.openAddModal();
-        });
+        // Fix: Finance page render না করে directly modal open করো
+        // এতে page hang হওয়ার সমস্যা দূর হবে
+        if (typeof Finance !== 'undefined') {
+          Finance.openAddModal();
+        }
         break;
       case 'loan':
         waitAndOpen('loans', 'loans-content', () => {
