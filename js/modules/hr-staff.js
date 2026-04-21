@@ -157,7 +157,7 @@ const HRStaff = (() => {
               <td><code>${s.staffId || '—'}</code></td>
               <td><strong>${Utils.esc(s.name)}</strong></td>
               <td><span class="badge badge-blue">${s.role}</span></td>
-              <td>${Utils.esc(s.phone || "—")}</td>
+              <td>${Utils.maskPhone(s.phone)}</td>
               <td>${s.email || '—'}</td>
               <td>৳${Utils.formatMoneyPlain(s.salary || 0)}</td>
               <td>${s.joiningDate ? Utils.formatDateDMY(s.joiningDate) : '—'}</td>

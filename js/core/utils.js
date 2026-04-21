@@ -18,6 +18,15 @@ const Utils = (() => {
       .replace(/\//g, '&#x2F;');
   }
 
+  // Bug #18 Fix: Phone masking — Admin দেখলে full number, অন্যরা masked দেখবে (e.g. 017••••8899)
+  function maskPhone(phone) {
+    if (!phone) return '—';
+    const p = String(phone).trim();
+    if (typeof App !== 'undefined' && App.isAdmin && App.isAdmin()) return esc(p);
+    if (p.length <= 4) return p; // too short to mask
+    return esc(p.slice(0, 3) + '••••' + p.slice(-4));
+  }
+
   // ── Safe JSON Parser ────────────────────────────────────────
   // JSON.parse wrapper — corrupt/invalid data হলে crash না করে fallback দেয়
   function safeJSON(str, fallback = null) {
@@ -621,7 +630,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc, safeJSON,
+      esc, safeJSON, maskPhone,
       // Modal
       openModal, closeModal, confirm,
       // Badges

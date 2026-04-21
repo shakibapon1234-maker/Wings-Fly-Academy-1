@@ -165,7 +165,7 @@ const Students = (() => {
           <div style="font-weight:600">${Utils.esc(s.name)}</div>
           ${s.email ? `<div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(s.email)}</div>` : ''}
         </td>
-        <td>${Utils.esc(s.phone)||'—'}</td>
+        <td>${Utils.maskPhone(s.phone)}</td>
         <td>${Utils.esc(s.course)||'—'}</td>
         <td>${Utils.esc(s.batch)||'—'}</td>
         <td>${Utils.esc(s.session)||'—'}</td>
