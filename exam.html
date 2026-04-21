@@ -505,7 +505,6 @@
       <div id="resultDetails"></div>
     </div>
 
-    <button class="btn btn-primary" onclick="location.reload()">আরেকটি এক্সাম দিন</button>
   </div>
 
 </div>
@@ -660,6 +659,21 @@ function startExam() {
             <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
           </div>`;
         return;
+      }
+
+      // Check if student already took the exam
+      if (typeof window.DB !== 'undefined' && SupabaseSync && SupabaseSync.getAll) {
+        const exams = SupabaseSync.getAll(DB.exams) || [];
+        const alreadyTaken = exams.find(e => 
+          e.student_id === studentId && 
+          e.student_name === studentName && 
+          (e.status === 'Passed' || e.status === 'Failed' || (e.marks !== undefined && e.marks !== null))
+        );
+        
+        if (alreadyTaken) {
+          alert('দুঃখিত! আপনি ইতিমধ্যে এই এক্সামটি দিয়েছেন। একই নাম ও আইডি ব্যবহার করে দুইবার এক্সাম দেওয়া যাবে না।');
+          return;
+        }
       }
 
       document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
@@ -881,7 +895,7 @@ function showResults() {
       <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
         <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px;">
           <span>প্রশ্ন ${i+1}</span>
-          <span>মান: ${mark} ${userAns !== undefined ? (isCorrect ? \`(প্রাপ্ত: \${mark})\` : \`(প্রাপ্ত: 0)\`) : \`(প্রাপ্ত: 0)\`}</span>
+          <span>মান: ${mark} ${userAns !== undefined ? (isCorrect ? "(প্রাপ্ত: " + mark + ")" : "(প্রাপ্ত: 0)") : "(প্রাপ্ত: 0)"}</span>
         </div>
         <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
         ${userAns !== undefined
