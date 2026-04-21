@@ -17,6 +17,19 @@ const VisitorsModule = (() => {
     return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
   }
 
+  // Reference source options
+  const REFERENCE_OPTIONS = [
+    'YouTube',
+    'Facebook',
+    'Instagram',
+    'Online Platform',
+    'Friend/Relative',
+    'Student Referral',
+    'Banner/Poster',
+    'Walk-in',
+    'Other'
+  ];
+
   function onSearch(val) {
     searchQuery = (val || '').toLowerCase().trim();
     render();
@@ -64,7 +77,9 @@ const VisitorsModule = (() => {
           (v.name || '').toLowerCase().includes(searchQuery) ||
           (v.phone || '').toLowerCase().includes(searchQuery) ||
           (v.purpose || '').toLowerCase().includes(searchQuery) ||
-          (v.interested_course || '').toLowerCase().includes(searchQuery)
+          (v.interested_course || '').toLowerCase().includes(searchQuery) ||
+          (v.address || '').toLowerCase().includes(searchQuery) ||
+          (v.reference || '').toLowerCase().includes(searchQuery)
         )
       : allVisitors;
 
@@ -126,6 +141,8 @@ const VisitorsModule = (() => {
               <tr>
                 <th>Date</th>
                 <th>Name & Contact</th>
+                <th>Address</th>
+                <th>Reference</th>
                 <th>Course Interested</th>
                 <th>Status</th>
                 <th>Follow-up</th>
@@ -146,6 +163,10 @@ const VisitorsModule = (() => {
                   <td>
                     <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
+                  </td>
+                  <td style="font-size:0.85rem; color:var(--text-muted);">${Utils.esc(v.address || '-')}</td>
+                  <td>
+                    ${v.reference ? `<span style="background:rgba(124,58,237,0.2); color:#a78bfa; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;"><i class="fa fa-share-nodes" style="margin-right:4px;"></i>${Utils.esc(v.reference)}</span>` : '<span style="color:var(--text-muted)">-</span>'}
                   </td>
                   <td style="font-weight:600; color:#00d4ff;">${Utils.esc(v.interested_course || '-')}</td>
                   <td>${statusBadge}</td>
@@ -193,6 +214,22 @@ const VisitorsModule = (() => {
         <div class="form-group">
           <label>Phone Number <span class="req">*</span></label>
           <input type="text" id="vis-phone" class="form-control" placeholder="017..." value="${Utils.escAttr(r?.phone || '')}" />
+        </div>
+      </div>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label>Address</label>
+          <input type="text" id="vis-address" class="form-control" placeholder="e.g. Mirpur, Dhaka" value="${Utils.escAttr(r?.address || '')}" />
+        </div>
+        <div class="form-group">
+          <label>Reference <span style="font-size:0.75rem; color:var(--text-muted);">(কিভাবে জানলেন?)</span></label>
+          <select id="vis-reference" class="form-control">
+            <option value="">-- Select Reference --</option>
+            ${REFERENCE_OPTIONS.map(ref => `
+              <option value="${ref}" ${r?.reference === ref ? 'selected' : ''}>${ref}</option>
+            `).join('')}
+          </select>
         </div>
       </div>
       
@@ -246,6 +283,8 @@ const VisitorsModule = (() => {
     const data = {
       name,
       phone,
+      address: document.getElementById('vis-address')?.value.trim() || '',
+      reference: document.getElementById('vis-reference')?.value || '',
       interested_course: document.getElementById('vis-course')?.value.trim() || '',
       status: document.getElementById('vis-status')?.value || 'Interested',
       visit_date: document.getElementById('vis-vdate')?.value || Utils.today(),

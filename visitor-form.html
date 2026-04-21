@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Visitor Registration — Wings Fly Aviation Academy</title>
+  <link rel="icon" href="assets/favicon.ico" />
+
+  <!-- Supabase JS -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #0a1a2e 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 16px 40px;
+      color: #fff;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 28px;
+      animation: fadeInDown 0.6s ease;
+    }
+
+    .logo-wrap {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00d4ff22, #7c3aed22);
+      border: 2px solid rgba(0,212,255,0.3);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+      overflow: hidden;
+    }
+
+    .logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #00d4ff, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+
+    .header p {
+      color: rgba(255,255,255,0.5);
+      font-size: 0.85rem;
+      margin-top: 6px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      padding: 28px 24px;
+      backdrop-filter: blur(20px);
+      animation: fadeInUp 0.6s ease;
+    }
+
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 800;
+      color: #00d4ff;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(0,212,255,0.2);
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.7);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .req { color: #ff4757; }
+
+    input, select, textarea {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      padding: 12px 14px;
+      color: #fff;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      -webkit-appearance: none;
+    }
+
+    input::placeholder, textarea::placeholder {
+      color: rgba(255,255,255,0.25);
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(0,212,255,0.6);
+      box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+    }
+
+    select option {
+      background: #1a0a2e;
+      color: #fff;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 420px) {
+      .form-row { grid-template-columns: 1fr; }
+    }
+
+    .btn-submit {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #00d4ff, #7c3aed);
+      border: none;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 800;
+      cursor: pointer;
+      margin-top: 20px;
+      letter-spacing: 0.5px;
+      transition: transform 0.15s, opacity 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .btn-submit:hover { transform: translateY(-1px); }
+    .btn-submit:active { transform: translateY(0); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* Success state */
+    .success-screen {
+      text-align: center;
+      padding: 40px 20px;
+      display: none;
+    }
+
+    .success-icon {
+      width: 80px; height: 80px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #00ff88, #00d4ff);
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 20px;
+      font-size: 2rem;
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .success-screen h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #00ff88;
+      margin-bottom: 8px;
+    }
+
+    .success-screen p {
+      color: rgba(255,255,255,0.6);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .success-screen .another-btn {
+      margin-top: 24px;
+      padding: 10px 24px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px;
+      color: #fff;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .success-screen .another-btn:hover { background: rgba(255,255,255,0.12); }
+
+    /* Error toast */
+    .toast {
+      position: fixed;
+      top: 20px; left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: #ff4757;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      transition: transform 0.3s ease;
+      z-index: 1000;
+      white-space: nowrap;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    .footer-note {
+      text-align: center;
+      color: rgba(255,255,255,0.2);
+      font-size: 0.75rem;
+      margin-top: 24px;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translateY(-20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes popIn {
+      from { transform: scale(0); }
+      to   { transform: scale(1); }
+    }
+
+    .loading-spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="logo-wrap">
+      <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'">
+    </div>
+    <h1>Wings Fly Aviation Academy</h1>
+    <p>Visitor Registration Form</p>
+  </div>
+
+  <!-- Card -->
+  <div class="card" id="form-card">
+
+    <!-- Form -->
+    <div id="form-view">
+
+      <div class="section-title">Personal Information</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name <span class="req">*</span></label>
+          <input type="text" id="vf-name" placeholder="আপনার নাম লিখুন" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label>Phone Number <span class="req">*</span></label>
+          <input type="tel" id="vf-phone" placeholder="017..." autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Address <span class="req">*</span></label>
+        <input type="text" id="vf-address" placeholder="আপনার এলাকা / ঠিকানা লিখুন" autocomplete="address-level2" />
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">Course & Interest</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>Interested Course</label>
+          <select id="vf-course">
+            <option value="">-- Select Course --</option>
+            <option value="Ticketing (Amadeus/Sabre)">Ticketing (Amadeus/Sabre)</option>
+            <option value="IATA Foundation">IATA Foundation</option>
+            <option value="Diploma in Aviation">Diploma in Aviation</option>
+            <option value="Cabin Crew">Cabin Crew</option>
+            <option value="Ground Handling">Ground Handling</option>
+            <option value="Tourism & Hospitality">Tourism & Hospitality</option>
+            <option value="Tour Operator">Tour Operator</option>
+            <option value="Others">Others</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>How did you know us? <span class="req">*</span></label>
+          <select id="vf-reference">
+            <option value="">-- Select --</option>
+            <option value="YouTube">YouTube</option>
+            <option value="Facebook">Facebook</option>
+            <option value="Instagram">Instagram</option>
+            <option value="Online Platform">Online Platform</option>
+            <option value="Friend/Relative">Friend / Relative</option>
+            <option value="Student Referral">Student Referral</option>
+            <option value="Banner/Poster">Banner / Poster</option>
+            <option value="Walk-in">Walk-in</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Any Questions / Remarks</label>
+        <textarea id="vf-remarks" placeholder="যেকোনো প্রশ্ন বা মন্তব্য লিখুন (ঐচ্ছিক)..."></textarea>
+      </div>
+
+      <button class="btn-submit" id="submit-btn" onclick="submitVisitorForm()">
+        <span id="btn-label">Submit Registration</span>
+        <span id="btn-spinner" style="display:none;"><div class="loading-spinner"></div></span>
+      </button>
+
+    </div>
+
+    <!-- Success Screen -->
+    <div class="success-screen" id="success-view">
+      <div class="success-icon">✓</div>
+      <h2>Registration Successful!</h2>
+      <p>আপনার তথ্য সফলভাবে জমা হয়েছে।<br/>আমাদের টিম শীঘ্রই আপনার সাথে যোগাযোগ করবে।</p>
+      <br/>
+      <p style="color:#a78bfa; font-size:0.85rem;">Thank you for visiting Wings Fly Aviation Academy!</p>
+      <button class="another-btn" onclick="resetForm()">Register Another Visitor</button>
+    </div>
+
+  </div>
+
+  <p class="footer-note">Wings Fly Aviation Academy &copy; <span id="yr"></span></p>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    // ─── Supabase Config ──────────────────────────────────────────────
+    const SUPABASE_URL  = 'https://fznhiqzrslldybhmgopk.supabase.co';
+    const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+    let supabaseClient = null;
+    try {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    } catch(e) {
+      console.warn('Supabase init failed:', e);
+    }
+
+    // ─── Show Toast ───────────────────────────────────────────────────
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 3500);
+    }
+
+    // ─── Submit ───────────────────────────────────────────────────────
+    async function submitVisitorForm() {
+      const name      = document.getElementById('vf-name').value.trim();
+      const phone     = document.getElementById('vf-phone').value.trim();
+      const address   = document.getElementById('vf-address').value.trim();
+      const course    = document.getElementById('vf-course').value;
+      const reference = document.getElementById('vf-reference').value;
+      const remarks   = document.getElementById('vf-remarks').value.trim();
+
+      // Validation
+      if (!name)      return showToast('⚠️ Please enter your name');
+      if (!phone)     return showToast('⚠️ Please enter your phone number');
+      if (!address)   return showToast('⚠️ Please enter your address');
+      if (!reference) return showToast('⚠️ Please select how you found us');
+
+      // Loading state
+      const btn = document.getElementById('submit-btn');
+      document.getElementById('btn-label').style.display = 'none';
+      document.getElementById('btn-spinner').style.display = 'flex';
+      btn.disabled = true;
+
+      const data = {
+        name,
+        phone,
+        address,
+        reference,
+        interested_course: course,
+        status: 'Interested',
+        visit_date: new Date().toISOString().split('T')[0],
+        remarks,
+        created_at: new Date().toISOString(),
+        source: 'qr_form'   // marks it came from the public QR form
+      };
+
+      try {
+        if (!supabaseClient) {
+          showToast('❌ Connection error. Please try again.');
+          return;
+        }
+
+        const { error } = await supabaseClient
+          .from('visitors')
+          .insert([data]);
+
+        if (error) throw error;
+        showSuccessScreen();
+
+      } catch (err) {
+        console.error('Submit error:', err);
+        showToast('❌ Submission failed. Please try again.');
+      } finally {
+        document.getElementById('btn-label').style.display = '';
+        document.getElementById('btn-spinner').style.display = 'none';
+        btn.disabled = false;
+      }
+    }
+
+    function showSuccessScreen() {
+      document.getElementById('form-view').style.display = 'none';
+      document.getElementById('success-view').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function resetForm() {
+      document.getElementById('vf-name').value = '';
+      document.getElementById('vf-phone').value = '';
+      document.getElementById('vf-address').value = '';
+      document.getElementById('vf-course').value = '';
+      document.getElementById('vf-reference').value = '';
+      document.getElementById('vf-remarks').value = '';
+      document.getElementById('form-view').style.display = 'block';
+      document.getElementById('success-view').style.display = 'none';
+    }
+
+    // Allow Enter key to move between fields naturally
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
+        e.preventDefault();
+        const fields = [...document.querySelectorAll('input, select, textarea, button.btn-submit')];
+        const idx = fields.indexOf(e.target);
+        if (idx >= 0 && idx < fields.length - 1) fields[idx + 1].focus();
+        else submitVisitorForm();
+      }
+    });
+  </script>
+</body>
+</html>
