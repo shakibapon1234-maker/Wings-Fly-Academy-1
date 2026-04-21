@@ -112,21 +112,41 @@ const VisitorsModule = (() => {
       </div>
       <!-- Stats Row -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">
-        <div style="border:1px solid rgba(0,212,255,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
-          <div style="font-size:0.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">TOTAL VISITORS</div>
-          <div style="font-size:1.6rem; font-weight:800; color:#00d4ff;">${total}</div>
+        <div style="box-shadow:none; border:1px solid rgba(0,212,255,0.2); padding:16px; background:rgba(0,212,255,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#00d4ff; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">TOTAL VISITORS</div>
+              <div style="color:#fff; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(0,212,255,0.4);">${total}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(0,212,255,0.1); display:flex; align-items:center; justify-content:center; color:#00d4ff; font-size:1.2rem;"><i class="fa fa-users"></i></div>
+          </div>
         </div>
-        <div style="border:1px solid rgba(0,255,136,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
-          <div style="font-size:0.75rem; color:#00ff88; text-transform:uppercase; font-weight:700; margin-bottom:8px;">ENROLLED (CONVERTED)</div>
-          <div style="font-size:1.6rem; font-weight:800; color:#00ff88;">${enrolled}</div>
+        <div style="box-shadow:none; border:1px solid rgba(0,255,136,0.2); padding:16px; background:rgba(0,255,136,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#00ff88; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">ENROLLED (CONVERTED)</div>
+              <div style="color:#00ff88; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(0,255,136,0.4);">${enrolled}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(0,255,136,0.1); display:flex; align-items:center; justify-content:center; color:#00ff88; font-size:1.2rem;"><i class="fa fa-user-graduate"></i></div>
+          </div>
         </div>
-        <div style="border:1px solid rgba(255,170,0,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
-          <div style="font-size:0.75rem; color:#ffb703; text-transform:uppercase; font-weight:700; margin-bottom:8px;">INTERESTED</div>
-          <div style="font-size:1.6rem; font-weight:800; color:#ffb703;">${interested}</div>
+        <div style="box-shadow:none; border:1px solid rgba(255,170,0,0.2); padding:16px; background:rgba(255,170,0,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#ffb703; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">INTERESTED</div>
+              <div style="color:#ffb703; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,170,0,0.4);">${interested}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,170,0,0.1); display:flex; align-items:center; justify-content:center; color:#ffb703; font-size:1.2rem;"><i class="fa fa-star"></i></div>
+          </div>
         </div>
-        <div style="border:1px solid rgba(255,71,87,0.2); border-radius:12px; padding:16px; background:rgba(0,0,0,0.2);">
-          <div style="font-size:0.75rem; color:#ff4757; text-transform:uppercase; font-weight:700; margin-bottom:8px;">FOLLOW-UP</div>
-          <div style="font-size:1.6rem; font-weight:800; color:#ff4757;">${followup}</div>
+        <div style="box-shadow:none; border:1px solid rgba(255,71,87,0.2); padding:16px; background:rgba(255,71,87,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#ff4757; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">FOLLOW-UP</div>
+              <div style="color:#ff4757; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,71,87,0.4);">${followup}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,71,87,0.1); display:flex; align-items:center; justify-content:center; color:#ff4757; font-size:1.2rem;"><i class="fa fa-phone"></i></div>
+          </div>
         </div>
       </div>
     `;

@@ -65,11 +65,47 @@ const Exam = (() => {
       </style>
 
       <!-- Summary -->
-      <div class="dashboard-grid" style="margin-bottom:16px">
-        ${sCard('fa-clipboard-list','blue','Registered', totalReg)}
-        ${sCard('fa-check-circle','green','Passed', passed)}
-        ${sCard('fa-times-circle','red','Failed', failed)}
-        ${sCard('fa-money-bill','amber','Exam Fee', Utils.takaEn(totalFee))}
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:20px;">
+        <!-- Registered -->
+        <div style="box-shadow:none; border:1px solid rgba(0,212,255,0.2); padding:16px; background:rgba(0,212,255,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#00d4ff; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">TOTAL REGISTERED</div>
+              <div style="color:#fff; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(0,212,255,0.4);">${totalReg}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(0,212,255,0.1); display:flex; align-items:center; justify-content:center; color:#00d4ff; font-size:1.2rem;"><i class="fa fa-clipboard-list"></i></div>
+          </div>
+        </div>
+        <!-- Passed -->
+        <div style="box-shadow:none; border:1px solid rgba(0,255,136,0.2); padding:16px; background:rgba(0,255,136,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#00ff88; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">EXAM PASSED</div>
+              <div style="color:#00ff88; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(0,255,136,0.4);">${passed}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(0,255,136,0.1); display:flex; align-items:center; justify-content:center; color:#00ff88; font-size:1.2rem;"><i class="fa fa-check-circle"></i></div>
+          </div>
+        </div>
+        <!-- Failed -->
+        <div style="box-shadow:none; border:1px solid rgba(255,71,87,0.2); padding:16px; background:rgba(255,71,87,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#ff4757; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">EXAM FAILED</div>
+              <div style="color:#ff4757; font-size:1.6rem; font-weight:800; text-shadow:0 0 10px rgba(255,71,87,0.4);">${failed}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,71,87,0.1); display:flex; align-items:center; justify-content:center; color:#ff4757; font-size:1.2rem;"><i class="fa fa-times-circle"></i></div>
+          </div>
+        </div>
+        <!-- Fee -->
+        <div style="box-shadow:none; border:1px solid rgba(255,170,0,0.2); padding:16px; background:rgba(255,170,0,0.05); border-radius:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+            <div>
+              <div style="color:#ffaa00; font-size:0.75rem; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-bottom:8px;">TOTAL EXAM FEE</div>
+              <div style="color:#ffaa00; font-size:1.5rem; font-weight:800; text-shadow:0 0 10px rgba(255,170,0,0.4);">${Utils.takaEn(totalFee)}</div>
+            </div>
+            <div style="width:36px; height:36px; border-radius:8px; background:rgba(255,170,0,0.1); display:flex; align-items:center; justify-content:center; color:#ffaa00; font-size:1.2rem;"><i class="fa fa-money-bill"></i></div>
+          </div>
+        </div>
       </div>
 
       <!-- Filter Bar -->
@@ -153,12 +189,6 @@ const Exam = (() => {
     </tr>`).join('');
   }
 
-  function sCard(icon, color, label, value) {
-    return `<div class="stat-card">
-      <div class="stat-icon ${color}"><i class="fa ${icon}"></i></div>
-      <div class="stat-info"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>
-    </div>`;
-  }
 
   /* ══════════════════════════════════════════
      FILTERS
