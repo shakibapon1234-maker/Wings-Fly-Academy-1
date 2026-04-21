@@ -119,8 +119,8 @@ const DashboardModule = (() => {
     const totalBalance = cashBal + bankBal + mobileBal;
 
     const totalDue = students.reduce((s, st) => s + Math.max(0, Utils.safeNum(st.total_fee) - Utils.safeNum(st.paid)), 0);
-    const loanOut  = loans.filter(l => l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
-    const loanIn   = loans.filter(l => l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
+    const loanOut  = loans.filter(l => l.type === 'Loan Giving'    || l.direction === 'given').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
+    const loanIn   = loans.filter(l => l.type === 'Loan Receiving' || l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
     // Advance payments — all records with calculated fields
     const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch(e) { return []; } })();

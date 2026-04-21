@@ -322,7 +322,7 @@ const SupabaseSync = (() => {
     notices:       'created_at',
   };
 
-  function insert(table, record) {
+  function insert(table, record, options = {}) {
     if (!record.id) record.id = generateId();
     // Logic #1 fix: record-এর নিজের date field থাকলে সেটাই created_at হবে,
     // override হবে না — এতে import date অনুযায়ী সব জায়গায় ডেটা সাজবে।
@@ -339,7 +339,9 @@ const SupabaseSync = (() => {
     rows.unshift(record);
     setAll(table, rows);
     _logRecentChange(table, 'insert', record);
-    _logActivity('add', table, `Inserted ${_recycleDisplayName(table, record)} into ${_tableDisplayName(table)}`);
+    if (!options.bypassLog) {
+      _logActivity('add', table, `Inserted ${_recycleDisplayName(table, record)} into ${_tableDisplayName(table)}`);
+    }
     _pushRecord(table, record);
     return record;
   }
@@ -356,7 +358,7 @@ const SupabaseSync = (() => {
     }
   }
 
-  function remove(table, id) {
+  function remove(table, id, options = {}) {
     const before = getAll(table);
     const victim = before.find(r => r.id === id);
     const rows = before.filter(r => r.id !== id);
@@ -364,7 +366,9 @@ const SupabaseSync = (() => {
     if (victim) {
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
-      _logActivity('delete', table, `Deleted ${_recycleDisplayName(table, victim)} from ${_tableDisplayName(table)}`);
+      if (!options.bypassLog) {
+        _logActivity('delete', table, `Deleted ${_recycleDisplayName(table, victim)} from ${_tableDisplayName(table)}`);
+      }
     }
     _deleteFromCloud(table, id);
     _trackDeletion(table, id);

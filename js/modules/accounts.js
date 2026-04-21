@@ -551,6 +551,11 @@ const Accounts = (() => {
     const bal = Utils.safeNum(Utils.formVal('acc-bal'));
     const accountName = type; // Cash, etc.
 
+    if (bal < 0) {
+      Utils.toast('Balance cannot be negative.', 'error');
+      return;
+    }
+
     if (existingId) {
       // Get old balance to calculate difference
       const old = SupabaseSync.getById(DB.accounts, existingId);

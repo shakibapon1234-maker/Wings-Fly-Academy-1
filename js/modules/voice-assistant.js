@@ -132,6 +132,7 @@ const VoiceAssistant = (() => {
     } else {
       console.warn('[Voice] Speech Recognition not supported.');
       if (btn) btn.style.display = 'none';
+      if (typeof Utils !== 'undefined') Utils.toast('আপনার ব্রাউজার Voice Recognition সাপোর্ট করে না।', 'warn');
     }
 
     if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = setVoice;

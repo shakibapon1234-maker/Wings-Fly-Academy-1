@@ -395,8 +395,8 @@ const App = (() => {
           SupabaseSync.update(DB.settings, keeper.id, keeper);
         }
 
-        // ✅ সঠিক function: remove (delete নয়)
-        SupabaseSync.remove(DB.settings, row.id);
+        // ✅ সঠিক function: remove (delete নয়) — bypassLog: true কারণ এটি system cleanup, activity log দরকার নেই
+        SupabaseSync.remove(DB.settings, row.id, { bypassLog: true });
         removed++;
       }
       if (removed > 0) {
