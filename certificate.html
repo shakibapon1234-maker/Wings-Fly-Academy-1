@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Certificate Download — Wings Fly Aviation Academy</title>
+  <link rel="icon" href="assets/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <link rel="stylesheet" href="css/cert-v2.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Hind Siliguri', 'Exo 2', Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+      min-height: 100vh;
+      color: #f1f5f9;
+      padding: 20px 16px 40px;
+    }
+
+    /* ── Header ── */
+    .page-header {
+      text-align: center;
+      padding: 30px 20px 24px;
+      max-width: 640px;
+      margin: 0 auto 24px;
+    }
+    .logo-wrap { display: flex; align-items: center; justify-content: center; gap: 14px; margin-bottom: 12px; }
+    .logo-wrap img { height: 48px; filter: brightness(1.2); }
+    .logo-wrap .academy-name { font-size: 1.1rem; font-weight: 700; color: #f8fafc; letter-spacing: 0.5px; text-align: left; line-height: 1.3; }
+    .logo-wrap .academy-sub { font-size: 0.78rem; color: #94a3b8; }
+    .page-title { font-size: 1.5rem; font-weight: 800; color: #f59e0b; letter-spacing: 1px; margin-bottom: 4px; }
+    .page-subtitle { font-size: 0.85rem; color: #94a3b8; }
+
+    /* ── Card ── */
+    .card {
+      background: rgba(30, 41, 59, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(148, 163, 184, 0.15);
+      border-radius: 20px;
+      padding: 32px 28px;
+      max-width: 480px;
+      margin: 0 auto 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+
+    /* ── Form ── */
+    .form-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(148,163,184,0.25);
+      background: rgba(15,23,42,0.8);
+      color: #f1f5f9;
+      font-size: 1.1rem;
+      font-family: 'Exo 2', Arial, sans-serif;
+      letter-spacing: 2px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-input:focus { border-color: #f59e0b; }
+    .form-input::placeholder { color: #475569; letter-spacing: 1px; }
+
+    /* ── Button ── */
+    .btn-verify {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #1a1a1a;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 18px;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-verify:hover { opacity: 0.92; }
+    .btn-verify:active { transform: scale(0.98); }
+    .btn-verify:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-download {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #22c55e, #16a34a);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 12px;
+      transition: opacity 0.2s;
+    }
+    .btn-download:hover { opacity: 0.9; }
+    .btn-download:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-print {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%;
+      padding: 12px;
+      border-radius: 12px;
+      border: 1.5px solid rgba(148,163,184,0.3);
+      background: transparent;
+      color: #94a3b8;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: all 0.2s;
+    }
+    .btn-print:hover { border-color: #f59e0b; color: #f59e0b; }
+
+    /* ── Status messages ── */
+    .status-msg {
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      margin-top: 16px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .status-error { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .status-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+    .status-info { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93c5fd; }
+
+    /* ── Security badge ── */
+    .security-note {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.78rem;
+      color: #64748b;
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(148,163,184,0.1);
+    }
+
+    /* ── Certificate Preview Section ── */
+    #cert-section { display: none; }
+    .cert-section-title {
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f8fafc;
+      margin-bottom: 16px;
+      padding: 0 8px;
+    }
+    .cert-wrapper {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    }
+    .cert-zoom { zoom: 0.55; display: flex; justify-content: center; }
+
+    /* ── Loading overlay ── */
+    #loading-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 9999;
+      background: rgba(15,23,42,0.85);
+      align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid rgba(245,158,11,0.2);
+      border-top-color: #f59e0b;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Invalid / Expired ── */
+    .invalid-box {
+      text-align: center; padding: 40px 20px;
+    }
+    .invalid-box .icon { font-size: 4rem; color: #ef4444; margin-bottom: 16px; }
+    .invalid-box h2 { font-size: 1.3rem; color: #fca5a5; margin-bottom: 8px; }
+    .invalid-box p { color: #94a3b8; font-size: 0.9rem; }
+
+    /* ── Responsive ── */
+    @media (max-width: 500px) {
+      .card { padding: 24px 18px; }
+      .cert-zoom { zoom: 0.32; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="spinner"></div>
+    <div style="color:#f59e0b;font-weight:600;">অনুগ্রহ করে অপেক্ষা করুন...</div>
+  </div>
+
+  <!-- Header -->
+  <div class="page-header">
+    <div class="logo-wrap">
+      <img src="assets/wings_logo_linear.png" alt="WFA Logo" onerror="this.src='assets/logo.jpg'">
+      <div>
+        <div class="academy-name">Wings Fly Aviation Academy</div>
+        <div class="academy-sub">Certificate Download Portal</div>
+      </div>
+    </div>
+    <div class="page-title"><i class="fa fa-award"></i> সার্টিফিকেট ডাউনলোড</div>
+    <div class="page-subtitle">আপনার ভর্তির সময় দেওয়া মোবাইল নম্বর দিন</div>
+  </div>
+
+  <!-- Verify Card -->
+  <div class="card" id="verify-card">
+    <div id="verify-form-section">
+      <label class="form-label"><i class="fa fa-phone"></i> &nbsp;মোবাইল নম্বর</label>
+      <input
+        type="tel"
+        id="phone-input"
+        class="form-input"
+        placeholder="01XXXXXXXXX"
+        maxlength="11"
+        inputmode="numeric"
+        autofocus
+        onkeydown="if(event.key==='Enter') verifyPhone()"
+      />
+      <div id="status-area"></div>
+      <button class="btn-verify" id="verify-btn" onclick="verifyPhone()">
+        <i class="fa fa-shield-halved"></i> Verify করুন
+      </button>
+      <div class="security-note">
+        <i class="fa fa-lock"></i>
+        আপনার নম্বর শুধু পরিচয় নিশ্চিত করতে ব্যবহার হবে। কোথাও সংরক্ষণ হবে না।
+      </div>
+    </div>
+  </div>
+
+  <!-- Certificate Section (shown after verify) -->
+  <div id="cert-section">
+    <div class="cert-section-title">
+      <i class="fa fa-award" style="color:#f59e0b;"></i> আপনার সার্টিফিকেট প্রস্তুত!
+    </div>
+
+    <div class="cert-wrapper">
+      <div class="cert-zoom">
+        <div id="cert-render-area"></div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:20px 24px;">
+      <button class="btn-download" id="download-btn" onclick="downloadPDF()">
+        <i class="fa fa-file-pdf"></i> PDF হিসেবে Download করুন
+      </button>
+      <button class="btn-print" onclick="printCert()">
+        <i class="fa fa-print"></i> সরাসরি Print করুন
+      </button>
+      <div style="font-size:0.75rem;color:#64748b;text-align:center;margin-top:12px;">
+        <i class="fa fa-info-circle"></i> Download করার পরে PDF ফাইলটি আপনার ফোনের Downloads ফোল্ডারে পাবেন
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════ -->
+  <!-- Supabase Config — আপনার existing config থেকে copy -->
+  <!-- ══════════════════════════════════════════════════════ -->
+  <script>
+    const SUPABASE_URL      = 'https://fznhiqzrslldybhmgopk.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+    let sbClient = null;
+    let certToken = null;
+    let studentData = null;
+    let certHTML = '';
+    let wrongAttempts = 0;
+
+    // ── Init ────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Supabase init
+      if (window.supabase) {
+        sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      } else {
+        showStatus('error', '<i class="fa fa-wifi-slash"></i> Internet connection প্রয়োজন।');
+        return;
+      }
+
+      // URL থেকে token পড়ো
+      const params = new URLSearchParams(window.location.search);
+      certToken = params.get('token');
+
+      if (!certToken) {
+        showInvalid('Invalid Link', 'এই link-এ কোনো token নেই। সঠিক QR কোড স্ক্যান করুন।');
+        return;
+      }
+
+      // Token valid কিনা check করো
+      showLoading(true);
+      const { data: tokenRow, error } = await sbClient
+        .from('certificate_tokens')
+        .select('student_id, phone_hash, is_active, expires_at')
+        .eq('token', certToken)
+        .single();
+      showLoading(false);
+
+      if (error || !tokenRow) {
+        showInvalid('Invalid QR', 'এই QR কোডটি পাওয়া যায়নি বা মেয়াদ শেষ হয়েছে।');
+        return;
+      }
+      if (!tokenRow.is_active) {
+        showInvalid('QR Disabled', 'এই QR কোডটি নিষ্ক্রিয় করা হয়েছে। Academy-তে যোগাযোগ করুন।');
+        return;
+      }
+      if (new Date(tokenRow.expires_at) < new Date()) {
+        showInvalid('QR Expired', 'এই QR কোডটির মেয়াদ শেষ হয়েছে। Academy-তে যোগাযোগ করুন।');
+        return;
+      }
+
+      // Token valid — এখন phone verify চাও
+      studentData = tokenRow;
+    });
+
+    // ── Phone Verify ─────────────────────────────────────────
+    async function verifyPhone() {
+      if (wrongAttempts >= 5) {
+        showStatus('error', '<i class="fa fa-ban"></i> বেশি ভুল হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।');
+        return;
+      }
+
+      const input = document.getElementById('phone-input');
+      const phone = (input.value || '').replace(/\D/g, '').trim();
+
+      if (!phone || phone.length < 4) {
+        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> সঠিক মোবাইল নম্বর দিন।');
+        input.focus();
+        return;
+      }
+
+      const inputLast4 = phone.slice(-4);
+      const storedLast4 = (studentData?.phone_hash || '').slice(-4);
+
+      if (inputLast4 !== storedLast4) {
+        wrongAttempts++;
+        const remaining = 5 - wrongAttempts;
+        if (remaining <= 0) {
+          showStatus('error', '<i class="fa fa-ban"></i> বেশি ভুল হয়েছে। Academy-তে যোগাযোগ করুন।');
+          document.getElementById('verify-btn').disabled = true;
+        } else {
+          showStatus('error', `<i class="fa fa-triangle-exclamation"></i> নম্বর মিলছে না। আরও ${remaining}টি সুযোগ বাকি।`);
+        }
+        input.value = '';
+        input.focus();
+        return;
+      }
+
+      // ✅ Phone matched — Load certificate
+      showStatus('success', '<i class="fa fa-circle-check"></i> নম্বর verify হয়েছে! সার্টিফিকেট লোড হচ্ছে...');
+      document.getElementById('verify-btn').disabled = true;
+
+      showLoading(true);
+      await loadCertificate(studentData.student_id);
+      showLoading(false);
+
+      // Update download count
+      try {
+        await sbClient.from('certificate_tokens')
+          .update({ download_count: (studentData.download_count || 0) + 1, last_accessed: new Date().toISOString() })
+          .eq('token', certToken);
+      } catch(e) { /* non-critical */ }
+    }
+
+    // ── Load Certificate from Supabase ───────────────────────
+    async function loadCertificate(studentId) {
+      const { data: students, error } = await sbClient
+        .from('students')
+        .select('*')
+        .eq('student_id', studentId)
+        .single();
+
+      if (error || !students) {
+        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> সার্টিফিকেট তথ্য লোড করতে সমস্যা হয়েছে।');
+        return;
+      }
+
+      const s = students;
+      const certNumber = `WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`;
+      const issueDate = new Date().toLocaleDateString('en-GB');
+      const studentName = (s.name || 'N/A').toUpperCase();
+      const courseName  = (s.course || 'N/A').toUpperCase();
+      const batch       = s.batch || 'N/A';
+      const stdId       = s.student_id || s.id || 'N/A';
+
+      // Build certificate HTML (same design as admin panel)
+      certHTML = `
+      <div class="cert-v2-container" id="cert-for-download">
+        <div class="cert-title">CERTIFICATE</div>
+        <div class="cert-subtitle" style="text-transform:capitalize;font-size:28px;top:35.5%;color:#333;">Of Appreciation</div>
+        <div class="cert-presented-to" style="top:40.5%;font-size:21px;letter-spacing:0.5px;">This certificate is proudly presented for honorable achievment to</div>
+        <div class="cert-student-name">${studentName}</div>
+        <div class="cert-details" style="display:flex;justify-content:center;gap:30px;align-items:center;">
+          <span>BATCH - ${batch}</span>
+          <span>STUDENT ID : ${stdId}</span>
+        </div>
+        <div class="cert-course-text">CERTIFICATION ON TRAINING ABOUT THE "${courseName}".</div>
+        <img src="assets/wings_logo_linear.png" style="position:absolute;top:6%;left:6%;height:50px;" onerror="this.src='assets/logo.jpg';this.style.height='60px';">
+        <div style="position:absolute;top:15%;left:6%;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:700;color:#1a1a1a;letter-spacing:0.5px;">
+          Certificate No: ${certNumber}
+        </div>
+        <div class="cert-signature" style="bottom:3%;left:10%;right:auto;text-align:center;">
+          <img src="assets/shakib_sign.png" style="height:50px;margin-bottom:5px;filter:invert(1);mix-blend-mode:screen;opacity:0.9;" onerror="this.style.display='none'">
+          <div class="cert-signature-name" style="font-family:Arial,sans-serif;font-size:14px;border-top:2px solid #c9a227;padding-top:5px;color:#ffffff;">
+            <span style="font-weight:800;">Shakib Ibna Mustafa</span><br>
+            <span style="font-size:12px;color:#f1f1f1;">Course Coordinator</span>
+          </div>
+        </div>
+        <div class="cert-signature" style="bottom:3%;right:10%;left:auto;text-align:center;">
+          <img src="assets/ferdous_sign.png" style="height:50px;margin-bottom:5px;opacity:0.9;mix-blend-mode:multiply;" onerror="this.style.display='none'">
+          <div class="cert-signature-name" style="font-family:Arial,sans-serif;font-size:14px;border-top:2px solid #c9a227;padding-top:5px;color:#1a1a1a;">
+            <span style="font-weight:800;">CHAIRMAN</span><br>
+            <span style="font-size:12px;color:#333;font-weight:600;">FERDOUS AHMED</span>
+          </div>
+        </div>
+        <div class="cert-website" style="position:absolute;bottom:5%;left:0;width:100%;text-align:center;font-family:'Segoe UI',Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;letter-spacing:1px;">
+          wingsflyaviationacademy.com
+        </div>
+      </div>`;
+
+      // Render certificate
+      document.getElementById('cert-render-area').innerHTML = certHTML;
+      document.getElementById('verify-card').style.display = 'none';
+      document.getElementById('cert-section').style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ── Download PDF ─────────────────────────────────────────
+    async function downloadPDF() {
+      const btn = document.getElementById('download-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> তৈরি হচ্ছে...';
+      showLoading(true);
+
+      try {
+        const certEl = document.getElementById('cert-for-download');
+        const canvas = await html2canvas(certEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+        pdf.save(`Certificate_${studentData?.student_id || 'WFA'}.pdf`);
+      } catch(err) {
+        console.error('PDF error:', err);
+        alert('PDF তৈরিতে সমস্যা হয়েছে। Print অপশন ব্যবহার করুন।');
+      }
+
+      showLoading(false);
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-file-pdf"></i> PDF হিসেবে Download করুন';
+    }
+
+    // ── Print ─────────────────────────────────────────────────
+    function printCert() {
+      const win = window.open('', '_blank');
+      win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate</title>
+      <link rel="stylesheet" href="${window.location.origin}${window.location.pathname.replace('certificate.html','')}css/cert-v2.css" />
+      <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}
+      @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
+      </head><body>${certHTML}<script>window.onload=function(){setTimeout(function(){window.print();},800);}<\/script></body></html>`);
+      win.document.close();
+    }
+
+    // ── Helpers ──────────────────────────────────────────────
+    function showStatus(type, html) {
+      const el = document.getElementById('status-area');
+      el.innerHTML = `<div class="status-msg status-${type}">${html}</div>`;
+    }
+
+    function showLoading(show) {
+      document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
+    }
+
+    function showInvalid(title, msg) {
+      document.getElementById('verify-card').innerHTML = `
+        <div class="invalid-box">
+          <div class="icon"><i class="fa fa-circle-xmark"></i></div>
+          <h2>${title}</h2>
+          <p>${msg}</p>
+          <p style="margin-top:12px;font-size:0.82rem;color:#64748b;">
+            সমস্যার জন্য Academy-তে যোগাযোগ করুন।
+          </p>
+        </div>`;
+    }
+  </script>
+</body>
+</html>
