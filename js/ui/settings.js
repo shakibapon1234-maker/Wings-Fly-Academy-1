@@ -941,6 +941,7 @@ const SettingsModule = (() => {
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
     refreshModal();
+    Utils.toast(`"${item}" deleted. Saved to Keep Record for reference. ⚑`, 'info');
     logActivity('delete', 'category', `Removed "${item}" from ${key}`);
   }
 
