@@ -227,24 +227,37 @@
   <!-- Verify Card -->
   <div class="card" id="verify-card">
     <div id="verify-form-section">
-      <label class="form-label"><i class="fa fa-phone"></i> &nbsp;মোবাইল নম্বর</label>
-      <input
-        type="tel"
-        id="phone-input"
-        class="form-input"
-        placeholder="01XXXXXXXXX"
-        maxlength="11"
-        inputmode="numeric"
-        autofocus
-        onkeydown="if(event.key==='Enter') verifyPhone()"
-      />
+      <div style="margin-bottom:16px;">
+        <label class="form-label"><i class="fa fa-id-badge"></i> &nbsp;স্টুডেন্ট আইডি (Student ID)</label>
+        <input
+          type="text"
+          id="studentid-input"
+          class="form-input"
+          placeholder="যেমন: WFA-001"
+          autofocus
+        />
+      </div>
+
+      <div>
+        <label class="form-label"><i class="fa fa-phone"></i> &nbsp;ভর্তির মোবাইল নম্বর</label>
+        <input
+          type="tel"
+          id="phone-input"
+          class="form-input"
+          placeholder="01XXXXXXXXX"
+          maxlength="11"
+          inputmode="numeric"
+          onkeydown="if(event.key==='Enter') verifyStudent()"
+        />
+      </div>
+      
       <div id="status-area"></div>
-      <button class="btn-verify" id="verify-btn" onclick="verifyPhone()">
-        <i class="fa fa-shield-halved"></i> Verify করুন
+      <button class="btn-verify" id="verify-btn" onclick="verifyStudent()">
+        <i class="fa fa-search"></i> সার্টিফিকেট খুঁজুন
       </button>
       <div class="security-note">
         <i class="fa fa-lock"></i>
-        আপনার নম্বর শুধু পরিচয় নিশ্চিত করতে ব্যবহার হবে। কোথাও সংরক্ষণ হবে না।
+        আপনার তথ্য শুধু পরিচয় নিশ্চিত করতে ব্যবহার হবে।
       </div>
     </div>
   </div>
@@ -271,138 +284,103 @@
       <div style="font-size:0.75rem;color:#64748b;text-align:center;margin-top:12px;">
         <i class="fa fa-info-circle"></i> Download করার পরে PDF ফাইলটি আপনার ফোনের Downloads ফোল্ডারে পাবেন
       </div>
+      <button class="btn-print" style="margin-top:16px; border-color: transparent; color: #f59e0b;" onclick="location.reload()">
+        <i class="fa fa-arrow-left"></i> অন্য সার্টিফিকেট খুঁজুন
+      </button>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════ -->
-  <!-- Supabase Config — আপনার existing config থেকে copy -->
+  <!-- Supabase Config -->
   <!-- ══════════════════════════════════════════════════════ -->
   <script>
     const SUPABASE_URL      = 'https://fznhiqzrslldybhmgopk.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
     let sbClient = null;
-    let certToken = null;
     let studentData = null;
     let certHTML = '';
     let wrongAttempts = 0;
 
     // ── Init ────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
-      // Supabase init
       if (window.supabase) {
         sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
       } else {
         showStatus('error', '<i class="fa fa-wifi-slash"></i> Internet connection প্রয়োজন।');
-        return;
       }
-
-      // URL থেকে token পড়ো
-      const params = new URLSearchParams(window.location.search);
-      certToken = params.get('token');
-
-      if (!certToken) {
-        showInvalid('Invalid Link', 'এই link-এ কোনো token নেই। সঠিক QR কোড স্ক্যান করুন।');
-        return;
-      }
-
-      // Token valid কিনা check করো
-      showLoading(true);
-      const { data: tokenRow, error } = await sbClient
-        .from('certificate_tokens')
-        .select('student_id, phone_hash, is_active, expires_at')
-        .eq('token', certToken)
-        .single();
-      showLoading(false);
-
-      if (error || !tokenRow) {
-        showInvalid('Invalid QR', 'এই QR কোডটি পাওয়া যায়নি বা মেয়াদ শেষ হয়েছে।');
-        return;
-      }
-      if (!tokenRow.is_active) {
-        showInvalid('QR Disabled', 'এই QR কোডটি নিষ্ক্রিয় করা হয়েছে। Academy-তে যোগাযোগ করুন।');
-        return;
-      }
-      if (new Date(tokenRow.expires_at) < new Date()) {
-        showInvalid('QR Expired', 'এই QR কোডটির মেয়াদ শেষ হয়েছে। Academy-তে যোগাযোগ করুন।');
-        return;
-      }
-
-      // Token valid — এখন phone verify চাও
-      studentData = tokenRow;
     });
 
-    // ── Phone Verify ─────────────────────────────────────────
-    async function verifyPhone() {
+    // ── Student Verify ─────────────────────────────────────────
+    async function verifyStudent() {
+      if (!sbClient) return;
       if (wrongAttempts >= 5) {
         showStatus('error', '<i class="fa fa-ban"></i> বেশি ভুল হয়েছে। কিছুক্ষণ পরে চেষ্টা করুন।');
         return;
       }
 
-      const input = document.getElementById('phone-input');
-      const phone = (input.value || '').replace(/\D/g, '').trim();
+      const idInput = document.getElementById('studentid-input').value.trim();
+      const phoneInput = document.getElementById('phone-input').value.trim();
 
-      if (!phone || phone.length < 4) {
+      if (!idInput) {
+        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> স্টুডেন্ট আইডি দিন।');
+        return;
+      }
+      if (!phoneInput || phoneInput.length < 4) {
         showStatus('error', '<i class="fa fa-triangle-exclamation"></i> সঠিক মোবাইল নম্বর দিন।');
-        input.focus();
         return;
       }
 
-      const inputLast4 = phone.slice(-4);
-      const storedLast4 = (studentData?.phone_hash || '').slice(-4);
+      showStatus('info', '<i class="fa fa-spinner fa-spin"></i> ডাটাবেস চেক করা হচ্ছে...');
+      document.getElementById('verify-btn').disabled = true;
 
-      if (inputLast4 !== storedLast4) {
+      const { data: students, error } = await sbClient
+        .from('students')
+        .select('*')
+        .ilike('student_id', idInput); // Case-insensitive lookup
+
+      if (error || !students || students.length === 0) {
+        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> এই স্টুডেন্ট আইডিটি ডাটাবেসে পাওয়া যায়নি!');
+        document.getElementById('verify-btn').disabled = false;
+        return;
+      }
+
+      const student = students[0];
+      const sPhone = (student.phone || '').replace(/\D/g, '');
+      const iPhone = phoneInput.replace(/\D/g, '');
+
+      // Compare last 4 digits for leniency
+      if (sPhone.length > 0 && sPhone.slice(-4) !== iPhone.slice(-4)) {
         wrongAttempts++;
         const remaining = 5 - wrongAttempts;
         if (remaining <= 0) {
           showStatus('error', '<i class="fa fa-ban"></i> বেশি ভুল হয়েছে। Academy-তে যোগাযোগ করুন।');
-          document.getElementById('verify-btn').disabled = true;
         } else {
-          showStatus('error', `<i class="fa fa-triangle-exclamation"></i> নম্বর মিলছে না। আরও ${remaining}টি সুযোগ বাকি।`);
+          showStatus('error', `<i class="fa fa-triangle-exclamation"></i> মোবাইল নম্বর মিলছে না। আরও ${remaining} বার চেষ্টা করতে পারবেন।`);
         }
-        input.value = '';
-        input.focus();
+        document.getElementById('verify-btn').disabled = false;
         return;
       }
 
-      // ✅ Phone matched — Load certificate
-      showStatus('success', '<i class="fa fa-circle-check"></i> নম্বর verify হয়েছে! সার্টিফিকেট লোড হচ্ছে...');
-      document.getElementById('verify-btn').disabled = true;
-
+      // Success
+      studentData = student;
+      showStatus('success', '<i class="fa fa-circle-check"></i> তথ্য যাচাই সফল! সার্টিফিকেট তৈরি হচ্ছে...');
+      
       showLoading(true);
-      await loadCertificate(studentData.student_id);
-      showLoading(false);
-
-      // Update download count
-      try {
-        await sbClient.from('certificate_tokens')
-          .update({ download_count: (studentData.download_count || 0) + 1, last_accessed: new Date().toISOString() })
-          .eq('token', certToken);
-      } catch(e) { /* non-critical */ }
+      setTimeout(() => {
+        loadCertificate(studentData);
+        showLoading(false);
+      }, 500); // Small visual delay
     }
 
-    // ── Load Certificate from Supabase ───────────────────────
-    async function loadCertificate(studentId) {
-      const { data: students, error } = await sbClient
-        .from('students')
-        .select('*')
-        .eq('student_id', studentId)
-        .single();
-
-      if (error || !students) {
-        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> সার্টিফিকেট তথ্য লোড করতে সমস্যা হয়েছে।');
-        return;
-      }
-
-      const s = students;
+    // ── Render Certificate ───────────────────────
+    function loadCertificate(s) {
       const certNumber = `WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`;
-      const issueDate = new Date().toLocaleDateString('en-GB');
       const studentName = (s.name || 'N/A').toUpperCase();
       const courseName  = (s.course || 'N/A').toUpperCase();
       const batch       = s.batch || 'N/A';
       const stdId       = s.student_id || s.id || 'N/A';
 
-      // Build certificate HTML (same design as admin panel)
       certHTML = `
       <div class="cert-v2-container" id="cert-for-download">
         <div class="cert-title">CERTIFICATE</div>
@@ -437,11 +415,9 @@
         </div>
       </div>`;
 
-      // Render certificate
       document.getElementById('cert-render-area').innerHTML = certHTML;
       document.getElementById('verify-card').style.display = 'none';
       document.getElementById('cert-section').style.display = 'block';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     // ── Download PDF ─────────────────────────────────────────
@@ -495,18 +471,6 @@
 
     function showLoading(show) {
       document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none';
-    }
-
-    function showInvalid(title, msg) {
-      document.getElementById('verify-card').innerHTML = `
-        <div class="invalid-box">
-          <div class="icon"><i class="fa fa-circle-xmark"></i></div>
-          <h2>${title}</h2>
-          <p>${msg}</p>
-          <p style="margin-top:12px;font-size:0.82rem;color:#64748b;">
-            সমস্যার জন্য Academy-তে যোগাযোগ করুন।
-          </p>
-        </div>`;
     }
   </script>
 </body>
