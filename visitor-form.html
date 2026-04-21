@@ -372,23 +372,22 @@
     // ─── Load courses from settings table ────────────────────────────
     async function loadCourses() {
       const sel = document.getElementById('vf-course');
+      const fallback = ['Air Ticketing', 'Air Ticket & Visa Processing'];
       try {
         if (!supabaseClient) throw new Error('no client');
+
+        // settings table has ONE row with a "courses" column (JSON array string)
         const { data, error } = await supabaseClient
           .from('settings')
-          .select('value')
-          .eq('key', 'courses')
+          .select('courses')
+          .limit(1)
           .single();
 
         let courses = [];
-        if (!error && data?.value) {
-          try { courses = JSON.parse(data.value); } catch(e) {}
+        if (!error && data?.courses) {
+          try { courses = JSON.parse(data.courses); } catch(e) {}
         }
-
-        // fallback if empty
-        if (!courses.length) {
-          courses = ['Air Ticketing', 'Air Ticket & Visa Processing'];
-        }
+        if (!Array.isArray(courses) || !courses.length) courses = fallback;
 
         sel.innerHTML = '<option value="">-- Select Course --</option>';
         courses.forEach(c => {
@@ -397,7 +396,13 @@
           sel.appendChild(opt);
         });
       } catch(e) {
+        // fallback list on error
         sel.innerHTML = '<option value="">-- Select Course --</option>';
+        fallback.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          sel.appendChild(opt);
+        });
       }
     }
 
@@ -445,6 +450,7 @@
       btn.disabled = true;
 
       const data = {
+        id:   crypto.randomUUID(),
         name,
         phone,
         address,
