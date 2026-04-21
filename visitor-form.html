@@ -300,20 +300,12 @@
         <div class="form-group">
           <label>Interested Course</label>
           <select id="vf-course">
-            <option value="">-- Select Course --</option>
-            <option value="Ticketing (Amadeus/Sabre)">Ticketing (Amadeus/Sabre)</option>
-            <option value="IATA Foundation">IATA Foundation</option>
-            <option value="Diploma in Aviation">Diploma in Aviation</option>
-            <option value="Cabin Crew">Cabin Crew</option>
-            <option value="Ground Handling">Ground Handling</option>
-            <option value="Tourism & Hospitality">Tourism & Hospitality</option>
-            <option value="Tour Operator">Tour Operator</option>
-            <option value="Others">Others</option>
+            <option value="">-- Loading courses... --</option>
           </select>
         </div>
         <div class="form-group">
           <label>How did you know us? <span class="req">*</span></label>
-          <select id="vf-reference">
+          <select id="vf-reference" onchange="onReferenceChange(this.value)">
             <option value="">-- Select --</option>
             <option value="YouTube">YouTube</option>
             <option value="Facebook">Facebook</option>
@@ -326,6 +318,12 @@
             <option value="Other">Other</option>
           </select>
         </div>
+      </div>
+
+      <!-- Other reference text box — only shows when "Other" selected -->
+      <div class="form-group" id="ref-other-wrap" style="display:none;">
+        <label>Please specify <span class="req">*</span></label>
+        <input type="text" id="vf-reference-other" placeholder="কিভাবে জানলেন লিখুন..." />
       </div>
 
       <div class="form-group">
@@ -371,6 +369,47 @@
       console.warn('Supabase init failed:', e);
     }
 
+    // ─── Load courses from settings table ────────────────────────────
+    async function loadCourses() {
+      const sel = document.getElementById('vf-course');
+      try {
+        if (!supabaseClient) throw new Error('no client');
+        const { data, error } = await supabaseClient
+          .from('settings')
+          .select('value')
+          .eq('key', 'courses')
+          .single();
+
+        let courses = [];
+        if (!error && data?.value) {
+          try { courses = JSON.parse(data.value); } catch(e) {}
+        }
+
+        // fallback if empty
+        if (!courses.length) {
+          courses = ['Air Ticketing', 'Air Ticket & Visa Processing'];
+        }
+
+        sel.innerHTML = '<option value="">-- Select Course --</option>';
+        courses.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c; opt.textContent = c;
+          sel.appendChild(opt);
+        });
+      } catch(e) {
+        sel.innerHTML = '<option value="">-- Select Course --</option>';
+      }
+    }
+
+    loadCourses();
+
+    // ─── Reference "Other" toggle ─────────────────────────────────────
+    function onReferenceChange(val) {
+      const wrap = document.getElementById('ref-other-wrap');
+      wrap.style.display = val === 'Other' ? 'block' : 'none';
+      if (val !== 'Other') document.getElementById('vf-reference-other').value = '';
+    }
+
     // ─── Show Toast ───────────────────────────────────────────────────
     function showToast(msg) {
       const t = document.getElementById('toast');
@@ -385,14 +424,19 @@
       const phone     = document.getElementById('vf-phone').value.trim();
       const address   = document.getElementById('vf-address').value.trim();
       const course    = document.getElementById('vf-course').value;
-      const reference = document.getElementById('vf-reference').value;
+      const refSelect = document.getElementById('vf-reference').value;
+      const refOther  = document.getElementById('vf-reference-other').value.trim();
       const remarks   = document.getElementById('vf-remarks').value.trim();
+
+      // Final reference value
+      const reference = refSelect === 'Other' ? (refOther || 'Other') : refSelect;
 
       // Validation
       if (!name)      return showToast('⚠️ Please enter your name');
       if (!phone)     return showToast('⚠️ Please enter your phone number');
       if (!address)   return showToast('⚠️ Please enter your address');
-      if (!reference) return showToast('⚠️ Please select how you found us');
+      if (!refSelect) return showToast('⚠️ Please select how you found us');
+      if (refSelect === 'Other' && !refOther) return showToast('⚠️ Please specify how you found us');
 
       // Loading state
       const btn = document.getElementById('submit-btn');
@@ -406,18 +450,15 @@
         address,
         reference,
         interested_course: course,
-        status: 'Interested',
+        status:     'Interested',
         visit_date: new Date().toISOString().split('T')[0],
         remarks,
         created_at: new Date().toISOString(),
-        source: 'qr_form'   // marks it came from the public QR form
+        source:     'qr_form'
       };
 
       try {
-        if (!supabaseClient) {
-          showToast('❌ Connection error. Please try again.');
-          return;
-        }
+        if (!supabaseClient) throw new Error('Supabase not initialized');
 
         const { error } = await supabaseClient
           .from('visitors')
@@ -428,7 +469,7 @@
 
       } catch (err) {
         console.error('Submit error:', err);
-        showToast('❌ Submission failed. Please try again.');
+        showToast('❌ Submission failed: ' + (err.message || 'Please try again'));
       } finally {
         document.getElementById('btn-label').style.display = '';
         document.getElementById('btn-spinner').style.display = 'none';
@@ -448,12 +489,14 @@
       document.getElementById('vf-address').value = '';
       document.getElementById('vf-course').value = '';
       document.getElementById('vf-reference').value = '';
+      document.getElementById('vf-reference-other').value = '';
+      document.getElementById('ref-other-wrap').style.display = 'none';
       document.getElementById('vf-remarks').value = '';
       document.getElementById('form-view').style.display = 'block';
       document.getElementById('success-view').style.display = 'none';
     }
 
-    // Allow Enter key to move between fields naturally
+    // Enter key navigation
     document.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
         e.preventDefault();
