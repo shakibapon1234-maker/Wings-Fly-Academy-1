@@ -266,22 +266,12 @@ const Finance = (() => {
     Utils.openModal('<i class="fa fa-pen"></i> Transaction Edit', formHTML(f), 'modal-lg');
   }
 
-  function formHTML(d={}) {
-    const dateStr  = (d.date || Utils.today()).split('T')[0];
-    const dateParts = dateStr.split('-');
-    const yyyy = dateParts[0] || String(new Date().getFullYear());
-    const mm   = dateParts[1] || String(new Date().getMonth()+1).padStart(2,'0');
-    const dd   = dateParts[2] || String(new Date().getDate()).padStart(2,'0');
-    const months = [
-      ['01','January'],['02','February'],['03','March'],['04','April'],
-      ['05','May'],['06','June'],['07','July'],['08','August'],
-      ['09','September'],['10','October'],['11','November'],['12','December']
-    ];
-    const currentYear = new Date().getFullYear();
-    const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
-
-    return `
-      <style>
+  // Inject finance form CSS once into <head> to avoid blocking innerHTML parse
+  (function _injectFinanceCSS() {
+    if (document.getElementById('ff-style')) return;
+    const s = document.createElement('style');
+    s.id = 'ff-style';
+    s.textContent = `
         .ff-wrap { display:flex; flex-direction:column; gap:16px; }
         .ff-section-title {
           font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
@@ -335,8 +325,25 @@ const Finance = (() => {
         .ff-cancel-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text-primary); }
         .ff-actions { display:flex; gap:10px; align-items:center; }
         .ff-actions .ff-save-btn { flex:1; }
-      </style>
+    `;
+    document.head.appendChild(s);
+  })();
 
+  function formHTML(d={}) {
+    const dateStr  = (d.date || Utils.today()).split('T')[0];
+    const dateParts = dateStr.split('-');
+    const yyyy = dateParts[0] || String(new Date().getFullYear());
+    const mm   = dateParts[1] || String(new Date().getMonth()+1).padStart(2,'0');
+    const dd   = dateParts[2] || String(new Date().getDate()).padStart(2,'0');
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length:8}, (_,i) => currentYear - 3 + i);
+
+    return `
       <div class="ff-wrap">
         <div>
           <div class="ff-section-title"><i class="fa fa-money-bill-wave"></i> Transaction Details</div>
