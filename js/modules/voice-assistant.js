@@ -1783,7 +1783,9 @@ const VoiceAssistant = (() => {
     // ── UNRECOGNIZED ─────────────────────────────────────────────
     if(!handled){
       if(typeof Utils!=='undefined') Utils.toast(`Not recognized: "${raw}" — say "help"`, 'warn');
-      speak(`I didn't catch that. Try saying: open settings, how many students, today's report, or help for all commands.`);
+      const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আই ডোন্ট আন্ডারস্ট্যান্ড।' : 'Sorry Sir, I don\'t understand.';
+      speak(msg);
+      showBubble(msg, false);
     }
   }
 
