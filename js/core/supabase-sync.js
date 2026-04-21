@@ -432,7 +432,8 @@ const SupabaseSync = (() => {
         const name = String(a.name || '').trim();
         if (a.type === 'Cash' && name !== 'Cash') return false;
         if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-          if (!name || /^\d+$/.test(name) || /^Bank \d+$/.test(name) || /^Mobile Banking \d+$/.test(name)) return false;
+          // ✅ Bug #9 Fix: শুধু সত্যিকারের empty/numeric placeholder drop করুন।
+          if (!name || /^\d+$/.test(name)) return false;
         }
         const key = `${a.type}||${name}`;
         if (seen.has(key)) return false;

@@ -60,7 +60,9 @@ const Accounts = (() => {
       const name = String(a.name || '').trim();
       if (a.type === 'Cash' && name !== 'Cash') return;
       if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-        const invalid = !name || /^\d+$/.test(name) || /^Bank \d+$/.test(name) || /^Mobile Banking \d+$/.test(name);
+        // ✅ Bug #9 Fix: শুধু সত্যিকারের empty/numeric placeholder drop করুন।
+        // "Bank 1", "Mobile Banking 1" user-created account হতে পারে — এগুলো drop করা যাবে না।
+        const invalid = !name || /^\d+$/.test(name);
         if (invalid) return;
       }
       const key = `${a.type}||${name}`;

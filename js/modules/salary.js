@@ -53,13 +53,9 @@ const Salary = (() => {
     return (months[parseInt(m, 10) - 1] || '?') + ' ' + y;
   }
 
+  // ✅ Bug #10 Fix: local formatDate() removed, now uses Utils.formatDateDMY() for DD/MM/YYYY consistency.
   function formatDate(dateStr) {
-    if (!dateStr) return '—';
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    return String(d.getDate()).padStart(2,'0') + '-' +
-           String(d.getMonth()+1).padStart(2,'0') + '-' +
-           d.getFullYear();
+    return Utils.formatDateDMY(dateStr);
   }
 
   function getSelectedMonth() {
