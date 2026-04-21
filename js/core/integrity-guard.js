@@ -400,6 +400,33 @@ const IntegrityGuard = (() => {
           }
         },
       },
+      {
+        name: 'Vital Links & Assets (Exam, Cert, Visitor)',
+        desc: 'Exam/Admin/Cert URLs এবং Visitor QR কোড লিংক লাইভ আছে কিনা চেক করে',
+        critical: true,
+        check: () => {
+          try {
+            const files = ['/admin.html', '/exam.html', '/certificate.html', '/assets/Visitor.png'];
+            const missing = [];
+            const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+            for(let f of files) {
+              const req = new XMLHttpRequest();
+              req.open('HEAD', baseUrl + f.substring(1), false); // Synchronous check
+              try { 
+                req.send(); 
+                if(req.status === 404 || req.status === 0 && !req.responseText) missing.push(f); 
+              } catch { 
+                missing.push(f); 
+              }
+            }
+            return missing.length === 0 
+                ? { ok: true, detail: 'All 4 URLs and assets are alive & valid ✅' } 
+                : { ok: false, detail: `Missing/Dead files: ${missing.join(', ')}`};
+          } catch(e) {
+            return { ok: false, detail: e.message };
+          }
+        }
+      },
     ],
   };
 
