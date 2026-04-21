@@ -1,10 +1,9 @@
 // ============================================================
 // Wings Fly Aviation Academy — Service Worker
-// Cache version: update BUILD_DATE when deploying new code
+// ✅ Fix: DEPLOY_ID forces SW replacement on every deploy
 // ============================================================
-// ✅ Fix #13: BUILD_DATE auto-generated — no more manual update needed
-const BUILD_DATE = new Date().toISOString().split('T')[0]; // YYYY-MM-DD always current
-const CACHE_NAME = `wfa-v3-${BUILD_DATE}`;
+const DEPLOY_ID = '20260421-fix-quickaction';
+const CACHE_NAME = `wfa-v4-${DEPLOY_ID}`;
 
 const STATIC_ASSETS = [
   './',
