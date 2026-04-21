@@ -56,7 +56,7 @@ const Loans = (() => {
           if (settled && !document.getElementById('loan-show-settled')?.checked) return '';
           const letter = (person[0] || '?').toUpperCase();
           return `
-          <div class="loan-person-card" onclick="Loans.showPersonDetail('${person.replace(/'/g,"\\'")}')" data-person="${person.toLowerCase()}">
+          <div class="loan-person-card" onclick="Loans.showPersonDetail(this.dataset.personRaw)" data-person="${person.toLowerCase()}" data-person-raw="${Utils.escAttr(person)}">
             <div class="person-avatar">${letter}</div>
             <div class="person-name">${Utils.esc(person)}</div>
             <div class="person-owe" style="color:${net>0?'#ff4757':'#00ff88'}">

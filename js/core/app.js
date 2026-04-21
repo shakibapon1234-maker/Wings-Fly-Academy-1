@@ -43,8 +43,25 @@ const App = (() => {
   let currentSection = 'dashboard';
 
   // ── Auth ───────────────────────────────────────────────────
+  // ── Session expiry constants ────────────────────────────────
+  const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hour
+  const MAX_LOGIN_ATTEMPTS  = 5;
+  const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
   function isLoggedIn() {
-    return localStorage.getItem('wfa_logged_in') === 'true';
+    if (localStorage.getItem('wfa_logged_in') !== 'true') return false;
+    // ✅ Bug #5: Session expiry check — expire after 1 hour
+    const loginTime = parseInt(localStorage.getItem('wfa_login_time') || '0');
+    if (loginTime && (Date.now() - loginTime > SESSION_DURATION_MS)) {
+      // Session expired — clean up silently
+      localStorage.removeItem('wfa_logged_in');
+      localStorage.removeItem('wfa_login_time');
+      localStorage.removeItem('wfa_user_role');
+      localStorage.removeItem('wfa_user_name');
+      localStorage.removeItem('wfa_user_permissions');
+      return false;
+    }
+    return true;
   }
 
   function getSubAccounts() {
@@ -91,6 +108,22 @@ const App = (() => {
   }
 
   async function login(username, password) {
+    // ✅ Bug #5: Rate limiting — block after 5 failed attempts for 10 minutes
+    const attemptKey   = 'wfa_login_attempts';
+    const lockoutKey   = 'wfa_login_lockout_until';
+    const now          = Date.now();
+    const lockoutUntil = parseInt(localStorage.getItem(lockoutKey) || '0');
+
+    if (lockoutUntil && now < lockoutUntil) {
+      const remaining = Math.ceil((lockoutUntil - now) / 60000);
+      const errEl = document.getElementById('login-error');
+      if (errEl) {
+        errEl.textContent = `Too many failed attempts. Try again in ${remaining} minute(s).`;
+        errEl.classList.remove('hidden');
+      }
+      return false;
+    }
+
     // ✅ Fix #1: auto-cleanup duplicate settings rows before reading
     // Prevents login failure when admin_password is in row[1] instead of row[0]
     const rawList = SupabaseSync.getAll(DB.settings);
@@ -157,7 +190,11 @@ const App = (() => {
       }
 
       if (adminOk) {
+        // ✅ Bug #5: Reset attempt counter and save login timestamp
+        localStorage.removeItem('wfa_login_attempts');
+        localStorage.removeItem('wfa_login_lockout_until');
         localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_login_time', String(Date.now()));
         localStorage.setItem('wfa_user_role', 'admin');
         localStorage.setItem('wfa_user_name', 'admin');
         localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
@@ -176,7 +213,11 @@ const App = (() => {
       return isHashed ? s.password === inputHash : s.password === password;
     });
     if (sub) {
+      // ✅ Bug #5: Reset attempt counter and save login timestamp
+      localStorage.removeItem('wfa_login_attempts');
+      localStorage.removeItem('wfa_login_lockout_until');
       localStorage.setItem('wfa_logged_in', 'true');
+      localStorage.setItem('wfa_login_time', String(Date.now()));
       localStorage.setItem('wfa_user_role', 'subaccount');
       localStorage.setItem('wfa_user_name', sub.username);
       localStorage.setItem('wfa_user_permissions', JSON.stringify(sub.permissions || []));
@@ -371,6 +412,7 @@ const App = (() => {
 
   function logout() {
     localStorage.removeItem('wfa_logged_in');
+    localStorage.removeItem('wfa_login_time');
     localStorage.removeItem('wfa_user_role');
     localStorage.removeItem('wfa_user_name');
     localStorage.removeItem('wfa_user_permissions');
@@ -839,8 +881,18 @@ const App = (() => {
           btnEl.innerHTML = '<span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span><div class="login-btn-shimmer"></div>';
         }
         if (!ok) {
+          // ✅ Bug #5: Track failed attempts and lockout after 5
+          const attempts = parseInt(localStorage.getItem('wfa_login_attempts') || '0') + 1;
+          localStorage.setItem('wfa_login_attempts', String(attempts));
+          if (attempts >= MAX_LOGIN_ATTEMPTS) {
+            localStorage.setItem('wfa_login_lockout_until', String(Date.now() + LOCKOUT_DURATION_MS));
+            localStorage.removeItem('wfa_login_attempts');
+          }
           if (errEl) {
-            errEl.textContent = 'Username or password incorrect!';
+            const left = MAX_LOGIN_ATTEMPTS - attempts;
+            errEl.textContent = left > 0
+              ? `Username or password incorrect! (${left} attempt${left === 1 ? '' : 's'} left)`
+              : 'Too many failed attempts. Try again in 10 minutes.';
             errEl.classList.remove('hidden');
           }
           Utils.toast('Login failed: invalid credentials', 'error');

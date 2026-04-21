@@ -63,8 +63,8 @@ const VisitorsModule = (() => {
     if (!body) return;
     const saveBtn   = body.querySelector('[data-action="vis-save"]');
     const cancelBtn = body.querySelector('[data-action="vis-cancel"]');
-    if (saveBtn)   saveBtn.addEventListener('click', saveRecord);
-    if (cancelBtn) cancelBtn.addEventListener('click', () => Utils.closeModal());
+    if (saveBtn)   saveBtn.addEventListener('click', saveRecord, { once: true });
+    if (cancelBtn) cancelBtn.addEventListener('click', () => Utils.closeModal(), { once: true });
   }
 
   function render() {

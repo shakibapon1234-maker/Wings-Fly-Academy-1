@@ -643,7 +643,10 @@ const Utils = (() => {
       // XSS - attribute-safe escape
       escAttr,
       // ID generator (for attendance and other modules)
-      generateId: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      generateId: () => {
+        const rand = crypto.getRandomValues(new Uint32Array(2));
+        return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
+      },
       // 🆕 BUG #4: Input validation helper
       validateForm,
     };
