@@ -556,11 +556,9 @@ const App = (() => {
         });
         break;
       case 'transaction':
-        // Fix: Finance page render না করে directly modal open করো
-        // এতে page hang হওয়ার সমস্যা দূর হবে
-        if (typeof Finance !== 'undefined') {
-          Finance.openAddModal();
-        }
+        setTimeout(() => {
+          if (typeof Finance !== 'undefined') Finance.openAddModal();
+        }, 50);
         break;
       case 'loan':
         waitAndOpen('loans', 'loans-content', () => {
@@ -984,7 +982,7 @@ window.App = App;
 // ── Date Input locale fix: force DD/MM/YYYY everywhere ──────────────
 (function enforceDateLocale() {
   function fixDateInputs() {
-    document.querySelectorAll('input[type="date"], .date-picker, [class*="date"]').forEach(el => {
+    document.querySelectorAll('input[type="date"], input.date-picker, input[class*="date"]').forEach(el => {
       if (!el.hasAttribute('data-locale-fixed') && !el.closest('.flatpickr-calendar')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
