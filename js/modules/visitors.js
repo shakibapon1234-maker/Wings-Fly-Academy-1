@@ -90,16 +90,25 @@ const VisitorsModule = (() => {
     const followup = visitors.filter(v => v.status === 'Follow-up').length;
 
     let html = `
-      <!-- Search Bar -->
-      <div style="margin-bottom:18px;">
-        <input
-          id="visitor-search"
-          type="text"
-          class="form-control"
-          placeholder="Search by name, phone, or course…"
-          value="${Utils.escAttr(searchQuery)}"
-          style="max-width:400px; font-family:inherit;"
-        />
+      <!-- Top Bar: Search & QR Code -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; flex-wrap:wrap; gap:16px;">
+        <div>
+          <input
+            id="visitor-search"
+            type="text"
+            class="form-control"
+            placeholder="Search by name, phone, or course…"
+            value="${Utils.escAttr(searchQuery)}"
+            style="min-width:300px; max-width:400px; font-family:inherit;"
+          />
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.2); padding:8px 16px; border-radius:12px;">
+          <img src="assets/Visitor.png" alt="Visitor QR" style="width:60px; height:60px; border-radius:6px; background:#fff; padding:2px; cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Click to enlarge" onerror="this.style.display='none'">
+          <div>
+            <div style="font-size:0.85rem; font-weight:700; color:#00d4ff; text-transform:uppercase;">Visitor Scan QR</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Visitors can scan this code to register quickly.</div>
+          </div>
+        </div>
       </div>
       <!-- Stats Row -->
       <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:16px; margin-bottom:24px;">

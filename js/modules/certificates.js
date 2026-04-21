@@ -292,12 +292,23 @@ const CertificatesModule = (() => {
         </div>
       </div>
 
-      <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;">
+      <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #93c5fd;border-radius:10px;padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <i class="fa fa-qrcode" style="font-size:1.5rem;color:#2563eb;"></i>
-        <div>
+        <div style="flex:1;">
           <div style="font-weight:600;color:#1e40af;font-size:0.9rem;">📲 QR Certificate Download সিস্টেম চালু</div>
           <div style="font-size:0.8rem;color:#3b82f6;">QR বাটনে ক্লিক → QR কোড পাবেন → স্টুডেন্টকে দিন → তারা scan করে নিজেই certificate download করবে</div>
         </div>
+        <div style="display:flex;align-items:center;gap:8px;background:#fff;padding:4px 4px 4px 12px;border-radius:24px;border:1px solid #bfdbfe;">
+          <div class="blur-link-container" style="position:relative;cursor:pointer;overflow:hidden;min-width:180px;" onclick="this.classList.toggle('revealed')">
+            <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.85rem;color:#1e3a8a;">${window.location.origin + window.location.pathname.replace(/[^/]*$/, '')}certificate.html</span>
+            <div class="blur-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.8);font-weight:600;font-size:0.75rem;transition:opacity 0.3s;color:#1e40af;">Click to Reveal Link</div>
+          </div>
+          <button class="btn-primary btn-sm" onclick="Utils.toast('Link Copied!','success');navigator.clipboard.writeText('${window.location.origin + window.location.pathname.replace(/[^/]*$/, '')}certificate.html')" style="border-radius:20px;white-space:nowrap;padding:4px 12px;"><i class="fa fa-copy"></i> Copy portal link</button>
+        </div>
+        <style>
+          .blur-link-container.revealed .blur-text { filter: blur(0); }
+          .blur-link-container.revealed .blur-overlay { opacity: 0; pointer-events: none; }
+        </style>
       </div>
 
       <div id="cert-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;">
