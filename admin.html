@@ -485,6 +485,9 @@
         <label>প্রশ্ন লিখুন</label>
         <textarea id="qText" placeholder="যেমন: বাংলাদেশের জাতীয় পাখির নাম কী?"></textarea>
 
+        <label>প্রশ্নের মান (Marks)</label>
+        <input type="number" id="qMarks" placeholder="যেমন: 5" value="5" min="1" max="100" />
+
         <label style="margin-bottom:10px;">অপশন লিখুন এবং সঠিক উত্তর বেছে নিন ✅</label>
 
         <div class="option-input-row">
@@ -574,6 +577,24 @@
             <div class="toggle-sub">বন্ধ করলে স্টুডেন্টরা এক্সাম দিতে পারবে না</div>
           </div>
           <div class="toggle on" id="examActiveToggle" onclick="toggleExamActive()"></div>
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">পরীক্ষার নাম</div>
+            <div class="toggle-sub">স্টুডেন্টদের কাছে এই নামটি দেখাবে</div>
+          </div>
+          <input type="text" id="examNameInput" value="" placeholder="যেমন: Monthly Test 1"
+            style="width:160px;margin:0;padding:8px 10px;text-align:center;" onchange="saveSettings()" />
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">পরীক্ষার তারিখ</div>
+            <div class="toggle-sub">পরীক্ষার নির্দিষ্ট দিন</div>
+          </div>
+          <input type="date" id="examDateInput" value="" 
+            style="width:160px;margin:0;padding:8px 10px;text-align:center;" onchange="saveSettings()" />
         </div>
 
         <div class="toggle-row">
@@ -723,7 +744,7 @@ function renderQuestionList() {
   list.innerHTML = qs.map((q, i) => `
     <div class="q-item">
       <div class="q-item-top">
-        <div class="q-item-text">${i+1}. ${q.question}</div>
+        <div class="q-item-text">${i+1}. ${q.question} <span style="font-size:12px;color:var(--muted); font-weight:normal;">[মান: ${q.marks || 1}]</span></div>
         <div class="q-item-actions">
           <button class="btn btn-outline btn-sm" onclick="editQuestion(${i})">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${i})">🗑️</button>
@@ -738,6 +759,7 @@ function renderQuestionList() {
 
 function saveQuestion() {
   const qText = document.getElementById('qText').value.trim();
+  const qMarks = parseInt(document.getElementById('qMarks').value) || 5;
   const opts = [0,1,2,3].map(i => document.getElementById('opt'+i).value.trim());
   const correctRadio = document.querySelector('input[name="correctAns"]:checked');
 
@@ -750,6 +772,7 @@ function saveQuestion() {
   const newQ = {
     id: editingId ? parseInt(editingId) : Date.now(),
     question: qText,
+    marks: qMarks,
     options: opts,
     answer: parseInt(correctRadio.value)
   };
@@ -772,6 +795,7 @@ function editQuestion(idx) {
   const qs = getQuestions();
   const q = qs[idx];
   document.getElementById('qText').value = q.question;
+  document.getElementById('qMarks').value = q.marks || 5;
   [0,1,2,3].forEach(i => document.getElementById('opt'+i).value = q.options[i] || '');
   const radios = document.querySelectorAll('input[name="correctAns"]');
   radios.forEach(r => r.checked = false);
@@ -791,6 +815,7 @@ function deleteQuestion(idx) {
 
 function clearForm() {
   document.getElementById('qText').value = '';
+  document.getElementById('qMarks').value = '5';
   [0,1,2,3].forEach(i => document.getElementById('opt'+i).value = '');
   document.querySelectorAll('input[name="correctAns"]').forEach(r => r.checked = false);
   document.getElementById('editingId').value = '';
@@ -898,8 +923,8 @@ function getSettings() {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     const stored = cfg.exam_settings || localStorage.getItem('wfa_settings');
     if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
-    return { active:true, duration:10, passMark:60, maxWarnings:3 };
-  } catch(e) { return { active:true, duration:10, passMark:60, maxWarnings:3 }; }
+    return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' };
+  } catch(e) { return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' }; }
 }
 
 function saveSettings() {
@@ -907,6 +932,8 @@ function saveSettings() {
   s.duration = parseInt(document.getElementById('durationInput').value) || 10;
   s.passMark = parseInt(document.getElementById('passMarkInput').value) || 60;
   s.maxWarnings = parseInt(document.getElementById('maxWarnInput').value) || 3;
+  s.examName = document.getElementById('examNameInput').value;
+  s.examDate = document.getElementById('examDateInput').value;
   localStorage.setItem('wfa_settings', JSON.stringify(s));
   
   const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
@@ -919,6 +946,8 @@ function loadSettings() {
   document.getElementById('durationInput').value = s.duration || 10;
   document.getElementById('passMarkInput').value = s.passMark || 60;
   document.getElementById('maxWarnInput').value = s.maxWarnings || 3;
+  if(document.getElementById('examNameInput')) document.getElementById('examNameInput').value = s.examName || '';
+  if(document.getElementById('examDateInput')) document.getElementById('examDateInput').value = s.examDate || '';
   const toggle = document.getElementById('examActiveToggle');
   if (s.active === false) toggle.classList.remove('on');
   else toggle.classList.add('on');

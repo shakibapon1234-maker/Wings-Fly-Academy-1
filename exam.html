@@ -412,9 +412,9 @@
 <!-- Header -->
 <div class="header">
   <div class="logo">✈️</div>
-  <div>
-    <h1>Wings Fly Academy</h1>
-    <p>Online Examination System</p>
+  <div style="flex:1;">
+    <h1 id="headerExamName">Wings Fly Academy</h1>
+    <p id="headerExamDate">Online Examination System</p>
   </div>
 </div>
 
@@ -441,20 +441,20 @@
 
 <div class="container">
 
-  <!-- Section: Login -->
   <div id="loginSection" class="section active">
-    <div class="card" style="margin-top: 16px;">
+    <!-- Using a proper form for enter key submission -->
+    <form class="card" style="margin-top: 16px;" onsubmit="event.preventDefault(); startExam();">
       <h2>✈️ এক্সামে যোগ দিন</h2>
       <p>নিচে আপনার তথ্য দিয়ে এক্সাম শুরু করুন।</p>
 
       <label>আপনার পুরো নাম</label>
-      <input type="text" id="studentName" placeholder="যেমন: Md. Rahim" />
+      <input type="text" id="studentName" placeholder="যেমন: Md. Rahim" required />
 
       <label>স্টুডেন্ট ID / রোল নম্বর</label>
-      <input type="text" id="studentId" placeholder="যেমন: WFA-101" />
+      <input type="text" id="studentId" placeholder="যেমন: WFA-101" required />
 
-      <button class="btn btn-primary" onclick="startExam()">এক্সাম শুরু করুন →</button>
-    </div>
+      <button type="submit" class="btn btn-primary" id="startExamBtn">এক্সাম শুরু করুন →</button>
+    </form>
   </div>
 
   <!-- Section: Exam -->
@@ -574,21 +574,30 @@ let examSettings = {};
 // LOAD DATA
 // =====================
 function loadData(callback) {
-  WFA_IDB.onReady(() => {
+  let hasCalled = false;
+  
+  const doLoad = () => {
+    if (hasCalled) return;
+    hasCalled = true;
     try {
-      const dbSettings = SupabaseSync.getAll(DB.settings)[0] || {};
+      const dbSettings = SupabaseSync.getAll && window.DB && window.DB.settings ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
       
       const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
       const settingsRaw = dbSettings.exam_settings || localStorage.getItem('wfa_settings');
       
-      examSettings = settingsRaw ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw) : { active: true, duration: 10, passMark: 60 };
+      examSettings = settingsRaw ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw) : { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
       
       if (stored) {
         const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
-        questions = parsed.length > 0 ? parsed : DEFAULT_QUESTIONS;
+        questions = (Array.isArray(parsed) && parsed.length > 0) ? parsed : DEFAULT_QUESTIONS;
       } else {
         questions = DEFAULT_QUESTIONS;
       }
+
+      // Ensure every question has options array
+      questions.forEach(q => {
+        if (!q.options || !Array.isArray(q.options)) q.options = ["ক", "খ", "গ", "ঘ"];
+      });
 
       // Pick only 5 questions randomly if more exist
       if (questions.length > 5) {
@@ -601,49 +610,73 @@ function loadData(callback) {
       
       if(callback) callback();
     } catch(e) {
-      console.error(e);
+      console.error("Exam load error:", e);
       questions = DEFAULT_QUESTIONS;
-      examSettings = { active: true, duration: 10, passMark: 60 };
+      examSettings = { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
       if(callback) callback();
     }
-  });
+  };
+
+  if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
+    // Timeout fallback just in case IDB blocks forever
+    WFA_IDB.onReady(doLoad);
+    setTimeout(doLoad, 1500); 
+  } else {
+    // If IDB logic is completely missing
+    doLoad();
+  }
 }
 
 // =====================
 // START EXAM
 // =====================
 function startExam() {
-  studentName = document.getElementById('studentName').value.trim();
-  studentId = document.getElementById('studentId').value.trim();
+  try {
+    const btn = document.getElementById('startExamBtn');
+    if(btn) btn.disabled = true;
 
-  if (!studentName) {
-    alert('অনুগ্রহ করে আপনার নাম লিখুন।');
-    return;
-  }
-  if (!studentId) {
-    alert('অনুগ্রহ করে আপনার ID লিখুন।');
-    return;
-  }
+    studentName = document.getElementById('studentName').value.trim();
+    studentId = document.getElementById('studentId').value.trim();
 
-  loadData(() => {
-    if (examSettings.active === false) {
-      showSection('loginSection');
-      document.querySelector('.container').innerHTML = `
-        <div class="closed-notice">
-          <div class="icon">🔒</div>
-          <h2>এক্সাম বন্ধ আছে</h2>
-          <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
-        </div>`;
+    if (!studentName) {
+      alert('অনুগ্রহ করে আপনার নাম লিখুন।');
+      if(btn) btn.disabled = false;
+      return;
+    }
+    if (!studentId) {
+      alert('অনুগ্রহ করে আপনার ID লিখুন।');
+      if(btn) btn.disabled = false;
       return;
     }
 
-    document.getElementById('displayName').textContent = studentName;
-    renderQuestions();
-    showSection('examSection');
-    document.getElementById('timerBar').style.display = 'flex';
-    startTimer();
-    setupWarnings();
-  });
+    loadData(() => {
+      if(btn) btn.disabled = false;
+      if (examSettings.active === false) {
+        showSection('loginSection');
+        document.querySelector('.container').innerHTML = `
+          <div class="closed-notice">
+            <div class="icon">🔒</div>
+            <h2>এক্সাম বন্ধ আছে</h2>
+            <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+          </div>`;
+        return;
+      }
+
+      document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
+      document.getElementById('headerExamDate').textContent = examSettings.examDate ? `Online Exam - ${examSettings.examDate}` : 'Online Examination System';
+      document.getElementById('displayName').textContent = studentName;
+      renderQuestions();
+      showSection('examSection');
+      document.getElementById('timerBar').style.display = 'flex';
+      startTimer();
+      setupWarnings();
+    });
+  } catch (err) {
+    console.error("Critical start error:", err);
+    alert('একটি সমস্যা হয়েছে: ' + err.message);
+    const btn = document.getElementById('startExamBtn');
+    if(btn) btn.disabled = false;
+  }
 }
 
 // =====================
@@ -662,7 +695,10 @@ function renderQuestions() {
     const div = document.createElement('div');
     div.className = 'question-card';
     div.innerHTML = `
-      <div class="q-num">প্রশ্ন ${i + 1} / ${questions.length}</div>
+      <div class="q-num" style="display:flex; justify-content:space-between;">
+        <span>প্রশ্ন ${i + 1} / ${questions.length}</span>
+        <span style="color:var(--muted); text-transform:none;">[মান: ${q.marks || 1}]</span>
+      </div>
       <div class="q-text">${q.question}</div>
       <div class="options" id="opts-${i}">
         ${q.options.map((opt, j) => `
@@ -807,16 +843,24 @@ function showResults() {
   document.getElementById('timerBar').style.display = 'none';
 
   let correct = 0;
+  let totalMarks = 0;
+  let obtainedMarks = 0;
+
   questions.forEach((q, i) => {
-    if (answers[i] === q.answer) correct++;
+    const mark = q.marks || 1;
+    totalMarks += mark;
+    if (answers[i] === q.answer) {
+      correct++;
+      obtainedMarks += mark;
+    }
   });
 
-  const total = questions.length;
-  const pct = Math.round((correct / total) * 100);
+  const totalQuestions = questions.length;
+  const pct = Math.round((obtainedMarks / totalMarks) * 100) || 0;
   const passMark = examSettings.passMark || 60;
   const passed = pct >= passMark;
 
-  document.getElementById('resultScore').textContent = `${correct}/${total}`;
+  document.getElementById('resultScore').textContent = `${obtainedMarks} / ${totalMarks}`;
   document.getElementById('resultPercent').textContent = `${pct}% — (পাসের মার্ক: ${passMark}%)`;
   document.getElementById('resultBadge').innerHTML = passed
     ? `<div class="result-badge badge-pass">✅ উত্তীর্ণ</div>`
@@ -832,9 +876,13 @@ function showResults() {
   details.innerHTML = questions.map((q, i) => {
     const userAns = answers[i];
     const isCorrect = userAns === q.answer;
+    const mark = q.marks || 1;
     return `
       <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">প্রশ্ন ${i+1}</div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px;">
+          <span>প্রশ্ন ${i+1}</span>
+          <span>মান: ${mark} ${userAns !== undefined ? (isCorrect ? \`(প্রাপ্ত: \${mark})\` : \`(প্রাপ্ত: 0)\`) : \`(প্রাপ্ত: 0)\`}</span>
+        </div>
         <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
         ${userAns !== undefined
           ? `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:${isCorrect?'#e8f5e9':'#fdecea'};color:${isCorrect?'var(--success)':'var(--danger)'};">
@@ -848,7 +896,7 @@ function showResults() {
   }).join('');
 
   // Save result
-  saveResult(studentName, studentId, correct, total, pct, passed, warningCount);
+  saveResult(studentName, studentId, correct, totalQuestions, pct, passed, warningCount);
 
   showSection('resultSection');
 }
