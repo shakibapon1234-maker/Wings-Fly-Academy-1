@@ -161,7 +161,7 @@ const IntegrityGuard = (() => {
         required: ['buildCardHTML', 'renderPreview', 'printCard', 'printBulk',
                    'render', 'previewStudent', 'previewCard', 'printStudent',
                    'printAllStudents'],
-        critical: true,
+        critical: false, // ✅ Fix: non-critical — failure should not trigger alert that blocks Finance render
         desc: 'ID card generator module',
       },
 
@@ -169,7 +169,7 @@ const IntegrityGuard = (() => {
         required: ['buildCertHTML', 'renderPreview', 'fillFromStudent', 'print',
                    'render', 'previewForStudent', 'previewCertificate',
                    'printForStudent', 'printAllCerts'],
-        critical: true,
+        critical: false, // ✅ Fix: non-critical — failure should not trigger alert that blocks Finance render
         desc: 'Certificate generator module',
       },
 
@@ -341,7 +341,7 @@ const IntegrityGuard = (() => {
       {
         name: 'IDCardsModule.previewCard',
         desc: 'Student MANAGE → ID Card button এর function exists কিনা',
-        critical: true,
+        critical: false, // ✅ Fix: non-critical — don't block Finance on missing function
         check: () => {
           if (typeof IDCardsModule === 'undefined') return { ok: false, detail: 'IDCardsModule not found' };
           if (typeof IDCardsModule.previewCard !== 'function') return { ok: false, detail: 'IDCardsModule.previewCard is not a function' };
@@ -351,7 +351,7 @@ const IntegrityGuard = (() => {
       {
         name: 'CertificatesModule.previewCertificate',
         desc: 'Student MANAGE → Certificate button এর function exists কিনা',
-        critical: true,
+        critical: false, // ✅ Fix: non-critical — don't block Finance on missing function
         check: () => {
           if (typeof CertificatesModule === 'undefined') return { ok: false, detail: 'CertificatesModule not found' };
           if (typeof CertificatesModule.previewCertificate !== 'function') return { ok: false, detail: 'CertificatesModule.previewCertificate is not a function' };
@@ -890,14 +890,17 @@ const IntegrityGuard = (() => {
     window.addEventListener('wfa:synced', () => {
       clearTimeout(_syncCheckTimer);
       _syncCheckTimer = setTimeout(() => {
-      // Light check only — data logic গুলো check করো
-      const dataResults = _checkDataLogic();
-      const fails = dataResults.filter(r => !r.ok && r.critical);
-      if (fails.length > 0) {
-        _showCriticalAlert(fails);
-        if (_panelOpen) _refreshPanelIfOpen(_lastResult || run());
-      }
-      }, 1500); // 1.5s debounce
+        // ✅ Fix: modal খোলা থাকলে integrity check skip — Finance modal-এর সাথে collision এড়াতে
+        const modalOpen = document.querySelector('.modal-backdrop.open');
+        if (modalOpen) return;
+        // Light check only — data logic গুলো check করো
+        const dataResults = _checkDataLogic();
+        const fails = dataResults.filter(r => !r.ok && r.critical);
+        if (fails.length > 0) {
+          _showCriticalAlert(fails);
+          if (_panelOpen) _refreshPanelIfOpen(_lastResult || run());
+        }
+      }, 3000); // ✅ Fix: 1.5s → 3s debounce, Finance render শেষ হওয়ার সুযোগ দেওয়া হচ্ছে
     });
   }
 

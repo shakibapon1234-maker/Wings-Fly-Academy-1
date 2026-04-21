@@ -522,27 +522,31 @@ const App = (() => {
     if (menu) menu.style.display = 'none';
 
     // Helper: wait until a container has real content rendered, then open modal
-    function waitAndOpen(section, containerId, openFn, maxWait = 2000) {
+    function waitAndOpen(section, containerId, openFn, maxWait = 3000) {
       navigateTo(section);
       const start = Date.now();
-      let done = false; // ✅ Fix: prevent openFn from firing more than once
+      let done = false; // ✅ Fix: openFn একবারের বেশি fire হবে না
       function check() {
         if (done) return;
         const el = document.getElementById(containerId);
-        // Consider rendered when container has meaningful HTML (table, filter-bar, card, OR any child element)
-        const isReady = el && el.children.length > 0 && el.textContent.trim().length > 10;
+        // ✅ Fix: skeleton loader-এ table/.filter-bar থাকে না — real render হলেই open হবে
+        const isReady = el && (
+          el.querySelector('table') ||
+          el.querySelector('.filter-bar') ||
+          el.querySelector('.stat-card') ||
+          el.querySelector('.card')
+        );
         if (isReady) {
           done = true;
           openFn();
         } else if (Date.now() - start < maxWait) {
           setTimeout(check, 100);
         } else {
-          // ✅ Fix: fallback fires only once, guarded by done flag
-          done = true;
+          done = true; // ✅ Fix: timeout fallback-ও একবারই চলবে
           openFn();
         }
       }
-      setTimeout(check, 150); // ✅ Fix: give Finance.render() time to start before first check
+      setTimeout(check, 200); // ✅ Fix: Finance.render() এর rAF শুরু হওয়ার পর check
     }
 
     switch (type) {
@@ -866,7 +870,7 @@ const App = (() => {
     });
 
     // On sync, refresh current module
-    // ✅ Fix: skip re-render if a modal is open — prevents hang when adding transactions
+    // ✅ Fix: modal খোলা থাকলে re-render skip — transaction add করার সময় freeze এড়াতে
     window.addEventListener('wfa:synced', () => {
       const modalOpen = document.querySelector('.modal-backdrop.open');
       if (!modalOpen) {
