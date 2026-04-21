@@ -522,23 +522,27 @@ const App = (() => {
     if (menu) menu.style.display = 'none';
 
     // Helper: wait until a container has real content rendered, then open modal
-    function waitAndOpen(section, containerId, openFn, maxWait = 3000) {
+    function waitAndOpen(section, containerId, openFn, maxWait = 2000) {
       navigateTo(section);
       const start = Date.now();
+      let done = false; // ✅ Fix: prevent openFn from firing more than once
       function check() {
+        if (done) return;
         const el = document.getElementById(containerId);
-        // Consider rendered when container has meaningful HTML (table or filter-bar present)
-        const isReady = el && (el.querySelector('table') || el.querySelector('.filter-bar') || el.querySelector('.card'));
+        // Consider rendered when container has meaningful HTML (table, filter-bar, card, OR any child element)
+        const isReady = el && el.children.length > 0 && el.textContent.trim().length > 10;
         if (isReady) {
+          done = true;
           openFn();
         } else if (Date.now() - start < maxWait) {
-          setTimeout(check, 80);
+          setTimeout(check, 100);
         } else {
-          // Fallback: try anyway after timeout
+          // ✅ Fix: fallback fires only once, guarded by done flag
+          done = true;
           openFn();
         }
       }
-      setTimeout(check, 80);
+      setTimeout(check, 150); // ✅ Fix: give Finance.render() time to start before first check
     }
 
     switch (type) {
@@ -862,8 +866,12 @@ const App = (() => {
     });
 
     // On sync, refresh current module
+    // ✅ Fix: skip re-render if a modal is open — prevents hang when adding transactions
     window.addEventListener('wfa:synced', () => {
-      renderModule(currentSection);
+      const modalOpen = document.querySelector('.modal-backdrop.open');
+      if (!modalOpen) {
+        renderModule(currentSection);
+      }
       updateNotifCount();
       // Refresh notice dot after sync (new notice may have arrived from cloud)
       try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.updateNoticeDot(); } catch { /* ignore */ }
