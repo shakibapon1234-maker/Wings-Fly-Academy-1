@@ -18,13 +18,20 @@ const Finance = (() => {
   /* ══════════════════════════════════════════
      RENDER
   ══════════════════════════════════════════ */
+  let _renderPending = false;
   function render() {
     const container = document.getElementById('finance-content');
     if (!container) return;
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
       console.warn('[Finance] Core dependencies not loaded'); return;
     }
+    // Non-blocking: yield to browser so modal can open after navigateTo
+    if (_renderPending) return;
+    _renderPending = true;
+    requestAnimationFrame(() => { _renderPending = false; _doRender(container); });
+  }
 
+  function _doRender(container) {
     const all      = SupabaseSync.getAll(DB.finance);
     const filtered = applyFilters(all);
     const sorted   = Utils.sortBy(filtered, 'date', 'desc');
@@ -138,7 +145,7 @@ const Finance = (() => {
         </div>
       </div>
     `;
-  }
+  }  // end _doRender
 
   function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(9, 'No records found');

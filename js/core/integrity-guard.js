@@ -885,7 +885,11 @@ const IntegrityGuard = (() => {
     // Critical module এর function যদি override হয় সেটা ধরার জন্য
     // Proxy trap দিয়ে check করা যায় — কিন্তু সেটা complex।
     // বরং wfa:synced event এ run করো (যা প্রতিটি CRUD এর পরে fire হয়)
+    // Fix: debounce integrity check after sync - prevents race with Finance render
+    let _syncCheckTimer = null;
     window.addEventListener('wfa:synced', () => {
+      clearTimeout(_syncCheckTimer);
+      _syncCheckTimer = setTimeout(() => {
       // Light check only — data logic গুলো check করো
       const dataResults = _checkDataLogic();
       const fails = dataResults.filter(r => !r.ok && r.critical);
@@ -893,6 +897,7 @@ const IntegrityGuard = (() => {
         _showCriticalAlert(fails);
         if (_panelOpen) _refreshPanelIfOpen(_lastResult || run());
       }
+      }, 1500); // 1.5s debounce
     });
   }
 

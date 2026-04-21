@@ -517,16 +517,57 @@ const App = (() => {
 
   // ── Quick Actions ─────────────────────────────────────────
   function quickAction(type) {
-    switch (type) {
-      case 'student':     navigateTo('students');  setTimeout(() => { if (typeof Students !== 'undefined') Students.openAddModal(); }, 200); break;
-      case 'transaction': navigateTo('finance');   setTimeout(() => { if (typeof Finance !== 'undefined') Finance.openAddModal(); }, 200); break;
-      case 'loan':        navigateTo('loans');     setTimeout(() => { if (typeof Loans !== 'undefined') Loans.openAddModal(); }, 200); break;
-      case 'exam':        navigateTo('exam');      setTimeout(() => { if (typeof Exam !== 'undefined') Exam.openRegModal(); }, 200); break;
-      case 'visitor':     navigateTo('visitors');  setTimeout(() => { if (typeof VisitorsModule !== 'undefined') VisitorsModule.openAddModal(); }, 200); break;
-    }
-    // Close quick-add menu
+    // Close quick-add menu first
     const menu = document.getElementById('quick-add-menu');
     if (menu) menu.style.display = 'none';
+
+    // Helper: wait until a container has real content rendered, then open modal
+    function waitAndOpen(section, containerId, openFn, maxWait = 3000) {
+      navigateTo(section);
+      const start = Date.now();
+      function check() {
+        const el = document.getElementById(containerId);
+        // Consider rendered when container has meaningful HTML (table or filter-bar present)
+        const isReady = el && (el.querySelector('table') || el.querySelector('.filter-bar') || el.querySelector('.card'));
+        if (isReady) {
+          openFn();
+        } else if (Date.now() - start < maxWait) {
+          setTimeout(check, 80);
+        } else {
+          // Fallback: try anyway after timeout
+          openFn();
+        }
+      }
+      setTimeout(check, 80);
+    }
+
+    switch (type) {
+      case 'student':
+        waitAndOpen('students', 'students-content', () => {
+          if (typeof Students !== 'undefined') Students.openAddModal();
+        });
+        break;
+      case 'transaction':
+        waitAndOpen('finance', 'finance-content', () => {
+          if (typeof Finance !== 'undefined') Finance.openAddModal();
+        });
+        break;
+      case 'loan':
+        waitAndOpen('loans', 'loans-content', () => {
+          if (typeof Loans !== 'undefined') Loans.openAddModal();
+        });
+        break;
+      case 'exam':
+        waitAndOpen('exam', 'exam-content', () => {
+          if (typeof Exam !== 'undefined') Exam.openRegModal();
+        });
+        break;
+      case 'visitor':
+        waitAndOpen('visitors', 'visitors-content', () => {
+          if (typeof VisitorsModule !== 'undefined') VisitorsModule.openAddModal();
+        });
+        break;
+    }
   }
 
   // ── Notification Count ────────────────────────────────────
