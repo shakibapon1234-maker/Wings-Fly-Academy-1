@@ -513,6 +513,30 @@ const VoiceAssistant = (() => {
     hideBubble();
   }
 
+  // ★ NEW: Move avatar manually
+  function moveAvatar(pos) {
+    if (!btn) return;
+    btn.classList.add('navigating');
+    
+    if (pos === 'left') {
+      btn.style.right = 'auto';
+      btn.style.left  = '30px';
+    } else if (pos === 'right') {
+      btn.style.left  = 'auto';
+      btn.style.right = '120px';
+    } else if (pos === 'up' || pos === 'top') {
+      btn.style.bottom = 'auto';
+      btn.style.top    = '30px';
+    } else if (pos === 'down' || pos === 'bottom') {
+      btn.style.top    = 'auto';
+      btn.style.bottom = '30px';
+    }
+    
+    setTimeout(() => btn.classList.remove('navigating'), 900);
+    const msg = currentLang === 'bn-IN' ? 'জ্বী স্যার, সরিয়ে দিলাম!' : 'Sure sir, moving now!';
+    speak(msg);
+  }
+
   /* ════════════════════════════════════════════════
      TRAIL DOTS
   ════════════════════════════════════════════════ */
@@ -840,7 +864,22 @@ const VoiceAssistant = (() => {
     'কাজ': 'work',
     'নাম্বার': 'number',
     'নাম্বারের': 'number',
-    'ব্যাচের': 'batch'
+    'ব্যাচের': 'batch',
+    'বাম': 'left',
+    'ডান': 'right',
+    'উপরে': 'up',
+    'নিচে': 'down',
+    'পাশ': 'side',
+    'একপাশে': 'side',
+    'সাইড': 'side',
+    'উধাও': 'disappear',
+    'সরো': 'move',
+    'সরুন': 'move',
+    'বন্ধ': 'close',
+    'গান': 'sing',
+    'গাও': 'sing',
+    'কাজ': 'task',
+    'আজকের': 'today'
   };
 
   // ★ NEW: Translate Bengali command to English
@@ -1075,10 +1114,43 @@ const VoiceAssistant = (() => {
       'Why did the student pilot bring a ladder? To reach new heights!',
       'What did the runway say to the airplane? Stop running and take off already!',
       'Why do wings never get lost? Because they always know which way to turn!',
+      'How do you know if there is a pilot at your party? They will tell you!',
+      'What do you call a pilot who has just been dumped? A cloud-digger!',
+      'Why did the airplane get sent to its room? Bad altitude!',
+      'What happens when a plane gets sick? It gets terminal!',
+      'Where does an airplane go for a vacation? To a boarding house!',
+      'What did the pilot say to the tower? I have a landing date!',
+      'Why don\'t airplanes ever get lonely? Because they are always in a hangar!',
+      'How does a pilot maintain their figure? They do lots of landing gear!',
+      'What is a pilot\'s favorite type of music? A-flat!',
+      'Why was the belt arrested? For holding up a pair of pants near the runway!'
     ];
     const joke = jokes[Math.floor(Math.random() * jokes.length)];
     speak(joke);
     showBubble(`😄 ${joke}`);
+  }
+
+  // 🎵 Sing a song (Rhythmic recitation)
+  function singSong() {
+    const lyrics = [
+      "Up in the sky so high and blue, Wings Fly Academy is where dreams come true! From takeoff run to landing gear, our future pilots have no fear!",
+      "Oh, fly with me, past clouds above, the aviation world is one we love. With stick and rudder, we find our way, learning to fly every single day!",
+      "Check the weather, check the fuel, Wings Fly Academy is really cool! High in the air, we feel so free, the masters of the sky we'll be!"
+    ];
+    const song = lyrics[Math.floor(Math.random() * lyrics.length)];
+    
+    // Change pitch/rate for "singing" effect
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(song);
+    if (!voiceInstance) setVoice();
+    u.voice = voiceInstance;
+    u.pitch = 1.35;
+    u.rate  = 0.95;
+    u.onstart = () => btn && btn.classList.add('talking');
+    u.onend   = () => btn && btn.classList.remove('talking');
+    synth.speak(u);
+    showBubble(`🎵 ${song}`, true);
+    setTimeout(() => hideBubble(), 5000);
   }
 
   // 📢 Scroll commands
@@ -1102,6 +1174,51 @@ const VoiceAssistant = (() => {
     } else {
       setTimeout(() => location.reload(), 1000);
     }
+  }
+
+  // 📊 Robust Today's Task Summary
+  function reportTodayTaskSummary() {
+    const todayStr = today();
+    const todayISO = new Date().toISOString().split('T')[0];
+    
+    // 1. New Students
+    const allStudents = dbAll('students');
+    const newStudents = allStudents.filter(s => 
+      (s.admission_date === todayStr) || (s.created_at && s.created_at.startsWith(todayISO))
+    );
+    
+    // 2. Finance Activities
+    const allFinance = dbAll('finance');
+    const todayFin = allFinance.filter(f => 
+       (f.date === todayStr) || (f.created_at && f.created_at.startsWith(todayISO))
+    );
+    const income = todayFin.filter(f => f.type === 'Income' || (f.type||'').toLowerCase().includes('in')).reduce((s,f) => s + safeNum(f.amount), 0);
+    const expense = todayFin.filter(f => f.type === 'Expense' || (f.type||'').toLowerCase().includes('out')).reduce((s,f) => s + safeNum(f.amount), 0);
+    const transfers = todayFin.filter(f => (f.type || '').toLowerCase().includes('transfer')).length;
+    
+    // 3. Edits/Deletes from Activity Log
+    let activityLogs = [];
+    try { activityLogs = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); } catch(e) {}
+    const todayLogs = activityLogs.filter(l => l.created_at && l.created_at.startsWith(todayISO));
+    const edits = todayLogs.filter(l => l.action === 'edit' || l.action === 'update').length;
+    const deletes = todayLogs.filter(l => l.action === 'delete' || l.action === 'remove').length;
+
+    const title = "Today's Task Summary";
+    const rows = [
+      ['🎓 New Students', `${newStudents.length} added`, '#00ff88'],
+      ['💰 Today Income', taka(income), '#00ff88'],
+      ['💸 Today Expense', taka(expense), '#ff4757'],
+      ['🔄 Transfers', `${transfers} items`, '#a0c4ff'],
+      ['--------','---',''],
+      ['📝 Data Edits', `${edits} actions`, '#f1c40f'],
+      ['🗑️ Records Deleted', `${deletes} removed`, '#ff4757']
+    ];
+    
+    const voiceText = currentLang === 'bn-IN' 
+      ? `আজকের কাজের তালিকা: নতুন স্টুডেন্ট যোগ হয়েছে ${newStudents.length} জন, মোট আয় হয়েছে ${taka(income)} এবং ব্যয় ${taka(expense)}। মোট সংশোধন হয়েছে ${edits}টি।`
+      : `Today's summary: ${newStudents.length} students added. Income ${taka(income)}. Expense ${taka(expense)}. You performed ${edits} edits today.`;
+      
+    showReport(title, 'fa-list-check', rows, `Live data scan for ${todayStr}`, voiceText);
   }
 
   /* ════════════════════════════════════════════════
@@ -1383,7 +1500,7 @@ const VoiceAssistant = (() => {
     }
 
     // ── YOU CAN GO NOW (Disable/Dismiss Assistant) ─────────────────
-    if (/\b(you can go|go now|dismiss|disable|turn off|shut down|যাও|যেতে পারো|বন্ধ করো|চলে যাও)\b/.test(cmd)) {
+    if (/\b(you can go|go now|dismiss|disable|turn off|shut down|disappear|vanish|যাও|যেতে পারো|বন্ধ করো|চলে যাও|উধাও|হারিয়ে যাও)\b/.test(cmd)) {
       stopContinuousListening();
       const msg = currentLang === 'bn-IN' 
         ? 'ঠিক আছে স্যার, আমি চলে যাচ্ছি। প্রয়োজন হলে আবার ডাকবেন। বাই!'
@@ -1391,6 +1508,14 @@ const VoiceAssistant = (() => {
       speak(msg);
       showBubble(currentLang === 'bn-IN' ? '👋 চলে গেলাম!' : '👋 Going offline!', false);
       return;
+    }
+
+    // ── MOVE AVATAR ───────────────────────────────────────────────
+    if (/\b(move|go|সরো|যাও|বসো)\b/.test(cmd) && /\b(left|right|up|down|top|bottom|বাম|ডান|উপরে|নিচে)\b/.test(cmd)) {
+      if (cmd.includes('left') || cmd.includes('বাম')) { moveAvatar('left'); return; }
+      if (cmd.includes('right') || cmd.includes('ডান')) { moveAvatar('right'); return; }
+      if (cmd.includes('up') || cmd.includes('top') || cmd.includes('উপরে')) { moveAvatar('up'); return; }
+      if (cmd.includes('down') || cmd.includes('bottom') || cmd.includes('নিচে')) { moveAvatar('down'); return; }
     }
 
     // ── REPEAT ───────────────────────────────────────────────────
@@ -1411,8 +1536,24 @@ const VoiceAssistant = (() => {
       speak(resp); return;
     }
 
-    // ── JOKES ─────────────────────────────────────────────────────
+    // ── ENTERTAINMENT / JOKES / SONG ──────────────────────────────
     if (/\b(joke|funny|laugh|humor|make me laugh)\b/.test(cmd)) { tellJoke(); return; }
+    if (/\b(sing|song|গান)\b/.test(cmd)) { singSong(); return; }
+
+    // ── MODAL / WINDOW CONTROL ─────────────────────────────────────
+    if (/\b(close|shut|বন্ধ)\b/.test(cmd) && /\b(window|modal|box|dialog|উইন্ডো|বক্স)\b/.test(cmd)) {
+      if (typeof Utils !== 'undefined' && Utils.closeModal) {
+        Utils.closeModal();
+        speak(currentLang === 'bn-IN' ? 'উইন্ডো বন্ধ করে দিয়েছি।' : 'Closing the window for you.');
+        return;
+      }
+    }
+  
+    // ── ACTIVITY / TASK SUMMARY ────────────────────────────────────
+    if (/\b(task|activity|work|কাজ)\b/.test(cmd) && /\b(today|total|summary|আজকের)\b/.test(cmd)) {
+      reportTodayTaskSummary();
+      return;
+    }
 
     // ★ NEW: ADVANCED BATCH QUERIES ─────────────────────────────────
     // Examples: "উনিশ ব্যাচে টোটাল স্টুডেন্ট কত?", "Batch 19 student count", "19 batch এ কত ছাত্র"
