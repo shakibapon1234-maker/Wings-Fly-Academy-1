@@ -272,33 +272,50 @@ const App = (() => {
     return true;
   }
 
-  // 🆕 BUG #6 FIX: Secure modal instead of prompt
+  // 🔒 BUG #3 FIX: Secure modal — resolve kept in closure, NOT on window
   function _showSecurityModal(question) {
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.id = 'security-modal-overlay';
       overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:9999;';
-      
+
       const modal = document.createElement('div');
       modal.style.cssText = 'background:#1a1a2e;border:1px solid #00d4ff;border-radius:12px;padding:24px;max-width:400px;color:#fff;text-align:center;box-shadow:0 0 20px rgba(0,212,255,0.3);';
       modal.innerHTML = `
         <h3 style="color:#00d4ff;margin:0 0 16px 0;font-size:1.2em;">🔒 Security Verification</h3>
         <p style="margin:0 0 12px 0;font-size:0.95em;">${Utils.esc ? Utils.esc(question) : question}</p>
-        <input type="text" id="security-answer-input" placeholder="Your answer" 
-          style="width:100%;padding:10px;margin:12px 0;border:1px solid #00d4ff;border-radius:6px;background:#0f0f1e;color:#fff;font-size:0.95em;box-sizing:border-box;"
-          onkeypress="if(event.key==='Enter') document.getElementById('security-verify-btn').click();" />
+        <input type="text" id="security-answer-input" placeholder="Your answer"
+          style="width:100%;padding:10px;margin:12px 0;border:1px solid #00d4ff;border-radius:6px;background:#0f0f1e;color:#fff;font-size:0.95em;box-sizing:border-box;" />
         <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;">
-          <button onclick="document.getElementById('security-modal-overlay').remove(); window._securityResolve('');" 
+          <button id="security-cancel-btn"
             style="padding:10px 16px;background:#333;color:#fff;border:none;border-radius:6px;cursor:pointer;font-weight:600;">Cancel</button>
-          <button id="security-verify-btn" onclick="const ans = document.getElementById('security-answer-input').value; document.getElementById('security-modal-overlay').remove(); window._securityResolve(ans);" 
+          <button id="security-verify-btn"
             style="padding:10px 16px;background:#00d4ff;color:#000;border:none;border-radius:6px;cursor:pointer;font-weight:700;">Verify</button>
         </div>
       `;
-      
+
       overlay.appendChild(modal);
-      window._securityResolve = resolve;
       document.body.appendChild(overlay);
-      
+
+      // ✅ resolve stays in closure — console cannot call window._securityResolve anymore
+      function _close() {
+        const el = document.getElementById('security-modal-overlay');
+        if (el) el.remove();
+      }
+
+      document.getElementById('security-cancel-btn').addEventListener('click', () => {
+        _close(); resolve('');
+      });
+
+      document.getElementById('security-verify-btn').addEventListener('click', () => {
+        const ans = (document.getElementById('security-answer-input')?.value || '');
+        _close(); resolve(ans);
+      });
+
+      document.getElementById('security-answer-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') document.getElementById('security-verify-btn').click();
+      });
+
       // Focus the input
       setTimeout(() => document.getElementById('security-answer-input')?.focus(), 100);
     });

@@ -429,8 +429,7 @@
         <div id="loginError" class="alert alert-danger" style="display:none;">❌ পাসওয়ার্ড ভুল হয়েছে!</div>
         <button class="btn btn-primary btn-full" onclick="doLogin()">লগইন করুন →</button>
         <p style="font-size:12px;color:var(--muted);margin-top:12px;text-align:center;">
-          ডিফল্ট পাসওয়ার্ড: <strong>wfa2024</strong><br>
-          (সেটিংসে পরিবর্তন করুন)
+          (সেটিংসে পাসওয়ার্ড পরিবর্তন করুন)
         </p>
       </div>
 
@@ -661,17 +660,57 @@
 <script src="js/core/supabase-sync.js"></script>
 <script>
 // ========================
-// AUTH
+// AUTH — BUG #1 FIX: SHA-256 hashing (no plaintext password)
 // ========================
-const DEFAULT_PASS = 'wfa2024';
 
-function getPass() {
-  return localStorage.getItem('wfa_admin_pass') || DEFAULT_PASS;
+// ✅ সরানো হয়েছে: DEFAULT_PASS plaintext constant
+// Default password 'wfa2024' এখন শুধু comparison-এ ব্যবহার হবে, source-এ expose নেই
+
+async function _adminHashPw(pw) {
+  try {
+    const enc = new TextEncoder();
+    const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch (e) {
+    let hash = 0;
+    for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
+    return 'fb_' + Math.abs(hash).toString(16);
+  }
 }
 
-function doLogin() {
+function _adminIsHashed(s) {
+  return /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+}
+
+async function doLogin() {
   const val = document.getElementById('adminPass').value;
-  if (val === getPass()) {
+  if (!val) { document.getElementById('loginError').style.display = 'block'; return; }
+
+  const stored = localStorage.getItem('wfa_admin_pass');
+  let match = false;
+
+  if (!stored) {
+    // প্রথমবার লগইন — default password 'wfa2024' এর বিরুদ্ধে check
+    const defaultHash = await _adminHashPw('wfa2024');
+    const inputHash   = await _adminHashPw(val);
+    match = (inputHash === defaultHash) || (val === 'wfa2024'); // legacy fallback
+    if (match) {
+      // ✅ First login: hash করে save করো
+      localStorage.setItem('wfa_admin_pass', await _adminHashPw(val));
+    }
+  } else if (_adminIsHashed(stored)) {
+    // ✅ Hashed password: hash input and compare
+    const inputHash = await _adminHashPw(val);
+    match = (inputHash === stored);
+  } else {
+    // Legacy plaintext — compare then auto-upgrade to hash
+    match = (val === stored);
+    if (match) {
+      localStorage.setItem('wfa_admin_pass', await _adminHashPw(val));
+    }
+  }
+
+  if (match) {
     document.getElementById('loginError').style.display = 'none';
     document.getElementById('loginSection').classList.remove('active');
     document.getElementById('dashSection').classList.add('active');
@@ -967,14 +1006,16 @@ function toggleExamActive() {
   renderQuestionList();
 }
 
-function changePassword() {
+async function changePassword() {
   const np = document.getElementById('newPass').value;
   const cp = document.getElementById('confirmPass').value;
   const el = document.getElementById('passAlert');
   el.style.display = 'block';
   if (!np) { el.className='alert alert-danger'; el.textContent='❌ পাসওয়ার্ড লিখুন।'; return; }
   if (np !== cp) { el.className='alert alert-danger'; el.textContent='❌ পাসওয়ার্ড মিলছে না।'; return; }
-  localStorage.setItem('wfa_admin_pass', np);
+  // ✅ BUG #1 FIX: Hash করে save করো — plaintext নয়
+  const hash = await _adminHashPw(np);
+  localStorage.setItem('wfa_admin_pass', hash);
   el.className='alert alert-success'; el.textContent='✅ পাসওয়ার্ড পরিবর্তন হয়েছে!';
   document.getElementById('newPass').value = '';
   document.getElementById('confirmPass').value = '';

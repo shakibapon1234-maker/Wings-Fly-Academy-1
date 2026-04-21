@@ -151,7 +151,10 @@ const WFA_IDB = (() => {
         if (!Array.isArray(rows) || rows.length === 0) continue;
 
         const existing = _cache[key] || [];
-        if (existing.length < rows.length) {
+        // ✅ BUG #8 FIX: শুধু IDB খালি থাকলে migrate করো।
+        // আগে existing.length < rows.length ছিল — এতে IDB-তে সমান row থাকলে
+        // localStorage-এর নতুন/আলাদা data skip হয়ে যেত।
+        if (existing.length === 0) {
           _cache[key] = rows;
           _writeToIDB(key, rows);
           migrated++;
@@ -844,12 +847,26 @@ const SupabaseSync = (() => {
     const bin = getAll('recycle_bin');
     if (!Array.isArray(bin) || index < 0 || index >= bin.length) return;
     const item = bin[index];
+    if (!item) return;
+
     if (item?.table && item?.data?.id) {
       untrackDeletion(item.table, item.data.id);
       _logActivity('delete', item.table, `Permanently deleted ${item.name} from recycle bin`);
     }
-    bin.splice(index, 1);
-    setAll('recycle_bin', bin);
+
+    // ✅ BUG #7 FIX: Fresh read করে ID দিয়ে findIndex — index mismatch থেকে রক্ষা
+    // আগে সরাসরি bin.splice(index, 1) ছিল — timing mismatch হলে ভুল item delete হত
+    const freshBin = getAll('recycle_bin');
+    let realIdx = -1;
+    if (item?.data?.id) {
+      realIdx = freshBin.findIndex(x => x?.data?.id === item.data.id);
+    }
+    if (realIdx === -1) realIdx = index; // ID না থাকলে fallback
+
+    if (realIdx >= 0 && realIdx < freshBin.length) {
+      freshBin.splice(realIdx, 1);
+      setAll('recycle_bin', freshBin);
+    }
     _syncRecycleBinToSettings();
   }
 
