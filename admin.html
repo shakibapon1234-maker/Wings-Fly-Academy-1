@@ -1,0 +1,993 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wings Fly Academy — Admin Panel</title>
+<style>
+  :root {
+    --primary: #1a3a5c;
+    --primary-light: #eef3fa;
+    --accent: #e8a020;
+    --success: #2e7d32;
+    --danger: #c62828;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --muted: #5a6a7a;
+    --border: #d0d8e4;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .header {
+    background: var(--primary);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+  .header h1 { font-size: 16px; font-weight: 600; }
+  .header p { font-size: 11px; opacity: 0.7; }
+
+  .badge-admin {
+    background: var(--accent);
+    color: #1a1a00;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+  }
+
+  .logout-btn {
+    background: rgba(255,255,255,0.15);
+    color: white;
+    border: 1px solid rgba(255,255,255,0.3);
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 22px 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  textarea,
+  select {
+    width: 100%;
+    padding: 10px 13px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    color: var(--text);
+    background: white;
+    outline: none;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+    font-family: inherit;
+  }
+
+  input:focus, textarea:focus, select:focus { border-color: var(--primary); }
+
+  textarea { resize: vertical; min-height: 70px; }
+
+  .btn {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 9px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:active { transform: scale(0.97); }
+  .btn-primary { background: var(--primary); color: white; }
+  .btn-success { background: var(--success); color: white; }
+  .btn-danger { background: var(--danger); color: white; }
+  .btn-outline { background: white; color: var(--primary); border: 1.5px solid var(--primary); }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* Login */
+  .login-wrap {
+    max-width: 360px;
+    margin: 40px auto 0;
+  }
+
+  .login-icon {
+    text-align: center;
+    font-size: 48px;
+    margin-bottom: 8px;
+  }
+
+  .login-title {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 4px;
+  }
+
+  .login-sub {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 22px;
+  }
+
+  /* Settings toggle */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .toggle-row:last-child { border-bottom: none; }
+
+  .toggle-label { font-size: 14px; font-weight: 500; }
+  .toggle-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  .toggle {
+    width: 46px;
+    height: 26px;
+    background: var(--border);
+    border-radius: 30px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+
+  .toggle.on { background: var(--success); }
+
+  .toggle::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: white;
+    border-radius: 50%;
+    top: 3px;
+    left: 3px;
+    transition: left 0.2s;
+  }
+
+  .toggle.on::after { left: 23px; }
+
+  /* Question list */
+  .q-item {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .q-item-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .q-item-text {
+    font-size: 14px;
+    font-weight: 500;
+    flex: 1;
+    line-height: 1.4;
+  }
+
+  .q-item-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+  .q-options-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .q-opt-pill {
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: white;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .q-opt-pill.correct {
+    background: #e8f5e9;
+    border-color: var(--success);
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 32px 20px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-box {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+
+  .stat-val { font-size: 24px; font-weight: 700; color: var(--primary); }
+  .stat-lbl { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* Nav tabs */
+  .nav-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 6px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+  }
+
+  .nav-tab {
+    flex: 1;
+    padding: 9px 8px;
+    border-radius: 9px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+  }
+
+  .nav-tab.active {
+    background: var(--primary);
+    color: white;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* Add question form */
+  .option-input-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .option-letter {
+    width: 28px;
+    height: 28px;
+    background: var(--primary-light);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+    flex-shrink: 0;
+  }
+
+  .option-input-row input {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  .correct-radio {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--success);
+    flex-shrink: 0;
+  }
+
+  /* Result table */
+  .result-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .result-table th {
+    background: var(--primary);
+    color: white;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 500;
+  }
+
+  .result-table th:first-child { border-radius: 8px 0 0 0; }
+  .result-table th:last-child { border-radius: 0 8px 0 0; }
+
+  .result-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+
+  .result-table tr:last-child td { border-bottom: none; }
+  .result-table tr:nth-child(even) td { background: var(--bg); }
+
+  .pass-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .pass-badge.pass { background: #e8f5e9; color: var(--success); }
+  .pass-badge.fail { background: #fdecea; color: var(--danger); }
+
+  .alert {
+    padding: 10px 14px;
+    border-radius: 9px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+
+  .alert-success { background: #e8f5e9; color: var(--success); border: 1px solid #a5d6a7; }
+  .alert-danger { background: #fdecea; color: var(--danger); border: 1px solid #ef9a9a; }
+  .alert-info { background: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+</style>
+</head>
+<body>
+
+<!-- Header (hidden until logged in) -->
+<div class="header" id="mainHeader" style="display:none;">
+  <div class="header-left">
+    <div style="font-size:22px;">✈️</div>
+    <div>
+      <h1>Wings Fly Academy</h1>
+      <p>Admin Panel</p>
+    </div>
+    <span class="badge-admin">ADMIN</span>
+  </div>
+  <button class="logout-btn" onclick="logout()">লগআউট</button>
+</div>
+
+<div class="container">
+
+  <!-- =================== LOGIN =================== -->
+  <div id="loginSection" class="section active">
+    <div class="login-wrap">
+      <div class="login-icon">🔐</div>
+      <div class="login-title">অ্যাডমিন লগইন</div>
+      <div class="login-sub">Wings Fly Academy — শিক্ষক প্যানেল</div>
+
+      <div class="card">
+        <label>পাসওয়ার্ড</label>
+        <input type="password" id="adminPass" placeholder="পাসওয়ার্ড দিন" onkeydown="if(event.key==='Enter')doLogin()" />
+        <div id="loginError" class="alert alert-danger" style="display:none;">❌ পাসওয়ার্ড ভুল হয়েছে!</div>
+        <button class="btn btn-primary btn-full" onclick="doLogin()">লগইন করুন →</button>
+        <p style="font-size:12px;color:var(--muted);margin-top:12px;text-align:center;">
+          ডিফল্ট পাসওয়ার্ড: <strong>wfa2024</strong><br>
+          (সেটিংসে পরিবর্তন করুন)
+        </p>
+      </div>
+
+      <div style="text-align:center;margin-top:16px;">
+        <a href="exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজে যান</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== DASHBOARD =================== -->
+  <div id="dashSection" class="section">
+
+    <!-- Nav Tabs -->
+    <div class="nav-tabs" style="margin-top:16px;">
+      <button class="nav-tab active" onclick="switchTab('questions')">📝 প্রশ্ন</button>
+      <button class="nav-tab" onclick="switchTab('add')">➕ যোগ করুন</button>
+      <button class="nav-tab" onclick="switchTab('results')">📊 রেজাল্ট</button>
+      <button class="nav-tab" onclick="switchTab('settings')">⚙️ সেটিংস</button>
+    </div>
+
+    <!-- TAB: Questions List -->
+    <div id="tab-questions" class="tab-content active">
+      <div class="card">
+        <div class="card-title">📝 প্রশ্নের তালিকা</div>
+
+        <div id="questionStats" class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-val" id="qCount">0</div>
+            <div class="stat-lbl">মোট প্রশ্ন</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-val" id="qActive" style="color:var(--success);">✓</div>
+            <div class="stat-lbl">এক্সাম স্ট্যাটাস</div>
+          </div>
+        </div>
+
+        <div id="questionList"></div>
+
+        <button class="btn btn-outline btn-full" style="margin-top:8px;" onclick="switchTab('add')">
+          ➕ নতুন প্রশ্ন যোগ করুন
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB: Add Question -->
+    <div id="tab-add" class="tab-content">
+      <div class="card">
+        <div class="card-title" id="addFormTitle">➕ নতুন প্রশ্ন যোগ করুন</div>
+
+        <div id="addAlert" style="display:none;"></div>
+
+        <label>প্রশ্ন লিখুন</label>
+        <textarea id="qText" placeholder="যেমন: বাংলাদেশের জাতীয় পাখির নাম কী?"></textarea>
+
+        <label style="margin-bottom:10px;">অপশন লিখুন এবং সঠিক উত্তর বেছে নিন ✅</label>
+
+        <div class="option-input-row">
+          <div class="option-letter">ক</div>
+          <input type="text" id="opt0" placeholder="অপশন ক" style="margin-bottom:0;" />
+          <input type="radio" name="correctAns" value="0" class="correct-radio" title="সঠিক উত্তর" />
+        </div>
+
+        <div class="option-input-row">
+          <div class="option-letter">খ</div>
+          <input type="text" id="opt1" placeholder="অপশন খ" style="margin-bottom:0;" />
+          <input type="radio" name="correctAns" value="1" class="correct-radio" title="সঠিক উত্তর" />
+        </div>
+
+        <div class="option-input-row">
+          <div class="option-letter">গ</div>
+          <input type="text" id="opt2" placeholder="অপশন গ" style="margin-bottom:0;" />
+          <input type="radio" name="correctAns" value="2" class="correct-radio" title="সঠিক উত্তর" />
+        </div>
+
+        <div class="option-input-row" style="margin-bottom:16px;">
+          <div class="option-letter">ঘ</div>
+          <input type="text" id="opt3" placeholder="অপশন ঘ" style="margin-bottom:0;" />
+          <input type="radio" name="correctAns" value="3" class="correct-radio" title="সঠিক উত্তর" />
+        </div>
+
+        <p style="font-size:12px;color:var(--muted);margin-bottom:14px;">
+          ☝️ রেডিও বাটনে ক্লিক করে সঠিক উত্তর চিহ্নিত করুন
+        </p>
+
+        <input type="hidden" id="editingId" value="" />
+
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-success" style="flex:1;" onclick="saveQuestion()">💾 সংরক্ষণ করুন</button>
+          <button class="btn btn-outline" onclick="clearForm()">✕ বাতিল</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Results -->
+    <div id="tab-results" class="tab-content">
+      <div class="card">
+        <div class="card-title">📊 রেজাল্ট সারসংক্ষেপ</div>
+
+        <div class="stats-grid" id="resultStats">
+          <div class="stat-box"><div class="stat-val" id="rs-total">0</div><div class="stat-lbl">মোট পরীক্ষার্থী</div></div>
+          <div class="stat-box"><div class="stat-val" id="rs-pass" style="color:var(--success);">0</div><div class="stat-lbl">উত্তীর্ণ</div></div>
+          <div class="stat-box"><div class="stat-val" id="rs-fail" style="color:var(--danger);">0</div><div class="stat-lbl">অনুত্তীর্ণ</div></div>
+          <div class="stat-box"><div class="stat-val" id="rs-avg">0%</div><div class="stat-lbl">গড় নম্বর</div></div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table class="result-table" id="resultTable">
+            <thead>
+              <tr>
+                <th>নাম</th>
+                <th>ID</th>
+                <th>নম্বর</th>
+                <th>ফলাফল</th>
+                <th>সতর্কতা</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+
+        <div id="noResults" class="empty-state">
+          <div class="icon">📭</div>
+          <div>এখনো কোনো রেজাল্ট নেই</div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-outline" style="flex:1;" onclick="exportResults()">⬇️ CSV ডাউনলোড</button>
+          <button class="btn btn-danger btn-sm" onclick="clearResults()">🗑️ মুছুন</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Settings -->
+    <div id="tab-settings" class="tab-content">
+      <div class="card">
+        <div class="card-title">⚙️ এক্সাম সেটিংস</div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">এক্সাম চালু আছে</div>
+            <div class="toggle-sub">বন্ধ করলে স্টুডেন্টরা এক্সাম দিতে পারবে না</div>
+          </div>
+          <div class="toggle on" id="examActiveToggle" onclick="toggleExamActive()"></div>
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">এক্সাম সময়</div>
+            <div class="toggle-sub">মিনিটে (ডিফল্ট: ১০)</div>
+          </div>
+          <input type="number" id="durationInput" value="10" min="1" max="120"
+            style="width:70px;margin:0;padding:8px 10px;text-align:center;" onchange="saveSettings()" />
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">পাসের মার্ক (%)</div>
+            <div class="toggle-sub">এই শতাংশ বা বেশি পেলে পাস (ডিফল্ট: ৬০)</div>
+          </div>
+          <input type="number" id="passMarkInput" value="60" min="1" max="100"
+            style="width:70px;margin:0;padding:8px 10px;text-align:center;" onchange="saveSettings()" />
+        </div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">সর্বোচ্চ সতর্কতা</div>
+            <div class="toggle-sub">এতবারের বেশি ট্যাব সুইচ করলে অটো সাবমিট</div>
+          </div>
+          <input type="number" id="maxWarnInput" value="3" min="1" max="10"
+            style="width:70px;margin:0;padding:8px 10px;text-align:center;" onchange="saveSettings()" />
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🔑 পাসওয়ার্ড পরিবর্তন</div>
+        <label>নতুন পাসওয়ার্ড</label>
+        <input type="password" id="newPass" placeholder="নতুন পাসওয়ার্ড লিখুন" />
+        <label>পাসওয়ার্ড নিশ্চিত করুন</label>
+        <input type="password" id="confirmPass" placeholder="আবার লিখুন" />
+        <div id="passAlert" style="display:none;"></div>
+        <button class="btn btn-primary" onclick="changePassword()">🔐 পাসওয়ার্ড পরিবর্তন করুন</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🗑️ ডেটা ম্যানেজমেন্ট</div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <button class="btn btn-outline" onclick="exportQuestions()">⬇️ প্রশ্ন ব্যাকআপ (JSON)</button>
+          <label style="font-size:13px;color:var(--primary);cursor:pointer;border:1.5px solid var(--primary);padding:10px;border-radius:9px;text-align:center;font-weight:600;">
+            ⬆️ প্রশ্ন আপলোড করুন (JSON)
+            <input type="file" accept=".json" style="display:none;" onchange="importQuestions(event)" />
+          </label>
+          <button class="btn btn-danger" onclick="clearAllQuestions()">⚠️ সব প্রশ্ন মুছুন</button>
+        </div>
+      </div>
+
+      <div style="text-align:center;margin-top:8px;">
+        <a href="exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজ দেখুন</a>
+      </div>
+    </div>
+
+  </div><!-- end dashSection -->
+
+</div><!-- end container -->
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/supabase-config.js"></script>
+<script src="js/core/supabase-sync.js"></script>
+<script>
+// ========================
+// AUTH
+// ========================
+const DEFAULT_PASS = 'wfa2024';
+
+function getPass() {
+  return localStorage.getItem('wfa_admin_pass') || DEFAULT_PASS;
+}
+
+function doLogin() {
+  const val = document.getElementById('adminPass').value;
+  if (val === getPass()) {
+    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('loginSection').classList.remove('active');
+    document.getElementById('dashSection').classList.add('active');
+    document.getElementById('mainHeader').style.display = 'flex';
+    loadAll();
+  } else {
+    document.getElementById('loginError').style.display = 'block';
+  }
+}
+
+function logout() {
+  document.getElementById('dashSection').classList.remove('active');
+  document.getElementById('loginSection').classList.add('active');
+  document.getElementById('mainHeader').style.display = 'none';
+  document.getElementById('adminPass').value = '';
+}
+
+// ========================
+// TABS
+// ========================
+function switchTab(name) {
+  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  const tabs = ['questions','add','results','settings'];
+  document.querySelectorAll('.nav-tab')[tabs.indexOf(name)].classList.add('active');
+  if (name === 'results') loadResults();
+}
+
+// ========================
+// QUESTIONS CRUD
+// ========================
+function getQuestions() {
+  try {
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const stored = cfg.exam_questions || localStorage.getItem('wfa_questions');
+    if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
+    return [];
+  } catch(e) { return []; }
+}
+
+function saveQuestions(qs) {
+  try {
+    localStorage.setItem('wfa_questions', JSON.stringify(qs));
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    cfg.exam_questions = JSON.stringify(qs);
+    if(cfg.id) {
+      SupabaseSync.update(DB.settings, cfg.id, cfg);
+    } else {
+      SupabaseSync.insert(DB.settings, cfg);
+    }
+  } catch(e) {}
+}
+
+function renderQuestionList() {
+  const qs = getQuestions();
+  document.getElementById('qCount').textContent = qs.length;
+
+  const settings = getSettings();
+  document.getElementById('qActive').textContent = settings.active !== false ? 'চালু ✓' : 'বন্ধ ✕';
+  document.getElementById('qActive').style.color = settings.active !== false ? 'var(--success)' : 'var(--danger)';
+  document.getElementById('qActive').style.fontSize = '15px';
+
+  const list = document.getElementById('questionList');
+  if (qs.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>কোনো প্রশ্ন নেই। নিচের বাটনে ক্লিক করে যোগ করুন।</div></div>`;
+    return;
+  }
+
+  list.innerHTML = qs.map((q, i) => `
+    <div class="q-item">
+      <div class="q-item-top">
+        <div class="q-item-text">${i+1}. ${q.question}</div>
+        <div class="q-item-actions">
+          <button class="btn btn-outline btn-sm" onclick="editQuestion(${i})">✏️</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${i})">🗑️</button>
+        </div>
+      </div>
+      <div class="q-options-preview">
+        ${q.options.map((o, j) => `<span class="q-opt-pill ${j===q.answer?'correct':''}">${['ক','খ','গ','ঘ'][j]}. ${o}</span>`).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function saveQuestion() {
+  const qText = document.getElementById('qText').value.trim();
+  const opts = [0,1,2,3].map(i => document.getElementById('opt'+i).value.trim());
+  const correctRadio = document.querySelector('input[name="correctAns"]:checked');
+
+  if (!qText) { showAddAlert('❌ প্রশ্ন লিখুন।', 'danger'); return; }
+  if (opts.some(o => !o)) { showAddAlert('❌ সব অপশন পূরণ করুন।', 'danger'); return; }
+  if (!correctRadio) { showAddAlert('❌ সঠিক উত্তর বেছে নিন।', 'danger'); return; }
+
+  const qs = getQuestions();
+  const editingId = document.getElementById('editingId').value;
+  const newQ = {
+    id: editingId ? parseInt(editingId) : Date.now(),
+    question: qText,
+    options: opts,
+    answer: parseInt(correctRadio.value)
+  };
+
+  if (editingId) {
+    const idx = qs.findIndex(q => q.id == editingId);
+    if (idx !== -1) qs[idx] = newQ;
+  } else {
+    qs.push(newQ);
+  }
+
+  saveQuestions(qs);
+  clearForm();
+  showAddAlert('✅ প্রশ্ন সফলভাবে সংরক্ষণ হয়েছে!', 'success');
+  renderQuestionList();
+  setTimeout(() => { switchTab('questions'); }, 1200);
+}
+
+function editQuestion(idx) {
+  const qs = getQuestions();
+  const q = qs[idx];
+  document.getElementById('qText').value = q.question;
+  [0,1,2,3].forEach(i => document.getElementById('opt'+i).value = q.options[i] || '');
+  const radios = document.querySelectorAll('input[name="correctAns"]');
+  radios.forEach(r => r.checked = false);
+  radios[q.answer].checked = true;
+  document.getElementById('editingId').value = q.id;
+  document.getElementById('addFormTitle').textContent = '✏️ প্রশ্ন এডিট করুন';
+  switchTab('add');
+}
+
+function deleteQuestion(idx) {
+  if (!confirm('এই প্রশ্নটি মুছে দিতে চান?')) return;
+  const qs = getQuestions();
+  qs.splice(idx, 1);
+  saveQuestions(qs);
+  renderQuestionList();
+}
+
+function clearForm() {
+  document.getElementById('qText').value = '';
+  [0,1,2,3].forEach(i => document.getElementById('opt'+i).value = '');
+  document.querySelectorAll('input[name="correctAns"]').forEach(r => r.checked = false);
+  document.getElementById('editingId').value = '';
+  document.getElementById('addFormTitle').textContent = '➕ নতুন প্রশ্ন যোগ করুন';
+  document.getElementById('addAlert').style.display = 'none';
+}
+
+function showAddAlert(msg, type) {
+  const el = document.getElementById('addAlert');
+  el.className = `alert alert-${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+function clearAllQuestions() {
+  if (!confirm('⚠️ সব প্রশ্ন মুছে ফেলতে চান? এটি পূর্বাবস্থায় ফেরানো যাবে না।')) return;
+  saveQuestions([]);
+  renderQuestionList();
+}
+
+// ========================
+// RESULTS
+// ========================
+function loadResults() {
+  const localResults = JSON.parse(localStorage.getItem('wfa_results') || '[]');
+  
+  // Also load Subapase Native Exams
+  const allExams = SupabaseSync.getAll(DB.exams) || [];
+  const nativeResults = allExams.filter(e => e.marks != null).map(e => ({
+    name: e.student_name,
+    id: e.student_id,
+    correct: Math.round((e.marks / 100) * 5),
+    total: 5,
+    pct: parseInt(e.marks),
+    passed: e.status === 'Passed',
+    warnings: e.note ? String(e.note).replace('Extracted Warnings: ', '') : 0,
+    date: new Date(e.created_at).toLocaleString('bn-BD')
+  }));
+  
+  // Prevent duplicate showing (match by id and date roughly)
+  const results = [...nativeResults];
+  localResults.forEach(lr => {
+     if(!results.find(nr => nr.id === lr.id && nr.pct === lr.pct)) {
+        results.push(lr);
+     }
+  });
+
+  const tbody = document.getElementById('resultBody');
+  const noRes = document.getElementById('noResults');
+
+  if (results.length === 0) {
+    tbody.innerHTML = '';
+    noRes.style.display = 'block';
+    document.getElementById('rs-total').textContent = '0';
+    document.getElementById('rs-pass').textContent = '0';
+    document.getElementById('rs-fail').textContent = '0';
+    document.getElementById('rs-avg').textContent = '0%';
+    return;
+  }
+
+  noRes.style.display = 'none';
+
+  const passed = results.filter(r => r.passed).length;
+  const avg = Math.round(results.reduce((s,r) => s + r.pct, 0) / results.length);
+
+  document.getElementById('rs-total').textContent = results.length;
+  document.getElementById('rs-pass').textContent = passed;
+  document.getElementById('rs-fail').textContent = results.length - passed;
+  document.getElementById('rs-avg').textContent = avg + '%';
+
+  tbody.innerHTML = results.map(r => `
+    <tr>
+      <td>${r.name}</td>
+      <td>${r.id}</td>
+      <td><strong>${r.correct} / 5 </strong> (${r.pct}%)</td>
+      <td><span class="pass-badge ${r.passed?'pass':'fail'}">${r.passed?'উত্তীর্ণ':'অনুত্তীর্ণ'}</span></td>
+      <td>${r.warnings || 0}</td>
+    </tr>
+  `).join('');
+}
+
+function clearResults() {
+  if (!confirm('সব রেজাল্ট মুছে দিতে চান?')) return;
+  localStorage.removeItem('wfa_results');
+  loadResults();
+}
+
+function exportResults() {
+  const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
+  if (results.length === 0) { alert('কোনো রেজাল্ট নেই।'); return; }
+  const rows = [['নাম','ID','সঠিক','মোট','%','ফলাফল','সতর্কতা','তারিখ']];
+  results.forEach(r => rows.push([r.name,r.id,r.correct,r.total,r.pct+'%',r.passed?'উত্তীর্ণ':'অনুত্তীর্ণ',r.warnings||0,r.date]));
+  const csv = rows.map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='wfa_results.csv'; a.click();
+}
+
+// ========================
+// SETTINGS
+// ========================
+function getSettings() {
+  try {
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const stored = cfg.exam_settings || localStorage.getItem('wfa_settings');
+    if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
+    return { active:true, duration:10, passMark:60, maxWarnings:3 };
+  } catch(e) { return { active:true, duration:10, passMark:60, maxWarnings:3 }; }
+}
+
+function saveSettings() {
+  const s = getSettings();
+  s.duration = parseInt(document.getElementById('durationInput').value) || 10;
+  s.passMark = parseInt(document.getElementById('passMarkInput').value) || 60;
+  s.maxWarnings = parseInt(document.getElementById('maxWarnInput').value) || 3;
+  localStorage.setItem('wfa_settings', JSON.stringify(s));
+  
+  const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+  cfg.exam_settings = JSON.stringify(s);
+  if(cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
+}
+
+function loadSettings() {
+  const s = getSettings();
+  document.getElementById('durationInput').value = s.duration || 10;
+  document.getElementById('passMarkInput').value = s.passMark || 60;
+  document.getElementById('maxWarnInput').value = s.maxWarnings || 3;
+  const toggle = document.getElementById('examActiveToggle');
+  if (s.active === false) toggle.classList.remove('on');
+  else toggle.classList.add('on');
+}
+
+function toggleExamActive() {
+  const s = getSettings();
+  s.active = s.active === false ? true : false;
+  localStorage.setItem('wfa_settings', JSON.stringify(s));
+  
+  const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+  cfg.exam_settings = JSON.stringify(s);
+  if(cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
+
+  const toggle = document.getElementById('examActiveToggle');
+  s.active ? toggle.classList.add('on') : toggle.classList.remove('on');
+  renderQuestionList();
+}
+
+function changePassword() {
+  const np = document.getElementById('newPass').value;
+  const cp = document.getElementById('confirmPass').value;
+  const el = document.getElementById('passAlert');
+  el.style.display = 'block';
+  if (!np) { el.className='alert alert-danger'; el.textContent='❌ পাসওয়ার্ড লিখুন।'; return; }
+  if (np !== cp) { el.className='alert alert-danger'; el.textContent='❌ পাসওয়ার্ড মিলছে না।'; return; }
+  localStorage.setItem('wfa_admin_pass', np);
+  el.className='alert alert-success'; el.textContent='✅ পাসওয়ার্ড পরিবর্তন হয়েছে!';
+  document.getElementById('newPass').value = '';
+  document.getElementById('confirmPass').value = '';
+}
+
+// ========================
+// IMPORT / EXPORT
+// ========================
+function exportQuestions() {
+  const qs = getQuestions();
+  const blob = new Blob([JSON.stringify(qs, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='wfa_questions.json'; a.click();
+}
+
+function importQuestions(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data)) throw new Error('Invalid');
+      saveQuestions(data);
+      renderQuestionList();
+      alert('✅ ' + data.length + 'টি প্রশ্ন সফলভাবে আমদানি হয়েছে!');
+    } catch(err) {
+      alert('❌ ফাইল সঠিক নয়। JSON ফরম্যাট হতে হবে।');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ========================
+// INIT
+// ========================
+function loadAll() {
+  WFA_IDB.onReady(() => {
+    renderQuestionList();
+    loadSettings();
+  });
+}
+</script>
+</body>
+</html>

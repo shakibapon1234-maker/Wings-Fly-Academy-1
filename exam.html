@@ -1,0 +1,907 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wings Fly Academy — Exam</title>
+<style>
+  :root {
+    --primary: #1a3a5c;
+    --accent: #e8a020;
+    --success: #2e7d32;
+    --danger: #c62828;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --muted: #5a6a7a;
+    --border: #d0d8e4;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .header {
+    background: var(--primary);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header .logo {
+    font-size: 22px;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .header p {
+    font-size: 11px;
+    opacity: 0.75;
+  }
+
+  .timer-bar {
+    background: var(--primary);
+    padding: 8px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .timer-display {
+    background: var(--accent);
+    color: #1a1a00;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 30px;
+    letter-spacing: 2px;
+    display: none;
+  }
+
+  .timer-display.running { display: block; }
+  .timer-display.danger { background: #ff5252; color: white; animation: pulse 1s infinite; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+  .progress-wrap {
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    height: 6px;
+    flex: 1;
+    margin-left: 12px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-wrap.visible { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 1s linear;
+    border-radius: 10px;
+  }
+
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 24px 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    color: var(--text);
+    background: white;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: var(--primary); }
+
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-submit {
+    background: var(--success);
+    color: white;
+    margin-top: 8px;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .question-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .q-num {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .q-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 14px;
+    background: white;
+  }
+
+  .option:hover { border-color: var(--primary); background: #eef3fa; }
+
+  .option input[type="radio"] {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--primary);
+  }
+
+  .option.selected {
+    border-color: var(--primary);
+    background: #e8f0fb;
+    font-weight: 500;
+  }
+
+  .option.correct {
+    border-color: var(--success);
+    background: #e8f5e9;
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  .option.wrong {
+    border-color: var(--danger);
+    background: #fdecea;
+    color: var(--danger);
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .result-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .result-score {
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  .result-label {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .result-badge {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 6px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .badge-pass { background: #e8f5e9; color: var(--success); border: 1.5px solid var(--success); }
+  .badge-fail { background: #fdecea; color: var(--danger); border: 1.5px solid var(--danger); }
+
+  .warning-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .warning-overlay.show { display: flex; }
+
+  .warning-box {
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+    border-top: 5px solid var(--danger);
+  }
+
+  .warning-icon { font-size: 40px; margin-bottom: 12px; }
+
+  .warning-box h2 {
+    font-size: 18px;
+    color: var(--danger);
+    margin-bottom: 8px;
+  }
+
+  .warning-box p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+
+  .warning-count {
+    font-size: 13px;
+    color: var(--danger);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .no-questions {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .no-questions .icon { font-size: 48px; margin-bottom: 12px; }
+
+  #examSection .exam-header {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .exam-header .student-info {
+    color: var(--muted);
+  }
+
+  .exam-header strong {
+    color: var(--primary);
+    font-size: 14px;
+  }
+
+  .answered-count {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .info-item {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .info-item .val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .info-item .lbl {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .closed-notice {
+    text-align: center;
+    padding: 50px 20px;
+  }
+
+  .closed-notice .icon { font-size: 56px; margin-bottom: 16px; }
+  .closed-notice h2 { font-size: 20px; color: var(--primary); margin-bottom: 8px; }
+  .closed-notice p { font-size: 14px; color: var(--muted); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/supabase-config.js"></script>
+<script src="js/core/supabase-sync.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">✈️</div>
+  <div>
+    <h1>Wings Fly Academy</h1>
+    <p>Online Examination System</p>
+  </div>
+</div>
+
+<!-- Timer Bar -->
+<div class="timer-bar" id="timerBar" style="display:none;">
+  <div class="timer-display running" id="timerDisplay">10:00</div>
+  <div class="progress-wrap visible">
+    <div class="progress-fill" id="progressFill" style="width:100%"></div>
+  </div>
+</div>
+
+<!-- Warning Overlay -->
+<div class="warning-overlay" id="warningOverlay">
+  <div class="warning-box">
+    <div class="warning-icon">⚠️</div>
+    <h2>সতর্কতা!</h2>
+    <p id="warningMsg">আপনি এক্সামের বাইরে গিয়েছেন। এটি অসৎ আচরণ হিসেবে বিবেচিত হবে।</p>
+    <div class="warning-count" id="warningCount"></div>
+    <button class="btn btn-primary" onclick="dismissWarning()" style="border-radius:10px;">
+      বুঝেছি, এক্সামে ফিরে যাই
+    </button>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- Section: Login -->
+  <div id="loginSection" class="section active">
+    <div class="card" style="margin-top: 16px;">
+      <h2>✈️ এক্সামে যোগ দিন</h2>
+      <p>নিচে আপনার তথ্য দিয়ে এক্সাম শুরু করুন।</p>
+
+      <label>আপনার পুরো নাম</label>
+      <input type="text" id="studentName" placeholder="যেমন: Md. Rahim" />
+
+      <label>স্টুডেন্ট ID / রোল নম্বর</label>
+      <input type="text" id="studentId" placeholder="যেমন: WFA-101" />
+
+      <button class="btn btn-primary" onclick="startExam()">এক্সাম শুরু করুন →</button>
+    </div>
+  </div>
+
+  <!-- Section: Exam -->
+  <div id="examSection" class="section">
+    <div class="exam-header">
+      <div class="student-info">
+        <div style="color:var(--muted);font-size:12px;">পরীক্ষার্থী</div>
+        <strong id="displayName"></strong>
+      </div>
+      <div class="answered-count" id="answeredCount">0/0 উত্তর দেওয়া</div>
+    </div>
+
+    <div id="questionsContainer"></div>
+
+    <button class="btn btn-submit" onclick="submitExam()">✅ এক্সাম জমা দিন</button>
+  </div>
+
+  <!-- Section: Result -->
+  <div id="resultSection" class="section">
+    <div class="result-card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">পরীক্ষার ফলাফল</div>
+      <div class="result-score" id="resultScore">0/5</div>
+      <div class="result-label" id="resultPercent"></div>
+      <div id="resultBadge"></div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="val" id="r-name">—</div>
+        <div class="lbl">নাম</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-id">—</div>
+        <div class="lbl">ID</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-correct">0</div>
+        <div class="lbl">সঠিক উত্তর</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-warnings">0</div>
+        <div class="lbl">সতর্কতা পেয়েছেন</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom:14px;">প্রশ্নের বিস্তারিত</h2>
+      <div id="resultDetails"></div>
+    </div>
+
+    <button class="btn btn-primary" onclick="location.reload()">আরেকটি এক্সাম দিন</button>
+  </div>
+
+</div>
+
+<script>
+// =====================
+// EXAM DATA (Questions)
+// =====================
+// Admin panel থেকে প্রশ্ন লোড হবে। 
+// যদি কোনো প্রশ্ন না থাকে, নিচের default প্রশ্ন ব্যবহার হবে।
+
+const DEFAULT_QUESTIONS = [
+  {
+    id: 1,
+    question: "বাংলাদেশের জাতীয় বিমান সংস্থার নাম কী?",
+    options: ["এয়ার বাংলা", "বিমান বাংলাদেশ এয়ারলাইন্স", "ঢাকা এয়ার", "রয়েল বেঙ্গল এয়ার"],
+    answer: 1
+  },
+  {
+    id: 2,
+    question: "একটি বিমানের প্রধান নিয়ন্ত্রণ সারফেস কোনটি?",
+    options: ["ফ্ল্যাপ", "স্পয়লার", "এইলেরন", "স্লেট"],
+    answer: 2
+  },
+  {
+    id: 3,
+    question: "বিমান উড্ডয়নের সময় কোন শক্তি বিমানকে উপরে তোলে?",
+    options: ["থ্রাস্ট", "ড্র্যাগ", "লিফট", "গ্র্যাভিটি"],
+    answer: 2
+  },
+  {
+    id: 4,
+    question: "ICAO এর পূর্ণরূপ কী?",
+    options: [
+      "International Civil Aviation Organization",
+      "International Commercial Airline Operations",
+      "Indian Civil Aviation Office",
+      "Integrated Civil Air Operations"
+    ],
+    answer: 0
+  },
+  {
+    id: 5,
+    question: "রানওয়ের দিক নির্ধারণ করা হয় কীসের ভিত্তিতে?",
+    options: ["সূর্যের অবস্থান", "বায়ুর দিক", "চৌম্বকীয় উত্তর", "ভৌগলিক অবস্থান"],
+    answer: 2
+  }
+];
+
+// =====================
+// STATE
+// =====================
+let questions = [];
+let answers = {};
+let warningCount = 0;
+let maxWarnings = 3;
+let timerInterval = null;
+let totalSeconds = 600; // 10 minutes
+let remainingSeconds = 600;
+let examActive = false;
+let studentName = '';
+let studentId = '';
+let examSettings = {};
+
+// =====================
+// LOAD DATA
+// =====================
+function loadData(callback) {
+  WFA_IDB.onReady(() => {
+    try {
+      const dbSettings = SupabaseSync.getAll(DB.settings)[0] || {};
+      
+      const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
+      const settingsRaw = dbSettings.exam_settings || localStorage.getItem('wfa_settings');
+      
+      examSettings = settingsRaw ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw) : { active: true, duration: 10, passMark: 60 };
+      
+      if (stored) {
+        const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+        questions = parsed.length > 0 ? parsed : DEFAULT_QUESTIONS;
+      } else {
+        questions = DEFAULT_QUESTIONS;
+      }
+
+      // Pick only 5 questions randomly if more exist
+      if (questions.length > 5) {
+        const shuffled = questions.sort(() => Math.random() - 0.5);
+        questions = shuffled.slice(0, 5);
+      }
+
+      totalSeconds = (examSettings.duration || 10) * 60;
+      remainingSeconds = totalSeconds;
+      
+      if(callback) callback();
+    } catch(e) {
+      console.error(e);
+      questions = DEFAULT_QUESTIONS;
+      examSettings = { active: true, duration: 10, passMark: 60 };
+      if(callback) callback();
+    }
+  });
+}
+
+// =====================
+// START EXAM
+// =====================
+function startExam() {
+  studentName = document.getElementById('studentName').value.trim();
+  studentId = document.getElementById('studentId').value.trim();
+
+  if (!studentName) {
+    alert('অনুগ্রহ করে আপনার নাম লিখুন।');
+    return;
+  }
+  if (!studentId) {
+    alert('অনুগ্রহ করে আপনার ID লিখুন।');
+    return;
+  }
+
+  loadData(() => {
+    if (examSettings.active === false) {
+      showSection('loginSection');
+      document.querySelector('.container').innerHTML = `
+        <div class="closed-notice">
+          <div class="icon">🔒</div>
+          <h2>এক্সাম বন্ধ আছে</h2>
+          <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+        </div>`;
+      return;
+    }
+
+    document.getElementById('displayName').textContent = studentName;
+    renderQuestions();
+    showSection('examSection');
+    document.getElementById('timerBar').style.display = 'flex';
+    startTimer();
+    setupWarnings();
+  });
+}
+
+// =====================
+// RENDER QUESTIONS
+// =====================
+function renderQuestions() {
+  const container = document.getElementById('questionsContainer');
+  container.innerHTML = '';
+
+  if (questions.length === 0) {
+    container.innerHTML = `<div class="no-questions"><div class="icon">📭</div><p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p></div>`;
+    return;
+  }
+
+  questions.forEach((q, i) => {
+    const div = document.createElement('div');
+    div.className = 'question-card';
+    div.innerHTML = `
+      <div class="q-num">প্রশ্ন ${i + 1} / ${questions.length}</div>
+      <div class="q-text">${q.question}</div>
+      <div class="options" id="opts-${i}">
+        ${q.options.map((opt, j) => `
+          <label class="option" id="opt-${i}-${j}" onclick="selectOption(${i}, ${j})">
+            <input type="radio" name="q${i}" value="${j}" style="display:none;">
+            <span class="opt-letter">${['ক', 'খ', 'গ', 'ঘ'][j]}.</span>
+            <span>${opt}</span>
+          </label>
+        `).join('')}
+      </div>
+    `;
+    container.appendChild(div);
+  });
+
+  updateAnsweredCount();
+}
+
+function selectOption(qIdx, optIdx) {
+  answers[qIdx] = optIdx;
+  const opts = document.getElementById('opts-' + qIdx);
+  opts.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+  document.getElementById(`opt-${qIdx}-${optIdx}`).classList.add('selected');
+  updateAnsweredCount();
+}
+
+function updateAnsweredCount() {
+  const answered = Object.keys(answers).length;
+  document.getElementById('answeredCount').textContent = `${answered}/${questions.length} উত্তর দেওয়া`;
+}
+
+// =====================
+// TIMER
+// =====================
+function startTimer() {
+  examActive = true;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    remainingSeconds--;
+    updateTimerDisplay();
+    if (remainingSeconds <= 0) {
+      clearInterval(timerInterval);
+      autoSubmit();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
+  const display = document.getElementById('timerDisplay');
+  display.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  
+  const pct = (remainingSeconds / totalSeconds) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+
+  if (remainingSeconds <= 60) {
+    display.classList.add('danger');
+  }
+}
+
+// =====================
+// WARNINGS
+// =====================
+function setupWarnings() {
+  // Tab switch detection
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && examActive) {
+      triggerWarning('ট্যাব পরিবর্তন', 'আপনি অন্য ট্যাব বা অ্যাপে চলে গিয়েছেন।');
+    }
+  });
+
+  // Window blur (alt+tab, minimize)
+  window.addEventListener('blur', () => {
+    if (examActive) {
+      triggerWarning('উইন্ডো পরিবর্তন', 'আপনি এক্সামের বাইরে চলে গিয়েছেন।');
+    }
+  });
+
+  // Right click block
+  document.addEventListener('contextmenu', e => {
+    if (examActive) e.preventDefault();
+  });
+
+  // Copy/paste block
+  document.addEventListener('copy', e => {
+    if (examActive) e.preventDefault();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!examActive) return;
+    // Block F12, Ctrl+Shift+I, Ctrl+U etc.
+    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 'u')) {
+      e.preventDefault();
+      triggerWarning('DevTools চেষ্টা', 'আপনি DevTools খোলার চেষ্টা করেছেন।');
+    }
+  });
+}
+
+function triggerWarning(type, msg) {
+  warningCount++;
+  document.getElementById('warningMsg').textContent = `${msg} এটি অসৎ আচরণ হিসেবে বিবেচিত হবে।`;
+  document.getElementById('warningCount').textContent = `⚠️ সতর্কতা: ${warningCount} / ${maxWarnings}`;
+  document.getElementById('warningOverlay').classList.add('show');
+
+  if (warningCount >= maxWarnings) {
+    document.getElementById('warningMsg').textContent = '৩টি সতর্কতা পেয়েছেন। এক্সাম স্বয়ংক্রিয়ভাবে জমা হয়ে যাচ্ছে।';
+    setTimeout(() => {
+      dismissWarning();
+      autoSubmit();
+    }, 3000);
+  }
+}
+
+function dismissWarning() {
+  document.getElementById('warningOverlay').classList.remove('show');
+}
+
+// =====================
+// SUBMIT
+// =====================
+function autoSubmit() {
+  examActive = false;
+  clearInterval(timerInterval);
+  showResults();
+}
+
+function submitExam() {
+  const answered = Object.keys(answers).length;
+  if (answered < questions.length) {
+    const remaining = questions.length - answered;
+    if (!confirm(`আপনি এখনো ${remaining}টি প্রশ্নের উত্তর দেননি। তারপরও জমা দিতে চান?`)) return;
+  }
+  examActive = false;
+  clearInterval(timerInterval);
+  showResults();
+}
+
+// =====================
+// RESULTS
+// =====================
+function showResults() {
+  document.getElementById('timerBar').style.display = 'none';
+
+  let correct = 0;
+  questions.forEach((q, i) => {
+    if (answers[i] === q.answer) correct++;
+  });
+
+  const total = questions.length;
+  const pct = Math.round((correct / total) * 100);
+  const passMark = examSettings.passMark || 60;
+  const passed = pct >= passMark;
+
+  document.getElementById('resultScore').textContent = `${correct}/${total}`;
+  document.getElementById('resultPercent').textContent = `${pct}% — (পাসের মার্ক: ${passMark}%)`;
+  document.getElementById('resultBadge').innerHTML = passed
+    ? `<div class="result-badge badge-pass">✅ উত্তীর্ণ</div>`
+    : `<div class="result-badge badge-fail">❌ অনুত্তীর্ণ</div>`;
+
+  document.getElementById('r-name').textContent = studentName;
+  document.getElementById('r-id').textContent = studentId;
+  document.getElementById('r-correct').textContent = correct;
+  document.getElementById('r-warnings').textContent = warningCount;
+
+  // Detailed review
+  const details = document.getElementById('resultDetails');
+  details.innerHTML = questions.map((q, i) => {
+    const userAns = answers[i];
+    const isCorrect = userAns === q.answer;
+    return `
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="font-size:13px;color:var(--muted);margin-bottom:4px;">প্রশ্ন ${i+1}</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
+        ${userAns !== undefined
+          ? `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:${isCorrect?'#e8f5e9':'#fdecea'};color:${isCorrect?'var(--success)':'var(--danger)'};">
+              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${q.options[userAns]}
+            </div>`
+          : `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:#fff3e0;color:#e65100;">⏭️ উত্তর দেননি</div>`
+        }
+        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${q.options[q.answer]}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Save result
+  saveResult(studentName, studentId, correct, total, pct, passed, warningCount);
+
+  showSection('resultSection');
+}
+
+function saveResult(name, id, correct, total, pct, passed, warnings) {
+  try {
+    // 1. Save locally for fallback
+    const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
+    results.push({
+      name, id, correct, total, pct, passed, warnings,
+      date: new Date().toLocaleString('bn-BD')
+    });
+    localStorage.setItem('wfa_results', JSON.stringify(results));
+    
+    // 2. Save directly to Main Superbase Web App!
+    WFA_IDB.onReady(() => {
+      const exams = SupabaseSync.getAll(DB.exams);
+      let reg = exams.find(e => e.student_id === id);
+      
+      const gradeText = passed ? 'Pass' : 'Fail';
+      const statusText = passed ? 'Passed' : 'Failed';
+      
+      if(reg) {
+        // Update existing registration
+        SupabaseSync.update(DB.exams, reg.id, {
+          marks: pct,
+          grade: gradeText,
+          status: statusText,
+          note: `Extracted Warnings: ${warnings}`
+        });
+      } else {
+        // Create new record natively if they aren't registered yet!
+        SupabaseSync.insert(DB.exams, {
+          reg_id: 'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
+          student_id: id,
+          student_name: name,
+          marks: pct,
+          grade: gradeText,
+          status: statusText,
+          note: `Extracted Warnings: ${warnings}`
+        });
+      }
+    });
+
+  } catch(e) {
+    console.error("Result sync error: ", e);
+  }
+}
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
