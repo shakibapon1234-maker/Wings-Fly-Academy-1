@@ -173,12 +173,20 @@ const IDCardsModule = (() => {
     const s = students.find(st => st.id === id);
     if (!s) return;
     printCard(s, 'student');
+    // Activity log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('print', 'id-cards', `ID Card printed: ${s.name} (${s.student_id || s.id})`);
+    }
   }
 
   function printAllStudents() {
     const students = SupabaseSync.getAll(DB.students) || [];
     if (students.length === 0) return Utils.toast('No students to print.', 'error');
     printBulk(students, 'student');
+    // Activity log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('print', 'id-cards', `Bulk ID card print: ${students.length} cards`);
+    }
   }
 
   // ✅ Global-safe preview — works from ANY page via Utils.openModal()

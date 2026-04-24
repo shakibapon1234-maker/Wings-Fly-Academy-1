@@ -392,6 +392,10 @@ const CertificatesModule = (() => {
     const s = SupabaseSync.getAll(DB.students).find(st => st.id === id);
     if (!s) return;
     print(buildDataFromStudent(s));
+    // Activity log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('print', 'certificates', `Certificate printed: ${s.name} (${s.student_id || s.id})`);
+    }
   }
 
   function printAllCerts() {
@@ -405,6 +409,10 @@ const CertificatesModule = (() => {
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
     </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
     win.document.close();
+    // Activity log
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('print', 'certificates', `Bulk certificate print: ${students.length} certificates`);
+    }
   }
 
   function previewCertificate(id) {

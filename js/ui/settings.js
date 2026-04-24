@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Wings Fly Aviation Academy — Settings Module (Full Parity)
 // 11 Tabs matching legacy app design
 // ============================================================
@@ -921,18 +921,18 @@ const SettingsModule = (() => {
   }
 
   function removeCategory(key, item) {
-    // ✅ Modified: Push to Keep Record instead of recycle bin, as requested
-    const notes = getKeepRecords();
-    const entry = { 
-      title: `Deleted: ${item}`, 
-      content: `Category "${item}" removed from ${key} list.`, 
-      color: 'red', 
-      tags: ['deleted', 'settings', 'category'], 
-      pinned: false, 
-      date: new Date().toLocaleDateString('en-GB') 
-    };
-    notes.unshift(entry);
-    _saveKeepRecords(notes); // ✅ synced to Supabase via settings
+    // ✅ Req 2: Push to recycle_bin (restorable) instead of Keep Record
+    const recycleBin = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll('recycle_bin') || []) : [];
+    recycleBin.unshift({
+      id:        SupabaseSync.generateId(),
+      table:     'settings_category',
+      tableLabel: `Settings → ${key}`,
+      type:      'category',
+      name:      item,
+      data:      { key, item },
+      deletedAt: new Date().toISOString(),
+    });
+    if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', recycleBin);
 
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
@@ -941,7 +941,7 @@ const SettingsModule = (() => {
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
     refreshModal();
-    Utils.toast(`"${item}" deleted. Saved to Keep Record for reference. ⚑`, 'info');
+    Utils.toast(`"${item}" deleted → Recycle Bin-এ আছে। Restore করতে Recycle Bin দেখুন। 🗑️`, 'info');
     logActivity('delete', 'category', `Removed "${item}" from ${key}`);
   }
 
@@ -3732,7 +3732,7 @@ ${expenseEntries.length > 0 ? `
     if (logEl) logEl.innerHTML = `✅ Checked ${checks} records. Fixed ${fixes} issues. (${now})`;
 
     Utils.toast(`Auto-Heal: ${checks} checked, ${fixes} fixed`, 'success');
-    logActivity('edit', 'system', `Auto-Heal: ${checks} checked, ${fixes} fixed`);
+    // Note: Background system functions do NOT log to activity — by design
   }
 
   async function runSyncCheck() {

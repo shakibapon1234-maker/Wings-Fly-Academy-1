@@ -558,6 +558,15 @@ const App = (() => {
         case 'notice-board':  if (typeof NoticeBoardModule !== 'undefined')  NoticeBoardModule.render(); break;
         case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
       }
+      // ✅ Req 4: After every module renders, initialize DD/MM/YYYY flatpickr
+      // on ALL filter-bar date inputs (not inside modals).
+      // 150ms delay lets module rAF/innerHTML painting settle first.
+      setTimeout(() => {
+        if (typeof Utils !== 'undefined' && typeof Utils.initFilterDatePickers === 'function') {
+          const sectionEl = document.getElementById(`section-${section}`);
+          Utils.initFilterDatePickers(sectionEl || document.body);
+        }
+      }, 150);
     } catch (e) {
       console.error(`[App] Error rendering ${section}:`, e);
       const container = document.getElementById(`${section}-content`);

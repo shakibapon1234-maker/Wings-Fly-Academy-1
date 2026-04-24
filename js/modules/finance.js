@@ -145,6 +145,8 @@ const Finance = (() => {
         </div>
       </div>
     `;
+    // ✅ Req 4: DD/MM/YYYY for filter bar date inputs (fin-from, fin-to)
+    setTimeout(() => { if (typeof Utils !== 'undefined') Utils.initFilterDatePickers(container); }, 50);
   }  // end _doRender
 
   function renderRows(rows, startIndex = 0) {
