@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Wings Fly Aviation Academy — Utility Functions
 // ============================================================
 
@@ -678,201 +678,6 @@ const Utils = (() => {
       // Student ID
       generateStudentId,
       // Print & Export
-          <option value="10" ${pageSize==10?'selected':''}>10 / page</option>
-          <option value="20" ${pageSize==20?'selected':''}>20 / page</option>
-          <option value="50" ${pageSize==50?'selected':''}>50 / page</option>
-          <option value="100" ${pageSize==100?'selected':''}>100 / page</option>
-        </select>
-      </div>
-    `;
-  }
-
-    // ── Payment methods: settlement account + rollups (Cheque:: / Card:: composite values) ──
-    function escAttr(s) {
-      return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-    }
-    function escText(s) {
-      return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    }
-
-    /** Account whose balance is affected (Cash, bank name, or mobile wallet name). */
-    function getSettlementKey(method) {
-      if (!method || method === 'Cash') return 'Cash';
-      if (method.startsWith('Cheque::')) {
-        const rest = method.slice(8);
-        return rest || 'Cash';
-      }
-      if (method.startsWith('Card::')) {
-        const rest = method.slice(6);
-        return rest || 'Cash';
-      }
-      return method;
-    }
-
-    /** Bucket for dashboard / accounts hero totals: cash | bank | mobile */
-    function getPaymentMethodBucket(method, accounts) {
-      if (!accounts && window.SupabaseSync && window.DB) {
-        accounts = window.SupabaseSync.getAll(window.DB.accounts);
-      }
-      accounts = accounts || [];
-      const key = getSettlementKey(method);
-      if (key === 'Cash') return 'cash';
-      if (method === 'Bank') return 'bank';
-      if (method === 'Mobile Banking') return 'mobile';
-      const acc = accounts.find(a => a.name === key);
-      if (acc?.type === 'Bank_Detail') return 'bank';
-      if (acc?.type === 'Mobile_Detail') return 'mobile';
-      return 'bank';
-    }
-
-    /** Accounts search: category is Cash | Bank | Mobile Banking */
-    function financeMatchesAccountCategory(method, categoryUi, accounts) {
-      const b = getPaymentMethodBucket(method, accounts);
-      if (categoryUi === 'Cash') return b === 'cash';
-      if (categoryUi === 'Bank') return b === 'bank';
-      if (categoryUi === 'Mobile Banking') return b === 'mobile';
-      return false;
-    }
-
-    // ── Payment Methods Dropdown ──────────────────────────────
-    function getPaymentMethodsHTML(selectedValue = '') {
-      const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
-      const sel = selectedValue;
-      const opt = (val, label) =>
-        `<option value="${escAttr(val)}" ${sel === val ? 'selected' : ''}>${escText(label)}</option>`;
-
-      let h = opt('Cash', 'Cash');
-
-      // Deduplicate by name — একই নামে একাধিক entry থাকলে শুধু প্রথমটা নেওয়া হবে
-      const seenNames = new Set();
-
-      const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
-      banks.forEach(b => {
-        const name = b.name.trim();
-        if (!seenNames.has(name.toLowerCase())) {
-          seenNames.add(name.toLowerCase());
-          h += opt(name, name);
-        }
-      });
-
-      const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
-      mobiles.forEach(m => {
-        const name = m.name.trim();
-        if (!seenNames.has(name.toLowerCase())) {
-          seenNames.add(name.toLowerCase());
-          h += opt(name, name);
-        }
-      });
-
-      return h;
-    }
-
-    function getAccountBalance(methodName) {
-      if (!window.SupabaseSync || !methodName) return 0;
-      const accounts = window.SupabaseSync.getAll(window.DB.accounts);
-      const finance = window.SupabaseSync.getAll(window.DB.finance);
-      const settle = getSettlementKey(methodName);
-
-      let balance = 0;
-      if (settle === 'Cash') {
-        const cashAcc = accounts.find(a => a.type === 'Cash');
-        balance = cashAcc ? parseFloat(cashAcc.balance) || 0 : 0;
-      } else {
-        const acc = accounts.find(a => a.name === settle);
-        if (acc) balance = parseFloat(acc.balance) || 0;
-      }
-      return balance;
-    }
-
-    // ── Payment Methods Event Listener Helper ──
-    function onPaymentMethodChange(selectEl, displayElId) {
-      if (!selectEl) return;
-      const method = selectEl.value;
-      const displayEl = document.getElementById(displayElId);
-      if (!displayEl) return;
-      if (!method) {
-        displayEl.innerHTML = '';
-        displayEl.style.display = 'none';
-        return;
-      }
-      const bal = getAccountBalance(method);
-      displayEl.innerHTML = `<span>&#128181; Available Balance: ${formatMoneyPlain(bal)}</span>`;
-      displayEl.style.display = 'inline-flex';
-      displayEl.style.alignItems = 'center';
-      displayEl.style.marginTop = '8px';
-      displayEl.style.padding = '6px 14px';
-      displayEl.style.borderRadius = '8px';
-      displayEl.style.fontSize = '0.85rem';
-      displayEl.style.fontWeight = '700';
-      displayEl.style.color = '#00ff88';
-      displayEl.style.background = 'rgba(0, 255, 136, 0.08)';
-      displayEl.style.border = '1px solid rgba(0, 255, 136, 0.2)';
-      displayEl.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.05)';
-      displayEl.style.transition = 'all 0.3s ease';
-    }
-
-    // 🆕 BUG #4 FIX: Input validation helper
-    function validateForm(fields) {
-      // fields = { 'id': 'Label', ... }
-      const errors = [];
-      
-      for (const [id, label] of Object.entries(fields)) {
-        const value = formVal(id);
-        
-        // Check empty
-        if (!value || String(value).trim() === '') {
-          errors.push(`${label} is required`);
-          continue;
-        }
-        
-        // Type-specific validation
-        if (id.includes('phone')) {
-          if (!/^[0-9\-\+\s()]{6,20}$/.test(value)) {
-            errors.push(`${label} must be a valid phone number`);
-          }
-        }
-        if (id.includes('email')) {
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-            errors.push(`${label} must be a valid email`);
-          }
-        }
-        if (id.includes('amount') || id.includes('fee') || id.includes('balance') || id.includes('price')) {
-          const num = parseFloat(value);
-          if (isNaN(num) || num < 0) {
-            errors.push(`${label} must be a positive number`);
-          }
-        }
-      }
-      
-      return errors; // Empty array = valid
-    }
-
-    return {
-      // Date
-      today, todayISO, nowISO, formatDate, formatDateEN, formatDateDMY,
-      // Number
-      safeNum, takaEn, formatMoney, formatMoneyPlain,
-      // String
-      truncate, capitalize,
-      // Form
-      formVal, formSet,
-      // DOM
-      el,
-      // Toast
-      toast,
-      // XSS Protection
-      esc, safeJSON, maskPhone,
-      // Modal
-      openModal, closeModal, confirm,
-      // Badges
-      badge, statusBadge, methodBadge,
-      // Table
-      noDataRow,
-      // Sort & Filter
-      sortBy, searchFilter, dateRangeFilter,
-      // Student ID
-      generateStudentId,
-      // Print & Export
       printArea, exportExcel, downloadCSV,
       // Misc
       debounce, paginate, renderPaginationUI,
@@ -887,9 +692,9 @@ const Utils = (() => {
         const rand = crypto.getRandomValues(new Uint32Array(2));
         return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
       },
-      // 🆕 BUG #4: Input validation helper
+      // BUG #4: Input validation helper
       validateForm,
-      // ✅ Req 4: Filter bar flatpickr DD/MM/YYYY initializer
+      // Req 4: Filter bar flatpickr DD/MM/YYYY initializer
       initFilterDatePickers,
     };
 })();
