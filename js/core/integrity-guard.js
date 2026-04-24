@@ -404,24 +404,21 @@ const IntegrityGuard = (() => {
         name: 'Vital Links & Assets (Exam, Cert, Visitor)',
         desc: 'Exam/Admin/Cert URLs এবং Visitor QR কোড লিংক লাইভ আছে কিনা চেক করে',
         critical: true,
-        check: () => {
+        check: async () => {
           try {
             const files = ['/admin.html', '/exam.html', '/certificate.html', '/assets/Visitor.png'];
-            const missing = [];
             const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
-            for(let f of files) {
-              const req = new XMLHttpRequest();
-              req.open('HEAD', baseUrl + f.substring(1), false); // Synchronous check
-              try { 
-                req.send(); 
-                if(req.status === 404 || req.status === 0 && !req.responseText) missing.push(f); 
-              } catch { 
-                missing.push(f); 
-              }
-            }
-            return missing.length === 0 
-                ? { ok: true, detail: 'All 4 URLs and assets are alive & valid ✅' } 
-                : { ok: false, detail: `Missing/Dead files: ${missing.join(', ')}`};
+            const results = await Promise.all(
+              files.map(f =>
+                fetch(baseUrl + f.substring(1), { method: 'HEAD' })
+                  .then(r => ({ f, ok: r.ok }))
+                  .catch(() => ({ f, ok: false }))
+              )
+            );
+            const missing = results.filter(r => !r.ok).map(r => r.f);
+            return missing.length === 0
+              ? { ok: true,  detail: 'All 4 URLs and assets are alive & valid ✅' }
+              : { ok: false, detail: `Missing/Dead files: ${missing.join(', ')}` };
           } catch(e) {
             return { ok: false, detail: e.message };
           }
@@ -437,13 +434,13 @@ const IntegrityGuard = (() => {
 
   let _lastResult = null;
 
-  function run() {
+  async function run() {
     const results = {
       timestamp: new Date().toISOString(),
       globals:   _checkGlobals(),
       modules:   _checkModules(),
       dom:       _checkDOM(),
-      data:      _checkDataLogic(),
+      data:      await _checkDataLogic(),  // ← async: Vital Links uses fetch()
     };
 
     results.summary = _buildSummary(results);
@@ -540,12 +537,13 @@ const IntegrityGuard = (() => {
   }
 
   // ── Check: data logic ─────────────────────────────────────
-  function _checkDataLogic() {
+  async function _checkDataLogic() {
     const results = [];
     for (const check of MANIFEST.data_checks) {
       let result;
       try {
-        result = check.check();
+        // Support both sync and async check functions
+        result = await Promise.resolve(check.check());
       } catch(e) {
         result = { ok: false, detail: `Check threw: ${e.message}` };
       }
