@@ -340,7 +340,7 @@ const SupabaseSync = (() => {
     setAll(table, rows);
     _logRecentChange(table, 'insert', record);
     if (!options.bypassLog) {
-      _logActivity('add', table, `Inserted ${_recycleDisplayName(table, record)} into ${_tableDisplayName(table)}`);
+      _logActivity('add', table, _humanReadableLog('add', table, record));
     }
     _pushRecord(table, record);
     return record;
@@ -353,7 +353,7 @@ const SupabaseSync = (() => {
       rows[idx] = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
-      _logActivity('edit', table, `Updated ${_recycleDisplayName(table, rows[idx])} in ${_tableDisplayName(table)}`);
+      _logActivity('edit', table, _humanReadableLog('edit', table, rows[idx]));
       _pushRecord(table, rows[idx]);
     }
   }
@@ -367,7 +367,7 @@ const SupabaseSync = (() => {
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
       if (!options.bypassLog) {
-        _logActivity('delete', table, `Deleted ${_recycleDisplayName(table, victim)} from ${_tableDisplayName(table)}`);
+        _logActivity('delete', table, _humanReadableLog('delete', table, victim));
       }
     }
     _deleteFromCloud(table, id);
@@ -672,28 +672,68 @@ const SupabaseSync = (() => {
     return map[table] || 'record';
   }
 
-  function _recycleDisplayName(table, r) {
-    if (!r || typeof r !== 'object') return 'â€”';
-    return (
-      r.name ||
-      r.student_id ||
-      r.description ||
-      r.reg_id ||
-      r.person_name ||
-      r.title ||
-      (r.type && r.amount != null ? `${r.type} à§³${r.amount}` : '') ||
-      r.id ||
-      'â€”'
-    );
+    function _recycleDisplayName(table, r) {
+    if (!r || typeof r !== 'object') return '—';
+    switch (table) {
+      case 'students':
+        return r.name ? (r.name + (r.student_id ? ' (' + r.student_id + ')' : '')) : (r.student_id || '—');
+      case 'finance_ledger':
+        return (r.type && r.amount != null)
+          ? ((r.category || r.type) + ' — ৳' + Number(r.amount).toLocaleString() + (r.method ? ' (' + r.method + ')' : ''))
+          : (r.description || '—');
+      case 'loans':
+        return r.person_name ? (r.person_name + ' — ৳' + Number(r.amount || 0).toLocaleString() + ' (' + (r.type || 'Loan') + ')') : '—';
+      case 'accounts':
+        return r.name ? (r.name + ' (ব্যালেন্স: ৳' + Number(r.balance || 0).toLocaleString() + ')') : '—';
+      case 'staff':
+        return r.name ? (r.name + (r.role ? ' — ' + r.role : '')) : '—';
+      case 'salary':
+        return (r.staff_name || r.staffName)
+          ? ((r.staff_name || r.staffName) + ' — ৳' + Number(r.net_salary || r.amount || 0).toLocaleString() + ' (' + (r.month || '') + ')')
+          : '—';
+      case 'exams':
+        return r.student_name
+          ? (r.student_name + (r.subject ? ' — ' + r.subject : '') + (r.marks != null ? ' (' + r.marks + '%)' : ''))
+          : (r.reg_id || '—');
+      case 'attendance':
+        return r.person_name ? (r.person_name + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
+      case 'visitors':
+        return r.name ? (r.name + (r.phone ? ' (' + r.phone + ')' : '') + (r.purpose ? ' — ' + r.purpose : '')) : '—';
+      case 'notices':
+        return r.title ? ('"' + r.title + '"') : '—';
+      case 'settings':
+        return 'একাডেমি সেটিংস';
+      default:
+        return r.name || r.title || r.description || r.person_name || '—';
+    }
   }
 
   function _tableDisplayName(table) {
-    try {
-      const DB = window.DB || {};
-      const entry = Object.entries(DB).find(([, v]) => v === table);
-      return entry ? entry[0].replace(/_/g, ' ') : table;
-    } catch {
-      return table;
+    const map = {
+      students:       'ছাত্র/ছাত্রী তালিকা',
+      finance_ledger: 'আয়-ব্যয় লেজার',
+      accounts:       'একাউন্ট রেজিস্টার',
+      loans:          'লোন রেজিস্টার',
+      exams:          'পরীক্ষা তালিকা',
+      staff:          'স্টাফ তালিকা',
+      salary:         'বেতন রেজিস্টার',
+      attendance:     'উপস্থিতি',
+      visitors:       'ভিজিটর লগ',
+      notices:        'নোটিশ বোর্ড',
+      settings:       'সেটিংস',
+    };
+    return map[table] || table;
+  }
+
+  function _humanReadableLog(action, table, r) {
+    const label    = _tableDisplayName(table);
+    const itemName = _recycleDisplayName(table, r);
+    switch (action) {
+      case 'add':     return label + '-এ নতুন এন্ট্রি যোগ করা হয়েছে — ' + itemName;
+      case 'edit':    return label + '-এ তথ্য আপডেট করা হয়েছে — ' + itemName;
+      case 'delete':  return label + ' থেকে মুছে ফেলা হয়েছে — ' + itemName;
+      case 'restore': return 'রিসাইকেল বিন থেকে পুনরুদ্ধার করা হয়েছে — ' + itemName + ' (' + label + ')';
+      default:        return label + ': ' + itemName;
     }
   }
 
@@ -843,7 +883,7 @@ const SupabaseSync = (() => {
     _syncRecycleBinToSettings();
 
     _logRecentChange(table, 'insert', record);
-    _logActivity('add', table, `Restored ${_recycleDisplayName(table, record)} from recycle bin to ${_tableDisplayName(table)}`);
+    _logActivity('add', table, _humanReadableLog('restore', table, record));
     window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
     return true;
   }
