@@ -4344,16 +4344,41 @@ ${expenseEntries.length > 0 ? `
     return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
 
+  // ✅ Fix: Quota-safe localStorage writer — trims oldest snapshots until data fits
+  function _saveSnapshotsQuotaSafe(snapshots) {
+    const MAX_ATTEMPTS = snapshots.length;
+    for (let attempt = 0; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
+        return true; // success
+      } catch (e) {
+        if (e.name === 'QuotaExceededError' || e.code === 22) {
+          if (snapshots.length === 0) {
+            console.warn('[Snapshot] Storage quota exceeded — cannot save even 1 snapshot. Skipping.');
+            return false;
+          }
+          // Drop oldest (last) snapshot and retry
+          snapshots.pop();
+          console.warn(`[Snapshot] Quota hit — trimmed to ${snapshots.length} snapshot(s).`);
+        } else {
+          console.error('[Snapshot] Unexpected storage error:', e);
+          return false;
+        }
+      }
+    }
+    return false;
+  }
+
   function saveSnapshot(manual = false) {
     const snapshots = getSnapshots();
     const now = new Date();
-    
+
     if (!manual && snapshots.length > 0) {
-       const lastAuto = snapshots.find(s => !s.manual);
-       if (lastAuto) {
-         const diffMinutes = (now - new Date(lastAuto.timestamp)) / 1000 / 60;
-         if (diffMinutes < 60) return; 
-       }
+      const lastAuto = snapshots.find(s => !s.manual);
+      if (lastAuto) {
+        const diffMinutes = (now - new Date(lastAuto.timestamp)) / 1000 / 60;
+        if (diffMinutes < 60) return;
+      }
     }
 
     const data = {};
@@ -4371,16 +4396,23 @@ ${expenseEntries.length > 0 ? `
     snapshots.unshift({
       id: 'snap_' + Date.now(),
       timestamp: now.toISOString(),
-      displayDate: typeof Utils !== 'undefined' ? Utils.formatDateEN(now.toISOString()) + ', ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'}) : now.toLocaleString(),
+      displayDate: typeof Utils !== 'undefined'
+        ? Utils.formatDateEN(now.toISOString()) + ', ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})
+        : now.toLocaleString(),
       manual: manual,
-      data: data
+      data: data,
     });
 
-    if (snapshots.length > 10) snapshots.length = 10; // ৭ → ১০ রাখবে
+    // ✅ Fix: Cap at 5 (was 10) to reduce localStorage pressure
+    if (snapshots.length > 5) snapshots.length = 5;
 
-    localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
+    const saved = _saveSnapshotsQuotaSafe(snapshots);
     if (manual) {
-      if (typeof Utils !== 'undefined') Utils.toast('📸 Snapshot Saved!', 'success');
+      if (saved) {
+        if (typeof Utils !== 'undefined') Utils.toast('📸 Snapshot Saved!', 'success');
+      } else {
+        if (typeof Utils !== 'undefined') Utils.toast('⚠️ Snapshot skipped — storage full. Try exporting a manual backup instead.', 'warn');
+      }
       refreshModal();
     }
   }
@@ -4473,7 +4505,7 @@ ${expenseEntries.length > 0 ? `
   function deleteSnapshot(snapId) {
     let snapshots = getSnapshots();
     snapshots = snapshots.filter(s => s.id !== snapId);
-    localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
+    _saveSnapshotsQuotaSafe(snapshots);
     if(typeof Utils !== 'undefined') Utils.toast('Snapshot deleted', 'info');
     refreshModal();
   }

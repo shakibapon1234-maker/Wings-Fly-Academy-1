@@ -45,6 +45,7 @@ const VoiceAssistant = (() => {
   let isNavigating  = false;
   let isContinuous  = false;  // ★ NEW: Continuous listening mode
   let currentLang   = 'en-US'; // ★ NEW: Current language (en-US or bn-IN)
+  let _isRestarting = false;  // ✅ Fix: prevent duplicate recognition.start() calls
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -112,19 +113,25 @@ const VoiceAssistant = (() => {
         processCommand(cmd);
       };
       recognition.onerror = (e) => {
-        if (e.error !== 'no-speech' && typeof Utils !== 'undefined')
+        // Suppress spam for known non-fatal errors
+        if (e.error !== 'no-speech' && e.error !== 'aborted' && typeof Utils !== 'undefined')
           Utils.toast('Mic error: ' + e.error, 'error');
-        // ★ MODIFIED: Don't stop on error, keep continuous listening
-        if (isContinuous) {
-          try { recognition.start(); } catch(ex) { console.warn(ex); }
-        } else {
-          stopUI();
-        }
+        // ✅ Fix: Don't restart inline — browser engine is still stopping.
+        // onend will fire right after and handle the restart.
+        if (!isContinuous) stopUI();
       };
       recognition.onend = () => {
         // ★ MODIFIED: Restart if continuous mode is on
+        // ✅ Fix: Debounce restart to avoid InvalidStateError (engine may still be stopping)
         if (isContinuous && isListening) {
-          try { recognition.start(); } catch(ex) { console.warn(ex); }
+          if (_isRestarting) return;
+          _isRestarting = true;
+          setTimeout(() => {
+            _isRestarting = false;
+            if (isContinuous && isListening) {
+              try { recognition.start(); } catch(ex) { console.warn('[Voice] restart skipped:', ex.message); }
+            }
+          }, 250);
         } else {
           stopUI();
         }

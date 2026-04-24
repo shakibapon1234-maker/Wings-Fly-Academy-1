@@ -914,12 +914,12 @@ const IntegrityGuard = (() => {
     let _syncCheckTimer = null;
     window.addEventListener('wfa:synced', () => {
       clearTimeout(_syncCheckTimer);
-      _syncCheckTimer = setTimeout(() => {
+      _syncCheckTimer = setTimeout(async () => {
         // ✅ Fix: modal খোলা থাকলে integrity check skip — Finance modal-এর সাথে collision এড়াতে
         const modalOpen = document.querySelector('.modal-backdrop.open');
         if (modalOpen) return;
-        // Light check only — data logic গুলো check করো
-        const dataResults = _checkDataLogic();
+        // Light check only — data logic গুলো check করো (await required — _checkDataLogic is async)
+        const dataResults = await _checkDataLogic();
         const fails = dataResults.filter(r => !r.ok && r.critical);
         if (fails.length > 0) {
           _showCriticalAlert(fails);
