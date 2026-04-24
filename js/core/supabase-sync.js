@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Wings Fly Aviation Academy â€” Supabase Sync Engine + CRUD
 // Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
@@ -1168,11 +1168,11 @@ const SyncEngine = (() => {
     const el = document.getElementById('sync-status');
     if (!el) return;
     const map = {
-      synced:   { icon: 'â˜ï¸', text: 'Synced',    cls: 'synced'  },
-      syncing:  { icon: 'ðŸ”„', text: 'Syncingâ€¦',  cls: 'syncing' },
-      offline:  { icon: 'ðŸ“´', text: 'Offline',   cls: 'offline' },
-      error:    { icon: 'âš ï¸', text: 'Error',     cls: 'error'   },
-      realtime: { icon: 'ðŸŸ¢', text: 'Real-time', cls: 'synced'  },
+      synced:   { icon: '☁️', text: 'Synced',    cls: 'synced'  },
+      syncing:  { icon: '🔄', text: 'Syncing...',  cls: 'syncing' },
+      offline:  { icon: '📴', text: 'Offline',   cls: 'offline' },
+      error:    { icon: '⚠️', text: 'Error',     cls: 'error'   },
+      realtime: { icon: '🟢', text: 'Real-time', cls: 'synced'  },
     };
     const s = map[state] || map.offline;
     el.className = `sync-badge ${s.cls}`;
