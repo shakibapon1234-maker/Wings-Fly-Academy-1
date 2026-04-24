@@ -123,17 +123,17 @@
         </button>
 
         <!-- Face ID Login Option -->
-        <button type="button" class="login-btn" id="face-id-login-btn" style="display:none;background:rgba(0, 255, 136, 0.1);border:1px solid rgba(0, 255, 136, 0.4);color:#00ff88;margin-top:10px" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('login')">
+        <button type="button" class="login-btn" id="face-id-login-btn" style="display:none;background:rgba(0, 255, 136, 0.1);border:1px solid rgba(0, 255, 136, 0.4);color:#00ff88;margin-top:10px">
           <span class="login-btn-text"><i class="fa fa-face-smile"></i>&nbsp; Face ID Login</span>
         </button>
 
         <!-- Pattern Lock Option -->
-        <button type="button" class="login-btn" id="pattern-lock-login-btn" style="display:none;background:rgba(0, 217, 255, 0.1);border:1px solid rgba(0, 217, 255, 0.4);color:#00d4ff;margin-top:10px" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('login')">
+        <button type="button" class="login-btn" id="pattern-lock-login-btn" style="display:none;background:rgba(0, 217, 255, 0.1);border:1px solid rgba(0, 217, 255, 0.4);color:#00d4ff;margin-top:10px">
           <span class="login-btn-text"><i class="fa fa-lock"></i>&nbsp; Pattern Lock</span>
         </button>
       </form>
 
-      <button type="button" class="login-forgot-link" onclick="LoginUI.showForgotModal()">
+      <button type="button" class="login-forgot-link" id="btn-forgot-pw">
         🔑 Forgot Password?
       </button>
 
@@ -143,7 +143,7 @@
     <!-- Forgot Password Modal -->
     <div id="forgot-pw-modal" class="login-modal-overlay hidden">
       <div class="login-modal-box">
-        <button class="login-modal-close" onclick="LoginUI.closeForgotModal()">✕</button>
+        <button class="login-modal-close" id="btn-forgot-close">✕</button>
         <h3 class="login-modal-title"><i class="fa fa-key"></i> Password Recovery</h3>
         <div id="forgot-pw-body"></div>
       </div>
@@ -252,11 +252,11 @@
         <div class="topbar-actions">
           <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
           <button class="btn btn-sm btn-ghost" id="btn-theme-toggle" title="Toggle Theme" style="font-size:1.1rem; padding: 0 8px;">✨</button>
-          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Due Payments" onclick="App.navigateTo('finance')">
+          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Due Payments">
             <i class="fa fa-bell"></i>
             <span id="notif-count" class="badge badge-error" style="font-size:.6rem;padding:1px 5px;display:none;position:relative;top:-6px;left:-4px">0</span>
           </button>
-          <button class="btn btn-sm btn-ghost" id="btn-logout" style="display:flex; align-items:center; gap:8px;" title="Logout" onclick="App.logout()">
+          <button class="btn btn-sm btn-ghost" id="btn-logout" style="display:flex; align-items:center; gap:8px;" title="Logout">
             <div style="background:rgba(0,212,255,0.2); color:#00d4ff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; border:1px solid rgba(0,212,255,0.3);">A</div>
             <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.2;">
               <span style="font-size:0.8rem; font-weight:700; color:#fff;">Admin</span>
@@ -268,11 +268,11 @@
 
       <!-- Quick Add Dropdown -->
       <div id="quick-add-menu" style="display:none;position:absolute;right:24px;top:56px;z-index:300;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px 0;min-width:200px">
-        <button onclick="App.quickAction('student')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-user-graduate" style="width:20px;color:var(--brand-primary)"></i> Add Student</button>
-        <button onclick="App.quickAction('transaction')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-money-bill" style="width:20px;color:var(--success)"></i> Add Transaction</button>
+        <button id="btn-quick-student" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-user-graduate" style="width:20px;color:var(--brand-primary)"></i> Add Student</button>
+        <button id="btn-quick-transaction" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-money-bill" style="width:20px;color:var(--success)"></i> Add Transaction</button>
 
-        <button onclick="App.quickAction('exam')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-clipboard-list" style="width:20px;color:var(--warning)"></i> Add Exam</button>
-        <button onclick="App.quickAction('visitor')" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-person" style="width:20px;color:var(--info)"></i> Add Visitor</button>
+        <button id="btn-quick-exam" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-clipboard-list" style="width:20px;color:var(--warning)"></i> Add Exam</button>
+        <button id="btn-quick-visitor" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-person" style="width:20px;color:var(--info)"></i> Add Visitor</button>
       </div>
 
       <!-- ════════ ALL PAGE SECTIONS ════════ -->
@@ -315,7 +315,7 @@
           <div class="page-header">
             <h2><i class="fa fa-hand-holding-dollar"></i> Loan Management</h2>
             <div class="toolbar">
-              <button class="btn btn-primary" onclick="Loans.openAddModal()" style="font-weight:700;">
+              <button class="btn btn-primary" id="btn-add-loan" style="font-weight:700;">
                 <i class="fa fa-plus"></i> Add Loan
               </button>
             </div>
@@ -373,7 +373,7 @@
           <div class="page-header">
             <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
             <div class="toolbar">
-              <button class="btn btn-outline btn-sm" onclick="App.navigateTo('dashboard')" style="display:flex; align-items:center; gap:7px; font-weight:700; color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.2); padding:8px 16px; border-radius:10px;">
+              <button class="btn btn-outline btn-sm" id="btn-notice-close" style="display:flex; align-items:center; gap:7px; font-weight:700; color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.2); padding:8px 16px; border-radius:10px;">
                 <i class="fa fa-xmark"></i> বন্ধ করুন
               </button>
             </div>
@@ -397,7 +397,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <span id="modal-title" class="modal-title bn"></span>
-        <button class="modal-close" onclick="Utils.closeModal()" aria-label="Close dialog"><i class="fa fa-xmark"></i></button>
+        <button class="modal-close" id="btn-modal-close" aria-label="Close dialog"><i class="fa fa-xmark"></i></button>
       </div>
       <div id="modal-body"></div>
     </div>

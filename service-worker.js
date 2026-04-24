@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker
 // ✅ Fix: DEPLOY_ID forces SW replacement on every deploy
 // ============================================================
-const DEPLOY_ID = '20260422-bug-fixes-1to15';
+const DEPLOY_ID = '20260424-csp-inline-handlers-fix';
 const CACHE_NAME = `wfa-v4-${DEPLOY_ID}`;
 
 const STATIC_ASSETS = [
@@ -21,6 +21,7 @@ const STATIC_ASSETS = [
   './js/core/integrity-guard.js',
   './js/core/app.js',
   './js/core/utils.js',
+  './js/core/inline-handlers.js',
   './js/ui/dashboard.js',
   './js/ui/login.js',
   './js/ui/settings.js',
