@@ -1016,8 +1016,17 @@ const Students = (() => {
 
     const student = SupabaseSync.getById(DB.students, studentId);
     if (student) {
-      const newPaid = Math.max(0, Utils.safeNum(student.paid) - Utils.safeNum(payment.amount));
-      const newDue  = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
+      // ✅ FIX: Recalculate from finance ledger (source of truth).
+      // Subtracting from student.paid can drift if data was manually edited
+      // or synced incorrectly. This approach is always accurate regardless
+      // of which installment (#1, #3, #5...) is deleted.
+      const allFin = SupabaseSync.getAll(DB.finance);
+      const newPaid = allFin
+        .filter(f => f.ref_id === studentId &&
+                     f.category === 'Student Fee' &&
+                     f.id !== paymentId)
+        .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+      const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
       SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
     }
 
