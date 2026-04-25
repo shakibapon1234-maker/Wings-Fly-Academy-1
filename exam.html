@@ -453,6 +453,29 @@
 
 <div class="container">
 
+  <!-- ═══ ADMIN PREVIEW PANEL ═══ -->
+  <div id="adminPreviewPanel" style="display:none;background:#1a3a5c;color:#fff;padding:20px;border-radius:14px;margin:16px auto;max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;"><span style="color:#e8a020;">⚙️</span> Admin Preview Panel</div>
+      <button onclick="closeAdminPanel()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:4px 12px;border-radius:8px;cursor:pointer;">✕ বন্ধ</button>
+    </div>
+    <div id="adminPreviewContent">লোড হচ্ছে...</div>
+  </div>
+
+  <!-- ═══ ADMIN LOGIN MODAL ═══ -->
+  <div id="adminLoginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="font-size:18px;font-weight:700;color:#1a3a5c;margin-bottom:4px;">🔐 Admin Preview</div>
+      <div style="font-size:13px;color:#888;margin-bottom:18px;">প্রশ্ন ও সেটিংস যাচাই করুন</div>
+      <input id="adminPass" type="password" placeholder="Admin Password" style="width:100%;padding:11px 14px;border:1.5px solid #d0d8e4;border-radius:8px;font-size:14px;margin-bottom:10px;outline:none;" onkeydown="if(event.key==='Enter')checkAdminLogin()" />
+      <div id="adminLoginErr" style="color:red;font-size:12px;margin-bottom:10px;display:none;">❌ পাসওয়ার্ড ভুল!</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('adminLoginModal').style.display='none'" style="flex:1;padding:10px;border:1.5px solid #d0d8e4;background:#fff;border-radius:8px;cursor:pointer;">বাতিল</button>
+        <button onclick="checkAdminLogin()" style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">প্রবেশ করুন</button>
+      </div>
+    </div>
+  </div>
+
   <div id="loginSection" class="section active">
     <!-- Using a proper form for enter key submission -->
     <form class="card" style="margin-top: 16px;" onsubmit="event.preventDefault(); startExam();">
@@ -466,6 +489,11 @@
       <input type="text" id="studentId" placeholder="যেমন: WFA-101" required />
 
       <button type="submit" class="btn btn-primary" id="startExamBtn">এক্সাম শুরু করুন →</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button type="button" onclick="openAdminLogin()" style="background:none;border:none;color:#888;font-size:12px;cursor:pointer;text-decoration:underline;">
+          🔐 Admin Preview
+        </button>
+      </div>
     </form>
   </div>
 
@@ -665,12 +693,22 @@ function startExam() {
       if(btn) btn.disabled = false;
       if (examSettings.active === false) {
         showSection('loginSection');
-        document.querySelector('.container').innerHTML = `
-          <div class="closed-notice">
-            <div class="icon">🔒</div>
-            <h2>এক্সাম বন্ধ আছে</h2>
-            <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
-          </div>`;
+        // Show "closed" but keep admin preview accessible
+        const closedDiv = document.createElement('div');
+        closedDiv.className = 'closed-notice';
+        closedDiv.innerHTML = `
+          <div class="icon">🔒</div>
+          <h2>এক্সাম বন্ধ আছে</h2>
+          <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+          <div style="margin-top:16px;">
+            <button onclick="openAdminLogin()" style="background:none;border:1.5px solid #888;color:#888;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+              🔐 Admin Preview
+            </button>
+          </div>
+        `;
+        const loginCard = document.querySelector('.card');
+        if (loginCard) loginCard.replaceWith(closedDiv);
+        if(btn) btn.disabled = false;
         return;
       }
 
@@ -1165,17 +1203,186 @@ function showResults() {
   showSection('resultSection');
 }
 
+
+// ═══════════════════════════════════════════════════════
+// ADMIN PREVIEW SYSTEM
+// Password: set in examSettings.adminPass or default
+// ═══════════════════════════════════════════════════════
+const ADMIN_DEFAULT_PASS = 'wings2024admin';
+
+function openAdminLogin() {
+  const modal = document.getElementById('adminLoginModal');
+  modal.style.display = 'flex';
+  setTimeout(() => { const p = document.getElementById('adminPass'); if(p) p.focus(); }, 100);
+}
+
+function closeAdminPanel() {
+  document.getElementById('adminPreviewPanel').style.display = 'none';
+}
+
+function checkAdminLogin() {
+  const pass = document.getElementById('adminPass').value.trim();
+  const errEl = document.getElementById('adminLoginErr');
+  const correctPass = (examSettings && examSettings.adminPass) ? examSettings.adminPass : ADMIN_DEFAULT_PASS;
+
+  if (pass === correctPass) {
+    document.getElementById('adminLoginModal').style.display = 'none';
+    document.getElementById('adminPass').value = '';
+    errEl.style.display = 'none';
+    loadAdminPreview();
+  } else {
+    errEl.style.display = 'block';
+  }
+}
+
+function loadAdminPreview() {
+  const panel = document.getElementById('adminPreviewPanel');
+  const content = document.getElementById('adminPreviewContent');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  content.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.6);">লোড হচ্ছে...</div>';
+
+  // Load data fresh
+  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
+    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (!Array.isArray(data) || !data[0]) {
+      content.innerHTML = '<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি।</div>'; return;
+    }
+    const s = data[0];
+    let settings = {};
+    let qs = [];
+    try { settings = typeof s.exam_settings === 'string' ? JSON.parse(s.exam_settings) : (s.exam_settings || {}); } catch(e) {}
+    try { qs = typeof s.exam_questions === 'string' ? JSON.parse(s.exam_questions) : (s.exam_questions || []); } catch(e) {}
+
+    const statusColor = settings.active === false ? '#ff5252' : '#00e676';
+    const statusText  = settings.active === false ? '🔒 বন্ধ' : '🟢 চালু';
+
+    let qHtml = '';
+    if (qs.length === 0) {
+      qHtml = '<div style="color:#ff9800;padding:10px 0;">⚠️ কোনো প্রশ্ন সেট করা হয়নি।</div>';
+    } else {
+      qHtml = qs.map((q, i) => `
+        <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-weight:600;margin-bottom:5px;font-size:13px;">${i+1}. ${q.question || '—'}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:12px;">
+            ${(q.options || []).map((opt, j) => `
+              <div style="padding:3px 6px;border-radius:4px;background:${j === q.answer ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.05)'};
+                           color:${j === q.answer ? '#00e676' : 'rgba(255,255,255,0.7)'};">
+                ${['ক','খ','গ','ঘ'][j] || j+1}. ${opt}
+                ${j === q.answer ? ' ✓' : ''}
+              </div>
+            `).join('')}
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;">মান: ${q.marks || 1}</div>
+        </div>`).join('');
+    }
+
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;font-size:13px;">
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">স্ট্যাটাস</div>
+          <div style="font-weight:700;color:${statusColor};">${statusText}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">মোট প্রশ্ন</div>
+          <div style="font-weight:700;color:#e8a020;">${qs.length} টি</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">সময়সীমা</div>
+          <div style="font-weight:700;">${settings.duration || 10} মিনিট</div>
+        </div>
+      </div>
+      <div style="margin-bottom:8px;font-size:12px;color:rgba(255,255,255,0.6);">
+        📚 বিষয়: <strong style="color:#fff;">${settings.examName || '—'}</strong> &nbsp;|&nbsp;
+        📅 তারিখ: <strong style="color:#fff;">${settings.examDate || '—'}</strong> &nbsp;|&nbsp;
+        পাস মার্ক: <strong style="color:#00e676;">${settings.passMark || 60}%</strong>
+      </div>
+      ${settings.active === false ? '<div style="background:rgba(255,82,82,0.15);border:1px solid #ff5252;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;color:#ff5252;">⚠️ এক্সাম বর্তমানে বন্ধ। admin.html থেকে চালু করুন।</div>' : ''}
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">প্রশ্নসমূহ (সঠিক উত্তর ✓ সবুজ)</div>
+      <div style="max-height:400px;overflow-y:auto;">${qHtml}</div>
+    `;
+  })
+  .catch(err => {
+    content.innerHTML = `<div style="color:#ff5252;">❌ লোড ব্যর্থ: ${err.message}</div>`;
+  });
+}
+
 function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
   try {
-    // ✅ LOGIC #1: Use today's date as exam_date (stored as YYYY-MM-DD exactly)
     const todayISO = new Date().toISOString().split('T')[0];
+    const [yr, mo, dy] = todayISO.split('-');
+    const dateDMY = `${dy}/${mo}/${yr}`;
 
-    // 1. Save locally for fallback
+    // ════════════════════════════════════════════
+    // Build per-question answer detail report
+    // ════════════════════════════════════════════
+    const answerDetails = shuffledQuestions.map((q, i) => {
+      const studentAnsIdx = answers[i];
+      const correctIdx    = q.answer;
+      const isCorrect     = studentAnsIdx === correctIdx;
+      return {
+        q_no:           i + 1,
+        question:       q.question || '',
+        options:        q.options   || [],
+        correct_option: q.options[correctIdx] || '',
+        student_option: studentAnsIdx !== undefined ? (q.options[studentAnsIdx] || '—') : '(উত্তর দেননি)',
+        is_correct:     isCorrect,
+        marks:          isCorrect ? (q.marks || 1) : 0,
+      };
+    });
+
+    const fullReport = {
+      name, id, subject,
+      exam_date:      todayISO,
+      taken_at:       new Date().toISOString(),
+      total_q:        total,
+      correct:        correct,
+      pct,
+      passed,
+      warnings,
+      answer_details: answerDetails,
+    };
+
+    // 1. Save locally
     const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
-    results.push({ name, id, correct, total, pct, passed, warnings, subject, exam_date: todayISO });
+    results.push(fullReport);
     localStorage.setItem('wfa_results', JSON.stringify(results));
 
-    // 2. ✅ LOGIC #3: Sync to Main DB via SupabaseSync
+    // 2. Save detailed report to Supabase (exam_reports table if exists, else fallback to exams note)
+    const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+    // Try saving to exam_reports table (detailed)
+    fetch(`${SUPA_URL}/rest/v1/exam_reports`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        student_name:   name,
+        student_id:     id,
+        subject:        subject || '',
+        exam_date:      todayISO,
+        total_questions: total,
+        correct_answers: correct,
+        score_pct:      pct,
+        passed:         passed,
+        warnings:       warnings,
+        answer_details: JSON.stringify(answerDetails),
+        taken_at:       new Date().toISOString(),
+      })
+    }).catch(() => {}); // silent fail if table not created yet
+
+    // 3. Sync to main exams table via SupabaseSync
     WFA_IDB.onReady(() => {
       const exams = SupabaseSync.getAll(DB.exams);
       let reg = exams.find(e => e.student_id === id && (e.subject || '') === (subject || ''));
@@ -1189,38 +1396,33 @@ function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
       const gradeText  = passed ? gradeMap(pct) : 'F';
       const statusText = passed ? 'Passed' : 'Failed';
 
-      // ✅ LOGIC #4: Format date as DD/MM/YYYY for log display
-      const [yr, mo, dy] = todayISO.split('-');
-      const dateDMY = `${dy}/${mo}/${yr}`;
-
       if (reg) {
-        // ✅ LOGIC #1: Preserve existing exam_date from registration, update result only
         SupabaseSync.update(DB.exams, reg.id, {
-          marks:   pct,
-          grade:   gradeText,
-          status:  statusText,
-          subject: subject || reg.subject || '',
-          note:    `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY}`
+          marks:          pct,
+          grade:          gradeText,
+          status:         statusText,
+          subject:        subject || reg.subject || '',
+          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
+          answer_details: JSON.stringify(answerDetails),
         });
       } else {
-        // New record if not pre-registered
         SupabaseSync.insert(DB.exams, {
-          reg_id:       'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
-          student_id:   id,
-          student_name: name,
-          subject:      subject || '',
-          exam_date:    todayISO,   // ✅ LOGIC #1: exact date stored
-          marks:        pct,
-          grade:        gradeText,
-          status:       statusText,
-          note:         `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY}`
+          reg_id:         'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
+          student_id:     id,
+          student_name:   name,
+          subject:        subject || '',
+          exam_date:      todayISO,
+          marks:          pct,
+          grade:          gradeText,
+          status:         statusText,
+          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
+          answer_details: JSON.stringify(answerDetails),
         });
       }
 
-      // ✅ LOGIC #6: Activity log
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'exams',
-          `Online Exam Result: ${name} (${id}) — Subject: ${subject || '—'}, Grade: ${gradeText}, Number: ${pct}%, Status: ${statusText}, তারিখ: ${dateDMY}`
+          `Online Exam: ${name} (${id}) — ${subject||'—'} | Grade: ${gradeText} | ${pct}% | ${statusText} | ${dateDMY}`
         );
       }
     });
