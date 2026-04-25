@@ -540,14 +540,14 @@ let examSettings = {};
 // =====================
 function loadData(callback) {
   let hasCalled = false;
-  
+
   const doLoad = async () => {
     if (hasCalled) return;
     hasCalled = true;
     try {
       let dbSettings = {};
 
-      // Try direct Supabase query (most reliable source)
+      // Step 1: Direct Supabase query (most reliable)
       const client = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client)
                      || window.supabaseClient;
       if (client) {
@@ -555,29 +555,43 @@ function loadData(callback) {
           const { data, error } = await client.from('settings').select('*').limit(1);
           if (!error && data && data.length > 0) {
             dbSettings = data[0];
-            console.log('[Exam] Settings loaded from Supabase');
+            console.log('[Exam] Settings loaded from Supabase direct query');
           }
         } catch(qErr) {
-          console.warn('[Exam] Supabase query failed:', qErr);
+          console.warn('[Exam] Supabase direct query failed:', qErr);
         }
       }
 
-      // Fallback: use SupabaseSync local cache
-      if (Object.keys(dbSettings).length === 0 && typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll && typeof window.DB !== 'undefined' && window.DB.settings) {
-         dbSettings = SupabaseSync.getAll(window.DB.settings)[0] || {};
-         console.log('[Exam] Settings loaded from SupabaseSync cache');
+      // Step 2: Fallback to SupabaseSync local cache
+      if (Object.keys(dbSettings).length === 0 &&
+          typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll &&
+          typeof window.DB !== 'undefined' && window.DB.settings) {
+        dbSettings = SupabaseSync.getAll(window.DB.settings)[0] || {};
+        if (Object.keys(dbSettings).length > 0) {
+          console.log('[Exam] Settings loaded from SupabaseSync cache');
+        }
       }
-      
+
+      // Step 3: Parse questions and settings
       const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
       const settingsRaw = dbSettings.exam_settings || localStorage.getItem('wfa_settings');
-      
-      examSettings = settingsRaw ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw) : { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
-      
+
+      examSettings = settingsRaw
+        ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw)
+        : { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
+
       if (stored) {
         const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
-        questions = (Array.isArray(parsed) && parsed.length > 0) ? parsed : DEFAULT_QUESTIONS;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          questions = parsed;
+          console.log('[Exam] Questions loaded:', questions.length);
+        } else {
+          questions = [];
+          console.warn('[Exam] Stored questions are empty or invalid');
+        }
       } else {
-        questions = DEFAULT_QUESTIONS;
+        questions = [];
+        console.warn('[Exam] No questions found in DB or localStorage');
       }
 
       // Ensure every question has options array
@@ -585,27 +599,33 @@ function loadData(callback) {
         if (!q.options || !Array.isArray(q.options)) q.options = ["ক", "খ", "গ", "ঘ"];
       });
 
-      // Show all questions in original order (as set by admin)
-      // No random shuffle — preserves the order admin configured
+      // Show error if no questions available
+      if (questions.length === 0) {
+        document.querySelector('.container').innerHTML = `
+          <div style="text-align:center;padding:60px 20px;color:#888;">
+            <div style="font-size:56px;margin-bottom:16px;">📋</div>
+            <h2 style="color:#4db8ff;margin-bottom:8px;">প্রশ্ন প্রস্তুত নেই</h2>
+            <p>এডমিন এখনো এক্সামের প্রশ্ন সেট করেননি।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+          </div>`;
+        return;
+      }
 
       totalSeconds = (examSettings.duration || 10) * 60;
       remainingSeconds = totalSeconds;
-      
-      if(callback) callback();
+
+      if (callback) callback();
     } catch(e) {
       console.error("Exam load error:", e);
       questions = [];
       examSettings = { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
-      if(callback) callback();
+      if (callback) callback();
     }
   };
 
   if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
-    // Timeout fallback just in case IDB blocks forever
     WFA_IDB.onReady(doLoad);
-    setTimeout(doLoad, 1500); 
+    setTimeout(doLoad, 2000); // increased timeout for slow connections
   } else {
-    // If IDB logic is completely missing
     doLoad();
   }
 }
