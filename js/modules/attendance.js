@@ -424,7 +424,15 @@ const Attendance = (() => {
           <input type="text" id="att-blank-label" class="att-filter-input" placeholder="e.g. January 2026" />
         </div>
         <div class="att-filter-group">
-          <label class="att-filter-label"><i class="fa fa-hashtag"></i> শুরুর তারিখ (ঐচ্ছিক)</label>
+          <label class="att-filter-label"><i class="fa fa-heading"></i> কলাম হেডার</label>
+          <select id="att-blank-header-style" class="att-filter-select">
+            <option value="dates">তারিখ (Dates)</option>
+            <option value="classes">ক্লাস (1st, 2nd...)</option>
+            <option value="numeric">সংখ্যা (1, 2, 3...)</option>
+          </select>
+        </div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-hashtag"></i> শুরুর তারিখ (Dates)</label>
           <input type="date" id="att-blank-startdate" class="att-filter-input" value="${today()}" />
         </div>
       </div>
@@ -709,7 +717,14 @@ const Attendance = (() => {
     const daysCount = Math.min(31, Math.max(1, parseInt(document.getElementById('att-blank-days')?.value || '26', 10)));
     const sessionLabel = document.getElementById('att-blank-label')?.value || '';
     const startDateVal = document.getElementById('att-blank-startdate')?.value || '';
+    const headerStyle = document.getElementById('att-blank-header-style')?.value || 'dates';
     const wrapper = document.getElementById('att-blank-result');
+
+    const getOrdinal = (n) => {
+      const s = ["th", "st", "nd", "rd"];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
 
     if (!wrapper || !batch) {
       if (typeof Utils !== 'undefined') Utils.toast('প্রথমে একটি Batch সিলেক্ট করুন', 'warn');
@@ -727,14 +742,20 @@ const Attendance = (() => {
     const academyName = cfg.academy_name || 'Wings Fly Aviation Academy';
     const logoUrl     = cfg.logo_url || '';
 
-    // Build date headers if start date given
+    // Build headers based on selected style
     const days = Array.from({ length: daysCount }, (_, i) => {
-      if (startDateVal) {
-        const d = new Date(startDateVal);
-        d.setDate(d.getDate() + i);
-        return { num: i + 1, label: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) };
+      if (headerStyle === 'classes') {
+        return { num: i + 1, label: getOrdinal(i + 1) };
+      } else if (headerStyle === 'numeric') {
+        return { num: i + 1, label: String(i + 1) };
+      } else {
+        if (startDateVal) {
+          const d = new Date(startDateVal);
+          d.setDate(d.getDate() + i);
+          return { num: i + 1, label: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) };
+        }
+        return { num: i + 1, label: String(i + 1) };
       }
-      return { num: i + 1, label: String(i + 1) };
     });
 
     // Store data for print
@@ -972,9 +993,9 @@ const Attendance = (() => {
 <meta charset="UTF-8"/>
 <title>Attendance Sheet — ${batch}</title>
 <style>
-  @page { size: ${isLandscape ? 'A4 landscape' : 'A4 portrait'}; margin: 14mm 12mm; }
+  @page { size: ${isLandscape ? 'A4 landscape' : 'A4 portrait'}; margin: 0; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; color: #111; background: #fff; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 10px; color: #111; background: #fff; padding: 14mm 12mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .sheet-header { display:flex; align-items:center; gap:14px; border-bottom:2.5px solid #1a3a6b; padding-bottom:10px; margin-bottom:12px; }
   .header-logo { flex-shrink:0; }
@@ -1069,11 +1090,20 @@ const Attendance = (() => {
 </body>
 </html>`;
 
-    const win = window.open('', '_blank', `width=${isLandscape ? 1100 : 860},height=960`);
-    if (!win) { if (typeof Utils !== 'undefined') Utils.toast('Popup blocked! Allow popups.', 'error'); return; }
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 600);
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.top = '-9999px';
+    document.body.appendChild(printIframe);
+    
+    printIframe.contentWindow.document.open();
+    printIframe.contentWindow.document.write(html);
+    printIframe.contentWindow.document.close();
+    
+    setTimeout(() => {
+      printIframe.contentWindow.focus();
+      printIframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(printIframe), 1000);
+    }, 500);
   }
 
   /* ─── Smart Print (context-aware) ─── */
@@ -1152,9 +1182,9 @@ const Attendance = (() => {
 <meta charset="UTF-8"/>
 <title>Attendance — ${batch} — ${date}</title>
 <style>
-  @page { size: A4 portrait; margin: 14mm 12mm; }
+  @page { size: A4 portrait; margin: 0; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; color:#111; background:#fff; }
+  body { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; color:#111; background:#fff; padding: 14mm 12mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   .header { display:flex; align-items:center; gap:14px; border-bottom:2.5px solid #1a3a6b; padding-bottom:10px; margin-bottom:12px; }
   .header-info h1 { font-size:14px; font-weight:900; color:#1a3a6b; }
@@ -1240,11 +1270,20 @@ const Attendance = (() => {
 
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=860,height=960');
-    if (!win) { if (typeof Utils !== 'undefined') Utils.toast('Popup blocked!', 'error'); return; }
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 600);
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.top = '-9999px';
+    document.body.appendChild(printIframe);
+    
+    printIframe.contentWindow.document.open();
+    printIframe.contentWindow.document.write(html);
+    printIframe.contentWindow.document.close();
+    
+    setTimeout(() => {
+      printIframe.contentWindow.focus();
+      printIframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(printIframe), 1000);
+    }, 500);
   }
 
   function printReport(type) {
@@ -1262,9 +1301,9 @@ const Attendance = (() => {
 <html><head><meta charset="UTF-8"/>
 <title>${type} Report — ${academyName}</title>
 <style>
-  @page { size: A4 portrait; margin: 14mm 12mm; }
+  @page { size: A4 portrait; margin: 0; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; padding:0; }
+  body { font-family:'Segoe UI',Arial,sans-serif; font-size:10px; padding: 14mm 12mm; background:#fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   h1 { font-size:14px; font-weight:900; color:#1a3a6b; margin-bottom:4px; }
   .sub { font-size:9px; color:#555; margin-bottom:14px; }
   table { width:100%; border-collapse:collapse; font-size:9.5px; }
@@ -1281,11 +1320,20 @@ const Attendance = (() => {
   ${el.innerHTML}
 </body></html>`;
 
-    const win = window.open('', '_blank', 'width=860,height=900');
-    if (!win) { if (typeof Utils !== 'undefined') Utils.toast('Popup blocked!', 'error'); return; }
-    win.document.write(html);
-    win.document.close();
-    setTimeout(() => win.print(), 500);
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.top = '-9999px';
+    document.body.appendChild(printIframe);
+    
+    printIframe.contentWindow.document.open();
+    printIframe.contentWindow.document.write(html);
+    printIframe.contentWindow.document.close();
+    
+    setTimeout(() => {
+      printIframe.contentWindow.focus();
+      printIframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(printIframe), 1000);
+    }, 500);
   }
 
   /* ─── CSV Export ─── */

@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Wings Fly Aviation Academy — Utility Functions
 // ============================================================
 
@@ -358,15 +358,31 @@ const Utils = (() => {
   function printArea(elementId) {
     const el = document.getElementById(elementId);
     if (!el) return;
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
+    
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.top = '-9999px';
+    document.body.appendChild(printIframe);
+    
+    printIframe.contentWindow.document.open();
+    printIframe.contentWindow.document.write(`
       <html><head><title>Print</title>
       <link rel="stylesheet" href="css/main.css" />
       <link rel="stylesheet" href="css/print.css" />
-      <style>body{padding:20px;background:#fff;color:#000}table{width:100%}.no-print{display:none!important}</style>
+      <style>
+        @page { margin: 0; }
+        body { padding: 14mm 12mm; background: #fff; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        table { width: 100%; }
+        .no-print { display: none !important; }
+      </style>
       </head><body>${el.innerHTML}</body></html>`);
-    printWindow.document.close();
-    printWindow.onload = () => { printWindow.print(); printWindow.close(); };
+    printIframe.contentWindow.document.close();
+    
+    setTimeout(() => {
+      printIframe.contentWindow.focus();
+      printIframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(printIframe), 1000);
+    }, 500);
   }
 
   // ── Excel Export (SheetJS) ────────────────────────────────
