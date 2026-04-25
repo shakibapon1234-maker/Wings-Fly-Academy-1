@@ -170,7 +170,7 @@ const Accounts = (() => {
             <label class="filter-label" style="color:#00d4ff">To Date</label>
             <input type="date" class="form-control" id="acc-search-to" value="${searchResTo||Utils.today()}" style="border-color:rgba(0,212,255,0.3)" />
           </div>
-          <div class="form-group" style="flex:0 0 auto; display:flex; gap:10px; align-items:flex-end;">
+          <div class="form-group" style="flex:0 0 auto; display:flex; flex-direction:row; gap:10px; align-items:flex-end;">
             <button class="btn btn-outline" style="border-color:rgba(0,212,255,0.4); color:#00d4ff" onclick="Accounts.doSearch()"><i class="fa fa-search"></i></button>
             <button class="btn btn-ghost" style="border:1px solid rgba(255,71,87,0.3); color:#ff4757" onclick="Accounts.clearSearch()"><i class="fa fa-times"></i></button>
           </div>
