@@ -463,14 +463,14 @@
   </div>
 
   <!-- ═══ ADMIN LOGIN MODAL ═══ -->
-  <div id="adminLoginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;">
+  <div id="adminLoginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
     <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
       <div style="font-size:18px;font-weight:700;color:#1a3a5c;margin-bottom:4px;">🔐 Admin Preview</div>
       <div style="font-size:13px;color:#888;margin-bottom:18px;">প্রশ্ন ও সেটিংস যাচাই করুন</div>
       <input id="adminPass" type="password" placeholder="Admin Password" style="width:100%;padding:11px 14px;border:1.5px solid #d0d8e4;border-radius:8px;font-size:14px;margin-bottom:10px;outline:none;" onkeydown="if(event.key==='Enter')checkAdminLogin()" />
       <div id="adminLoginErr" style="color:red;font-size:12px;margin-bottom:10px;display:none;">❌ পাসওয়ার্ড ভুল!</div>
       <div style="display:flex;gap:10px;">
-        <button onclick="document.getElementById('adminLoginModal').style.display='none'" style="flex:1;padding:10px;border:1.5px solid #d0d8e4;background:#fff;border-radius:8px;cursor:pointer;">বাতিল</button>
+        <button onclick="document.getElementById('adminLoginModal').setAttribute('style','display:none')" style="flex:1;padding:10px;border:1.5px solid #d0d8e4;background:#fff;border-radius:8px;cursor:pointer;">বাতিল</button>
         <button onclick="checkAdminLogin()" style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">প্রবেশ করুন</button>
       </div>
     </div>
@@ -632,10 +632,10 @@ function loadData(callback) {
         if (!q.options || !Array.isArray(q.options)) q.options = ['ক', 'খ', 'গ', 'ঘ'];
       });
 
-      if (questions.length === 0) { showNoQuestions(); return; }
-
       totalSeconds = (examSettings.duration || 10) * 60;
       remainingSeconds = totalSeconds;
+      // Always call callback — let startExam decide what to show
+      // (questions.length===0 is handled inside startExam/renderQuestions)
       if (callback) callback();
     } catch(e) {
       console.error('[Exam] parseAndApply error:', e);
@@ -729,6 +729,9 @@ function startExam() {
           return;
         }
       }
+      // Debug: log what we got
+      console.log('[Exam] Settings:', examSettings, '| Questions:', questions.length);
+
       document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
       const rawExamDate = examSettings.examDate || '';
       let fmtExamDate = 'Online Examination System';
@@ -803,8 +806,14 @@ function buildShuffledQuestions() {
 // =====================
 function renderQuestions() {
   if (questions.length === 0) {
-    document.getElementById('questionsContainer').innerHTML =
-      `<div class="no-questions"><div class="icon">📭</div><p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p></div>`;
+    document.getElementById('questionsContainer').innerHTML = `
+      <div class="no-questions">
+        <div class="icon">📭</div>
+        <p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p>
+        <button onclick="showSection('loginSection')" style="margin-top:14px;background:#1a3a5c;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;">
+          ← ফিরে যান
+        </button>
+      </div>`;
     return;
   }
   buildShuffledQuestions();
@@ -1212,8 +1221,15 @@ const ADMIN_DEFAULT_PASS = 'wings2024admin';
 
 function openAdminLogin() {
   const modal = document.getElementById('adminLoginModal');
-  modal.style.display = 'flex';
-  setTimeout(() => { const p = document.getElementById('adminPass'); if(p) p.focus(); }, 100);
+  // Force display flex — works regardless of prior inline style
+  modal.setAttribute('style',
+    'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;');
+  setTimeout(() => {
+    const p = document.getElementById('adminPass');
+    if (p) { p.value = ''; p.focus(); }
+    const err = document.getElementById('adminLoginErr');
+    if (err) err.style.display = 'none';
+  }, 80);
 }
 
 function closeAdminPanel() {
@@ -1221,17 +1237,24 @@ function closeAdminPanel() {
 }
 
 function checkAdminLogin() {
-  const pass = document.getElementById('adminPass').value.trim();
+  const pass  = document.getElementById('adminPass').value.trim();
   const errEl = document.getElementById('adminLoginErr');
-  const correctPass = (examSettings && examSettings.adminPass) ? examSettings.adminPass : ADMIN_DEFAULT_PASS;
 
-  if (pass === correctPass) {
-    document.getElementById('adminLoginModal').style.display = 'none';
+  // Password check — also accept hardcoded fallback if settings not loaded yet
+  const settingsPass = (examSettings && examSettings.adminPass) ? examSettings.adminPass : null;
+  const isCorrect = pass === ADMIN_DEFAULT_PASS || (settingsPass && pass === settingsPass);
+
+  if (isCorrect) {
+    // Close modal
+    document.getElementById('adminLoginModal').setAttribute('style','display:none;');
     document.getElementById('adminPass').value = '';
     errEl.style.display = 'none';
+    // Load admin preview (fetches fresh data from Supabase)
     loadAdminPreview();
   } else {
     errEl.style.display = 'block';
+    const p = document.getElementById('adminPass');
+    if (p) { p.select(); }
   }
 }
 
@@ -1247,12 +1270,22 @@ function loadAdminPreview() {
   const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
   fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
-    headers: { 'apikey': SUPA_KEY, 'Authorization': 'Bearer ' + SUPA_KEY }
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+    }
   })
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  })
   .then(data => {
+    console.log('[AdminPreview] Supabase response:', data);
     if (!Array.isArray(data) || !data[0]) {
-      content.innerHTML = '<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি।</div>'; return;
+      content.innerHTML = `<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি। Supabase-এ settings table এবং RLS policy চেক করুন।</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Response: ${JSON.stringify(data)}</div>`;
+      return;
     }
     const s = data[0];
     let settings = {};
@@ -1309,7 +1342,13 @@ function loadAdminPreview() {
     `;
   })
   .catch(err => {
-    content.innerHTML = `<div style="color:#ff5252;">❌ লোড ব্যর্থ: ${err.message}</div>`;
+    content.innerHTML = `
+      <div style="color:#ff5252;margin-bottom:10px;">❌ লোড ব্যর্থ: ${err.message}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);">
+        সম্ভাব্য কারণ: Supabase RLS policy / Network error<br>
+        Browser console দেখুন (F12 → Console)
+      </div>`;
+    console.error('[AdminPreview] Load failed:', err);
   });
 }
 
