@@ -233,14 +233,20 @@ const DashboardModule = (() => {
     const dues = students.filter(s => (Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid)) > 0)
       .sort((a,b) => (Utils.safeNum(b.total_fee)-Utils.safeNum(b.paid)) - (Utils.safeNum(a.total_fee)-Utils.safeNum(a.paid)))
       .slice(0,5);
-    if (!dues.length) return `<p class="text-muted" style="padding:12px 0">All dues clear ✅</p>`;
-    return dues.map(s => {
+    if (!dues.length) return `<p class="text-muted" style="padding:16px">All dues clear ✅</p>`;
+    return `<div class="table-wrapper"><table><thead><tr>
+      <th>Name</th><th>ID</th><th>Batch</th><th class="text-right">Due</th>
+    </tr></thead><tbody>
+    ${dues.map(s => {
       const due = Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid);
-      return `<div class="reminder-item">
-        <div><div class="font-bold">${s.name||'—'}</div><small class="text-muted">${s.student_id||''} • ${s.batch||''}</small></div>
-        ${Utils.badge(Utils.takaEn(due),'danger')}
-      </div>`;
-    }).join('');
+      return `<tr>
+        <td class="font-bold">${s.name||'—'}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${s.student_id||'—'}</td>
+        <td>${s.batch||'—'}</td>
+        <td class="text-right text-error" style="font-family:var(--font-ui); font-weight:700">${Utils.takaEn(due)}</td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>`;
   }
 
   function renderBatchSummary(students) {
@@ -288,26 +294,36 @@ const DashboardModule = (() => {
       </div>`;
   }
 
-  function renderLoanSummary(loanOut, loanIn) {
-    const netLoan = loanOut - loanIn;
-    return `
-      <div class="card animated-border-box">
-        <div class="card-title">💳 Loan Summary</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
-          <div>
-            <div style="font-size:.78rem;color:var(--text-muted)">Given</div>
-            <div style="font-size:1.2rem;font-weight:700;color:var(--error);font-family:var(--font-ui)">${Utils.takaEn(loanOut)}</div>
-          </div>
-          <div>
-            <div style="font-size:.78rem;color:var(--text-muted)">Received</div>
-            <div style="font-size:1.2rem;font-weight:700;color:var(--success);font-family:var(--font-ui)">${Utils.takaEn(loanIn)}</div>
-          </div>
-          <div>
-            <div style="font-size:.78rem;color:var(--text-muted)">Net Outstanding</div>
-            <div style="font-size:1.2rem;font-weight:700;color:var(--info);font-family:var(--font-ui)">${Utils.takaEn(Math.abs(netLoan))}</div>
-          </div>
-        </div>
-      </div>`;
+  function renderLoanSummary(loans) {
+    const loanMap = {};
+    loans.forEach(l => {
+      const p = l.person_name || 'Unknown';
+      if (!loanMap[p]) loanMap[p] = { given: 0, received: 0 };
+      if (l.type === 'Loan Giving' || l.direction === 'given') loanMap[p].given += Utils.safeNum(l.amount);
+      if (l.type === 'Loan Receiving' || l.direction === 'received') loanMap[p].received += Utils.safeNum(l.amount);
+    });
+
+    const rows = Object.entries(loanMap).map(([person, v]) => ({
+      person,
+      given: v.given,
+      received: v.received,
+      due: v.given - v.received // positive means they owe us (we given > received)
+    })).sort((a, b) => Math.abs(b.due) - Math.abs(a.due)).slice(0, 5); // top 5 loans by outstanding amount
+
+    if (!rows.length) return `<p class="text-muted" style="padding:16px">No active loans</p>`;
+
+    return `<div class="table-wrapper"><table><thead><tr>
+      <th>Person</th><th class="text-right">Given</th><th class="text-right">Received</th><th class="text-right">Balance</th>
+    </tr></thead><tbody>
+    ${rows.map(r => `<tr>
+      <td class="font-bold">${r.person}</td>
+      <td class="text-right text-error" style="font-family:var(--font-ui)">${Utils.takaEn(r.given)}</td>
+      <td class="text-right text-success" style="font-family:var(--font-ui)">${Utils.takaEn(r.received)}</td>
+      <td class="text-right ${r.due > 0 ? 'text-info' : r.due < 0 ? 'text-warning' : ''}" style="font-family:var(--font-ui); font-weight:700">
+        ${r.due > 0 ? Utils.takaEn(r.due) + ' <small style="font-weight:normal;opacity:0.7">(Get)</small>' : r.due < 0 ? Utils.takaEn(Math.abs(r.due)) + ' <small style="font-weight:normal;opacity:0.7">(Pay)</small>' : 'Clear'}
+      </td>
+    </tr>`).join('')}
+    </tbody></table></div>`;
   }
 
   // ── MAIN RENDER ─────────────────────────────────────────
@@ -542,7 +558,13 @@ const DashboardModule = (() => {
 
       <!-- Loan Summary & Student Reminders -->
       <div class="dash-grid mb-24">
-        ${renderLoanSummary(loanOut, loanIn)}
+        <div class="card animated-border-box">
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>💳 Loan Summary</span>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('accounts')">View All</button>
+          </div>
+          ${renderLoanSummary(loans)}
+        </div>
         <div class="card animated-border-box">
           <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
             <span>🔔 Student Reminders (Due)</span>
