@@ -620,16 +620,27 @@ const Finance = (() => {
   ══════════════════════════════════════════ */
   function exportExcel() {
     const all      = SupabaseSync.getAll(DB.finance);
+    const students = SupabaseSync.getAll(DB.students);
     const filtered = applyFilters(all);
-    const rows     = filtered.map(f=>({
-      'Date':    f.date||'',
-      'Type':      f.type||'',
-      'Category':    f.category||'',
-      'Description':    f.description||'',
-      'Method':   f.method||'',
-      'Amount':   f.amount||0,
-      'Notes':      f.note||'',
-    }));
+    const rows     = filtered.map(f => {
+      let studentId = '';
+      if (f.ref_id) {
+        const s = students.find(s => s.id === f.ref_id);
+        if (s) studentId = s.student_id;
+      } else if (f.description && f.description.match(/\((WF-[^)]+)\)/)) {
+        studentId = f.description.match(/\((WF-[^)]+)\)/)[1];
+      }
+      return {
+        'Date':    f.date||'',
+        'Type':      f.type||'',
+        'Category':    f.category||'',
+        'Student ID': studentId,
+        'Description':    f.description||'',
+        'Method':   f.method||'',
+        'Amount':   f.amount||0,
+        'Notes':      f.note||'',
+      };
+    });
     Utils.exportExcel(rows,'finance_ledger','Finance Ledger');
   }
 

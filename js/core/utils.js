@@ -390,6 +390,17 @@ const Utils = (() => {
     if (!rows || !rows.length) { toast('No data available', 'warn'); return; }
     if (typeof XLSX === 'undefined') { toast('Excel library Not loaded', 'error'); return; }
     const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Auto-size columns to prevent visual truncation in Excel/LibreOffice
+    const cols = Object.keys(rows[0]).map(key => {
+      const maxLen = Math.max(
+        key.length,
+        ...rows.map(r => r[key] ? r[key].toString().length : 0)
+      );
+      return { wch: Math.min(maxLen + 2, 50) }; // cap width at 50
+    });
+    ws['!cols'] = cols;
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
     XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
