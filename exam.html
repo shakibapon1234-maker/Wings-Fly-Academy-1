@@ -575,11 +575,22 @@ let examSettings = {};
 function loadData(callback) {
   let hasCalled = false;
   
-  const doLoad = () => {
+  const doLoad = async () => {
     if (hasCalled) return;
     hasCalled = true;
     try {
-      const dbSettings = SupabaseSync.getAll && window.DB && window.DB.settings ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
+      let dbSettings = {};
+
+      if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client) {
+        const { data, error } = await window.SUPABASE_CONFIG.client.from('settings').select('*').limit(1);
+        if (data && data.length > 0) {
+          dbSettings = data[0];
+        }
+      }
+
+      if (Object.keys(dbSettings).length === 0 && typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll && typeof window.DB !== 'undefined' && window.DB.settings) {
+         dbSettings = SupabaseSync.getAll(window.DB.settings)[0] || {};
+      }
       
       const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
       const settingsRaw = dbSettings.exam_settings || localStorage.getItem('wfa_settings');
