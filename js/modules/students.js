@@ -165,7 +165,7 @@ const Students = (() => {
           <div style="font-weight:600">${Utils.esc(s.name)}</div>
           ${s.email ? `<div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(s.email)}</div>` : ''}
         </td>
-        <td>${Utils.maskPhone(s.phone)}</td>
+        <td>${Utils.esc(s.phone)||'—'}</td>
         <td>${Utils.esc(s.course)||'—'}</td>
         <td>${Utils.esc(s.batch)||'—'}</td>
         <td>${Utils.esc(s.session)||'—'}</td>
@@ -1352,8 +1352,10 @@ const Students = (() => {
     const rows = filtered.map(s => ({
       'Student ID': s.student_id||'',
       'Name':           s.name||'',
+      'Father Name':    s.father_name||'',
       'Phone':           s.phone||'',
       'Email':         s.email||'',
+      'Address':       s.address||'',
       'Course':          s.course||'',
       'Batch':          s.batch||'',
       'Session':          s.session||'',
@@ -1362,6 +1364,7 @@ const Students = (() => {
       'Due':           s.due||0,
       'Status':      s.status||'Active',
       'Admission Date':  s.admission_date||'',
+      'Notes':           s.note||'',
     }));
     Utils.exportExcel(rows, 'students', 'Student');
   }
