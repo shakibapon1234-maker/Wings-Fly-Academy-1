@@ -2,6 +2,10 @@
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- v202604251746 -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Wings Fly Academy — Exam</title>
 <style>
@@ -578,7 +582,7 @@ const DEFAULT_QUESTIONS = [];
 let questions = [];
 let shuffledQuestions = [];   // ✅ Shuffled copy per student session
 let answers = {};
-let currentQuestionIndex = 0; // ✅ One-at-a-time: current question pointer
+// currentQIdx is used for one-at-a-time navigation (defined near buildShuffledQuestions)
 let warningCount = 0;
 let maxWarnings = 3;
 let timerInterval = null;
@@ -786,7 +790,7 @@ function shuffleArray(arr) {
 }
 
 // shuffledQuestions: question order + option order both randomized per session
-let shuffledQuestions = [];
+// (declared above in STATE section — reused here)
 let currentQIdx = 0;
 
 function buildShuffledQuestions() {
