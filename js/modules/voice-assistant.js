@@ -68,6 +68,7 @@ const VoiceAssistant = (() => {
 
     btn = document.createElement('div');
     btn.id = 'ai-avatar-container';
+    btn.className = 'minimized'; // ★ NEW: Default to minimized when offline
     btn.title = 'AI Assistant — Click to start (Escape to stop) — English & Bengali supported';
     btn.innerHTML = buildDollHTML();
     btn.onclick = toggleListening;
@@ -603,11 +604,14 @@ const VoiceAssistant = (() => {
       if (userName.toLowerCase() === 'admin') userName = 'Shakib';
       const displayName = userName + ' Sir';
       
+      if (btn) btn.classList.remove('minimized'); // Pop up to greet
+      
       const msg = `Welcome back, ${displayName}, How are you? If you need anything, just call me. I am here to assist you.`;
       speak(msg);
       
       // ★ NEW: After greeting, go offline automatically
       setTimeout(() => {
+        if (btn && !isListening) btn.classList.add('minimized'); // Go back to small if not listening
         if (isContinuous && isListening) {
           stopContinuousListening();
         }
@@ -634,6 +638,7 @@ const VoiceAssistant = (() => {
     try { 
       recognition.start(); 
       isListening = true;
+      if (btn) btn.classList.remove('minimized'); // ★ NEW: Expand when listening
       btn.classList.add('listening');
       const msg = currentLang === 'bn-IN' 
         ? '🎤 চলছে... Escape এ থামান'
@@ -656,7 +661,10 @@ const VoiceAssistant = (() => {
 
   function stopUI() {
     isListening = false;
-    if (btn) btn.classList.remove('listening');
+    if (btn) {
+      btn.classList.remove('listening');
+      btn.classList.add('minimized'); // Make it small when offline
+    }
   }
 
   /* ── Number helpers ── */
