@@ -414,7 +414,10 @@ const Exam = (() => {
     Utils.openModal('<i class="fa fa-star"></i> Assign Grade', `
       <div style="background:var(--bg-base);padding:12px;border-radius:var(--radius-sm);margin-bottom:16px">
         <div style="font-weight:700">${e.student_name||'—'} (${e.student_id||''})</div>
-        <div style="font-size:.85rem;color:var(--text-secondary)">${e.subject||''} • ${e.batch||''}</div>
+        <div style="font-size:.85rem;color:var(--text-secondary);margin-top:4px;">
+          📚 <strong>${e.subject||'No Subject'}</strong> • ${e.batch||'No Batch'}
+        </div>
+        ${e.marks ? `<div style="margin-top:6px;font-size:.8rem;color:var(--accent);">অনলাইন এক্সামের নম্বর: <strong>${e.marks}%</strong> — অটো গ্রেড ইনপুট করা হয়েছে</div>` : ''}
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -465,6 +468,25 @@ const Exam = (() => {
 
     if (!regId) { errEl.textContent = 'Reg ID Required'; errEl.classList.remove('hidden'); return; }
     if (!subject) { errEl.textContent = 'Subject Required'; errEl.classList.remove('hidden'); return; }
+
+    // ✅ FIX: Prevent duplicate registration for same student + same subject
+    if (!editingId) {
+      const sel = document.getElementById('ef-student');
+      const opt = sel?.selectedOptions[0];
+      const checkStudentId = opt?.dataset?.sid || '';
+      if (checkStudentId && subject) {
+        const allExams = SupabaseSync.getAll(DB.exams);
+        const dupEntry = allExams.find(e => 
+          e.student_id === checkStudentId && 
+          (e.subject || '').trim().toLowerCase() === subject.trim().toLowerCase()
+        );
+        if (dupEntry) {
+          errEl.textContent = `এই স্টুডেন্ট ইতিমধ্যে "${subject}" সাবজেক্টে রেজিস্ট্রেশন করেছে (${dupEntry.status || 'Registered'})`;
+          errEl.classList.remove('hidden');
+          return;
+        }
+      }
+    }
     
     // ✅ Fix #12: validate marks do not exceed 100
     const marksVal = Utils.safeNum(Utils.formVal('ef-marks'));

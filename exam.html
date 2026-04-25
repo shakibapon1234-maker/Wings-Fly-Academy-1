@@ -491,6 +491,14 @@
         <div class="lbl">ID</div>
       </div>
       <div class="info-item">
+        <div class="val" id="r-subject" style="font-size:13px;">—</div>
+        <div class="lbl">সাবজেক্ট</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-grade" style="font-size:1.4rem;font-weight:700;color:var(--primary);">—</div>
+        <div class="lbl">গ্রেড</div>
+      </div>
+      <div class="info-item">
         <div class="val" id="r-correct">0</div>
         <div class="lbl">সঠিক উত্তর</div>
       </div>
@@ -648,21 +656,23 @@ function startExam() {
         return;
       }
 
-      // Check if student already took the exam
+      // ✅ FIX: Check per subject — same student can take different subject exams
       if (typeof window.DB !== 'undefined' && SupabaseSync && SupabaseSync.getAll) {
         const exams = SupabaseSync.getAll(DB.exams) || [];
+        const currentSubject = examSettings.examName || '';
         const alreadyTaken = exams.find(e => 
           e.student_id === studentId && 
           e.student_name === studentName && 
+          (e.subject || '') === currentSubject &&
           (e.status === 'Passed' || e.status === 'Failed' || (e.marks !== undefined && e.marks !== null))
         );
         
         if (alreadyTaken) {
-          alert('দুঃখিত! আপনি ইতিমধ্যে এই এক্সামটি দিয়েছেন। একই নাম ও আইডি ব্যবহার করে দুইবার এক্সাম দেওয়া যাবে না।');
+          const subjectLabel = currentSubject ? '"' + currentSubject + '"' : 'এই';
+          alert('দুঃখিত! আপনি ইতিমধ্যে ' + subjectLabel + ' সাবজেক্টের এক্সামটি দিয়েছেন।\nরেজাল্ট: ' + (alreadyTaken.grade || '—') + ' | নম্বর: ' + (alreadyTaken.marks ?? '—') + ' | স্ট্যাটাস: ' + alreadyTaken.status);
           return;
         }
       }
-
       document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
       document.getElementById('headerExamDate').textContent = examSettings.examDate ? `Online Exam - ${examSettings.examDate}` : 'Online Examination System';
       document.getElementById('displayName').textContent = studentName;
@@ -867,8 +877,22 @@ function showResults() {
     ? `<div class="result-badge badge-pass">✅ উত্তীর্ণ</div>`
     : `<div class="result-badge badge-fail">❌ অনুত্তীর্ণ</div>`;
 
+  // Grade calculation
+  const gradeMap = (p) => {
+    if (p >= 90) return 'A+';
+    if (p >= 80) return 'A';
+    if (p >= 70) return 'A-';
+    if (p >= 60) return 'B+';
+    if (p >= 50) return 'B';
+    if (p >= 40) return 'C';
+    return 'F';
+  };
+  const autoGrade = passed ? gradeMap(pct) : 'F';
+
   document.getElementById('r-name').textContent = studentName;
   document.getElementById('r-id').textContent = studentId;
+  document.getElementById('r-subject').textContent = examSettings.examName || '—';
+  document.getElementById('r-grade').textContent = autoGrade;
   document.getElementById('r-correct').textContent = correct;
   document.getElementById('r-warnings').textContent = warningCount;
 
@@ -897,12 +921,12 @@ function showResults() {
   }).join('');
 
   // Save result
-  saveResult(studentName, studentId, correct, totalQuestions, pct, passed, warningCount);
+  saveResult(studentName, studentId, correct, totalQuestions, pct, passed, warningCount, examSettings.examName || '');
 
   showSection('resultSection');
 }
 
-function saveResult(name, id, correct, total, pct, passed, warnings) {
+function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
   try {
     // 1. Save locally for fallback
     const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
@@ -915,9 +939,15 @@ function saveResult(name, id, correct, total, pct, passed, warnings) {
     // 2. Save directly to Main Superbase Web App!
     WFA_IDB.onReady(() => {
       const exams = SupabaseSync.getAll(DB.exams);
-      let reg = exams.find(e => e.student_id === id);
+      let reg = exams.find(e => e.student_id === id && (e.subject || '') === (subject || ''));
       
-      const gradeText = passed ? 'Pass' : 'Fail';
+      const gradeMap = (p) => {
+        if (p >= 90) return 'A+'; if (p >= 80) return 'A';
+        if (p >= 70) return 'A-'; if (p >= 60) return 'B+';
+        if (p >= 50) return 'B';  if (p >= 40) return 'C';
+        return 'F';
+      };
+      const gradeText = passed ? gradeMap(pct) : 'F';
       const statusText = passed ? 'Passed' : 'Failed';
       
       if(reg) {
@@ -926,18 +956,20 @@ function saveResult(name, id, correct, total, pct, passed, warnings) {
           marks: pct,
           grade: gradeText,
           status: statusText,
-          note: `Extracted Warnings: ${warnings}`
+          subject: subject || reg.subject || '',
+          note: `Auto-graded | Warnings: ${warnings}`
         });
       } else {
-        // Create new record natively if they aren't registered yet!
+        // Create new record if not pre-registered
         SupabaseSync.insert(DB.exams, {
           reg_id: 'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
           student_id: id,
           student_name: name,
+          subject: subject || '',
           marks: pct,
           grade: gradeText,
           status: statusText,
-          note: `Extracted Warnings: ${warnings}`
+          note: `Auto-graded | Warnings: ${warnings}`
         });
       }
     });
