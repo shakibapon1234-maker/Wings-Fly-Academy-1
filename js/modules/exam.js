@@ -118,12 +118,9 @@ const Exam = (() => {
           <option value="">All Batches</option>
           ${batches.map(b => `<option value="${b}" ${filterBatch===b?'selected':''}>${b}</option>`).join('')}
         </select>
-        <select class="form-control" onchange="Exam.onFilter('status',this.value)">
-          <option value="">All Status</option>
-          <option value="Registered" ${filterStatus==='Registered'?'selected':''}>Registered</option>
-          <option value="Appeared"   ${filterStatus==='Appeared'?'selected':''}>Present</option>
-          <option value="Passed"     ${filterStatus==='Passed'?'selected':''}>Passed</option>
-          <option value="Failed"     ${filterStatus==='Failed'?'selected':''}>Failed</option>
+        <select class="form-control" onchange="Exam.onFilter('grade',this.value)">
+          <option value="">All Grades</option>
+          ${['A+','A','A-','B+','B','C','F'].map(g => `<option value="${g}" ${filterStatus===g?'selected':''}>${g}</option>`).join('')}
         </select>
         <button class="btn-secondary btn-sm" onclick="Exam.resetFilters()"><i class="fa fa-rotate-left"></i> Reset</button>
         <button class="btn-success btn-sm"   onclick="Exam.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
@@ -144,7 +141,7 @@ const Exam = (() => {
                 <th>Date</th>
                 <th>Fee</th>
                 <th>Grade</th>
-                <th>Status</th>
+                <th>Number</th>
                 <th class="no-print">Action</th>
               </tr>
             </thead>
@@ -178,7 +175,7 @@ const Exam = (() => {
       <td style="font-size:0.82rem">${Utils.formatDateDMY(e.exam_date)}</td>
       <td style="font-family:var(--font-ui)">${Utils.takaEn(e.exam_fee)}</td>
       <td><strong>${e.grade || '—'}</strong></td>
-      <td>${Utils.statusBadge(e.status || 'Registered')}</td>
+      <td style="font-weight:600;color:${e.marks != null ? (e.marks >= 60 ? '#00ff88' : '#ff4757') : 'var(--text-muted)'}">${e.marks != null ? e.marks + '%' : '—'}</td>
       <td class="no-print">
         <div class="table-actions">
           <button class="btn-outline btn-xs" onclick="Exam.openGradeModal('${e.id}')" title="Grade"><i class="fa fa-star"></i></button>
@@ -197,7 +194,7 @@ const Exam = (() => {
     let r = rows;
     if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['student_name','student_id','reg_id','subject']);
     if (filterBatch)  r = r.filter(e => e.batch === filterBatch);
-    if (filterStatus) r = r.filter(e => e.status === filterStatus);
+    if (filterStatus) r = r.filter(e => (e.grade || e.status) === filterStatus);
     return r;
   }
 
@@ -206,6 +203,7 @@ const Exam = (() => {
   function onFilter(key, val) {
     if (key === 'batch')  filterBatch = val;
     if (key === 'status') filterStatus = val;
+    if (key === 'grade')  filterStatus = val;
     currentPage = 1;
     render();
   }
@@ -619,8 +617,7 @@ const Exam = (() => {
       'Date':    e.exam_date||'',
       'Fee':        e.exam_fee||0,
       'Grade':     e.grade||'',
-      'Number':     e.marks||'',
-      'Status': e.status||'',
+      'Number (%)': e.marks != null ? e.marks : '',
     }));
     Utils.exportExcel(rows, 'exams', 'Exams');
   }
