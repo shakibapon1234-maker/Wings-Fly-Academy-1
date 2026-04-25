@@ -819,8 +819,12 @@ function saveQuestion() {
   };
 
   if (editingId) {
-    const idx = qs.findIndex(q => q.id == editingId);
-    if (idx !== -1) qs[idx] = newQ;
+    const idx = qs.findIndex(q => String(q.id) === String(editingId));
+    if (idx !== -1) {
+      qs[idx] = newQ;
+    } else {
+      qs.push(newQ);
+    }
   } else {
     qs.push(newQ);
   }
@@ -834,7 +838,13 @@ function saveQuestion() {
 
 function editQuestion(idx) {
   const qs = getQuestions();
-  const q = qs[idx];
+  let q = qs[idx];
+  
+  if (!q.id) {
+    q.id = Date.now() + idx;
+    saveQuestions(qs);
+  }
+
   document.getElementById('qText').value = q.question;
   document.getElementById('qMarks').value = q.marks || 5;
   [0,1,2,3].forEach(i => document.getElementById('opt'+i).value = q.options[i] || '');
