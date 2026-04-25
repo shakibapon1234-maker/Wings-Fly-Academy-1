@@ -31,7 +31,7 @@ const Exam = (() => {
     const passed    = filtered.filter(e => e.status === 'Passed').length;
     const failed    = filtered.filter(e => e.status === 'Failed').length;
     const totalFee  = filtered.reduce((s, e) => s + Utils.safeNum(e.exam_fee), 0);
-    const baseUrl   = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+    const baseUrl   = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/';
 
     container.innerHTML = `
       <!-- Link Sharing -->
@@ -41,22 +41,22 @@ const Exam = (() => {
             <div style="font-size:0.8rem;color:#00d4ff;font-weight:700;margin-bottom:4px;text-transform:uppercase;"><i class="fa fa-chalkboard-user"></i> Teacher / Examiner Link</div>
             <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">Set up Questions</div>
             <div class="blur-link-container" style="position:relative;background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:6px;cursor:pointer;overflow:hidden;" onclick="this.classList.toggle('revealed')">
-              <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.9rem;word-break:break-all;">${baseUrl}admin.html</span>
+              <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.9rem;word-break:break-all;">https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/admin.html</span>
               <div class="blur-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);font-weight:700;font-size:0.8rem;transition:opacity 0.3s;color:#fff;">Click to Reveal</div>
             </div>
           </div>
-          <button class="btn-primary" onclick="Utils.toast('Copied!','success');navigator.clipboard.writeText('${baseUrl}admin.html')" style="white-space:nowrap;border-radius:20px;font-weight:700;"><i class="fa fa-copy"></i> Copy</button>
+          <button class="btn-primary" onclick="Utils.toast('Copied!','success');navigator.clipboard.writeText('https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/admin.html')" style="white-space:nowrap;border-radius:20px;font-weight:700;"><i class="fa fa-copy"></i> Copy</button>
         </div>
         <div style="flex:1;background:rgba(0,0,0,0.2);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:16px;display:flex;align-items:center;justify-content:space-between;gap:16px;">
           <div>
             <div style="font-size:0.8rem;color:#00ff88;font-weight:700;margin-bottom:4px;text-transform:uppercase;"><i class="fa fa-user-graduate"></i> Student Exam Link</div>
             <div style="color:var(--text-muted);font-size:0.85rem;margin-bottom:8px;">Submit Answers</div>
             <div class="blur-link-container" style="position:relative;background:rgba(255,255,255,0.05);padding:6px 12px;border-radius:6px;cursor:pointer;overflow:hidden;" onclick="this.classList.toggle('revealed')">
-              <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.9rem;word-break:break-all;">${baseUrl}exam.html</span>
+              <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.9rem;word-break:break-all;">https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/exam.html</span>
               <div class="blur-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);font-weight:700;font-size:0.8rem;transition:opacity 0.3s;color:#fff;">Click to Reveal</div>
             </div>
           </div>
-          <button class="btn-primary" onclick="Utils.toast('Copied!','success');navigator.clipboard.writeText('${baseUrl}exam.html')" style="background:linear-gradient(135deg,#00ff88,#00b862);white-space:nowrap;border-radius:20px;border:none;color:#111;font-weight:700;"><i class="fa fa-copy"></i> Copy</button>
+          <button class="btn-primary" onclick="Utils.toast('Copied!','success');navigator.clipboard.writeText('https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/exam.html')" style="background:linear-gradient(135deg,#00ff88,#00b862);white-space:nowrap;border-radius:20px;border:none;color:#111;font-weight:700;"><i class="fa fa-copy"></i> Copy</button>
         </div>
       </div>
       <style>
