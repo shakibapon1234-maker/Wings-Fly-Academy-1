@@ -539,42 +539,28 @@ let examSettings = {};
 // LOAD DATA
 // =====================
 function loadData(callback) {
-  let hasCalled = false;
+  // ════════════════════════════════════════════════════════
+  // DIRECT Supabase REST fetch — no IndexedDB, no cache.
+  // exam.html runs on student's browser which has NO local
+  // admin data. We must always fetch live from Supabase.
+  // ════════════════════════════════════════════════════════
+  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
-  const doLoad = async () => {
-    if (hasCalled) return;
-    hasCalled = true;
+  const showNoQuestions = () => {
+    const c = document.querySelector('.container');
+    if (c) c.innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:#888;">
+        <div style="font-size:56px;margin-bottom:16px;">📋</div>
+        <h2 style="color:#4db8ff;margin-bottom:8px;">প্রশ্ন প্রস্তুত নেই</h2>
+        <p>এডমিন এখনো এক্সামের প্রশ্ন সেট করেননি।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+      </div>`;
+  };
+
+  const parseAndApply = (dbSettings) => {
     try {
-      let dbSettings = {};
-
-      // Step 1: Direct Supabase query (most reliable)
-      const client = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client)
-                     || window.supabaseClient;
-      if (client) {
-        try {
-          const { data, error } = await client.from('settings').select('*').limit(1);
-          if (!error && data && data.length > 0) {
-            dbSettings = data[0];
-            console.log('[Exam] Settings loaded from Supabase direct query');
-          }
-        } catch(qErr) {
-          console.warn('[Exam] Supabase direct query failed:', qErr);
-        }
-      }
-
-      // Step 2: Fallback to SupabaseSync local cache
-      if (Object.keys(dbSettings).length === 0 &&
-          typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll &&
-          typeof window.DB !== 'undefined' && window.DB.settings) {
-        dbSettings = SupabaseSync.getAll(window.DB.settings)[0] || {};
-        if (Object.keys(dbSettings).length > 0) {
-          console.log('[Exam] Settings loaded from SupabaseSync cache');
-        }
-      }
-
-      // Step 3: Parse questions and settings
-      const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
-      const settingsRaw = dbSettings.exam_settings || localStorage.getItem('wfa_settings');
+      const stored     = dbSettings.exam_questions;
+      const settingsRaw = dbSettings.exam_settings;
 
       examSettings = settingsRaw
         ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw)
@@ -582,52 +568,49 @@ function loadData(callback) {
 
       if (stored) {
         const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          questions = parsed;
-          console.log('[Exam] Questions loaded:', questions.length);
-        } else {
-          questions = [];
-          console.warn('[Exam] Stored questions are empty or invalid');
-        }
+        questions = (Array.isArray(parsed) && parsed.length > 0) ? parsed : [];
       } else {
         questions = [];
-        console.warn('[Exam] No questions found in DB or localStorage');
       }
 
-      // Ensure every question has options array
+      // Ensure options array on every question
       questions.forEach(q => {
-        if (!q.options || !Array.isArray(q.options)) q.options = ["ক", "খ", "গ", "ঘ"];
+        if (!q.options || !Array.isArray(q.options)) q.options = ['ক', 'খ', 'গ', 'ঘ'];
       });
 
-      // Show error if no questions available
-      if (questions.length === 0) {
-        document.querySelector('.container').innerHTML = `
-          <div style="text-align:center;padding:60px 20px;color:#888;">
-            <div style="font-size:56px;margin-bottom:16px;">📋</div>
-            <h2 style="color:#4db8ff;margin-bottom:8px;">প্রশ্ন প্রস্তুত নেই</h2>
-            <p>এডমিন এখনো এক্সামের প্রশ্ন সেট করেননি।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
-          </div>`;
-        return;
-      }
+      if (questions.length === 0) { showNoQuestions(); return; }
 
       totalSeconds = (examSettings.duration || 10) * 60;
       remainingSeconds = totalSeconds;
-
       if (callback) callback();
     } catch(e) {
-      console.error("Exam load error:", e);
-      questions = [];
-      examSettings = { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
-      if (callback) callback();
+      console.error('[Exam] parseAndApply error:', e);
+      showNoQuestions();
     }
   };
 
-  if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
-    WFA_IDB.onReady(doLoad);
-    setTimeout(doLoad, 2000); // increased timeout for slow connections
-  } else {
-    doLoad();
-  }
+  // Fetch directly from Supabase REST API (bypasses IndexedDB/cache)
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (Array.isArray(data) && data.length > 0) {
+      console.log('[Exam] Settings fetched from Supabase REST ✓');
+      parseAndApply(data[0]);
+    } else {
+      console.warn('[Exam] Supabase REST returned no settings rows');
+      showNoQuestions();
+    }
+  })
+  .catch(err => {
+    console.error('[Exam] Supabase REST fetch failed:', err);
+    showNoQuestions();
+  });
 }
 
 // =====================
