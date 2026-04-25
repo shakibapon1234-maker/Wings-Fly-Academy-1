@@ -492,12 +492,13 @@ const DashboardModule = (() => {
           </div>
         </div>
 
+        <!-- Last 5 Transactions -->
         <div class="card animated-border-box" style="grid-column: 1 / -1;">
-          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
-            <span>📢 Notice Board</span>
-            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">View All</button>
+          <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+            <span>💸 Last 5 Transactions</span>
+            <button class="btn btn-outline btn-sm" onclick="App.navigateTo('finance')">View All</button>
           </div>
-          ${renderNotices(notices)}
+          ${renderLastFive(finance)}
         </div>
       </div>
 
@@ -591,13 +592,13 @@ const DashboardModule = (() => {
         </div>
       </div>
 
-      <!-- Last 5 Transactions -->
+      <!-- Notice Board -->
       <div class="card animated-border-box mb-24">
-        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
-          <span>💸 Last 5 Transactions</span>
-          <button class="btn btn-outline btn-sm" onclick="App.navigateTo('finance')">View All</button>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;">
+          <span>📢 Notice Board</span>
+          <button class="btn btn-outline btn-sm" onclick="App.navigateTo('notice-board')">View All</button>
         </div>
-        ${renderLastFive(finance)}
+        ${renderNotices(notices)}
       </div>
     `;
 
