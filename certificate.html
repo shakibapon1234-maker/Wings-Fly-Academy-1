@@ -228,12 +228,12 @@
   <div class="card" id="verify-card">
     <div id="verify-form-section">
       <div style="margin-bottom:16px;">
-        <label class="form-label"><i class="fa fa-id-badge"></i> &nbsp;স্টুডেন্ট আইডি (Student ID)</label>
+        <label class="form-label"><i class="fa fa-id-badge"></i> &nbsp;স্টুডেন্ট আইডি বা নাম (ID / Name)</label>
         <input
           type="text"
           id="studentid-input"
           class="form-input"
-          placeholder="যেমন: WFA-001"
+          placeholder="যেমন: WFA-001 বা Sabuj Miah"
           autofocus
         />
       </div>
@@ -337,10 +337,10 @@
       const { data: students, error } = await sbClient
         .from('students')
         .select('*')
-        .ilike('student_id', idInput); // Case-insensitive lookup
+        .or(`student_id.ilike.%${idInput}%,name.ilike.%${idInput}%`); // Search both ID and Name
 
       if (error || !students || students.length === 0) {
-        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> এই স্টুডেন্ট আইডিটি ডাটাবেসে পাওয়া যায়নি!');
+        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> এই স্টুডেন্ট আইডি বা নামটি ডাটাবেসে পাওয়া যায়নি!');
         document.getElementById('verify-btn').disabled = false;
         return;
       }
@@ -429,6 +429,12 @@
 
       try {
         const certEl = document.getElementById('cert-for-download');
+        const zoomContainer = document.querySelector('.cert-zoom');
+        
+        // Fix for html2canvas text overlapping bug due to CSS zoom
+        if (zoomContainer) zoomContainer.style.zoom = '1';
+        await new Promise(r => setTimeout(r, 50)); // Allow reflow
+
         const canvas = await html2canvas(certEl, {
           scale: 2,
           useCORS: true,
@@ -436,6 +442,8 @@
           backgroundColor: '#ffffff',
           logging: false,
         });
+
+        if (zoomContainer) zoomContainer.style.zoom = ''; // Restore zoom
 
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });

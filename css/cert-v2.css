@@ -7,9 +7,9 @@
     height: 794px; /* A4 height in pixels at 96 DPI */
     margin: 0 auto;
     background-color: #fcfcfc;
-    /* Use the user-provided blank_cert.jpeg, with a fallback light linear gradient if the file is missing */
-    background-image: url('../assets/blank_cert.jpeg'), linear-gradient(135deg, rgba(230,235,245,0.7) 0%, rgba(255,255,255,1) 50%, rgba(230,235,245,0.7) 100%);
-    background-size: 100% 100%, cover;
+    /* Simplified background to ensure html2canvas parses background-size correctly */
+    background-image: url('../assets/blank_cert.jpeg');
+    background-size: 100% 100%;
     background-repeat: no-repeat;
     background-position: center;
     box-shadow: 0 0 20px rgba(0,0,0,0.1);
