@@ -403,9 +403,9 @@
   .closed-notice h2 { font-size: 20px; color: var(--primary); margin-bottom: 8px; }
   .closed-notice p { font-size: 14px; color: var(--muted); }
 </style>
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="js/core/supabase-config.js"></script>
-<script defer src="js/core/supabase-sync.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/supabase-config.js"></script>
+<script src="js/core/supabase-sync.js"></script>
 </head>
 <body>
 
@@ -516,43 +516,9 @@
 // Admin panel থেকে প্রশ্ন লোড হবে। 
 // যদি কোনো প্রশ্ন না থাকে, নিচের default প্রশ্ন ব্যবহার হবে।
 
-const DEFAULT_QUESTIONS = [
-  {
-    id: 1,
-    question: "বাংলাদেশের জাতীয় বিমান সংস্থার নাম কী?",
-    options: ["এয়ার বাংলা", "বিমান বাংলাদেশ এয়ারলাইন্স", "ঢাকা এয়ার", "রয়েল বেঙ্গল এয়ার"],
-    answer: 1
-  },
-  {
-    id: 2,
-    question: "একটি বিমানের প্রধান নিয়ন্ত্রণ সারফেস কোনটি?",
-    options: ["ফ্ল্যাপ", "স্পয়লার", "এইলেরন", "স্লেট"],
-    answer: 2
-  },
-  {
-    id: 3,
-    question: "বিমান উড্ডয়নের সময় কোন শক্তি বিমানকে উপরে তোলে?",
-    options: ["থ্রাস্ট", "ড্র্যাগ", "লিফট", "গ্র্যাভিটি"],
-    answer: 2
-  },
-  {
-    id: 4,
-    question: "ICAO এর পূর্ণরূপ কী?",
-    options: [
-      "International Civil Aviation Organization",
-      "International Commercial Airline Operations",
-      "Indian Civil Aviation Office",
-      "Integrated Civil Air Operations"
-    ],
-    answer: 0
-  },
-  {
-    id: 5,
-    question: "রানওয়ের দিক নির্ধারণ করা হয় কীসের ভিত্তিতে?",
-    options: ["সূর্যের অবস্থান", "বায়ুর দিক", "চৌম্বকীয় উত্তর", "ভৌগলিক অবস্থান"],
-    answer: 2
-  }
-];
+// DEFAULT_QUESTIONS removed — exam.html always loads questions from Supabase/admin
+// If no questions found, an error message is shown to the student
+const DEFAULT_QUESTIONS = [];
 
 // =====================
 // STATE
@@ -581,15 +547,25 @@ function loadData(callback) {
     try {
       let dbSettings = {};
 
-      if (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client) {
-        const { data, error } = await window.SUPABASE_CONFIG.client.from('settings').select('*').limit(1);
-        if (data && data.length > 0) {
-          dbSettings = data[0];
+      // Try direct Supabase query (most reliable source)
+      const client = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client)
+                     || window.supabaseClient;
+      if (client) {
+        try {
+          const { data, error } = await client.from('settings').select('*').limit(1);
+          if (!error && data && data.length > 0) {
+            dbSettings = data[0];
+            console.log('[Exam] Settings loaded from Supabase');
+          }
+        } catch(qErr) {
+          console.warn('[Exam] Supabase query failed:', qErr);
         }
       }
 
+      // Fallback: use SupabaseSync local cache
       if (Object.keys(dbSettings).length === 0 && typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll && typeof window.DB !== 'undefined' && window.DB.settings) {
          dbSettings = SupabaseSync.getAll(window.DB.settings)[0] || {};
+         console.log('[Exam] Settings loaded from SupabaseSync cache');
       }
       
       const stored = dbSettings.exam_questions || localStorage.getItem('wfa_questions');
@@ -609,11 +585,8 @@ function loadData(callback) {
         if (!q.options || !Array.isArray(q.options)) q.options = ["ক", "খ", "গ", "ঘ"];
       });
 
-      // Pick only 5 questions randomly if more exist
-      if (questions.length > 5) {
-        const shuffled = questions.sort(() => Math.random() - 0.5);
-        questions = shuffled.slice(0, 5);
-      }
+      // Show all questions in original order (as set by admin)
+      // No random shuffle — preserves the order admin configured
 
       totalSeconds = (examSettings.duration || 10) * 60;
       remainingSeconds = totalSeconds;
@@ -621,7 +594,7 @@ function loadData(callback) {
       if(callback) callback();
     } catch(e) {
       console.error("Exam load error:", e);
-      questions = DEFAULT_QUESTIONS;
+      questions = [];
       examSettings = { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
       if(callback) callback();
     }
