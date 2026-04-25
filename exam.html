@@ -76,7 +76,12 @@
   .timer-display.running { display: block; }
   .timer-display.danger { background: #ff5252; color: white; animation: pulse 1s infinite; }
 
+  @keyframes fadeSlide { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes pulse-submit { 0%,100%{transform:scale(1);box-shadow:0 0 0 rgba(0,255,136,0);} 50%{transform:scale(1.03);box-shadow:0 0 16px rgba(0,255,136,0.5);} }
+  @keyframes opt-confirm { 0%{background:rgba(0,255,136,0.05);} 100%{background:rgba(0,255,136,0.18);} }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  @keyframes rules-glow { 0%,100%{border-color:#f0a500;} 50%{border-color:#ff6b00;box-shadow:0 0 8px rgba(240,165,0,0.3);} }
+  @keyframes countdownPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
 
   .progress-wrap {
     background: rgba(255,255,255,0.2);
@@ -433,10 +438,17 @@
     <h2>সতর্কতা!</h2>
     <p id="warningMsg">আপনি এক্সামের বাইরে গিয়েছেন। এটি অসৎ আচরণ হিসেবে বিবেচিত হবে।</p>
     <div class="warning-count" id="warningCount"></div>
-    <button class="btn btn-primary" onclick="dismissWarning()" style="border-radius:10px;">
+    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:rgba(255,255,255,0.8);text-align:left;line-height:1.8;">
+      📋 মনে রাখুন:<br>
+      • ৩ বার সরে গেলে এক্সাম স্বয়ংক্রিয়ভাবে জমা হবে<br>
+      • একবার জমা দিলে পুনরায় সুযোগ নেই<br>
+      • সৎভাবে পরীক্ষা দিন
+    </div>
+    <button class="btn btn-primary" onclick="dismissWarning()" style="border-radius:10px;margin-top:14px;">
       বুঝেছি, এক্সামে ফিরে যাই
     </button>
   </div>
+</div>
 </div>
 
 <div class="container">
@@ -469,7 +481,7 @@
 
     <div id="questionsContainer"></div>
 
-    <button class="btn btn-submit" onclick="submitExam()">✅ এক্সাম জমা দিন</button>
+    <!-- Submit button moved inside last question card for one-at-a-time mode -->
   </div>
 
   <!-- Section: Result -->
@@ -536,11 +548,13 @@ const DEFAULT_QUESTIONS = [];
 // STATE
 // =====================
 let questions = [];
+let shuffledQuestions = [];   // ✅ Shuffled copy per student session
 let answers = {};
+let currentQuestionIndex = 0; // ✅ One-at-a-time: current question pointer
 let warningCount = 0;
 let maxWarnings = 3;
 let timerInterval = null;
-let totalSeconds = 600; // 10 minutes
+let totalSeconds = 600;
 let remainingSeconds = 600;
 let examActive = false;
 let studentName = '';
@@ -704,53 +718,211 @@ function startExam() {
 }
 
 // =====================
-// RENDER QUESTIONS
+// SHUFFLE HELPER
+// =====================
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// =====================
+// RENDER QUESTIONS (One-at-a-time + Shuffle)
+// =====================
+// =====================
+// SHUFFLE HELPERS
+// =====================
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// shuffledQuestions: question order + option order both randomized per session
+let shuffledQuestions = [];
+let currentQIdx = 0;
+
+function buildShuffledQuestions() {
+  // Shuffle question ORDER
+  const qShuffled = shuffleArray(questions.map((q, origIdx) => ({ ...q, _origIdx: origIdx })));
+  shuffledQuestions = qShuffled.map(q => {
+    // Shuffle OPTIONS, remap correct answer index
+    const optsWithIdx = q.options.map((opt, j) => ({ opt, j }));
+    const shuffledOpts = shuffleArray(optsWithIdx);
+    const newCorrect = shuffledOpts.findIndex(o => o.j === q.answer);
+    return { ...q, options: shuffledOpts.map(o => o.opt), answer: newCorrect };
+  });
+}
+
+// =====================
+// RENDER — ONE BY ONE
 // =====================
 function renderQuestions() {
-  const container = document.getElementById('questionsContainer');
-  container.innerHTML = '';
-
   if (questions.length === 0) {
-    container.innerHTML = `<div class="no-questions"><div class="icon">📭</div><p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p></div>`;
+    document.getElementById('questionsContainer').innerHTML =
+      `<div class="no-questions"><div class="icon">📭</div><p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p></div>`;
     return;
   }
+  buildShuffledQuestions();
+  currentQIdx = 0;
+  renderCurrentQuestion();
+}
 
-  questions.forEach((q, i) => {
-    const div = document.createElement('div');
-    div.className = 'question-card';
-    div.innerHTML = `
-      <div class="q-num" style="display:flex; justify-content:space-between;">
-        <span>প্রশ্ন ${i + 1} / ${questions.length}</span>
-        <span style="color:var(--muted); text-transform:none;">[মান: ${q.marks || 1}]</span>
+function renderCurrentQuestion() {
+  const container = document.getElementById('questionsContainer');
+  const q = shuffledQuestions[currentQIdx];
+  const total = shuffledQuestions.length;
+  const isLast = currentQIdx === total - 1;
+  const letters = ['ক', 'খ', 'গ', 'ঘ'];
+  const pct = Math.round(((currentQIdx + 1) / total) * 100);
+
+  const remainWarn = maxWarnings - warningCount;
+  container.innerHTML = `
+    <div class="question-card" id="q-card-current">
+
+      <!-- ✅ RULES BANNER — সবসময় দেখাবে -->
+      <div style="
+        background: linear-gradient(135deg,#fff8e1,#fff3cd);
+        border: 1.5px solid #f0a500;
+        border-radius: 10px;
+        padding: 11px 14px;
+        margin-bottom: 14px;
+        font-size: 12px;
+        color: #5a3e00;
+        line-height: 1.7;
+      ">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#c75000;display:flex;align-items:center;gap:6px;">
+          📋 পরীক্ষার নিয়মাবলী — মনোযোগ দিয়ে পড়ুন
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;">
+          <div>✦ একটি প্রশ্নের উত্তর দিলে <strong>পরিবর্তন করা যাবে না</strong></div>
+          <div>✦ অন্য ট্যাব বা অ্যাপে গেলে <strong>সতর্কতা</strong> পাবেন</div>
+          <div>✦ <strong>${maxWarnings} বার</strong> সরে গেলে এক্সাম <strong>স্বয়ংক্রিয় জমা</strong> হবে</div>
+          <div>✦ একবার জমা দিলে <strong>পুনরায় দেওয়ার সুযোগ নেই</strong></div>
+          <div>✦ উত্তর দিলে <strong>পরের প্রশ্ন স্বয়ংক্রিয়ভাবে</strong> আসবে</div>
+          <div>✦ আশেপাশে তাকানো <strong>নিষিদ্ধ</strong> — ন্যায্যভাবে পরীক্ষা দিন</div>
+        </div>
+        <div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0c060;display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#c75000;font-weight:700;">
+            ⚠️ বর্তমান সতর্কতা: ${warningCount} / ${maxWarnings}
+            ${remainWarn <= 1 ? ' — <span style=\"color:red;\">আর মাত্র ' + remainWarn + 'টি বাকি!</span>' : ''}
+          </span>
+          <span style="color:var(--muted);">প্রশ্ন ${currentQIdx + 1} / ${total}</span>
+        </div>
       </div>
+
+      <!-- Progress bar -->
+      <div style="margin:0 0 12px;background:var(--border);border-radius:4px;height:5px;overflow:hidden;">
+        <div style="height:100%;background:var(--primary);border-radius:4px;width:${pct}%;transition:width 0.4s ease;"></div>
+      </div>
+
+      <!-- Marks badge -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div class="q-num">প্রশ্ন ${currentQIdx + 1} / ${total}</div>
+        <span style="font-size:11px;background:rgba(0,0,0,0.07);padding:2px 10px;border-radius:20px;color:var(--muted);">মান: ${q.marks || 1}</span>
+      </div>
+
       <div class="q-text">${q.question}</div>
-      <div class="options" id="opts-${i}">
+      <div class="options" id="opts-current">
         ${q.options.map((opt, j) => `
-          <label class="option" id="opt-${i}-${j}" onclick="selectOption(${i}, ${j})">
-            <input type="radio" name="q${i}" value="${j}" style="display:none;">
-            <span class="opt-letter">${['ক', 'খ', 'গ', 'ঘ'][j]}.</span>
+          <label class="option ${answers[currentQIdx] === j ? 'selected' : ''}"
+            id="opt-c-${j}" onclick="selectOptionCurrent(${j})">
+            <input type="radio" name="qcurrent" value="${j}" style="display:none;"
+              ${answers[currentQIdx] === j ? 'checked' : ''}>
+            <span class="opt-letter">${letters[j]}.</span>
             <span>${opt}</span>
           </label>
         `).join('')}
       </div>
-    `;
-    container.appendChild(div);
-  });
-
+      <div style="margin-top:16px;text-align:center;">
+        ${answers[currentQIdx] !== undefined
+          ? `<div style="color:#2e7d32;font-size:13px;font-weight:600;padding:8px;background:rgba(46,125,50,0.08);border-radius:8px;">
+               ✓ উত্তর সংরক্ষিত — পরের প্রশ্ন লোড হচ্ছে...
+             </div>`
+          : isLast
+            ? `<button class="btn btn-submit" onclick="submitExam()" style="width:100%;border-radius:10px;padding:12px;font-size:15px;font-weight:700;">
+                 ✅ এক্সাম জমা দিন
+               </button>`
+            : `<div style="color:var(--muted);font-size:13px;padding:8px;">
+                 উত্তর বেছে নিলেই পরের প্রশ্ন আসবে →
+               </div>`
+        }
+      </div>
+    </div>
+  `;
   updateAnsweredCount();
 }
 
+function selectOptionCurrent(optIdx) {
+  // ✅ LOGIC: Once answered, cannot change — lock immediately
+  if (answers[currentQIdx] !== undefined) return;
+
+  answers[currentQIdx] = optIdx;
+
+  // Lock all options — no going back
+  document.querySelectorAll('#opts-current .option').forEach((o, i) => {
+    o.style.pointerEvents = 'none';
+    o.onclick = null;
+    if (i === optIdx) {
+      o.classList.add('selected');
+      o.style.background = 'rgba(46,125,50,0.12)';
+      o.style.borderColor = '#2e7d32';
+    } else {
+      o.style.opacity = '0.45';
+    }
+  });
+
+  updateAnsweredCount();
+
+  // Re-render bottom hint to "saved"
+  const navArea = document.querySelector('#q-card-current > div:last-child');
+  if (navArea) {
+    const isLast = currentQIdx === shuffledQuestions.length - 1;
+    navArea.innerHTML = isLast
+      ? `<button class="btn btn-submit" onclick="submitExam()" style="width:100%;border-radius:10px;padding:12px;font-size:15px;font-weight:700;margin-top:4px;">✅ এক্সাম জমা দিন</button>`
+      : `<div style="color:#2e7d32;font-size:13px;font-weight:600;padding:8px;background:rgba(46,125,50,0.08);border-radius:8px;text-align:center;">✓ উত্তর সংরক্ষিত — পরের প্রশ্ন লোড হচ্ছে...</div>`;
+  }
+
+  // ✅ Auto-advance after 750ms
+  const isLast = currentQIdx === shuffledQuestions.length - 1;
+  if (!isLast) {
+    setTimeout(() => { nextQuestion(); }, 750);
+  }
+}
+
+function nextQuestion() {
+  if (currentQIdx < shuffledQuestions.length - 1) {
+    currentQIdx++;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function prevQuestion() {
+  if (currentQIdx > 0) {
+    currentQIdx--;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// Legacy fallback (not used in one-by-one mode)
 function selectOption(qIdx, optIdx) {
   answers[qIdx] = optIdx;
-  const opts = document.getElementById('opts-' + qIdx);
-  opts.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
-  document.getElementById(`opt-${qIdx}-${optIdx}`).classList.add('selected');
   updateAnsweredCount();
 }
 
 function updateAnsweredCount() {
   const answered = Object.keys(answers).length;
-  document.getElementById('answeredCount').textContent = `${answered}/${questions.length} উত্তর দেওয়া`;
+  const total = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions.length : questions.length;
+  const el = document.getElementById('answeredCount');
+  if (el) el.textContent = `${answered}/${total} উত্তর দেওয়া`;
 }
 
 // =====================
@@ -823,21 +995,57 @@ function setupWarnings() {
 
 function triggerWarning(type, msg) {
   warningCount++;
-  document.getElementById('warningMsg').textContent = `${msg} এটি অসৎ আচরণ হিসেবে বিবেচিত হবে।`;
-  document.getElementById('warningCount').textContent = `⚠️ সতর্কতা: ${warningCount} / ${maxWarnings}`;
-  document.getElementById('warningOverlay').classList.add('show');
+  const remaining = maxWarnings - warningCount;
+  const overlay = document.getElementById('warningOverlay');
+  const msgEl   = document.getElementById('warningMsg');
+  const cntEl   = document.getElementById('warningCount');
 
   if (warningCount >= maxWarnings) {
-    document.getElementById('warningMsg').textContent = '৩টি সতর্কতা পেয়েছেন। এক্সাম স্বয়ংক্রিয়ভাবে জমা হয়ে যাচ্ছে।';
+    // ✅ Final warning — auto submit with countdown
+    msgEl.innerHTML = `<strong style="color:#ff5252;font-size:16px;">🚨 ${maxWarnings}টি সতর্কতা পেয়েছেন!</strong><br>
+      <span style="font-size:14px;">এক্সাম স্বয়ংক্রিয়ভাবে জমা হয়ে যাচ্ছে।</span>`;
+    cntEl.innerHTML = `<span style="color:#ff5252;font-size:22px;font-weight:800;" id="auto-submit-countdown">3</span>
+      <span style="color:#ff5252;"> সেকেন্ড পরে জমা হবে</span>`;
+    overlay.classList.add('show');
+
+    // Countdown 3→2→1 then auto submit
+    let cd = 3;
+    const cdTimer = setInterval(() => {
+      cd--;
+      const cdEl = document.getElementById('auto-submit-countdown');
+      if (cdEl) cdEl.textContent = cd;
+      if (cd <= 0) {
+        clearInterval(cdTimer);
+        dismissWarning();
+        autoSubmit();
+      }
+    }, 1000);
+
+  } else {
+    // Normal warning
+    msgEl.innerHTML = `<strong>${type}:</strong> ${msg}<br>
+      <span style="font-size:13px;color:#ff9800;">এটি অসৎ আচরণ হিসেবে রেকর্ড করা হয়েছে।</span>`;
+    cntEl.innerHTML = `⚠️ সতর্কতা: <strong>${warningCount}</strong> / ${maxWarnings}
+      ${remaining === 1
+        ? ' — <span style="color:#ff5252;font-weight:700;">আর মাত্র ১টি বাকি! পরেরবার এক্সাম জমা হয়ে যাবে।</span>'
+        : ` — আরো <strong>${remaining}</strong>টি সতর্কতা পেলে এক্সাম জমা হয়ে যাবে।`}`;
+    overlay.classList.add('show');
+  }
+
+  // Re-render current question rules badge if visible
+  if (typeof renderCurrentQuestion === 'function' && shuffledQuestions.length > 0) {
     setTimeout(() => {
-      dismissWarning();
-      autoSubmit();
-    }, 3000);
+      if (!overlay.classList.contains('show')) renderCurrentQuestion();
+    }, 100);
   }
 }
 
 function dismissWarning() {
   document.getElementById('warningOverlay').classList.remove('show');
+  // Re-render question so rules banner shows updated warning count
+  if (examActive && shuffledQuestions.length > 0) {
+    renderCurrentQuestion();
+  }
 }
 
 // =====================
@@ -851,8 +1059,9 @@ function autoSubmit() {
 
 function submitExam() {
   const answered = Object.keys(answers).length;
-  if (answered < questions.length) {
-    const remaining = questions.length - answered;
+  const totalQ = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions.length : questions.length;
+  if (answered < totalQ) {
+    const remaining = totalQ - answered;
     if (!confirm(`আপনি এখনো ${remaining}টি প্রশ্নের উত্তর দেননি। তারপরও জমা দিতে চান?`)) return;
   }
   examActive = false;
@@ -868,18 +1077,26 @@ function showResults() {
 
   let correct = 0;
   let totalMarks = 0;
+  // ✅ Use shuffledQuestions so answer indices match shuffled option positions
+  const questionsToCheck = (typeof shuffledQuestions !== 'undefined' && shuffledQuestions.length > 0)
+    ? shuffledQuestions : questions;
   let obtainedMarks = 0;
 
-  questions.forEach((q, i) => {
+  questionsToCheck.forEach((q, i) => {
     const mark = q.marks || 1;
     totalMarks += mark;
-    if (answers[i] === q.answer) {
+    // ✅ For shuffled options: find which shuffled index is correct
+    let correctIdx = q.answer !== undefined ? q.answer : q.correctIndex;
+    if (q._shuffledOpts) {
+      correctIdx = q._shuffledOpts.findIndex(item => item.isCorrect);
+    }
+    if (answers[i] !== undefined && answers[i] === correctIdx) {
       correct++;
       obtainedMarks += mark;
     }
   });
 
-  const totalQuestions = questions.length;
+  const totalQuestions = questionsToCheck.length;
   const pct = Math.round((obtainedMarks / totalMarks) * 100) || 0;
   const passMark = examSettings.passMark || 60;
   const passed = pct >= passMark;
@@ -917,9 +1134,12 @@ function showResults() {
 
   // Detailed review
   const details = document.getElementById('resultDetails');
-  details.innerHTML = questions.map((q, i) => {
+  const reviewQs = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions : questions;
+  details.innerHTML = reviewQs.map((q, i) => {
     const userAns = answers[i];
-    const isCorrect = userAns === q.answer;
+    let corrIdx = q.answer !== undefined ? q.answer : q.correctIndex;
+    if (q._shuffledOpts) corrIdx = q._shuffledOpts.findIndex(item => item.isCorrect);
+    const isCorrect = userAns !== undefined && userAns === corrIdx;
     const mark = q.marks || 1;
     return `
       <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
@@ -930,11 +1150,11 @@ function showResults() {
         <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
         ${userAns !== undefined
           ? `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:${isCorrect?'#e8f5e9':'#fdecea'};color:${isCorrect?'var(--success)':'var(--danger)'};">
-              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${q.options[userAns]}
+              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${q._shuffledOpts ? q._shuffledOpts[userAns]?.opt : q.options[userAns]}
             </div>`
           : `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:#fff3e0;color:#e65100;">⏭️ উত্তর দেননি</div>`
         }
-        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${q.options[q.answer]}</div>` : ''}
+        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${q._shuffledOpts ? q._shuffledOpts.find(item => item.isCorrect)?.opt : q.options[q.answer]}</div>` : ''}
       </div>
     `;
   }).join('');
