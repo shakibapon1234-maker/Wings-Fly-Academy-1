@@ -499,6 +499,10 @@
         <div class="lbl">গ্রেড</div>
       </div>
       <div class="info-item">
+        <div class="val" id="r-date" style="font-size:13px;">—</div>
+        <div class="lbl">তারিখ</div>
+      </div>
+      <div class="info-item">
         <div class="val" id="r-correct">0</div>
         <div class="lbl">সঠিক উত্তর</div>
       </div>
@@ -674,7 +678,16 @@ function startExam() {
         }
       }
       document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
-      document.getElementById('headerExamDate').textContent = examSettings.examDate ? `Online Exam - ${examSettings.examDate}` : 'Online Examination System';
+      const rawExamDate = examSettings.examDate || '';
+      let fmtExamDate = 'Online Examination System';
+      if (rawExamDate) {
+        // ✅ LOGIC #4: Convert YYYY-MM-DD → DD/MM/YYYY for display
+        const dp = rawExamDate.split('-');
+        fmtExamDate = dp.length === 3
+          ? `Online Exam — ${dp[2]}/${dp[1]}/${dp[0]}`
+          : `Online Exam — ${rawExamDate}`;
+      }
+      document.getElementById('headerExamDate').textContent = fmtExamDate;
       document.getElementById('displayName').textContent = studentName;
       renderQuestions();
       showSection('examSection');
@@ -893,6 +906,12 @@ function showResults() {
   document.getElementById('r-id').textContent = studentId;
   document.getElementById('r-subject').textContent = examSettings.examName || '—';
   document.getElementById('r-grade').textContent = autoGrade;
+  // ✅ LOGIC #4: Show today's date as DD/MM/YYYY
+  const _td = new Date();
+  const _dd = String(_td.getDate()).padStart(2,'0');
+  const _mm = String(_td.getMonth()+1).padStart(2,'0');
+  const _yy = _td.getFullYear();
+  document.getElementById('r-date').textContent = `${_dd}/${_mm}/${_yy}`;
   document.getElementById('r-correct').textContent = correct;
   document.getElementById('r-warnings').textContent = warningCount;
 
@@ -928,54 +947,66 @@ function showResults() {
 
 function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
   try {
+    // ✅ LOGIC #1: Use today's date as exam_date (stored as YYYY-MM-DD exactly)
+    const todayISO = new Date().toISOString().split('T')[0];
+
     // 1. Save locally for fallback
     const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
-    results.push({
-      name, id, correct, total, pct, passed, warnings,
-      date: new Date().toLocaleString('bn-BD')
-    });
+    results.push({ name, id, correct, total, pct, passed, warnings, subject, exam_date: todayISO });
     localStorage.setItem('wfa_results', JSON.stringify(results));
-    
-    // 2. Save directly to Main Superbase Web App!
+
+    // 2. ✅ LOGIC #3: Sync to Main DB via SupabaseSync
     WFA_IDB.onReady(() => {
       const exams = SupabaseSync.getAll(DB.exams);
       let reg = exams.find(e => e.student_id === id && (e.subject || '') === (subject || ''));
-      
+
       const gradeMap = (p) => {
         if (p >= 90) return 'A+'; if (p >= 80) return 'A';
         if (p >= 70) return 'A-'; if (p >= 60) return 'B+';
         if (p >= 50) return 'B';  if (p >= 40) return 'C';
         return 'F';
       };
-      const gradeText = passed ? gradeMap(pct) : 'F';
+      const gradeText  = passed ? gradeMap(pct) : 'F';
       const statusText = passed ? 'Passed' : 'Failed';
-      
-      if(reg) {
-        // Update existing registration
+
+      // ✅ LOGIC #4: Format date as DD/MM/YYYY for log display
+      const [yr, mo, dy] = todayISO.split('-');
+      const dateDMY = `${dy}/${mo}/${yr}`;
+
+      if (reg) {
+        // ✅ LOGIC #1: Preserve existing exam_date from registration, update result only
         SupabaseSync.update(DB.exams, reg.id, {
-          marks: pct,
-          grade: gradeText,
-          status: statusText,
+          marks:   pct,
+          grade:   gradeText,
+          status:  statusText,
           subject: subject || reg.subject || '',
-          note: `Auto-graded | Warnings: ${warnings}`
+          note:    `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY}`
         });
       } else {
-        // Create new record if not pre-registered
+        // New record if not pre-registered
         SupabaseSync.insert(DB.exams, {
-          reg_id: 'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
-          student_id: id,
+          reg_id:       'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
+          student_id:   id,
           student_name: name,
-          subject: subject || '',
-          marks: pct,
-          grade: gradeText,
-          status: statusText,
-          note: `Auto-graded | Warnings: ${warnings}`
+          subject:      subject || '',
+          exam_date:    todayISO,   // ✅ LOGIC #1: exact date stored
+          marks:        pct,
+          grade:        gradeText,
+          status:       statusText,
+          note:         `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY}`
         });
+      }
+
+      // ✅ LOGIC #6: Activity log
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'exams',
+          `Online Exam Result: ${name} (${id}) — Subject: ${subject || '—'}, Grade: ${gradeText}, Number: ${pct}%, Status: ${statusText}, তারিখ: ${dateDMY}`
+        );
       }
     });
 
   } catch(e) {
-    console.error("Result sync error: ", e);
+    console.error('Result sync error:', e);
   }
 }
 
