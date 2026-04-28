@@ -37,6 +37,7 @@
 
 const VoiceAssistant = (() => {
   let isListening   = false;
+  let isActive      = false;  // ✅ NEW: Track if voice assistant is currently active
   let recognition   = null;
   let synth         = window.speechSynthesis;
   let voiceInstance = null;
@@ -46,6 +47,7 @@ const VoiceAssistant = (() => {
   let isContinuous  = false;  // ★ NEW: Continuous listening mode
   let currentLang   = 'en-US'; // ★ NEW: Current language (en-US or bn-IN)
   let _isRestarting = false;  // ✅ Fix: prevent duplicate recognition.start() calls
+  let _isAutoRestarting = false; // ✅ Fix: prevent repeated 'speak now' toasts
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -90,7 +92,69 @@ const VoiceAssistant = (() => {
     window.addEventListener('wfa:navigate', checkVisibility);
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SR) {
+    const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
+    const CapSpeech = window.Capacitor?.Plugins?.SpeechRecognition;
+
+    if (isNative && CapSpeech) {
+      console.log('[Voice v4] Using Capacitor Native SpeechRecognition plugin');
+      
+      recognition = {
+        start: async () => {
+          try {
+            const perm = await CapSpeech.checkPermissions();
+            if (perm.speechRecognition !== 'granted') {
+              await CapSpeech.requestPermissions();
+            }
+            
+            isListening = true;
+            btn.classList.add('listening');
+            if (!_isAutoRestarting) {
+              const msg = currentLang === 'bn-IN' ? '🎤 শুনছি…' : '🎤 Listening…';
+              showBubble(msg, false);
+              if (typeof Utils !== 'undefined') {
+                const toast = currentLang === 'bn-IN' ? '🎤 শুনছি… এখন কথা বলুন।' : '🎤 Listening… Speak now.';
+                Utils.toast(toast, 'info');
+              }
+            }
+            _isAutoRestarting = false;
+            
+            await CapSpeech.start({
+              language: currentLang,
+              maxResults: 1,
+              prompt: currentLang === 'bn-IN' ? 'শুনছি...' : 'Listening...',
+              partialResults: false,
+              popup: false,
+            });
+          } catch(e) {
+            console.warn('[Voice Native] Start Error', e);
+            if (!isContinuous) stopUI();
+          }
+        },
+        stop: async () => {
+          try { await CapSpeech.stop(); } catch(e){}
+          stopUI();
+        }
+      };
+
+      // Listener for native results
+      CapSpeech.addListener('partialResults', (data) => {
+        if (data.matches && data.matches.length > 0) {
+          const cmd = data.matches[0].toLowerCase().trim();
+          console.log('[Voice v4 Native] Command received:', cmd);
+          showBubble(`"${cmd}"`, false);
+          processCommand(cmd);
+          
+          // Native stops listening after one command, so we restart it if continuous
+          if (isContinuous && isActive && isListening) {
+             setTimeout(() => {
+               _isAutoRestarting = true;
+               recognition.start();
+             }, 800);
+          }
+        }
+      });
+      
+    } else if (SR) {
       recognition = new SR();
       recognition.continuous      = true;  // ★ MODIFIED: Changed to true for continuous listening
       recognition.lang            = currentLang;
@@ -100,39 +164,81 @@ const VoiceAssistant = (() => {
       recognition.onstart = () => {
         isListening = true;
         btn.classList.add('listening');
-        const msg = currentLang === 'bn-IN' ? '🎤 শুনছি…' : '🎤 Listening…';
-        showBubble(msg, false);
-        if (typeof Utils !== 'undefined') {
-          const toast = currentLang === 'bn-IN' ? '🎤 শুনছি… এখন কথা বলুন।' : '🎤 Listening… Speak now.';
-          Utils.toast(toast, 'info');
+        if (!_isAutoRestarting) {
+          const msg = currentLang === 'bn-IN' ? '🎤 শুনছি…' : '🎤 Listening…';
+          showBubble(msg, false);
+          if (typeof Utils !== 'undefined') {
+            const toast = currentLang === 'bn-IN' ? '🎤 শুনছি… এখন কথা বলুন।' : '🎤 Listening… Speak now.';
+            Utils.toast(toast, 'info');
+          }
         }
+        _isAutoRestarting = false;
       };
       recognition.onresult = (e) => {
-        const cmd = e.results[e.results.length - 1][0].transcript.toLowerCase().trim();
-        console.log('[Voice v4] Command:', cmd);
-        showBubble(`"${cmd}"`, false);
-        processCommand(cmd);
+        // ✅ ANDROID FIX: Get most recent final result
+        let cmd = '';
+        for (let i = e.results.length - 1; i >= 0; i--) {
+          if (e.results[i].isFinal) {
+            cmd = e.results[i][0].transcript.toLowerCase().trim();
+            if (cmd) break;
+          }
+        }
+        if (cmd) {
+          console.log('[Voice v4] Command received:', cmd);
+          showBubble(`"${cmd}"`, false);
+          processCommand(cmd);
+        }
       };
       recognition.onerror = (e) => {
-        // Suppress spam for known non-fatal errors
-        if (e.error !== 'no-speech' && e.error !== 'aborted' && typeof Utils !== 'undefined')
-          Utils.toast('Mic error: ' + e.error, 'error');
-        // ✅ Fix: Don't restart inline — browser engine is still stopping.
-        // onend will fire right after and handle the restart.
+        // ✅ ANDROID FIX: Better error handling
+        const errorMap = {
+          'no-speech': currentLang === 'bn-IN' ? '⚠️ কোনো শব্দ শোনা যায়নি। আবার চেষ্টা করুন।' : '⚠️ No speech detected. Try again.',
+          'network': currentLang === 'bn-IN' ? '📡 নেটওয়ার্ক সমস্যা। ইন্টারনেট চেক করুন।' : '📡 Network error. Check internet.',
+          'not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক অনুমতি নেই। Settings → Microphone → ON' : '🔒 Mic permission denied. Enable in Settings.',
+          'service-not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক পরিষেবা অক্ষম।' : '🔒 Mic service not allowed.',
+        };
+        const msg = errorMap[e.error] || ('Mic error: ' + e.error);
+        console.warn('[Voice] Error:', e.error);
+        
+        // In continuous mode, no-speech is expected, so don't show the error bubble
+        if (!(isContinuous && e.error === 'no-speech')) {
+          showBubble(msg, true);
+        }
+
+        if (typeof Utils !== 'undefined' && e.error !== 'no-speech' && e.error !== 'aborted') {
+          Utils.toast(msg, 'error', 3000);
+        }
         if (!isContinuous) stopUI();
       };
       recognition.onend = () => {
         // ★ MODIFIED: Restart if continuous mode is on
-        // ✅ Fix: Debounce restart to avoid InvalidStateError (engine may still be stopping)
-        if (isContinuous && isListening) {
+        // ✅ ANDROID FIX: Stronger debounce with safety checks for WebView
+        if (isContinuous && isActive && isListening) {
           if (_isRestarting) return;
           _isRestarting = true;
           setTimeout(() => {
             _isRestarting = false;
-            if (isContinuous && isListening) {
-              try { recognition.start(); } catch(ex) { console.warn('[Voice] restart skipped:', ex.message); }
+            if (isContinuous && isActive && isListening) {
+              try {
+                console.log('[Voice] Restarting recognition (Android-optimized)...');
+                _isAutoRestarting = true;
+                recognition.start();
+              } catch(ex) {
+                console.warn('[Voice] Restart failed:', ex.message);
+                // Fallback with longer delay
+                setTimeout(() => {
+                  try {
+                    if (isContinuous && isActive) {
+                      _isAutoRestarting = true;
+                      recognition.start();
+                    }
+                  } catch(e) {
+                    console.error('[Voice] Double restart failed:', e.message);
+                  }
+                }, 1000);
+              }
             }
-          }, 250);
+          }, 500);
         } else {
           stopUI();
         }
@@ -140,7 +246,7 @@ const VoiceAssistant = (() => {
     } else {
       console.warn('[Voice] Speech Recognition not supported.');
       if (btn) btn.style.display = 'none';
-      if (typeof Utils !== 'undefined') Utils.toast('আপনার ব্রাউজার Voice Recognition সাপোর্ট করে না।', 'warn');
+      if (typeof Utils !== 'undefined') Utils.toast('আপনার ব্রাউজার Voice Recognition সাপোর্ট করে পরিচয় দেয় না।', 'warn');
     }
 
     if (synth.onvoiceschanged !== undefined) synth.onvoiceschanged = setVoice;
@@ -635,6 +741,8 @@ const VoiceAssistant = (() => {
   function startContinuousListening() {
     if (!recognition) return;
     isContinuous = true;
+    isActive = true;  // ✅ ANDROID FIX: Mark as active
+    _isAutoRestarting = false; // ✅ Reset flag on manual start
     try { 
       recognition.start(); 
       isListening = true;
@@ -645,13 +753,14 @@ const VoiceAssistant = (() => {
         : '🎤 Continuous mode ON... Press Escape to stop';
       showBubble(msg, true);
       if (typeof Utils !== 'undefined') Utils.toast(msg, 'info');
-    } catch(e) { console.warn(e); }
+    } catch(e) { console.warn('[Voice] Start failed:', e); }
   }
 
   // ★ NEW: Stop continuous listening mode (triggered by Escape key)
   function stopContinuousListening() {
     if (!recognition) return;
     isContinuous = false;
+    isActive = false;  // ✅ ANDROID FIX: Mark as inactive
     recognition.stop();
     stopUI();
     const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
@@ -661,6 +770,7 @@ const VoiceAssistant = (() => {
 
   function stopUI() {
     isListening = false;
+    isActive = false;  // ✅ ANDROID FIX: Mark as inactive
     if (btn) {
       btn.classList.remove('listening');
       btn.classList.add('minimized'); // Make it small when offline

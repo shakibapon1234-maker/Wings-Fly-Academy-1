@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme",
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.3.1",
     "@capacitor/core": "^8.3.1"
   },
