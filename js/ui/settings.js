@@ -69,11 +69,16 @@ const SettingsModule = (() => {
     return `
       <div class="settings-modal">
         <div class="settings-modal-header">
-          <h2><i class="fa fa-gear"></i> System Settings</h2>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <button class="settings-hamburger-btn" onclick="SettingsModule.toggleSettingsSidebar()">
+              <i class="fa fa-bars"></i>
+            </button>
+            <h2><i class="fa fa-gear"></i> System Settings</h2>
+          </div>
           <button class="settings-close-btn" onclick="SettingsModule.closeModal()">✕</button>
         </div>
         <div class="settings-modal-body">
-          <div class="settings-sidebar">
+          <div class="settings-sidebar" id="settings-sidebar-drawer">
             ${buildSidebarTabs()}
             <button class="settings-save-all" onclick="SettingsModule.saveAllChanges()">
               <i class="fa fa-floppy-disk"></i> SAVE ALL CHANGES
@@ -85,6 +90,11 @@ const SettingsModule = (() => {
         </div>
       </div>
     `;
+  }
+
+  function toggleSettingsSidebar() {
+    const sidebar = document.getElementById('settings-sidebar-drawer');
+    if (sidebar) sidebar.classList.toggle('mobile-open');
   }
 
   // ─── SIDEBAR TABS ─────────────────────────────────────────────
@@ -143,6 +153,9 @@ const SettingsModule = (() => {
     document.querySelectorAll('.settings-panel').forEach(p => {
       p.classList.toggle('active', p.dataset.panel === tab);
     });
+    // Auto-close sidebar on mobile after tab switch
+    const sidebar = document.getElementById('settings-sidebar-drawer');
+    if (sidebar) sidebar.classList.remove('mobile-open');
     // Auto-render SyncGuard panel when tab is activated
     if (tab === 'syncguard' && typeof SyncGuard !== 'undefined') {
       setTimeout(() => SyncGuard.renderPanel('syncguard-panel'), 50);
@@ -5067,7 +5080,7 @@ ${expenseEntries.length > 0 ? `
   return {
     deleteCustomTheme, openThemeBuilderModal, saveCustomThemeFromBuilder, _getAllThemes,
     _updateThemePreview, _applyThemeBuilderPreset, _THEME_PRESETS,
-    render, openModal, closeModal, switchTab, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
+    render, openModal, closeModal, switchTab, toggleSettingsSidebar, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,

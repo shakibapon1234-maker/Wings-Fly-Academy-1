@@ -537,60 +537,92 @@
     display: none !important;
   }
 
-  /* ── Settings Modal: Sidebar → horizontal scrollable tabs ── */
+  /* ── Settings Hamburger Button (visible only on mobile) ──── */
+  .settings-hamburger-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: rgba(0, 212, 255, 0.1);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    color: #00d4ff;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  /* ── Settings Modal: Full screen on mobile ───────────────── */
+  .settings-overlay {
+    padding: 0 !important;
+    align-items: stretch !important;
+  }
+
   .settings-modal {
-    flex-direction: column !important;
-    max-height: 95vh !important;
+    max-height: 100vh !important;
+    height: 100vh !important;
     width: 100% !important;
+    max-width: 100% !important;
     margin: 0 !important;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 0 !important;
   }
 
-  .settings-modal-body {
-    flex-direction: column !important;
+  .settings-modal-header {
+    padding: 12px 16px !important;
   }
 
+  .settings-modal-header h2 {
+    font-size: 1rem !important;
+  }
+
+  /* ── Settings Sidebar: Hidden drawer (toggle via hamburger) ─ */
   .settings-sidebar {
-    flex-direction: row !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
-    white-space: nowrap !important;
-    padding: 8px !important;
-    gap: 6px !important;
-    min-height: auto !important;
-    max-height: 60px !important;
-    border-right: none !important;
-    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
-    width: 100% !important;
-    flex-shrink: 0 !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: -280px !important;
+    width: 260px !important;
+    min-width: 260px !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    z-index: 9999 !important;
+    background: linear-gradient(135deg, #0a0e27 0%, #0f0a28 100%) !important;
+    border-right: 1px solid rgba(0,212,255,0.2) !important;
+    border-bottom: none !important;
+    padding: 16px 10px !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    transition: left 0.3s ease !important;
+    box-shadow: 4px 0 30px rgba(0,0,0,0.6) !important;
+  }
+
+  .settings-sidebar.mobile-open {
+    left: 0 !important;
   }
 
   .settings-sidebar .settings-tab {
+    width: 100% !important;
     white-space: nowrap !important;
-    padding: 6px 12px !important;
-    font-size: 0.72rem !important;
-    border-radius: 20px !important;
-    flex-shrink: 0 !important;
-    min-width: auto !important;
+    padding: 10px 14px !important;
+    font-size: 0.82rem !important;
+    border-radius: 8px !important;
   }
 
   .settings-sidebar .settings-tab i {
-    font-size: 0.7rem !important;
+    font-size: 0.85rem !important;
+    width: 20px !important;
+    text-align: center !important;
   }
 
   .settings-sidebar .settings-save-all {
-    display: none !important;
+    margin-top: auto !important;
+    display: flex !important;
   }
 
   .settings-content-area {
     overflow-y: auto !important;
     flex: 1 !important;
     padding: 12px !important;
-  }
-
-  .settings-overlay {
-    align-items: flex-end !important;
   }
 }
 

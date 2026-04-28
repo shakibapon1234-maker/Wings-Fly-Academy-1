@@ -449,16 +449,36 @@
 /* ── Responsive ─── */
 @media (max-width: 768px) {
   .att-modal-container {
-    max-height: 95vh;
-    border-radius: 12px;
+    max-height: 100vh;
+    height: 100vh;
+    border-radius: 0;
+    max-width: 100%;
   }
-  .att-modal-overlay { padding: 12px; }
-  .att-tab-bar { padding: 8px 16px 0; }
-  .att-tab-btn { padding: 8px 12px; font-size: 0.7rem; }
-  .att-tab-content { padding: 16px; }
-  .att-filter-section { padding: 12px; gap: 10px; }
-  .att-modal-footer { padding: 12px 16px; }
+  .att-modal-overlay { padding: 0; }
+  .att-tab-bar {
+    padding: 8px 12px 0;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    flex-wrap: nowrap !important;
+  }
+  .att-tab-bar::-webkit-scrollbar { display: none; }
+  .att-tab-btn {
+    padding: 7px 12px;
+    font-size: 0.68rem;
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  .att-tab-btn i { font-size: 0.7rem; }
+  .att-tab-content { padding: 12px; max-height: calc(100vh - 180px); }
+  .att-filter-section { padding: 10px; gap: 8px; }
+  .att-filter-select, .att-filter-input { min-width: 120px; font-size: 0.8rem; }
+  .att-modal-footer { padding: 10px 12px; flex-wrap: wrap; gap: 6px; }
+  .att-modal-footer button { font-size: 0.75rem; padding: 8px 14px; }
   .att-status-group { gap: 3px; }
   .att-status-btn { padding: 3px 6px; font-size: 0.68rem; }
   .blank-sheet-cards { grid-template-columns: 1fr; }
+  .att-modal-header { padding: 14px 16px; }
+  .att-header-title { font-size: 1rem; }
+  .att-header-icon { width: 36px; height: 36px; font-size: 1rem; }
 }

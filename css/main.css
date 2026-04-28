@@ -2639,6 +2639,8 @@ thead th {
   align-items: center;
   animation: settingsOverlayIn 0.25s ease;
 }
+/* Hide hamburger button on desktop — only visible on mobile */
+.settings-hamburger-btn { display: none; }
 .settings-overlay.closing {
   animation: settingsOverlayOut 0.2s ease forwards;
 }
