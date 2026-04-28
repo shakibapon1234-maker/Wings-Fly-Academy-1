@@ -13,7 +13,7 @@
 
 const AIAssistant = (() => {
   // ── Config — Get free key from: https://aistudio.google.com/app/apikey ──
-  const API_KEY = localStorage.getItem('wfa_gemini_key') || '';
+  const API_KEY = localStorage.getItem('wfa_gemini_key') || 'AIzaSyCPFedj4Mm90eFIEUb4IfhMGPdu-qcxiCk';
   const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
   let chatHistory = [];
@@ -110,7 +110,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
           </div>
         </div>
         <div class="ai-chat-input-area">
-          <div id="ai-key-warning" style="display:${localStorage.getItem('wfa_gemini_key') ? 'none' : 'flex'};
+          <div id="ai-key-warning" style="display:${(localStorage.getItem('wfa_gemini_key') || API_KEY) ? 'none' : 'flex'};
             gap:8px;align-items:center;padding:8px 12px;background:rgba(255,107,53,0.1);
             border:1px solid rgba(255,107,53,0.3);border-radius:8px;margin-bottom:8px;font-size:0.75rem;color:#ff6b35;">
             ⚠️ API Key নেই!
