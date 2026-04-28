@@ -279,25 +279,40 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
     document.head.appendChild(style);
   }
 
-  // ── Toggle button in topbar ──
+  // ── Toggle button in topbar & mobile more menu ──
   function addToggleButton() {
-    // Add AI chat button to the topbar
+    // 1. Desktop Topbar
     const topbar = document.querySelector('.topbar-actions, .top-bar-right, #topbar');
-    if (!topbar) return;
-    if (document.getElementById('btn-ai-chat')) return;
-    const btn = document.createElement('button');
-    btn.id = 'btn-ai-chat';
-    btn.title = 'AI Assistant';
-    btn.onclick = openChat;
-    btn.innerHTML = '✨';
-    btn.style.cssText = `
-      background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(0,212,255,0.15));
-      border: 1px solid rgba(168,85,247,0.3);
-      border-radius: 8px; padding: 6px 10px;
-      color: #a855f7; font-size: 1rem; cursor: pointer;
-      transition: all 0.2s;
-    `;
-    topbar.insertBefore(btn, topbar.firstChild);
+    if (topbar && !document.getElementById('btn-ai-chat')) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-ai-chat';
+      btn.title = 'AI Assistant';
+      btn.onclick = openChat;
+      btn.innerHTML = '✨';
+      btn.style.cssText = `
+        background: linear-gradient(135deg, rgba(168,85,247,0.15), rgba(0,212,255,0.15));
+        border: 1px solid rgba(168,85,247,0.3);
+        border-radius: 8px; padding: 6px 10px;
+        color: #a855f7; font-size: 1rem; cursor: pointer;
+        transition: all 0.2s;
+      `;
+      topbar.insertBefore(btn, topbar.firstChild);
+    }
+
+    // 2. Mobile More Menu
+    const moreMenu = document.getElementById('bottom-nav-more-menu');
+    if (moreMenu && !document.getElementById('btn-ai-chat-mobile')) {
+      const btn = document.createElement('button');
+      btn.id = 'btn-ai-chat-mobile';
+      btn.className = 'more-item';
+      btn.onclick = () => {
+        openChat();
+        // Close more menu if it's open
+        document.getElementById('bottom-nav-more-menu')?.classList.remove('open');
+      };
+      btn.innerHTML = '<i class="fa fa-robot" style="color:#a855f7"></i><span>AI Assistant</span>';
+      moreMenu.appendChild(btn);
+    }
   }
 
   function init() {
