@@ -1,5 +1,22 @@
 {
   "appId": "com.wingsfly.academy",
   "appName": "Wings Fly Academy",
-  "webDir": "www"
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": true
+  },
+  "server": {
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchAutoHide": true,
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0a0e27",
+      "showSpinner": false
+    }
+  }
 }

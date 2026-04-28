@@ -7,21 +7,26 @@
   <meta name="description" content="Wings Fly Aviation Academy — Management System" />
   <!-- Bug #19 Fix: Content Security Policy — restricts resource loading to known safe origins -->
   <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self';
+    default-src 'self' https://localhost;
     script-src 'self' 'unsafe-eval' 'unsafe-inline'
+      https://localhost
       https://cdnjs.cloudflare.com
       https://cdn.jsdelivr.net;
     style-src 'self' 'unsafe-inline'
+      https://localhost
       https://cdnjs.cloudflare.com
       https://cdn.jsdelivr.net
       https://fonts.googleapis.com;
     font-src 'self'
+      https://localhost
       https://cdnjs.cloudflare.com
       https://fonts.gstatic.com;
     img-src 'self' data: blob:
+      https://localhost
       https://*.supabase.co
       https://cdn.jsdelivr.net;
     connect-src 'self'
+      https://localhost
       https://*.supabase.co
       wss://*.supabase.co
       https://cdn.jsdelivr.net

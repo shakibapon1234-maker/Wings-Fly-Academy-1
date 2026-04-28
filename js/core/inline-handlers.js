@@ -12,8 +12,9 @@
 
 /* ══════════════════════════════════════════════════════
    1. SERVICE WORKER REGISTRATION
+   Skip on native Capacitor — it handles asset loading itself.
 ══════════════════════════════════════════════════════ */
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && !window.Capacitor) {
   window.addEventListener('load', function () {
     navigator.serviceWorker.register('./service-worker.js')
       .then(function (reg) {
