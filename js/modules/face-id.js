@@ -66,6 +66,34 @@ const FaceIDModule = (() => {
     }
   }
 
+  // ✅ NEW: Request camera permission (for Android 6+)
+  async function _requestCameraPermission() {
+    try {
+      // Try Capacitor permissions first (Android/iOS)
+      if (typeof Capacitor !== 'undefined' && typeof Capacitor.Plugins !== 'undefined') {
+        const { Camera } = Capacitor.Plugins;
+        if (Camera && Camera.requestPermissions) {
+          const result = await Camera.requestPermissions();
+          return result.camera === 'granted' || result.camera === 'prompt';
+        }
+      }
+    } catch (e) {
+      console.log('[FaceID] Capacitor Camera permission request not available:', e.message);
+    }
+
+    // Fallback: Try modern Permissions API
+    try {
+      const result = await navigator.permissions.query({ name: 'camera' });
+      if (result.state === 'denied') return false;
+      if (result.state === 'granted') return true;
+      // 'prompt' — will ask on getUserMedia
+    } catch (e) {
+      console.log('[FaceID] Permissions API not available:', e.message);
+    }
+
+    return true; // optimistic fallback
+  }
+
   async function openScannerModal(mode = 'login') {
     const modelsReady = await loadModels();
     if (!modelsReady) return;
@@ -84,7 +112,7 @@ const FaceIDModule = (() => {
             <button class="btn-close" onclick="FaceIDModule.closeScannerModal()">✕</button>
           </div>
           <div style="padding:20px;position:relative">
-            <div id="face-id-status" style="margin-bottom:15px;font-size:0.9rem;color:#00ff88;font-weight:bold;">Initializing camera...</div>
+            <div id="face-id-status" style="margin-bottom:15px;font-size:0.9rem;color:#00ff88;font-weight:bold;">Requesting camera access...</div>
             <div style="position:relative;width:100%;max-width:320px;margin:0 auto;border-radius:15px;overflow:hidden;border:2px solid var(--brand-primary);box-shadow:0 0 20px rgba(0,212,255,0.4)">
               <video id="face-id-video" width="320" height="240" autoplay muted playsinline style="background:#000;display:block"></video>
               <canvas id="face-id-canvas" style="position:absolute;top:0;left:0;width:100%;height:100%"></canvas>
@@ -102,18 +130,47 @@ const FaceIDModule = (() => {
 
     // Reset status text
     const statusEl = document.getElementById('face-id-status');
-    if (statusEl) { statusEl.innerText = 'Initializing camera...'; statusEl.style.color = '#00ff88'; }
+    if (statusEl) { statusEl.innerText = 'Requesting camera access...'; statusEl.style.color = '#00ff88'; }
 
     // Stop any existing stream first
     _stopStream();
 
+    // ✅ NEW: Request permission first!
+    const hasPermission = await _requestCameraPermission();
+    if (!hasPermission) {
+      if (statusEl) {
+        statusEl.innerText = '❌ Camera permission denied!\\n\\nGo to Settings > Apps > Wings Fly Academy > Permissions > Camera and enable it.';
+        statusEl.style.color = '#ff6b7a';
+        statusEl.style.whiteSpace = 'pre-wrap';
+        statusEl.style.fontSize = '0.8rem';
+        statusEl.style.lineHeight = '1.4';
+      }
+      if (typeof Utils !== 'undefined') Utils.toast('Camera permission denied. Enable it in Settings.', 'error');
+      setTimeout(() => closeScannerModal(), 5000);
+      return;
+    }
+
     const video = document.getElementById('face-id-video');
     try {
-      videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+      if (statusEl) { statusEl.innerText = 'Initializing camera...'; statusEl.style.color = '#00ff88'; }
+      videoStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { 
+          facingMode: 'user',
+          width: { ideal: 320 },
+          height: { ideal: 240 }
+        },
+        audio: false
+      });
       video.srcObject = videoStream;
     } catch (err) {
-      if (statusEl) { statusEl.innerText = 'Camera access denied or unavailable.'; statusEl.style.color = '#ff6b7a'; }
       console.error('[FaceID] Camera error:', err);
+      if (statusEl) { 
+        statusEl.innerText = `❌ Camera error: ${err.name}\\n\\n${err.message}`;
+        statusEl.style.color = '#ff6b7a';
+        statusEl.style.whiteSpace = 'pre-wrap';
+        statusEl.style.fontSize = '0.8rem';
+      }
+      if (typeof Utils !== 'undefined') Utils.toast(`Camera failed: ${err.name}`, 'error');
       return;
     }
 

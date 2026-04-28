@@ -1,15 +1,17 @@
 // ============================================================
-// Wings Fly Aviation Academy — Service Worker
-// ✅ Fix: DEPLOY_ID forces SW replacement on every deploy
+// Wings Fly Aviation Academy — Service Worker v2
+// ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260424-csp-inline-handlers-fix';
-const CACHE_NAME = `wfa-v4-${DEPLOY_ID}`;
+const DEPLOY_ID = '20260428-offline-mode';
+const CACHE_NAME = `wfa-v5-${DEPLOY_ID}`;
+const API_CACHE = 'wfa-api-cache-v1';
 
 const STATIC_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   './css/main.css',
+  './css/mobile.css',
   './css/attendance.css',
   './css/exam.css',
   './css/cert-v2.css',
@@ -22,6 +24,8 @@ const STATIC_ASSETS = [
   './js/core/app.js',
   './js/core/utils.js',
   './js/core/inline-handlers.js',
+  './js/core/app-updater.js',
+  './js/core/mobile-nav.js',
   './js/ui/dashboard.js',
   './js/ui/login.js',
   './js/ui/settings.js',
@@ -49,10 +53,10 @@ const STATIC_ASSETS = [
   './migrate.html',
 ];
 
+// ── Install: Pre-cache static assets ──
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // addAll এর বদলে individual fetch — একটা fail করলে বাকিগুলো চলবে
       return Promise.allSettled(
         STATIC_ASSETS.map(url =>
           fetch(url).then(res => {
@@ -66,10 +70,11 @@ self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
 
+// ── Activate: Clean old caches ──
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => {
+      Promise.all(keys.filter(k => k !== CACHE_NAME && k !== API_CACHE).map(k => {
         console.log('[SW] Deleting old cache:', k);
         return caches.delete(k);
       }))
@@ -78,16 +83,63 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 
+// ── Fetch: Smart caching strategy ──
 self.addEventListener('fetch', (e) => {
-  // Supabase API calls — always network, never cache
-  if (e.request.url.includes('supabase.co')) {
-    return; // browser default
+  const url = new URL(e.request.url);
+
+  // ── Supabase API: Network first, cache fallback (offline support) ──
+  if (url.hostname.includes('supabase')) {
+    // Only cache GET requests (reads)
+    if (e.request.method === 'GET') {
+      e.respondWith(
+        fetch(e.request)
+          .then(res => {
+            if (res.ok) {
+              const clone = res.clone();
+              caches.open(API_CACHE).then(cache => cache.put(e.request, clone));
+            }
+            return res;
+          })
+          .catch(() => {
+            // Offline: serve from cache
+            return caches.match(e.request).then(cached => {
+              if (cached) {
+                console.info('[SW] Serving API from cache (offline):', url.pathname);
+                return cached;
+              }
+              return new Response(JSON.stringify({ error: 'offline' }), {
+                status: 503,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            });
+          })
+      );
+    }
+    // POST/PATCH/DELETE — let through (they'll fail offline, queue handles it)
+    return;
   }
-  // Static assets — Network first, cache fallback
+
+  // ── CDN resources (fonts, icons, etc.): Cache first ──
+  if (url.hostname !== self.location.hostname) {
+    e.respondWith(
+      caches.match(e.request).then(cached => {
+        if (cached) return cached;
+        return fetch(e.request).then(res => {
+          if (res.ok && e.request.method === 'GET') {
+            const clone = res.clone();
+            caches.open(CACHE_NAME).then(c => c.put(e.request, clone));
+          }
+          return res;
+        }).catch(() => new Response('', { status: 503 }));
+      })
+    );
+    return;
+  }
+
+  // ── Static assets: Network first, cache fallback ──
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        // Successful network response → cache-এ update করো
         if (res.ok && e.request.method === 'GET') {
           const resClone = res.clone();
           caches.open(CACHE_NAME).then(c => c.put(e.request, resClone));
@@ -96,7 +148,6 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(e.request).then(cached => {
         if (cached) return cached;
-        // Fallback: index.html দাও (SPA navigation এর জন্য)
         if (e.request.mode === 'navigate') return caches.match('./index.html');
         return new Response('Offline', { status: 503 });
       }))
