@@ -117,13 +117,15 @@ const PushNotificationModule = (() => {
   // ── Save FCM token to Supabase ──
   async function saveFCMTokenToDatabase(token) {
     try {
-      const userId = localStorage.getItem('wfa_user_id') || 'anonymous';
-      const response = await fetch('https://your-supabase-url.supabase.co/rest/v1/fcm_tokens', {
+      const supaUrl = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : 'https://fznhiqzrslldybhmgopk.supabase.co';
+      const supaKey = (typeof SUPABASE_ANON_KEY !== 'undefined') ? SUPABASE_ANON_KEY : '';
+      const userId  = localStorage.getItem('wfa_user_id') || 'anonymous';
+      const response = await fetch(`${supaUrl}/rest/v1/fcm_tokens`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'your-supabase-anon-key',
-          'Authorization': 'Bearer ' + (localStorage.getItem('wfa_session_token') || '')
+          'apikey': supaKey,
+          'Authorization': 'Bearer ' + (localStorage.getItem('wfa_session_token') || supaKey)
         },
         body: JSON.stringify({
           user_id: userId,

@@ -145,8 +145,11 @@ const OfflineModeModule = (() => {
   // ── Sync individual item ──
   async function syncItem(item) {
     try {
-      const endpoint = `https://your-supabase.supabase.co/rest/v1/${item.table}`;
-      const authToken = localStorage.getItem('wfa_session_token');
+      // Use real Supabase URL/Key from global config
+      const supaUrl  = (typeof SUPABASE_URL !== 'undefined')       ? SUPABASE_URL       : 'https://fznhiqzrslldybhmgopk.supabase.co';
+      const supaKey  = (typeof SUPABASE_ANON_KEY !== 'undefined')  ? SUPABASE_ANON_KEY  : '';
+      const endpoint = `${supaUrl}/rest/v1/${item.table}`;
+      const authToken = localStorage.getItem('wfa_session_token') || supaKey;
 
       let method = 'POST';
       let body = item.data;
@@ -161,7 +164,7 @@ const OfflineModeModule = (() => {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'apikey': 'your-supabase-anon-key',
+          'apikey': supaKey,
           'Authorization': `Bearer ${authToken}`
         },
         body: method === 'DELETE' ? null : JSON.stringify(body)
