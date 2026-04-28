@@ -1006,9 +1006,14 @@ const IntegrityGuard = (() => {
 
 window.IntegrityGuard = IntegrityGuard;
 
-// Auto-init when DOM ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => IntegrityGuard.init());
+// Auto-init when DOM ready — skip on Capacitor (mobile app)
+const _isCapacitor = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+if (!_isCapacitor) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => IntegrityGuard.init());
+  } else {
+    IntegrityGuard.init();
+  }
 } else {
-  IntegrityGuard.init();
+  console.log('[IntegrityGuard] Skipped on mobile — Capacitor detected');
 }

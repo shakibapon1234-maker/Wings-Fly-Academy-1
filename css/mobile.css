@@ -461,6 +461,137 @@
     transform: scale(0.75) !important;
     transform-origin: top center !important;
   }
+
+  /* ── Accounts: Cash Hero Section — stack on mobile ────────── */
+  #accounts-content > div:first-child {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: stretch !important;
+  }
+
+  #accounts-content > div:first-child > div:last-child {
+    text-align: left !important;
+  }
+
+  #accounts-content > div:first-child > div:last-child > div:first-child {
+    font-size: 2rem !important;
+  }
+
+  /* ── Accounts: Transfer & section headers — stack on mobile ─ */
+  #accounts-content h3 {
+    font-size: 0.85rem !important;
+    letter-spacing: 0.5px !important;
+  }
+
+  #accounts-content [style*="justify-content:space-between"][style*="margin-bottom:10px"] {
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+  }
+
+  /* Transfer history filter bar — wrap on mobile */
+  #accounts-content .card [style*="justify-content:space-between"] {
+    flex-direction: column !important;
+    gap: 10px !important;
+    align-items: flex-start !important;
+  }
+
+  #accounts-content .card [style*="justify-content:space-between"] > div {
+    flex-wrap: wrap !important;
+  }
+
+  /* Total Balance Overview cards — 1 column on mobile */
+  #accounts-content [style*="justify-content:center"][style*="flex-wrap"] {
+    flex-direction: column !important;
+  }
+
+  #accounts-content [style*="justify-content:center"][style*="flex-wrap"] > div {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* ── Attendance Modal: Buttons grid layout ───────────────── */
+  .modal-body > div > button,
+  .modal-body > div > .btn {
+    font-size: 0.8rem !important;
+    padding: 10px 14px !important;
+    white-space: nowrap;
+  }
+
+  /* Action buttons in modal — 2 column grid */
+  .modal-body > div[style*="display:flex"][style*="flex-wrap"],
+  .modal-body > div[style*="display: flex"][style*="flex-wrap"] {
+    gap: 8px !important;
+  }
+
+  .modal-body > div[style*="display:flex"][style*="flex-wrap"] > button,
+  .modal-body > div[style*="display: flex"][style*="flex-wrap"] > button {
+    flex: 1 1 45% !important;
+    min-width: 0 !important;
+  }
+
+  /* ── IntegrityGuard Panel — hide on mobile ───────────────── */
+  #ig-panel,
+  #ig-float-btn,
+  [id^="ig-"] {
+    display: none !important;
+  }
+
+  /* ── Settings Modal: Sidebar → horizontal scrollable tabs ── */
+  .settings-modal {
+    flex-direction: column !important;
+    max-height: 95vh !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  .settings-modal-body {
+    flex-direction: column !important;
+  }
+
+  .settings-sidebar {
+    flex-direction: row !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap !important;
+    padding: 8px !important;
+    gap: 6px !important;
+    min-height: auto !important;
+    max-height: 60px !important;
+    border-right: none !important;
+    border-bottom: 1px solid rgba(255,255,255,0.08) !important;
+    width: 100% !important;
+    flex-shrink: 0 !important;
+  }
+
+  .settings-sidebar .settings-tab {
+    white-space: nowrap !important;
+    padding: 6px 12px !important;
+    font-size: 0.72rem !important;
+    border-radius: 20px !important;
+    flex-shrink: 0 !important;
+    min-width: auto !important;
+  }
+
+  .settings-sidebar .settings-tab i {
+    font-size: 0.7rem !important;
+  }
+
+  .settings-sidebar .settings-save-all {
+    display: none !important;
+  }
+
+  .settings-content-area {
+    overflow-y: auto !important;
+    flex: 1 !important;
+    padding: 12px !important;
+  }
+
+  .settings-overlay {
+    align-items: flex-end !important;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════

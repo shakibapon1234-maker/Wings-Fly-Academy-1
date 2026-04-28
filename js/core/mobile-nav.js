@@ -122,7 +122,7 @@
 
     // ── Update bottom nav active state ────────────────────
     function updateBottomNavActive(section) {
-      var bottomSections = ['dashboard', 'students', 'finance', 'attendance'];
+      var bottomSections = ['dashboard', 'students', 'finance', 'accounts'];
 
       bottomNav.querySelectorAll('.bottom-nav-item').forEach(function (btn) {
         btn.classList.remove('active');

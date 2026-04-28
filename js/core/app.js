@@ -469,7 +469,10 @@ const App = (() => {
 
     // Attendance opens as a modal overlay
     if (section === 'attendance') {
-      if (typeof Attendance !== 'undefined') Attendance.openModal();
+      // ✅ Mobile perf: Defer modal to let UI breathe
+      setTimeout(() => {
+        if (typeof Attendance !== 'undefined') Attendance.openModal();
+      }, 80);
       return;
     }
 
@@ -534,17 +537,17 @@ const App = (() => {
       'salary':    'salary-content',
     };
     const containerId = heavyModules[section];
-    if (containerId && typeof Utils !== 'undefined' && Utils.loadingSkeleton) {
+    if (containerId) {
       const container = document.getElementById(containerId);
       if (container && !container.innerHTML.trim()) {
-        container.innerHTML = Utils.loadingSkeleton(6);
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fa fa-spinner fa-spin" style="font-size:2rem"></i><p style="margin-top:12px">Loading...</p></div>';
       }
     }
 
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
-        case 'students':      if (typeof Students !== 'undefined')           Students.resetFilters(); break;
+        case 'students':      if (typeof Students !== 'undefined') { setTimeout(() => Students.resetFilters(), 60); } break;
         case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
         case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
         case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;
@@ -619,9 +622,8 @@ const App = (() => {
 
     switch (type) {
       case 'student':
-        waitAndOpen('students', 'students-content', () => {
-          if (typeof Students !== 'undefined') Students.openAddModal();
-        });
+        // ✅ Mobile fix: Open modal directly without navigating to heavy students tab
+        if (typeof Students !== 'undefined') Students.openAddModal();
         break;
       case 'transaction':
         setTimeout(() => {
@@ -1103,8 +1105,24 @@ window.App = App;
   // Initial fix
   document.addEventListener('DOMContentLoaded', fixDateInputs);
   // After modals open (MutationObserver)
-  const observer = new MutationObserver(fixDateInputs);
-  observer.observe(document.body, { childList: true, subtree: true });
+  // ✅ MOBILE PERF FIX: Debounce the observer — it was firing on every DOM change
+  // and running querySelectorAll + flatpickr init, causing cascading freezes.
+  let _dateFixTimer = null;
+  const debouncedFix = function() {
+    clearTimeout(_dateFixTimer);
+    _dateFixTimer = setTimeout(fixDateInputs, 500);
+  };
+  // Only observe inside modals, not the entire body (massive perf improvement)
+  const modalObserver = new MutationObserver(debouncedFix);
+  const modalEl = document.getElementById('modal-backdrop');
+  if (modalEl) {
+    modalObserver.observe(modalEl, { childList: true, subtree: true });
+  }
+  // Also fix when confirm dialog opens
+  const confirmEl = document.getElementById('confirm-backdrop');
+  if (confirmEl) {
+    modalObserver.observe(confirmEl, { childList: true, subtree: true });
+  }
 })();
 
 // ── Phase 4.2: Production Console Log Management ────────────────────
