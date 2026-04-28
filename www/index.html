@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0D1B3E" />
+  <meta name="description" content="Wings Fly Aviation Academy — Management System" />
+  <!-- Bug #19 Fix: Content Security Policy — restricts resource loading to known safe origins -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-eval' 'unsafe-inline'
+      https://cdnjs.cloudflare.com
+      https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline'
+      https://cdnjs.cloudflare.com
+      https://cdn.jsdelivr.net
+      https://fonts.googleapis.com;
+    font-src 'self'
+      https://cdnjs.cloudflare.com
+      https://fonts.gstatic.com;
+    img-src 'self' data: blob:
+      https://*.supabase.co
+      https://cdn.jsdelivr.net;
+    connect-src 'self'
+      https://*.supabase.co
+      wss://*.supabase.co
+      https://cdn.jsdelivr.net
+      https://cdnjs.cloudflare.com
+      https://fonts.googleapis.com
+      https://fonts.gstatic.com
+      blob:;
+    worker-src 'self' blob:;
+    frame-src 'none';
+    object-src 'none';
+  " />
+  <title>Wings Fly Aviation Academy</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="assets/favicon.ico" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+  <!-- Chart.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <!-- SheetJS (Excel export) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Supabase JS v2 (guard implemented in supabase-config.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- QR Code Generator -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/attendance.css" />
+  <link rel="stylesheet" href="css/exam.css" />
+  <link rel="stylesheet" href="css/cert-v2.css" />
+  <link rel="stylesheet" href="css/print.css" media="print" />
+  <link rel="stylesheet" href="css/ai-assistant.css" />
+
+  <!-- Flatpickr — DD/MM/YYYY date picker (Req 4) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" />
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+</head>
+<body>
+
+  <!-- Animated Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+
+  <div id="login-screen">
+    <!-- Floating particles -->
+    <div class="login-particles" id="login-particles"></div>
+    <!-- Plane SVG decoration -->
+    <div class="login-plane-deco" aria-hidden="true">
+      <svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 40 L180 20 L160 40 L180 60 Z" fill="rgba(0,217,255,0.07)" stroke="rgba(0,217,255,0.18)" stroke-width="1"/>
+        <path d="M140 30 L160 40 L140 50 Z" fill="rgba(0,217,255,0.12)"/>
+        <line x1="10" y1="40" x2="180" y2="40" stroke="rgba(0,217,255,0.06)" stroke-width="1" stroke-dasharray="4 6"/>
+      </svg>
+    </div>
+
+    <div class="login-box">
+      <div class="login-box-inner-top"></div>
+      <div class="login-logo-ring">
+        <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'" />
+      </div>
+
+      <h1 class="login-title">Wings Fly <span class="login-title-accent">Admin</span></h1>
+      <p class="login-subtitle">Aviation Academy Management System</p>
+
+      <form id="login-form" autocomplete="off">
+        <!-- Username -->
+        <div class="login-field-group">
+          <label class="login-label"><i class="fa fa-user" style="margin-right:5px;opacity:.7"></i>USERNAME</label>
+          <div class="login-input-wrap">
+            <input type="text" id="login-username" class="login-input login-input-clean" placeholder="Enter your username" autocomplete="username" />
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="login-field-group">
+          <label class="login-label"><i class="fa fa-lock" style="margin-right:5px;opacity:.7"></i>PASSWORD</label>
+          <div class="login-input-wrap">
+            <input type="password" id="login-password" class="login-input login-input-clean" placeholder="Enter your password" autocomplete="current-password" />
+            <button type="button" class="login-eye-btn" id="login-eye-toggle" tabindex="-1" aria-label="Toggle password">
+              <i class="fa fa-eye" id="login-eye-icon"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="login-error" class="hidden login-error-msg"></div>
+
+        <button type="submit" class="login-btn" id="login-submit-btn">
+          <span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span>
+          <div class="login-btn-shimmer"></div>
+        </button>
+
+        <!-- Face ID Login Option -->
+        <button type="button" class="login-btn" id="face-id-login-btn" style="display:none;background:rgba(0, 255, 136, 0.1);border:1px solid rgba(0, 255, 136, 0.4);color:#00ff88;margin-top:10px">
+          <span class="login-btn-text"><i class="fa fa-face-smile"></i>&nbsp; Face ID Login</span>
+        </button>
+
+        <!-- Pattern Lock Option -->
+        <button type="button" class="login-btn" id="pattern-lock-login-btn" style="display:none;background:rgba(0, 217, 255, 0.1);border:1px solid rgba(0, 217, 255, 0.4);color:#00d4ff;margin-top:10px">
+          <span class="login-btn-text"><i class="fa fa-lock"></i>&nbsp; Pattern Lock</span>
+        </button>
+      </form>
+
+      <button type="button" class="login-forgot-link" id="btn-forgot-pw">
+        🔑 Forgot Password?
+      </button>
+
+      <div class="login-footer">Wings Fly Aviation Academy &copy; 2026</div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgot-pw-modal" class="login-modal-overlay hidden">
+      <div class="login-modal-box">
+        <button class="login-modal-close" id="btn-forgot-close">✕</button>
+        <h3 class="login-modal-title"><i class="fa fa-key"></i> Password Recovery</h3>
+        <div id="forgot-pw-body"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       MAIN APP WRAPPER
+  ════════════════════════════════════════ -->
+  <div id="app-wrapper" style="display:none">
+
+    <!-- ── SIDEBAR ── -->
+    <aside id="sidebar">
+      <div class="sidebar-logo">
+        <img src="assets/logo.jpg" alt="logo" onerror="this.style.display='none'" />
+        <div class="logo-text">
+          <span class="logo-title">Wings Fly</span>
+          <span class="academy-name bn">Aviation Academy</span>
+        </div>
+      </div>
+
+      <nav id="main-nav" role="navigation" aria-label="Main navigation">
+        <button class="nav-item active" data-section="dashboard" aria-label="Dashboard">
+          <i class="fa fa-gauge-high nav-icon"></i><span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-section="students" aria-label="Students">
+          <i class="fa fa-user-graduate nav-icon"></i><span>Students</span>
+        </button>
+
+        <button class="nav-item" data-section="finance" aria-label="Finance Ledger">
+          <i class="fa fa-book-open nav-icon"></i><span>Finance</span>
+        </button>
+        <button class="nav-item" data-section="accounts" aria-label="Accounts">
+          <i class="fa fa-wallet nav-icon"></i><span>Accounts</span>
+        </button>
+        <button class="nav-item" data-section="loans" aria-label="Loan Management">
+          <i class="fa fa-hand-holding-dollar nav-icon"></i><span>Loans</span>
+        </button>
+        <button class="nav-item" data-section="visitors" aria-label="Visitors">
+          <i class="fa fa-person-walking-arrow-right nav-icon"></i><span>Visitors</span>
+        </button>
+        <button class="nav-item" data-section="hr-staff" aria-label="HR and Staff Management">
+          <i class="fa fa-users nav-icon"></i><span>HR/Staff</span>
+        </button>
+        <button class="nav-item" data-section="exam" aria-label="Exams">
+          <i class="fa fa-clipboard-list nav-icon"></i><span>Exams</span>
+        </button>
+        <button class="nav-item" data-section="salary" aria-label="Salary Hub">
+          <i class="fa fa-sack-dollar nav-icon"></i><span>Salary Hub</span>
+        </button>
+        <button class="nav-item" data-section="attendance" aria-label="Attendance">
+          <i class="fa fa-calendar-check nav-icon"></i><span>Attendance</span>
+        </button>
+        <button class="nav-item" data-section="id-cards" aria-label="ID Cards">
+          <i class="fa fa-id-card nav-icon"></i><span>ID Cards</span>
+        </button>
+        <button class="nav-item" data-section="certificates" aria-label="Certificates">
+          <i class="fa fa-certificate nav-icon"></i><span>Certificates</span>
+        </button>
+        <button class="nav-item" data-section="notice-board" id="nav-notice" aria-label="Notice Board">
+          <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
+          <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;" aria-hidden="true"></span>
+        </button>
+        <button class="nav-item" data-section="settings" aria-label="Settings">
+          <i class="fa fa-gear nav-icon"></i><span>Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-helpline">
+        <div class="helpline-title">📞 HELPLINE</div>
+        <div class="helpline-name">SHAKIB IBNA MUSTAFA</div>
+        <div class="helpline-phone"><i class="fa fa-phone"></i> 01757-208244</div>
+      </div>
+
+      <div class="sidebar-footer">
+        <div id="sync-status" class="sync-badge synced">☁️ Synced</div>
+        <div id="syncguard-badge"
+          style="display:none;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.5);color:#ff4757;border-radius:20px;padding:3px 10px;font-size:0.75rem;font-weight:700;cursor:pointer;align-items:center;gap:5px;white-space:nowrap">
+          ⚠️ <span id="syncguard-count">0</span> Alert
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button class="btn btn-sm btn-outline" style="flex:1;color:#fff;border-color:rgba(255,255,255,.2)" id="btn-sync-now" title="Sync Now">
+            <i class="fa fa-rotate"></i> Sync
+          </button>
+          <button class="btn btn-sm btn-outline" style="color:#fff;border-color:rgba(255,255,255,.2)" id="btn-sync-push" title="Push to Cloud">
+            <i class="fa fa-cloud-arrow-up"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── MAIN CONTENT ── -->
+    <div id="main-content" role="main" aria-label="Main content area">
+
+      <!-- TOPBAR -->
+      <div id="topbar">
+        <button id="btn-hamburger"><i class="fa fa-bars"></i></button>
+        <div id="page-title" class="bn" style="font-size:1.4rem; font-weight:700; color:var(--brand-primary); letter-spacing:0.02em; text-shadow: 0 0 15px rgba(0,212,255,0.5);">Welcome back, Admin!</div>
+        <div class="topbar-search">
+          <i class="fa fa-search"></i>
+          <input type="text" id="global-search" placeholder="Search students, transactions, courses..." />
+        </div>
+        <div class="topbar-synced" id="topbar-sync-indicator">
+          <span class="dot"></span> Synced
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-primary" id="btn-quick-add" style="border-radius:20px; font-weight:600;"><i class="fa fa-plus"></i> <span class="bn">ADD NEW</span></button>
+          <button class="btn btn-sm btn-ghost" id="btn-theme-toggle" title="Toggle Theme" style="font-size:1.1rem; padding: 0 8px;">✨</button>
+          <button class="btn btn-sm btn-ghost" id="btn-notif" title="Due Payments">
+            <i class="fa fa-bell"></i>
+            <span id="notif-count" class="badge badge-error" style="font-size:.6rem;padding:1px 5px;display:none;position:relative;top:-6px;left:-4px">0</span>
+          </button>
+          <button class="btn btn-sm btn-ghost" id="btn-logout" style="display:flex; align-items:center; gap:8px;" title="Logout">
+            <div style="background:rgba(0,212,255,0.2); color:#00d4ff; width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:700; border:1px solid rgba(0,212,255,0.3);">A</div>
+            <div style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.2;">
+              <span style="font-size:0.8rem; font-weight:700; color:#fff;">Admin</span>
+              <span style="font-size:0.65rem; color:var(--text-muted);"><i class="fa fa-sign-out" style="font-size:0.6rem; margin-right:3px;"></i>Logout</span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- Quick Add Dropdown -->
+      <div id="quick-add-menu" style="display:none;position:absolute;right:24px;top:56px;z-index:300;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px 0;min-width:200px">
+        <button id="btn-quick-student" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-user-graduate" style="width:20px;color:var(--brand-primary)"></i> Add Student</button>
+        <button id="btn-quick-transaction" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-money-bill" style="width:20px;color:var(--success)"></i> Add Transaction</button>
+
+        <button id="btn-quick-exam" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-clipboard-list" style="width:20px;color:var(--warning)"></i> Add Exam</button>
+        <button id="btn-quick-visitor" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 16px;border:none;background:none;cursor:pointer;font-size:.85rem;color:var(--text-primary);font-family:var(--font-bn)"><i class="fa fa-person" style="width:20px;color:var(--info)"></i> Add Visitor</button>
+      </div>
+
+      <!-- ════════ ALL PAGE SECTIONS ════════ -->
+      <div style="padding:24px">
+
+        <!-- ▸ DASHBOARD -->
+        <div id="section-dashboard" class="page-section">
+          <div id="dashboard-content">
+            <div style="text-align:center;padding:60px 0;color:var(--text-muted)"><i class="fa fa-spinner fa-spin" style="font-size:2rem"></i><p style="margin-top:12px">Loading...</p></div>
+          </div>
+        </div>
+
+        <!-- ▸ STUDENTS -->
+        <div id="section-students" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-user-graduate"></i> Students</h2>
+            <div class="toolbar">
+            </div>
+          </div>
+          <div id="students-content"></div>
+        </div>
+
+        <!-- ▸ FINANCE -->
+        <div id="section-finance" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-book-open"></i> Finance Ledger</h2>
+            <div class="toolbar">
+            </div>
+          </div>
+          <div id="finance-content"></div>
+        </div>
+
+        <!-- ▸ ACCOUNTS -->
+        <div id="section-accounts" class="page-section" style="display:none">
+          <div id="accounts-content"></div>
+        </div>
+
+        <!-- ▸ LOANS -->
+        <div id="section-loans" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-hand-holding-dollar"></i> Loan Management</h2>
+            <div class="toolbar">
+              <button class="btn btn-primary" id="btn-add-loan" style="font-weight:700;">
+                <i class="fa fa-plus"></i> Add Loan
+              </button>
+            </div>
+          </div>
+          <div id="loans-content"></div>
+        </div>
+
+        <!-- ▸ EXAM -->
+        <div id="section-exam" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-clipboard-list"></i> Exams</h2>
+            <div class="toolbar">
+            </div>
+          </div>
+          <div id="exam-content"></div>
+        </div>
+
+        <!-- ▸ ATTENDANCE -->
+        <div id="section-attendance" class="page-section" style="display:none">
+          <div id="attendance-content"></div>
+        </div>
+
+        <!-- ▸ HR STAFF -->
+        <div id="section-hr-staff" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-users"></i> HR / Staff Management</h2>
+            <div class="toolbar">
+            </div>
+          </div>
+          <div id="hr-staff-content"></div>
+        </div>
+
+        <!-- ▸ SALARY -->
+        <div id="section-salary" class="page-section" style="display:none">
+          <div id="salary-content"></div>
+        </div>
+
+        <!-- ▸ VISITORS -->
+        <div id="section-visitors" class="page-section" style="display:none">
+          <div id="visitors-content"></div>
+        </div>
+
+        <!-- ▸ ID CARDS -->
+        <div id="section-id-cards" class="page-section" style="display:none">
+          <div id="id-cards-content"></div>
+        </div>
+
+        <!-- ▸ CERTIFICATES -->
+        <div id="section-certificates" class="page-section" style="display:none">
+          <div id="certificates-content"></div>
+        </div>
+
+        <!-- ▸ NOTICE BOARD -->
+        <div id="section-notice-board" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-bullhorn"></i> Notice Board</h2>
+            <div class="toolbar">
+              <button class="btn btn-outline btn-sm" id="btn-notice-close" style="display:flex; align-items:center; gap:7px; font-weight:700; color:rgba(255,255,255,0.7); border-color:rgba(255,255,255,0.2); padding:8px 16px; border-radius:10px;">
+                <i class="fa fa-xmark"></i> বন্ধ করুন
+              </button>
+            </div>
+          </div>
+          <div id="notice-board-content"></div>
+        </div>
+
+        <!-- ▸ SETTINGS -->
+        <div id="section-settings" class="page-section" style="display:none">
+          <div id="settings-content"></div>
+        </div>
+
+      </div><!-- /padding wrapper -->
+    </div><!-- /main-content -->
+  </div><!-- /app-wrapper -->
+
+  <!-- ════════════════════════════════════════
+       GLOBAL MODAL
+  ════════════════════════════════════════ -->
+  <div id="modal-backdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-label="Dialog">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span id="modal-title" class="modal-title bn"></span>
+        <button class="modal-close" id="btn-modal-close" aria-label="Close dialog"><i class="fa fa-xmark"></i></button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       CONFIRM DIALOG
+  ════════════════════════════════════════ -->
+  <div id="confirm-backdrop" class="modal-backdrop" role="alertdialog" aria-modal="true" aria-label="Confirmation dialog">
+    <div class="modal-box" style="max-width:420px">
+      <div class="modal-header">
+        <span id="confirm-title" class="modal-title">Confirm</span>
+      </div>
+      <div>
+        <p id="confirm-message" style="margin-bottom:20px;font-size:.95rem">Are you sure?</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button id="confirm-no" class="btn btn-ghost">Cancel</button>
+          <button id="confirm-yes" class="btn btn-danger">Yes, Proceed</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       TOAST NOTIFICATIONS
+  ════════════════════════════════════════ -->
+  <div id="toast-container"></div>
+
+  <!-- ════════════════════════════════════════
+       JS — Load Order Matters
+  ════════════════════════════════════════ -->
+  <!-- Core (defer: page render block হয় না, order preserved) -->
+  <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
+  <script src="js/core/utils.js" defer></script>
+  <script src="js/core/supabase-config.js" defer></script>
+  <script src="js/core/supabase-sync.js" defer></script>
+  <script src="js/core/sync-guard.js" defer></script>
+  <script src="js/core/integrity-guard.js" defer></script>
+  <script src="js/core/backup-restore.js" defer></script>
+  <script src="js/core/app.js" defer></script>
+
+  <!-- UI -->
+  <script src="js/ui/login.js" defer></script>
+  <script src="js/ui/dashboard.js" defer></script>
+  <script src="js/ui/settings.js" defer></script>
+
+  <!-- Modules -->
+  <script src="js/modules/students.js" defer></script>
+  <script src="js/modules/finance.js" defer></script>
+  <script src="js/modules/accounts.js" defer></script>
+  <script src="js/modules/loans.js" defer></script>
+  <script src="js/modules/exam.js" defer></script>
+  <script src="js/modules/attendance.js" defer></script>
+  <script src="js/modules/hr-staff.js" defer></script>
+  <script src="js/modules/salary.js" defer></script>
+  <script src="js/modules/visitors.js" defer></script>
+  <script src="js/modules/id-cards.js" defer></script>
+  <script src="js/modules/certificates.js" defer></script>
+  <script src="js/modules/notice-board.js" defer></script>
+  <script src="js/modules/voice-assistant.js" defer></script>
+
+  <!-- Face Recognition: lazy-loaded on demand by face-id.js -->
+  <script src="js/modules/face-id.js" defer></script>
+
+  <!-- Wow Features (Phase 4) -->
+  <script src="js/modules/command-palette.js" defer></script>
+  <script src="js/modules/pattern-lock.js" defer></script>
+
+  <!-- PWA + Background Animation + Inline Handlers (external — CSP compliant) -->
+  <script src="js/core/inline-handlers.js"></script>
+
+
+
+</body>
+</html>

@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<!-- v202604251746 -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wings Fly Academy — Exam</title>
+<style>
+  :root {
+    --primary: #1a3a5c;
+    --accent: #e8a020;
+    --success: #2e7d32;
+    --danger: #c62828;
+    --bg: #f4f6f9;
+    --card: #ffffff;
+    --text: #1a1a2e;
+    --muted: #5a6a7a;
+    --border: #d0d8e4;
+    --radius: 14px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  .header {
+    background: var(--primary);
+    color: white;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header .logo {
+    font-size: 22px;
+  }
+
+  .header h1 {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  .header p {
+    font-size: 11px;
+    opacity: 0.75;
+  }
+
+  .timer-bar {
+    background: var(--primary);
+    padding: 8px 20px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .timer-display {
+    background: var(--accent);
+    color: #1a1a00;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 30px;
+    letter-spacing: 2px;
+    display: none;
+  }
+
+  .timer-display.running { display: block; }
+  .timer-display.danger { background: #ff5252; color: white; animation: pulse 1s infinite; }
+
+  @keyframes fadeSlide { from { opacity:0; transform:translateX(18px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes pulse-submit { 0%,100%{transform:scale(1);box-shadow:0 0 0 rgba(0,255,136,0);} 50%{transform:scale(1.03);box-shadow:0 0 16px rgba(0,255,136,0.5);} }
+  @keyframes opt-confirm { 0%{background:rgba(0,255,136,0.05);} 100%{background:rgba(0,255,136,0.18);} }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+  @keyframes rules-glow { 0%,100%{border-color:#f0a500;} 50%{border-color:#ff6b00;box-shadow:0 0 8px rgba(240,165,0,0.3);} }
+  @keyframes countdownPulse { 0%,100%{transform:scale(1);} 50%{transform:scale(1.3);} }
+
+  .progress-wrap {
+    background: rgba(255,255,255,0.2);
+    border-radius: 10px;
+    height: 6px;
+    flex: 1;
+    margin-left: 12px;
+    overflow: hidden;
+    display: none;
+  }
+
+  .progress-wrap.visible { display: block; }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    transition: width 1s linear;
+    border-radius: 10px;
+  }
+
+  .container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px 16px 40px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 24px 20px;
+    margin-bottom: 16px;
+  }
+
+  .card h2 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 6px;
+  }
+
+  .card p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.5;
+  }
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font-size: 15px;
+    color: var(--text);
+    background: white;
+    outline: none;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+
+  input:focus { border-color: var(--primary); }
+
+  .btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+
+  .btn-submit {
+    background: var(--success);
+    color: white;
+    margin-top: 8px;
+  }
+
+  .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .question-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+
+  .q-num {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+  }
+
+  .q-text {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 14px;
+    background: white;
+  }
+
+  .option:hover { border-color: var(--primary); background: #eef3fa; }
+
+  .option input[type="radio"] {
+    width: auto;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--primary);
+  }
+
+  .option.selected {
+    border-color: var(--primary);
+    background: #e8f0fb;
+    font-weight: 500;
+  }
+
+  .option.correct {
+    border-color: var(--success);
+    background: #e8f5e9;
+    color: var(--success);
+    font-weight: 600;
+  }
+
+  .option.wrong {
+    border-color: var(--danger);
+    background: #fdecea;
+    color: var(--danger);
+  }
+
+  .section { display: none; }
+  .section.active { display: block; }
+
+  .result-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 28px 20px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+
+  .result-score {
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--primary);
+    line-height: 1;
+  }
+
+  .result-label {
+    font-size: 14px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .result-badge {
+    display: inline-block;
+    margin-top: 14px;
+    padding: 6px 20px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .badge-pass { background: #e8f5e9; color: var(--success); border: 1.5px solid var(--success); }
+  .badge-fail { background: #fdecea; color: var(--danger); border: 1.5px solid var(--danger); }
+
+  .warning-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .warning-overlay.show { display: flex; }
+
+  .warning-box {
+    background: white;
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    max-width: 340px;
+    width: 100%;
+    text-align: center;
+    border-top: 5px solid var(--danger);
+  }
+
+  .warning-icon { font-size: 40px; margin-bottom: 12px; }
+
+  .warning-box h2 {
+    font-size: 18px;
+    color: var(--danger);
+    margin-bottom: 8px;
+  }
+
+  .warning-box p {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+
+  .warning-count {
+    font-size: 13px;
+    color: var(--danger);
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+
+  .no-questions {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--muted);
+  }
+
+  .no-questions .icon { font-size: 48px; margin-bottom: 12px; }
+
+  #examSection .exam-header {
+    background: var(--card);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+  }
+
+  .exam-header .student-info {
+    color: var(--muted);
+  }
+
+  .exam-header strong {
+    color: var(--primary);
+    font-size: 14px;
+  }
+
+  .answered-count {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--bg);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .info-item {
+    background: var(--bg);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+  }
+
+  .info-item .val {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+  }
+
+  .info-item .lbl {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .closed-notice {
+    text-align: center;
+    padding: 50px 20px;
+  }
+
+  .closed-notice .icon { font-size: 56px; margin-bottom: 16px; }
+  .closed-notice h2 { font-size: 20px; color: var(--primary); margin-bottom: 8px; }
+  .closed-notice p { font-size: 14px; color: var(--muted); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/supabase-config.js"></script>
+<script src="js/core/supabase-sync.js"></script>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">✈️</div>
+  <div style="flex:1;">
+    <h1 id="headerExamName">Wings Fly Academy</h1>
+    <p id="headerExamDate">Online Examination System</p>
+  </div>
+</div>
+
+<!-- Timer Bar -->
+<div class="timer-bar" id="timerBar" style="display:none;">
+  <div class="timer-display running" id="timerDisplay">10:00</div>
+  <div class="progress-wrap visible">
+    <div class="progress-fill" id="progressFill" style="width:100%"></div>
+  </div>
+</div>
+
+<!-- Warning Overlay -->
+<div class="warning-overlay" id="warningOverlay">
+  <div class="warning-box">
+    <div class="warning-icon">⚠️</div>
+    <h2>সতর্কতা!</h2>
+    <p id="warningMsg">আপনি এক্সামের বাইরে গিয়েছেন। এটি অসৎ আচরণ হিসেবে বিবেচিত হবে।</p>
+    <div class="warning-count" id="warningCount"></div>
+    <div style="margin-top:12px;padding:10px;background:rgba(255,255,255,0.08);border-radius:8px;font-size:12px;color:rgba(255,255,255,0.8);text-align:left;line-height:1.8;">
+      📋 মনে রাখুন:<br>
+      • ৩ বার সরে গেলে এক্সাম স্বয়ংক্রিয়ভাবে জমা হবে<br>
+      • একবার জমা দিলে পুনরায় সুযোগ নেই<br>
+      • সৎভাবে পরীক্ষা দিন
+    </div>
+    <button class="btn btn-primary" onclick="dismissWarning()" style="border-radius:10px;margin-top:14px;">
+      বুঝেছি, এক্সামে ফিরে যাই
+    </button>
+  </div>
+</div>
+</div>
+
+<div class="container">
+
+  <!-- ═══ ADMIN PREVIEW PANEL ═══ -->
+  <div id="adminPreviewPanel" style="display:none;background:#1a3a5c;color:#fff;padding:20px;border-radius:14px;margin:16px auto;max-width:520px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div style="font-size:16px;font-weight:700;"><span style="color:#e8a020;">⚙️</span> Admin Preview Panel</div>
+      <button onclick="closeAdminPanel()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;padding:4px 12px;border-radius:8px;cursor:pointer;">✕ বন্ধ</button>
+    </div>
+    <div id="adminPreviewContent">লোড হচ্ছে...</div>
+  </div>
+
+  <!-- ═══ ADMIN LOGIN MODAL ═══ -->
+  <div id="adminLoginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
+    <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div style="font-size:18px;font-weight:700;color:#1a3a5c;margin-bottom:4px;">🔐 Admin Preview</div>
+      <div style="font-size:13px;color:#888;margin-bottom:18px;">প্রশ্ন ও সেটিংস যাচাই করুন</div>
+      <input id="adminPass" type="password" placeholder="Admin Password" style="width:100%;padding:11px 14px;border:1.5px solid #d0d8e4;border-radius:8px;font-size:14px;margin-bottom:10px;outline:none;" onkeydown="if(event.key==='Enter')checkAdminLogin()" />
+      <div id="adminLoginErr" style="color:red;font-size:12px;margin-bottom:10px;display:none;">❌ পাসওয়ার্ড ভুল!</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="document.getElementById('adminLoginModal').setAttribute('style','display:none')" style="flex:1;padding:10px;border:1.5px solid #d0d8e4;background:#fff;border-radius:8px;cursor:pointer;">বাতিল</button>
+        <button onclick="checkAdminLogin()" style="flex:1;padding:10px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">প্রবেশ করুন</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loginSection" class="section active">
+    <!-- Using a proper form for enter key submission -->
+    <form class="card" style="margin-top: 16px;" onsubmit="event.preventDefault(); startExam();">
+      <h2>✈️ এক্সামে যোগ দিন</h2>
+      <p>নিচে আপনার তথ্য দিয়ে এক্সাম শুরু করুন।</p>
+
+      <label>আপনার পুরো নাম</label>
+      <input type="text" id="studentName" placeholder="যেমন: Md. Rahim" required />
+
+      <label>স্টুডেন্ট ID / রোল নম্বর</label>
+      <input type="text" id="studentId" placeholder="যেমন: WFA-101" required />
+
+      <button type="submit" class="btn btn-primary" id="startExamBtn">এক্সাম শুরু করুন →</button>
+      <div style="text-align:center;margin-top:16px;">
+        <button type="button" onclick="openAdminLogin()" style="background:none;border:none;color:#888;font-size:12px;cursor:pointer;text-decoration:underline;">
+          🔐 Admin Preview
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Section: Exam -->
+  <div id="examSection" class="section">
+    <div class="exam-header">
+      <div class="student-info">
+        <div style="color:var(--muted);font-size:12px;">পরীক্ষার্থী</div>
+        <strong id="displayName"></strong>
+      </div>
+      <div class="answered-count" id="answeredCount">0/0 উত্তর দেওয়া</div>
+    </div>
+
+    <div id="questionsContainer"></div>
+
+    <!-- Submit button moved inside last question card for one-at-a-time mode -->
+  </div>
+
+  <!-- Section: Result -->
+  <div id="resultSection" class="section">
+    <div class="result-card">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:8px;">পরীক্ষার ফলাফল</div>
+      <div class="result-score" id="resultScore">0/5</div>
+      <div class="result-label" id="resultPercent"></div>
+      <div id="resultBadge"></div>
+    </div>
+
+    <div class="info-grid">
+      <div class="info-item">
+        <div class="val" id="r-name">—</div>
+        <div class="lbl">নাম</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-id">—</div>
+        <div class="lbl">ID</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-subject" style="font-size:13px;">—</div>
+        <div class="lbl">সাবজেক্ট</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-grade" style="font-size:1.4rem;font-weight:700;color:var(--primary);">—</div>
+        <div class="lbl">গ্রেড</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-date" style="font-size:13px;">—</div>
+        <div class="lbl">তারিখ</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-correct">0</div>
+        <div class="lbl">সঠিক উত্তর</div>
+      </div>
+      <div class="info-item">
+        <div class="val" id="r-warnings">0</div>
+        <div class="lbl">সতর্কতা পেয়েছেন</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="margin-bottom:14px;">প্রশ্নের বিস্তারিত</h2>
+      <div id="resultDetails"></div>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+// =====================
+// EXAM DATA (Questions)
+// =====================
+// Admin panel থেকে প্রশ্ন লোড হবে। 
+// যদি কোনো প্রশ্ন না থাকে, নিচের default প্রশ্ন ব্যবহার হবে।
+
+// DEFAULT_QUESTIONS removed — exam.html always loads questions from Supabase/admin
+// If no questions found, an error message is shown to the student
+const DEFAULT_QUESTIONS = [];
+
+// =====================
+// STATE
+// =====================
+let questions = [];
+let shuffledQuestions = [];   // ✅ Shuffled copy per student session
+let answers = {};
+// currentQIdx is used for one-at-a-time navigation (defined near buildShuffledQuestions)
+let warningCount = 0;
+let maxWarnings = 3;
+let timerInterval = null;
+let totalSeconds = 600;
+let remainingSeconds = 600;
+let examActive = false;
+let studentName = '';
+let studentId = '';
+let examSettings = {};
+
+// =====================
+// LOAD DATA
+// =====================
+function loadData(callback) {
+  // ════════════════════════════════════════════════════════
+  // DIRECT Supabase REST fetch — no IndexedDB, no cache.
+  // exam.html runs on student's browser which has NO local
+  // admin data. We must always fetch live from Supabase.
+  // ════════════════════════════════════════════════════════
+  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+  const showNoQuestions = () => {
+    const c = document.querySelector('.container');
+    if (c) c.innerHTML = `
+      <div style="text-align:center;padding:60px 20px;color:#888;">
+        <div style="font-size:56px;margin-bottom:16px;">📋</div>
+        <h2 style="color:#4db8ff;margin-bottom:8px;">প্রশ্ন প্রস্তুত নেই</h2>
+        <p>এডমিন এখনো এক্সামের প্রশ্ন সেট করেননি।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+      </div>`;
+  };
+
+  const parseAndApply = (dbSettings) => {
+    try {
+      const stored     = dbSettings.exam_questions;
+      const settingsRaw = dbSettings.exam_settings;
+
+      examSettings = settingsRaw
+        ? (typeof settingsRaw === 'string' ? JSON.parse(settingsRaw) : settingsRaw)
+        : { active: true, duration: 10, passMark: 60, examName: '', examDate: '' };
+
+      if (stored) {
+        const parsed = typeof stored === 'string' ? JSON.parse(stored) : stored;
+        questions = (Array.isArray(parsed) && parsed.length > 0) ? parsed : [];
+      } else {
+        questions = [];
+      }
+
+      // Ensure options array on every question
+      questions.forEach(q => {
+        if (!q.options || !Array.isArray(q.options)) q.options = ['ক', 'খ', 'গ', 'ঘ'];
+      });
+
+      totalSeconds = (examSettings.duration || 10) * 60;
+      remainingSeconds = totalSeconds;
+      // Always call callback — let startExam decide what to show
+      // (questions.length===0 is handled inside startExam/renderQuestions)
+      if (callback) callback();
+    } catch(e) {
+      console.error('[Exam] parseAndApply error:', e);
+      showNoQuestions();
+    }
+  };
+
+  // Fetch directly from Supabase REST API (bypasses IndexedDB/cache)
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (Array.isArray(data) && data.length > 0) {
+      console.log('[Exam] Settings fetched from Supabase REST ✓');
+      parseAndApply(data[0]);
+    } else {
+      console.warn('[Exam] Supabase REST returned no settings rows');
+      showNoQuestions();
+    }
+  })
+  .catch(err => {
+    console.error('[Exam] Supabase REST fetch failed:', err);
+    showNoQuestions();
+  });
+}
+
+// =====================
+// START EXAM
+// =====================
+function startExam() {
+  try {
+    const btn = document.getElementById('startExamBtn');
+    if(btn) btn.disabled = true;
+
+    studentName = document.getElementById('studentName').value.trim();
+    studentId = document.getElementById('studentId').value.trim();
+
+    if (!studentName) {
+      alert('অনুগ্রহ করে আপনার নাম লিখুন।');
+      if(btn) btn.disabled = false;
+      return;
+    }
+    if (!studentId) {
+      alert('অনুগ্রহ করে আপনার ID লিখুন।');
+      if(btn) btn.disabled = false;
+      return;
+    }
+
+    loadData(() => {
+      if(btn) btn.disabled = false;
+      if (examSettings.active === false) {
+        showSection('loginSection');
+        // Show "closed" but keep admin preview accessible
+        const closedDiv = document.createElement('div');
+        closedDiv.className = 'closed-notice';
+        closedDiv.innerHTML = `
+          <div class="icon">🔒</div>
+          <h2>এক্সাম বন্ধ আছে</h2>
+          <p>এই মুহূর্তে এক্সাম নেওয়া হচ্ছে না।<br>আপনার শিক্ষকের সাথে যোগাযোগ করুন।</p>
+          <div style="margin-top:16px;">
+            <button onclick="openAdminLogin()" style="background:none;border:1.5px solid #888;color:#888;padding:8px 20px;border-radius:8px;cursor:pointer;font-size:13px;">
+              🔐 Admin Preview
+            </button>
+          </div>
+        `;
+        const loginCard = document.querySelector('.card');
+        if (loginCard) loginCard.replaceWith(closedDiv);
+        if(btn) btn.disabled = false;
+        return;
+      }
+
+      // ✅ FIX: Check per subject — same student can take different subject exams
+      if (typeof window.DB !== 'undefined' && SupabaseSync && SupabaseSync.getAll) {
+        const exams = SupabaseSync.getAll(DB.exams) || [];
+        const currentSubject = examSettings.examName || '';
+        const alreadyTaken = exams.find(e => 
+          e.student_id === studentId && 
+          e.student_name === studentName && 
+          (e.subject || '') === currentSubject &&
+          (e.status === 'Passed' || e.status === 'Failed' || (e.marks !== undefined && e.marks !== null))
+        );
+        
+        if (alreadyTaken) {
+          const subjectLabel = currentSubject ? '"' + currentSubject + '"' : 'এই';
+          alert('দুঃখিত! আপনি ইতিমধ্যে ' + subjectLabel + ' সাবজেক্টের এক্সামটি দিয়েছেন।\nরেজাল্ট: ' + (alreadyTaken.grade || '—') + ' | নম্বর: ' + (alreadyTaken.marks ?? '—') + ' | স্ট্যাটাস: ' + alreadyTaken.status);
+          return;
+        }
+      }
+      // Debug: log what we got
+      console.log('[Exam] Settings:', examSettings, '| Questions:', questions.length);
+
+      document.getElementById('headerExamName').textContent = examSettings.examName || 'Wings Fly Academy';
+      const rawExamDate = examSettings.examDate || '';
+      let fmtExamDate = 'Online Examination System';
+      if (rawExamDate) {
+        // ✅ LOGIC #4: Convert YYYY-MM-DD → DD/MM/YYYY for display
+        const dp = rawExamDate.split('-');
+        fmtExamDate = dp.length === 3
+          ? `Online Exam — ${dp[2]}/${dp[1]}/${dp[0]}`
+          : `Online Exam — ${rawExamDate}`;
+      }
+      document.getElementById('headerExamDate').textContent = fmtExamDate;
+      document.getElementById('displayName').textContent = studentName;
+      renderQuestions();
+      showSection('examSection');
+      document.getElementById('timerBar').style.display = 'flex';
+      startTimer();
+      setupWarnings();
+    });
+  } catch (err) {
+    console.error("Critical start error:", err);
+    alert('একটি সমস্যা হয়েছে: ' + err.message);
+    const btn = document.getElementById('startExamBtn');
+    if(btn) btn.disabled = false;
+  }
+}
+
+// =====================
+// SHUFFLE HELPER
+// =====================
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// =====================
+// RENDER QUESTIONS (One-at-a-time + Shuffle)
+// =====================
+// =====================
+// SHUFFLE HELPERS
+// =====================
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// shuffledQuestions: question order + option order both randomized per session
+// (declared above in STATE section — reused here)
+let currentQIdx = 0;
+
+function buildShuffledQuestions() {
+  // Shuffle question ORDER
+  const qShuffled = shuffleArray(questions.map((q, origIdx) => ({ ...q, _origIdx: origIdx })));
+  shuffledQuestions = qShuffled.map(q => {
+    // Shuffle OPTIONS, remap correct answer index
+    const optsWithIdx = q.options.map((opt, j) => ({ opt, j }));
+    const shuffledOpts = shuffleArray(optsWithIdx);
+    const newCorrect = shuffledOpts.findIndex(o => o.j === q.answer);
+    return { ...q, options: shuffledOpts.map(o => o.opt), answer: newCorrect };
+  });
+}
+
+// =====================
+// RENDER — ONE BY ONE
+// =====================
+function renderQuestions() {
+  if (questions.length === 0) {
+    document.getElementById('questionsContainer').innerHTML = `
+      <div class="no-questions">
+        <div class="icon">📭</div>
+        <p>কোনো প্রশ্ন সেট করা হয়নি।<br>অ্যাডমিন প্যানেল থেকে প্রশ্ন যোগ করুন।</p>
+        <button onclick="showSection('loginSection')" style="margin-top:14px;background:#1a3a5c;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;font-size:14px;">
+          ← ফিরে যান
+        </button>
+      </div>`;
+    return;
+  }
+  buildShuffledQuestions();
+  currentQIdx = 0;
+  renderCurrentQuestion();
+}
+
+function renderCurrentQuestion() {
+  const container = document.getElementById('questionsContainer');
+  const q = shuffledQuestions[currentQIdx];
+  const total = shuffledQuestions.length;
+  const isLast = currentQIdx === total - 1;
+  const letters = ['ক', 'খ', 'গ', 'ঘ'];
+  const pct = Math.round(((currentQIdx + 1) / total) * 100);
+
+  const remainWarn = maxWarnings - warningCount;
+  container.innerHTML = `
+    <div class="question-card" id="q-card-current">
+
+      <!-- ✅ RULES BANNER — সবসময় দেখাবে -->
+      <div style="
+        background: linear-gradient(135deg,#fff8e1,#fff3cd);
+        border: 1.5px solid #f0a500;
+        border-radius: 10px;
+        padding: 11px 14px;
+        margin-bottom: 14px;
+        font-size: 12px;
+        color: #5a3e00;
+        line-height: 1.7;
+      ">
+        <div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#c75000;display:flex;align-items:center;gap:6px;">
+          📋 পরীক্ষার নিয়মাবলী — মনোযোগ দিয়ে পড়ুন
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;">
+          <div>✦ একটি প্রশ্নের উত্তর দিলে <strong>পরিবর্তন করা যাবে না</strong></div>
+          <div>✦ অন্য ট্যাব বা অ্যাপে গেলে <strong>সতর্কতা</strong> পাবেন</div>
+          <div>✦ <strong>${maxWarnings} বার</strong> সরে গেলে এক্সাম <strong>স্বয়ংক্রিয় জমা</strong> হবে</div>
+          <div>✦ একবার জমা দিলে <strong>পুনরায় দেওয়ার সুযোগ নেই</strong></div>
+          <div>✦ উত্তর দিলে <strong>পরের প্রশ্ন স্বয়ংক্রিয়ভাবে</strong> আসবে</div>
+          <div>✦ আশেপাশে তাকানো <strong>নিষিদ্ধ</strong> — ন্যায্যভাবে পরীক্ষা দিন</div>
+        </div>
+        <div style="margin-top:7px;padding-top:7px;border-top:1px solid #f0c060;display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:#c75000;font-weight:700;">
+            ⚠️ বর্তমান সতর্কতা: ${warningCount} / ${maxWarnings}
+            ${remainWarn <= 1 ? ' — <span style=\"color:red;\">আর মাত্র ' + remainWarn + 'টি বাকি!</span>' : ''}
+          </span>
+          <span style="color:var(--muted);">প্রশ্ন ${currentQIdx + 1} / ${total}</span>
+        </div>
+      </div>
+
+      <!-- Progress bar -->
+      <div style="margin:0 0 12px;background:var(--border);border-radius:4px;height:5px;overflow:hidden;">
+        <div style="height:100%;background:var(--primary);border-radius:4px;width:${pct}%;transition:width 0.4s ease;"></div>
+      </div>
+
+      <!-- Marks badge -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <div class="q-num">প্রশ্ন ${currentQIdx + 1} / ${total}</div>
+        <span style="font-size:11px;background:rgba(0,0,0,0.07);padding:2px 10px;border-radius:20px;color:var(--muted);">মান: ${q.marks || 1}</span>
+      </div>
+
+      <div class="q-text">${q.question}</div>
+      <div class="options" id="opts-current">
+        ${q.options.map((opt, j) => `
+          <label class="option ${answers[currentQIdx] === j ? 'selected' : ''}"
+            id="opt-c-${j}" onclick="selectOptionCurrent(${j})">
+            <input type="radio" name="qcurrent" value="${j}" style="display:none;"
+              ${answers[currentQIdx] === j ? 'checked' : ''}>
+            <span class="opt-letter">${letters[j]}.</span>
+            <span>${opt}</span>
+          </label>
+        `).join('')}
+      </div>
+      <div style="margin-top:16px;text-align:center;">
+        ${answers[currentQIdx] !== undefined
+          ? `<div style="color:#2e7d32;font-size:13px;font-weight:600;padding:8px;background:rgba(46,125,50,0.08);border-radius:8px;">
+               ✓ উত্তর সংরক্ষিত — পরের প্রশ্ন লোড হচ্ছে...
+             </div>`
+          : isLast
+            ? `<button class="btn btn-submit" onclick="submitExam()" style="width:100%;border-radius:10px;padding:12px;font-size:15px;font-weight:700;">
+                 ✅ এক্সাম জমা দিন
+               </button>`
+            : `<div style="color:var(--muted);font-size:13px;padding:8px;">
+                 উত্তর বেছে নিলেই পরের প্রশ্ন আসবে →
+               </div>`
+        }
+      </div>
+    </div>
+  `;
+  updateAnsweredCount();
+}
+
+function selectOptionCurrent(optIdx) {
+  // ✅ LOGIC: Once answered, cannot change — lock immediately
+  if (answers[currentQIdx] !== undefined) return;
+
+  answers[currentQIdx] = optIdx;
+
+  // Lock all options — no going back
+  document.querySelectorAll('#opts-current .option').forEach((o, i) => {
+    o.style.pointerEvents = 'none';
+    o.onclick = null;
+    if (i === optIdx) {
+      o.classList.add('selected');
+      o.style.background = 'rgba(46,125,50,0.12)';
+      o.style.borderColor = '#2e7d32';
+    } else {
+      o.style.opacity = '0.45';
+    }
+  });
+
+  updateAnsweredCount();
+
+  // Re-render bottom hint to "saved"
+  const navArea = document.querySelector('#q-card-current > div:last-child');
+  if (navArea) {
+    const isLast = currentQIdx === shuffledQuestions.length - 1;
+    navArea.innerHTML = isLast
+      ? `<button class="btn btn-submit" onclick="submitExam()" style="width:100%;border-radius:10px;padding:12px;font-size:15px;font-weight:700;margin-top:4px;">✅ এক্সাম জমা দিন</button>`
+      : `<div style="color:#2e7d32;font-size:13px;font-weight:600;padding:8px;background:rgba(46,125,50,0.08);border-radius:8px;text-align:center;">✓ উত্তর সংরক্ষিত — পরের প্রশ্ন লোড হচ্ছে...</div>`;
+  }
+
+  // ✅ Auto-advance after 750ms
+  const isLast = currentQIdx === shuffledQuestions.length - 1;
+  if (!isLast) {
+    setTimeout(() => { nextQuestion(); }, 750);
+  }
+}
+
+function nextQuestion() {
+  if (currentQIdx < shuffledQuestions.length - 1) {
+    currentQIdx++;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+function prevQuestion() {
+  if (currentQIdx > 0) {
+    currentQIdx--;
+    renderCurrentQuestion();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+}
+
+// Legacy fallback (not used in one-by-one mode)
+function selectOption(qIdx, optIdx) {
+  answers[qIdx] = optIdx;
+  updateAnsweredCount();
+}
+
+function updateAnsweredCount() {
+  const answered = Object.keys(answers).length;
+  const total = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions.length : questions.length;
+  const el = document.getElementById('answeredCount');
+  if (el) el.textContent = `${answered}/${total} উত্তর দেওয়া`;
+}
+
+// =====================
+// TIMER
+// =====================
+function startTimer() {
+  examActive = true;
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    remainingSeconds--;
+    updateTimerDisplay();
+    if (remainingSeconds <= 0) {
+      clearInterval(timerInterval);
+      autoSubmit();
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const mins = Math.floor(remainingSeconds / 60);
+  const secs = remainingSeconds % 60;
+  const display = document.getElementById('timerDisplay');
+  display.textContent = `${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}`;
+  
+  const pct = (remainingSeconds / totalSeconds) * 100;
+  document.getElementById('progressFill').style.width = pct + '%';
+
+  if (remainingSeconds <= 60) {
+    display.classList.add('danger');
+  }
+}
+
+// =====================
+// WARNINGS
+// =====================
+function setupWarnings() {
+  // Tab switch detection
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && examActive) {
+      triggerWarning('ট্যাব পরিবর্তন', 'আপনি অন্য ট্যাব বা অ্যাপে চলে গিয়েছেন।');
+    }
+  });
+
+  // Window blur (alt+tab, minimize)
+  window.addEventListener('blur', () => {
+    if (examActive) {
+      triggerWarning('উইন্ডো পরিবর্তন', 'আপনি এক্সামের বাইরে চলে গিয়েছেন।');
+    }
+  });
+
+  // Right click block
+  document.addEventListener('contextmenu', e => {
+    if (examActive) e.preventDefault();
+  });
+
+  // Copy/paste block
+  document.addEventListener('copy', e => {
+    if (examActive) e.preventDefault();
+  });
+
+  document.addEventListener('keydown', e => {
+    if (!examActive) return;
+    // Block F12, Ctrl+Shift+I, Ctrl+U etc.
+    if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I') || (e.ctrlKey && e.key === 'u')) {
+      e.preventDefault();
+      triggerWarning('DevTools চেষ্টা', 'আপনি DevTools খোলার চেষ্টা করেছেন।');
+    }
+  });
+}
+
+function triggerWarning(type, msg) {
+  warningCount++;
+  const remaining = maxWarnings - warningCount;
+  const overlay = document.getElementById('warningOverlay');
+  const msgEl   = document.getElementById('warningMsg');
+  const cntEl   = document.getElementById('warningCount');
+
+  if (warningCount >= maxWarnings) {
+    // ✅ Final warning — auto submit with countdown
+    msgEl.innerHTML = `<strong style="color:#ff5252;font-size:16px;">🚨 ${maxWarnings}টি সতর্কতা পেয়েছেন!</strong><br>
+      <span style="font-size:14px;">এক্সাম স্বয়ংক্রিয়ভাবে জমা হয়ে যাচ্ছে।</span>`;
+    cntEl.innerHTML = `<span style="color:#ff5252;font-size:22px;font-weight:800;" id="auto-submit-countdown">3</span>
+      <span style="color:#ff5252;"> সেকেন্ড পরে জমা হবে</span>`;
+    overlay.classList.add('show');
+
+    // Countdown 3→2→1 then auto submit
+    let cd = 3;
+    const cdTimer = setInterval(() => {
+      cd--;
+      const cdEl = document.getElementById('auto-submit-countdown');
+      if (cdEl) cdEl.textContent = cd;
+      if (cd <= 0) {
+        clearInterval(cdTimer);
+        dismissWarning();
+        autoSubmit();
+      }
+    }, 1000);
+
+  } else {
+    // Normal warning
+    msgEl.innerHTML = `<strong>${type}:</strong> ${msg}<br>
+      <span style="font-size:13px;color:#ff9800;">এটি অসৎ আচরণ হিসেবে রেকর্ড করা হয়েছে।</span>`;
+    cntEl.innerHTML = `⚠️ সতর্কতা: <strong>${warningCount}</strong> / ${maxWarnings}
+      ${remaining === 1
+        ? ' — <span style="color:#ff5252;font-weight:700;">আর মাত্র ১টি বাকি! পরেরবার এক্সাম জমা হয়ে যাবে।</span>'
+        : ` — আরো <strong>${remaining}</strong>টি সতর্কতা পেলে এক্সাম জমা হয়ে যাবে।`}`;
+    overlay.classList.add('show');
+  }
+
+  // Re-render current question rules badge if visible
+  if (typeof renderCurrentQuestion === 'function' && shuffledQuestions.length > 0) {
+    setTimeout(() => {
+      if (!overlay.classList.contains('show')) renderCurrentQuestion();
+    }, 100);
+  }
+}
+
+function dismissWarning() {
+  document.getElementById('warningOverlay').classList.remove('show');
+  // Re-render question so rules banner shows updated warning count
+  if (examActive && shuffledQuestions.length > 0) {
+    renderCurrentQuestion();
+  }
+}
+
+// =====================
+// SUBMIT
+// =====================
+function autoSubmit() {
+  examActive = false;
+  clearInterval(timerInterval);
+  showResults();
+}
+
+function submitExam() {
+  const answered = Object.keys(answers).length;
+  const totalQ = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions.length : questions.length;
+  if (answered < totalQ) {
+    const remaining = totalQ - answered;
+    if (!confirm(`আপনি এখনো ${remaining}টি প্রশ্নের উত্তর দেননি। তারপরও জমা দিতে চান?`)) return;
+  }
+  examActive = false;
+  clearInterval(timerInterval);
+  showResults();
+}
+
+// =====================
+// RESULTS
+// =====================
+function showResults() {
+  document.getElementById('timerBar').style.display = 'none';
+
+  let correct = 0;
+  let totalMarks = 0;
+  // ✅ Use shuffledQuestions so answer indices match shuffled option positions
+  const questionsToCheck = (typeof shuffledQuestions !== 'undefined' && shuffledQuestions.length > 0)
+    ? shuffledQuestions : questions;
+  let obtainedMarks = 0;
+
+  questionsToCheck.forEach((q, i) => {
+    const mark = q.marks || 1;
+    totalMarks += mark;
+    // ✅ For shuffled options: find which shuffled index is correct
+    let correctIdx = q.answer !== undefined ? q.answer : q.correctIndex;
+    if (q._shuffledOpts) {
+      correctIdx = q._shuffledOpts.findIndex(item => item.isCorrect);
+    }
+    if (answers[i] !== undefined && answers[i] === correctIdx) {
+      correct++;
+      obtainedMarks += mark;
+    }
+  });
+
+  const totalQuestions = questionsToCheck.length;
+  const pct = Math.round((obtainedMarks / totalMarks) * 100) || 0;
+  const passMark = examSettings.passMark || 60;
+  const passed = pct >= passMark;
+
+  document.getElementById('resultScore').textContent = `${obtainedMarks} / ${totalMarks}`;
+  document.getElementById('resultPercent').textContent = `${pct}% — (পাসের মার্ক: ${passMark}%)`;
+  document.getElementById('resultBadge').innerHTML = passed
+    ? `<div class="result-badge badge-pass">✅ উত্তীর্ণ</div>`
+    : `<div class="result-badge badge-fail">❌ অনুত্তীর্ণ</div>`;
+
+  // Grade calculation
+  const gradeMap = (p) => {
+    if (p >= 90) return 'A+';
+    if (p >= 80) return 'A';
+    if (p >= 70) return 'A-';
+    if (p >= 60) return 'B+';
+    if (p >= 50) return 'B';
+    if (p >= 40) return 'C';
+    return 'F';
+  };
+  const autoGrade = passed ? gradeMap(pct) : 'F';
+
+  document.getElementById('r-name').textContent = studentName;
+  document.getElementById('r-id').textContent = studentId;
+  document.getElementById('r-subject').textContent = examSettings.examName || '—';
+  document.getElementById('r-grade').textContent = autoGrade;
+  // ✅ LOGIC #4: Show today's date as DD/MM/YYYY
+  const _td = new Date();
+  const _dd = String(_td.getDate()).padStart(2,'0');
+  const _mm = String(_td.getMonth()+1).padStart(2,'0');
+  const _yy = _td.getFullYear();
+  document.getElementById('r-date').textContent = `${_dd}/${_mm}/${_yy}`;
+  document.getElementById('r-correct').textContent = correct;
+  document.getElementById('r-warnings').textContent = warningCount;
+
+  // Detailed review
+  const details = document.getElementById('resultDetails');
+  const reviewQs = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions : questions;
+  details.innerHTML = reviewQs.map((q, i) => {
+    const userAns = answers[i];
+    let corrIdx = q.answer !== undefined ? q.answer : q.correctIndex;
+    if (q._shuffledOpts) corrIdx = q._shuffledOpts.findIndex(item => item.isCorrect);
+    const isCorrect = userAns !== undefined && userAns === corrIdx;
+    const mark = q.marks || 1;
+    return `
+      <div style="margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px;">
+          <span>প্রশ্ন ${i+1}</span>
+          <span>মান: ${mark} ${userAns !== undefined ? (isCorrect ? "(প্রাপ্ত: " + mark + ")" : "(প্রাপ্ত: 0)") : "(প্রাপ্ত: 0)"}</span>
+        </div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
+        ${userAns !== undefined
+          ? `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:${isCorrect?'#e8f5e9':'#fdecea'};color:${isCorrect?'var(--success)':'var(--danger)'};">
+              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${q._shuffledOpts ? q._shuffledOpts[userAns]?.opt : q.options[userAns]}
+            </div>`
+          : `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:#fff3e0;color:#e65100;">⏭️ উত্তর দেননি</div>`
+        }
+        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${q._shuffledOpts ? q._shuffledOpts.find(item => item.isCorrect)?.opt : q.options[q.answer]}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Save result
+  saveResult(studentName, studentId, correct, totalQuestions, pct, passed, warningCount, examSettings.examName || '');
+
+  showSection('resultSection');
+}
+
+
+// ═══════════════════════════════════════════════════════
+// ADMIN PREVIEW SYSTEM
+// Password: set in examSettings.adminPass or default
+// ═══════════════════════════════════════════════════════
+const ADMIN_DEFAULT_PASS = 'wings2024admin';
+
+function openAdminLogin() {
+  const modal = document.getElementById('adminLoginModal');
+  // Force display flex — works regardless of prior inline style
+  modal.setAttribute('style',
+    'display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:9999;align-items:center;justify-content:center;');
+  setTimeout(() => {
+    const p = document.getElementById('adminPass');
+    if (p) { p.value = ''; p.focus(); }
+    const err = document.getElementById('adminLoginErr');
+    if (err) err.style.display = 'none';
+  }, 80);
+}
+
+function closeAdminPanel() {
+  document.getElementById('adminPreviewPanel').style.display = 'none';
+}
+
+function checkAdminLogin() {
+  const pass  = document.getElementById('adminPass').value.trim();
+  const errEl = document.getElementById('adminLoginErr');
+
+  // Password check — also accept hardcoded fallback if settings not loaded yet
+  const settingsPass = (examSettings && examSettings.adminPass) ? examSettings.adminPass : null;
+  const isCorrect = pass === ADMIN_DEFAULT_PASS || (settingsPass && pass === settingsPass);
+
+  if (isCorrect) {
+    // Close modal
+    document.getElementById('adminLoginModal').setAttribute('style','display:none;');
+    document.getElementById('adminPass').value = '';
+    errEl.style.display = 'none';
+    // Load admin preview (fetches fresh data from Supabase)
+    loadAdminPreview();
+  } else {
+    errEl.style.display = 'block';
+    const p = document.getElementById('adminPass');
+    if (p) { p.select(); }
+  }
+}
+
+function loadAdminPreview() {
+  const panel = document.getElementById('adminPreviewPanel');
+  const content = document.getElementById('adminPreviewContent');
+  panel.style.display = 'block';
+  panel.scrollIntoView({ behavior: 'smooth' });
+  content.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.6);">লোড হচ্ছে...</div>';
+
+  // Load data fresh
+  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
+    headers: {
+      'apikey': SUPA_KEY,
+      'Authorization': 'Bearer ' + SUPA_KEY,
+      'Content-Type': 'application/json',
+    }
+  })
+  .then(r => {
+    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+    return r.json();
+  })
+  .then(data => {
+    console.log('[AdminPreview] Supabase response:', data);
+    if (!Array.isArray(data) || !data[0]) {
+      content.innerHTML = `<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি। Supabase-এ settings table এবং RLS policy চেক করুন।</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Response: ${JSON.stringify(data)}</div>`;
+      return;
+    }
+    const s = data[0];
+    let settings = {};
+    let qs = [];
+    try { settings = typeof s.exam_settings === 'string' ? JSON.parse(s.exam_settings) : (s.exam_settings || {}); } catch(e) {}
+    try { qs = typeof s.exam_questions === 'string' ? JSON.parse(s.exam_questions) : (s.exam_questions || []); } catch(e) {}
+
+    const statusColor = settings.active === false ? '#ff5252' : '#00e676';
+    const statusText  = settings.active === false ? '🔒 বন্ধ' : '🟢 চালু';
+
+    let qHtml = '';
+    if (qs.length === 0) {
+      qHtml = '<div style="color:#ff9800;padding:10px 0;">⚠️ কোনো প্রশ্ন সেট করা হয়নি।</div>';
+    } else {
+      qHtml = qs.map((q, i) => `
+        <div style="background:rgba(255,255,255,0.06);border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+          <div style="font-weight:600;margin-bottom:5px;font-size:13px;">${i+1}. ${q.question || '—'}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;font-size:12px;">
+            ${(q.options || []).map((opt, j) => `
+              <div style="padding:3px 6px;border-radius:4px;background:${j === q.answer ? 'rgba(0,230,118,0.2)' : 'rgba(255,255,255,0.05)'};
+                           color:${j === q.answer ? '#00e676' : 'rgba(255,255,255,0.7)'};">
+                ${['ক','খ','গ','ঘ'][j] || j+1}. ${opt}
+                ${j === q.answer ? ' ✓' : ''}
+              </div>
+            `).join('')}
+          </div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:4px;">মান: ${q.marks || 1}</div>
+        </div>`).join('');
+    }
+
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;font-size:13px;">
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">স্ট্যাটাস</div>
+          <div style="font-weight:700;color:${statusColor};">${statusText}</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">মোট প্রশ্ন</div>
+          <div style="font-weight:700;color:#e8a020;">${qs.length} টি</div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);padding:10px;border-radius:8px;text-align:center;">
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-bottom:4px;">সময়সীমা</div>
+          <div style="font-weight:700;">${settings.duration || 10} মিনিট</div>
+        </div>
+      </div>
+      <div style="margin-bottom:8px;font-size:12px;color:rgba(255,255,255,0.6);">
+        📚 বিষয়: <strong style="color:#fff;">${settings.examName || '—'}</strong> &nbsp;|&nbsp;
+        📅 তারিখ: <strong style="color:#fff;">${settings.examDate || '—'}</strong> &nbsp;|&nbsp;
+        পাস মার্ক: <strong style="color:#00e676;">${settings.passMark || 60}%</strong>
+      </div>
+      ${settings.active === false ? '<div style="background:rgba(255,82,82,0.15);border:1px solid #ff5252;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px;color:#ff5252;">⚠️ এক্সাম বর্তমানে বন্ধ। admin.html থেকে চালু করুন।</div>' : ''}
+      <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;">প্রশ্নসমূহ (সঠিক উত্তর ✓ সবুজ)</div>
+      <div style="max-height:400px;overflow-y:auto;">${qHtml}</div>
+    `;
+  })
+  .catch(err => {
+    content.innerHTML = `
+      <div style="color:#ff5252;margin-bottom:10px;">❌ লোড ব্যর্থ: ${err.message}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5);">
+        সম্ভাব্য কারণ: Supabase RLS policy / Network error<br>
+        Browser console দেখুন (F12 → Console)
+      </div>`;
+    console.error('[AdminPreview] Load failed:', err);
+  });
+}
+
+function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
+  try {
+    const todayISO = new Date().toISOString().split('T')[0];
+    const [yr, mo, dy] = todayISO.split('-');
+    const dateDMY = `${dy}/${mo}/${yr}`;
+
+    // ════════════════════════════════════════════
+    // Build per-question answer detail report
+    // ════════════════════════════════════════════
+    const answerDetails = shuffledQuestions.map((q, i) => {
+      const studentAnsIdx = answers[i];
+      const correctIdx    = q.answer;
+      const isCorrect     = studentAnsIdx === correctIdx;
+      return {
+        q_no:           i + 1,
+        question:       q.question || '',
+        options:        q.options   || [],
+        correct_option: q.options[correctIdx] || '',
+        student_option: studentAnsIdx !== undefined ? (q.options[studentAnsIdx] || '—') : '(উত্তর দেননি)',
+        is_correct:     isCorrect,
+        marks:          isCorrect ? (q.marks || 1) : 0,
+      };
+    });
+
+    const fullReport = {
+      name, id, subject,
+      exam_date:      todayISO,
+      taken_at:       new Date().toISOString(),
+      total_q:        total,
+      correct:        correct,
+      pct,
+      passed,
+      warnings,
+      answer_details: answerDetails,
+    };
+
+    // 1. Save locally
+    const results = JSON.parse(localStorage.getItem('wfa_results') || '[]');
+    results.push(fullReport);
+    localStorage.setItem('wfa_results', JSON.stringify(results));
+
+    // 2. Save detailed report to Supabase (exam_reports table if exists, else fallback to exams note)
+    const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
+    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+
+    // Try saving to exam_reports table (detailed)
+    fetch(`${SUPA_URL}/rest/v1/exam_reports`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPA_KEY,
+        'Authorization': 'Bearer ' + SUPA_KEY,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify({
+        student_name:   name,
+        student_id:     id,
+        subject:        subject || '',
+        exam_date:      todayISO,
+        total_questions: total,
+        correct_answers: correct,
+        score_pct:      pct,
+        passed:         passed,
+        warnings:       warnings,
+        answer_details: JSON.stringify(answerDetails),
+        taken_at:       new Date().toISOString(),
+      })
+    }).catch(() => {}); // silent fail if table not created yet
+
+    // 3. Sync to main exams table via SupabaseSync
+    WFA_IDB.onReady(() => {
+      const exams = SupabaseSync.getAll(DB.exams);
+      let reg = exams.find(e => e.student_id === id && (e.subject || '') === (subject || ''));
+
+      const gradeMap = (p) => {
+        if (p >= 90) return 'A+'; if (p >= 80) return 'A';
+        if (p >= 70) return 'A-'; if (p >= 60) return 'B+';
+        if (p >= 50) return 'B';  if (p >= 40) return 'C';
+        return 'F';
+      };
+      const gradeText  = passed ? gradeMap(pct) : 'F';
+      const statusText = passed ? 'Passed' : 'Failed';
+
+      if (reg) {
+        SupabaseSync.update(DB.exams, reg.id, {
+          marks:          pct,
+          grade:          gradeText,
+          status:         statusText,
+          subject:        subject || reg.subject || '',
+          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
+          answer_details: JSON.stringify(answerDetails),
+        });
+      } else {
+        SupabaseSync.insert(DB.exams, {
+          reg_id:         'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
+          student_id:     id,
+          student_name:   name,
+          subject:        subject || '',
+          exam_date:      todayISO,
+          marks:          pct,
+          grade:          gradeText,
+          status:         statusText,
+          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
+          answer_details: JSON.stringify(answerDetails),
+        });
+      }
+
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'exams',
+          `Online Exam: ${name} (${id}) — ${subject||'—'} | Grade: ${gradeText} | ${pct}% | ${statusText} | ${dateDMY}`
+        );
+      }
+    });
+
+  } catch(e) {
+    console.error('Result sync error:', e);
+  }
+}
+
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>

@@ -4,7 +4,8 @@
   "description": "Aviation Academy-র জন্য সম্পূর্ণ ম্যানেজমেন্ট সিস্টেম।",
   "main": "service-worker.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:mobile": "node build-www.js && npx cap sync"
   },
   "repository": {
     "type": "git",
@@ -17,5 +18,12 @@
   "bugs": {
     "url": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1/issues"
   },
-  "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme"
+  "homepage": "https://github.com/shakibapon1234-maker/Wings-Fly-Academy-1#readme",
+  "dependencies": {
+    "@capacitor/android": "^8.3.1",
+    "@capacitor/core": "^8.3.1"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.3.1"
+  }
 }
