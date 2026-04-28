@@ -1,0 +1,538 @@
+/* ============================================================
+   Wings Fly Academy — Mobile Responsive Styles
+   ============================================================
+   This stylesheet transforms the desktop-first layout into a 
+   proper mobile experience with:
+   - Bottom navigation bar (replacing sidebar)
+   - Touch-friendly sizing
+   - Stacked card layouts
+   - Performance optimizations (disable heavy animations)
+   ============================================================ */
+
+/* ══════════════════════════════════════════════════════════════
+   PERFORMANCE: Disable heavy animations on mobile
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  /* Kill background canvas animation — saves huge CPU/GPU */
+  #bg-canvas {
+    display: none !important;
+  }
+
+  /* Disable sidebar laser scan */
+  #sidebar::after {
+    animation: none !important;
+    opacity: 0 !important;
+  }
+
+  /* Disable animated borders */
+  .animated-border-box::before,
+  .animated-border-box::after {
+    animation: none !important;
+    display: none !important;
+  }
+
+  /* Disable doughnut glow ring spin */
+  .doughnut-glow-ring {
+    animation: none !important;
+  }
+
+  /* Reduce backdrop blur for performance */
+  * {
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* Disable theme background images on mobile for performance */
+  body[class*="theme-"] {
+    background-image: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TABLET BREAKPOINT (768px - 1024px)
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-w: 240px;
+    --topbar-h: 54px;
+  }
+
+  #sidebar {
+    transform: translateX(-100%);
+  }
+
+  #sidebar.open {
+    transform: translateX(0);
+  }
+
+  #main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   MOBILE BREAKPOINT (< 768px) — Full mobile layout
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+
+  /* ── Base adjustments ──────────────────────────────────────── */
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    background-color: var(--bg-base);
+    overflow-x: hidden;
+    /* Prevent rubber-band bounce on iOS */
+    overscroll-behavior: none;
+  }
+
+  /* ── Sidebar → Slide-out drawer ────────────────────────────── */
+  #sidebar {
+    width: 280px;
+    min-width: 280px;
+    transform: translateX(-100%);
+    z-index: 1000;
+    box-shadow: none;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  #sidebar.open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.6);
+  }
+
+  /* Overlay when sidebar is open */
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+  }
+
+  .sidebar-overlay.active {
+    display: block;
+  }
+
+  /* ── Main Content → Full width ─────────────────────────────── */
+  #main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+    min-height: 100vh;
+    padding-bottom: 70px; /* Space for bottom nav */
+  }
+
+  /* Content padding */
+  #main-content > div[style*="padding"] {
+    padding: 12px !important;
+  }
+
+  /* ── Topbar → Mobile-friendly ──────────────────────────────── */
+  #topbar {
+    padding: 8px 12px !important;
+    height: auto !important;
+    min-height: 50px;
+    gap: 8px;
+    flex-wrap: wrap;
+    position: sticky;
+    top: 0;
+    z-index: 500;
+  }
+
+  /* Hamburger button - always visible */
+  #btn-hamburger {
+    display: flex !important;
+    font-size: 1.2rem;
+    padding: 8px;
+    min-width: 40px;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Page title - smaller */
+  #page-title {
+    font-size: 1rem !important;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Search bar - hide on mobile topbar, show in content */
+  .topbar-search {
+    display: none !important;
+  }
+
+  /* Sync indicator - hide */
+  .topbar-synced {
+    display: none !important;
+  }
+
+  /* Topbar actions - compact */
+  .topbar-actions {
+    gap: 4px !important;
+  }
+
+  .topbar-actions .btn {
+    padding: 6px 10px !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Add button - icon only on mobile */
+  #btn-quick-add span.bn {
+    display: none !important;
+  }
+
+  /* Logout button text - hide */
+  #btn-logout > div:last-child {
+    display: none !important;
+  }
+
+  /* Quick add menu - full width */
+  #quick-add-menu {
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+  }
+
+  /* ── Page Headers ──────────────────────────────────────────── */
+  .page-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+    padding: 12px 0 !important;
+  }
+
+  .page-header h2 {
+    font-size: 1.15rem !important;
+  }
+
+  .page-header .toolbar {
+    width: 100% !important;
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  .page-header .toolbar .btn {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+    font-size: 0.78rem !important;
+    padding: 8px 10px !important;
+  }
+
+  /* ── Cards & Stats → Stack vertically ──────────────────────── */
+  .stat-grid,
+  .stats-row,
+  .dashboard-stats,
+  [style*="grid-template-columns: repeat(4"],
+  [style*="grid-template-columns: repeat(3"],
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns:repeat(3"] {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .stat-card,
+  .card,
+  .settings-card {
+    padding: 12px !important;
+  }
+
+  .stat-card .stat-value,
+  .stat-value {
+    font-size: 1.3rem !important;
+  }
+
+  .stat-card .stat-label,
+  .stat-label {
+    font-size: 0.7rem !important;
+  }
+
+  /* ── Tables → Horizontally scrollable ──────────────────────── */
+  .table-wrapper,
+  .table-container {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    border-radius: var(--radius-sm);
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+
+  table {
+    min-width: 600px;
+    font-size: 0.78rem !important;
+  }
+
+  table th,
+  table td {
+    padding: 8px 10px !important;
+    white-space: nowrap;
+  }
+
+  /* ── Forms → Full width ────────────────────────────────────── */
+  .form-grid,
+  .form-row,
+  [style*="grid-template-columns: 1fr 1fr"],
+  [style*="grid-template-columns:1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  input, select, textarea {
+    font-size: 16px !important; /* Prevents iOS zoom on focus */
+    padding: 10px 12px !important;
+  }
+
+  /* ── Modal → Nearly full screen ────────────────────────────── */
+  .modal-backdrop .modal-box {
+    width: 95% !important;
+    max-width: none !important;
+    max-height: 90vh !important;
+    margin: 5vh auto !important;
+    border-radius: var(--radius) !important;
+  }
+
+  .modal-body {
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* ── Charts → Responsive ───────────────────────────────────── */
+  canvas:not(#bg-canvas) {
+    max-height: 250px !important;
+  }
+
+  .chart-container,
+  [style*="height:350px"],
+  [style*="height: 350px"] {
+    height: 250px !important;
+  }
+
+  /* ── Sidebar footer ────────────────────────────────────────── */
+  .sidebar-footer {
+    padding: 12px 16px !important;
+  }
+
+  .sidebar-helpline {
+    padding: 8px 16px !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* ── Login Screen → Mobile friendly ────────────────────────── */
+  .login-box {
+    width: 92% !important;
+    max-width: 400px !important;
+    padding: 24px 20px !important;
+    margin: auto !important;
+  }
+
+  .login-title {
+    font-size: 1.4rem !important;
+  }
+
+  .login-input {
+    font-size: 16px !important; /* Prevents iOS zoom */
+    padding: 12px !important;
+  }
+
+  .login-btn {
+    padding: 14px !important;
+    font-size: 0.95rem !important;
+  }
+
+  /* ── Bottom Navigation Bar ─────────────────────────────────── */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: rgba(7, 9, 28, 0.97);
+    border-top: 1px solid rgba(0, 217, 255, 0.18);
+    z-index: 900;
+    justify-content: space-around;
+    align-items: center;
+    padding: 4px 0;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  }
+
+  .mobile-bottom-nav .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 8px;
+    border: none;
+    background: none;
+    color: var(--text-muted);
+    font-size: 0.62rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: color 0.2s;
+    min-width: 52px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .mobile-bottom-nav .bottom-nav-item i {
+    font-size: 1.1rem;
+    margin-bottom: 1px;
+  }
+
+  .mobile-bottom-nav .bottom-nav-item.active {
+    color: var(--brand-primary);
+  }
+
+  .mobile-bottom-nav .bottom-nav-item.active i {
+    filter: drop-shadow(0 0 6px var(--brand-primary));
+  }
+
+  /* ── Notification badge on bottom nav ─────────────────────── */
+  .bottom-nav-item .nav-badge {
+    position: absolute;
+    top: 0;
+    right: 8px;
+    background: var(--error);
+    color: #fff;
+    font-size: 0.55rem;
+    padding: 1px 4px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+
+  /* ── More menu in bottom nav ──────────────────────────────── */
+  .bottom-nav-more-menu {
+    display: none;
+    position: fixed;
+    bottom: 64px;
+    left: 8px;
+    right: 8px;
+    background: rgba(15, 18, 40, 0.98);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6);
+    z-index: 950;
+    padding: 12px;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  .bottom-nav-more-menu.open {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .bottom-nav-more-menu .more-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 8px;
+    border: none;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text-secondary);
+    border-radius: var(--radius-sm);
+    font-size: 0.7rem;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .more-item i {
+    font-size: 1.2rem;
+    color: var(--brand-primary);
+  }
+
+  .more-item:active {
+    background: rgba(0, 217, 255, 0.15);
+    color: #fff;
+  }
+
+  /* ── ID Cards — single column on mobile ───────────────────── */
+  .id-card-preview {
+    transform: scale(0.75) !important;
+    transform-origin: top center !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SMALL PHONE BREAKPOINT (< 400px) 
+   ══════════════════════════════════════════════════════════════ */
+@media (max-width: 400px) {
+  html {
+    font-size: 13px;
+  }
+
+  .stat-grid,
+  .stats-row,
+  .dashboard-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bottom-nav-more-menu.open {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .login-box {
+    width: 96% !important;
+    padding: 20px 16px !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DESKTOP: Hide mobile-only elements
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 769px) {
+  .mobile-bottom-nav,
+  .sidebar-overlay,
+  .bottom-nav-more-menu {
+    display: none !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TOUCH-FRIENDLY: Larger tap targets
+   ══════════════════════════════════════════════════════════════ */
+@media (pointer: coarse) {
+  .btn, button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .nav-item {
+    min-height: 48px;
+    padding: 12px 16px !important;
+  }
+
+  /* Scrollbar thin on touch */
+  ::-webkit-scrollbar {
+    width: 3px;
+    height: 3px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(0, 217, 255, 0.3);
+    border-radius: 4px;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SAFE AREA INSETS (Notch, gesture bar, Samsung Z Fold)
+   ══════════════════════════════════════════════════════════════ */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-bottom-nav {
+    padding-bottom: calc(4px + env(safe-area-inset-bottom));
+    height: calc(60px + env(safe-area-inset-bottom));
+  }
+
+  #main-content {
+    padding-bottom: calc(70px + env(safe-area-inset-bottom));
+  }
+}

@@ -70,6 +70,7 @@
   <link rel="stylesheet" href="css/cert-v2.css" />
   <link rel="stylesheet" href="css/print.css" media="print" />
   <link rel="stylesheet" href="css/ai-assistant.css" />
+  <link rel="stylesheet" href="css/mobile.css" />
 
   <!-- Flatpickr — DD/MM/YYYY date picker (Req 4) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" />
@@ -395,6 +396,67 @@
 
       </div><!-- /padding wrapper -->
     </div><!-- /main-content -->
+
+    <!-- Mobile: Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+    <!-- Mobile: Bottom Navigation Bar -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+      <button class="bottom-nav-item active" data-section="dashboard">
+        <i class="fa fa-gauge-high"></i>
+        <span>Home</span>
+      </button>
+      <button class="bottom-nav-item" data-section="students">
+        <i class="fa fa-user-graduate"></i>
+        <span>Students</span>
+      </button>
+      <button class="bottom-nav-item" data-section="finance">
+        <i class="fa fa-book-open"></i>
+        <span>Finance</span>
+      </button>
+      <button class="bottom-nav-item" data-section="attendance">
+        <i class="fa fa-calendar-check"></i>
+        <span>Attendance</span>
+      </button>
+      <button class="bottom-nav-item" id="bottom-nav-more-btn">
+        <i class="fa fa-ellipsis"></i>
+        <span>More</span>
+      </button>
+    </nav>
+
+    <!-- Mobile: More Menu (slides up from bottom nav) -->
+    <div class="bottom-nav-more-menu" id="bottom-nav-more-menu">
+      <button class="more-item" data-section="accounts">
+        <i class="fa fa-wallet"></i><span>Accounts</span>
+      </button>
+      <button class="more-item" data-section="loans">
+        <i class="fa fa-hand-holding-dollar"></i><span>Loans</span>
+      </button>
+      <button class="more-item" data-section="visitors">
+        <i class="fa fa-person-walking-arrow-right"></i><span>Visitors</span>
+      </button>
+      <button class="more-item" data-section="hr-staff">
+        <i class="fa fa-users"></i><span>HR/Staff</span>
+      </button>
+      <button class="more-item" data-section="exam">
+        <i class="fa fa-clipboard-list"></i><span>Exams</span>
+      </button>
+      <button class="more-item" data-section="salary">
+        <i class="fa fa-sack-dollar"></i><span>Salary</span>
+      </button>
+      <button class="more-item" data-section="id-cards">
+        <i class="fa fa-id-card"></i><span>ID Cards</span>
+      </button>
+      <button class="more-item" data-section="certificates">
+        <i class="fa fa-certificate"></i><span>Certificates</span>
+      </button>
+      <button class="more-item" data-section="notice-board">
+        <i class="fa fa-bullhorn"></i><span>Notice</span>
+      </button>
+      <button class="more-item" data-section="settings">
+        <i class="fa fa-gear"></i><span>Settings</span>
+      </button>
+    </div>
   </div><!-- /app-wrapper -->
 
   <!-- ════════════════════════════════════════
@@ -475,6 +537,7 @@
 
   <!-- PWA + Background Animation + Inline Handlers (external — CSP compliant) -->
   <script src="js/core/inline-handlers.js"></script>
+  <script src="js/core/mobile-nav.js"></script>
 
 
 

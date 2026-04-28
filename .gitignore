@@ -27,9 +27,23 @@ desktop.ini
 *.suo
 *.user
 
-# Build output (if any in future)
+# Build output
 dist/
 build/
+www/
+
+# Android Studio IDE (full installation — never commit)
+android studio/
+
+# Android build outputs
+android/app/build/
+android/build/
+android/capacitor-cordova-android-plugins/build/
+android/.gradle/
+*.apk
+*.aab
+*.keystore
+local.properties
 
 # Logs
 *.log
@@ -37,3 +51,7 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Large backup files
+*.json.bak
+WingsFly_Full_Backup_*.json

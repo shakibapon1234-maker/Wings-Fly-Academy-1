@@ -544,7 +544,7 @@ const App = (() => {
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
-        case 'students':      if (typeof Students !== 'undefined')           { Students.resetFilters(); Students.render(); } break;
+        case 'students':      if (typeof Students !== 'undefined')           Students.resetFilters(); break;
         case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
         case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
         case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;
@@ -664,19 +664,24 @@ const App = (() => {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) sidebar.classList.toggle('open');
     // ✅ Fix #5: show/hide overlay for mobile sidebar dismiss
-    let overlay = document.getElementById('sidebar-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'sidebar-overlay';
-      overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:149;background:rgba(0,0,0,0.5);backdrop-filter:blur(2px)';
-      overlay.addEventListener('click', () => {
-        sidebar && sidebar.classList.remove('open');
-        overlay.style.display = 'none';
-      });
-      document.body.appendChild(overlay);
+    // Uses the HTML overlay element styled by mobile.css
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) {
+      const isOpen = sidebar && sidebar.classList.contains('open');
+      if (isOpen) {
+        overlay.classList.add('active');
+      } else {
+        overlay.classList.remove('active');
+      }
+      // Clicking overlay closes sidebar
+      if (!overlay._clickBound) {
+        overlay._clickBound = true;
+        overlay.addEventListener('click', () => {
+          sidebar && sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+        });
+      }
     }
-    const isOpen = sidebar && sidebar.classList.contains('open');
-    overlay.style.display = isOpen ? 'block' : 'none';
   }
 
   // ── Event Bindings ────────────────────────────────────────
