@@ -173,38 +173,64 @@ const AutoUpdateModule = (() => {
     }, 8000);
   }
 
-  // ── Apply update by clearing cache and reloading ──
+  // ── Apply update by properly downloading and installing ──
   async function applyUpdate() {
     try {
       if (typeof Utils !== 'undefined') {
-        Utils.toast('আপডেট ডাউনলোড হচ্ছে...', 'info', 3000);
+        Utils.toast('আপডেট প্রস্তুত করছি...', 'info', 5000);
       }
 
       // Remove update prompt
       const prompt = document.getElementById('auto-update-prompt');
       if (prompt) prompt.remove();
 
-      // Clear all caches to force reload latest version
+      // Step 1: Clear all service worker caches to ensure fresh download
       if ('caches' in window) {
-        const cacheNames = await caches.keys();
-        await Promise.all(
-          cacheNames.map(cacheName => caches.delete(cacheName))
-        );
-        console.log('[AutoUpdate] Caches cleared');
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => caches.delete(cacheName))
+          );
+          console.log('[AutoUpdate] Service worker caches cleared');
+        } catch(e) { console.warn('[AutoUpdate] Cache clear failed:', e); }
       }
 
-      // Clear service worker cache
-      localStorage.removeItem('wfa_app_version');
+      // Step 2: Clear offline data cache to force re-download
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({
+            type: 'SKIP_WAITING',
+            action: 'clearCache'
+          });
+        }
+      } catch(e) { console.warn('[AutoUpdate] Service worker message failed:', e); }
 
-      // Force reload without cache
+      // Step 3: Remove local version marker
+      localStorage.removeItem('wfa_app_version');
+      localStorage.removeItem('wfa_last_update_check');
+      localStorage.setItem('wfa_update_in_progress', 'true');
+
+      // Step 4: For Android APK - initiate download if available
+      if (typeof cordova !== 'undefined' && cordova.plugins && cordova.plugins.AppUpdate) {
+        try {
+          cordova.plugins.AppUpdate.startUpdate();
+          console.log('[AutoUpdate] Android update initiated via Cordova');
+          return; // Don't reload for Android
+        } catch(e) { console.warn('[AutoUpdate] Cordova update failed:', e); }
+      }
+
+      // Step 5: Force full page reload after delay (for web/PWA)
+      // This ensures service worker gets fresh version and index.html
       setTimeout(() => {
-        location.reload(true);
-      }, 500);
+        // Use hard reload to bypass cache
+        window.location.href = window.location.href.split('?')[0] + '?force-update=' + Date.now();
+      }, 800);
 
     } catch (error) {
       console.error('[AutoUpdate] Failed to apply update:', error);
+      localStorage.removeItem('wfa_update_in_progress');
       if (typeof Utils !== 'undefined') {
-        Utils.toast('আপডেট ব্যর্থ হয়েছে। পরে চেষ্টা করুন।', 'error');
+        Utils.toast('আপডেট প্রস্তুত ব্যর্থ। পরে চেষ্টা করুন।', 'error');
       }
     }
   }

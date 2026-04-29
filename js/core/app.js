@@ -2,6 +2,57 @@
 // Wings Fly Aviation Academy — Main App (Tab Switching & Init)
 // ============================================================
 
+// ✅ ADDED: Global error handler — convert Chinese warnings to Bengali
+(function() {
+  const chineseTobengali = {
+    // Browser/Supabase errors
+    '已取消': 'বাতিল করা হয়েছে',
+    '存储': 'স্টোরেজ',
+    '配额': 'কোটা',
+    '超出': 'অতিক্রম করেছে',
+    '网络': 'নেটওয়ার্ক',
+    '连接': 'সংযোগ',
+    '失败': 'ব্যর্থ',
+    '错误': 'ত্রুটি',
+    '警告': 'সতর্কতা',
+    '数据': 'ডেটা',
+    '同步': 'সিঙ্ক',
+    '加载': 'লোডিং',
+  };
+
+  const isChinese = (text) => /[\u4E00-\u9FFF]/.test(text);
+  
+  const translateChinese = (text) => {
+    if (!text || typeof text !== 'string') return text;
+    let result = text;
+    for (const [cn, bn] of Object.entries(chineseTobengali)) {
+      result = result.replace(new RegExp(cn, 'g'), bn);
+    }
+    return result;
+  };
+
+  // Intercept window errors
+  window.addEventListener('error', (event) => {
+    if (event.message && isChinese(event.message)) {
+      event.message = translateChinese(event.message);
+      console.warn('[Translation] Chinese error → Bengali:', event.message);
+    }
+  });
+
+  // Intercept unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = String(event.reason);
+    if (isChinese(reason)) {
+      const translated = translateChinese(reason);
+      console.warn('[Translation] Chinese rejection → Bengali:', translated);
+      // Show as Bengali toast if Utils available
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(translated, 'warning', 5000);
+      }
+    }
+  });
+})();
+
 const App = (() => {
 
   const SECTIONS = [

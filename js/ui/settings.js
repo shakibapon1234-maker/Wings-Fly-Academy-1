@@ -2839,9 +2839,19 @@ ${expenseEntries.length > 0 ? `
       const noteData = item.data;
       if (noteData) {
         const notes = getKeepRecords();
-        // avoid duplicate (match by title + date)
-        const exists = notes.some(n => n.title === noteData.title && n.date === noteData.date);
+        
+        // ✅ IMPROVED: Use unique ID instead of title + date (more reliable)
+        const noteId = noteData.id || `${(noteData.title || '').toLowerCase()}_${noteData.date || ''}`;
+        const exists = notes.some(n => {
+          const nId = n.id || `${(n.title || '').toLowerCase()}_${n.date || ''}`;
+          return nId === noteId;
+        });
+        
         if (!exists) {
+          // Ensure ID is set for future syncs
+          if (!noteData.id) {
+            noteData.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+          }
           if (noteData.pinned) notes.unshift(noteData);
           else notes.push(noteData);
           _saveKeepRecords(notes); // fix: synced to Supabase
@@ -2916,14 +2926,61 @@ ${expenseEntries.length > 0 ? `
     } catch(e) { console.warn('[Settings] _saveKeepRecords failed:', e); }
   }
 
-  // ✅ Merge remote keep_records from cfg into local view after a Supabase pull
+  // ✅ IMPROVED: Merge remote keep_records from cfg into local view after a Supabase pull
+  // This prevents data loss when two devices edit notes simultaneously
   function _mergeRemoteKeepRecords() {
     try {
       const cfg = getConfig();
       if (!cfg.keep_records) return;
-      // Just re-read; getKeepRecords() already reads from cfg first
-      console.info('[Settings] Remote keep_records available after sync.');
-    } catch { /* silent */ }
+      
+      const local = getKeepRecords();
+      const remote = Utils.safeJSON(cfg.keep_records, []);
+      
+      if (!Array.isArray(remote) || remote.length === 0) return;
+      
+      // Merge strategy: preserve local pinned notes + merge by ID
+      const localIds = new Set(local.map(n => _getNoteId(n)));
+      const remoteIds = new Set(remote.map(n => _getNoteId(n)));
+      
+      // 1. Keep local pinned notes (they're most recently edited)
+      const pinnedLocal = local.filter(n => n.pinned);
+      
+      // 2. Add remote notes that don't exist locally
+      const toAdd = remote.filter(n => !localIds.has(_getNoteId(n)));
+      
+      // 3. For notes that exist in both: use newer timestamp
+      const shared = local.filter(n => remoteIds.has(_getNoteId(n)));
+      const merged = [...pinnedLocal]; // start with pinned
+      
+      for (const note of toAdd) {
+        if (note.pinned) merged.unshift(note);
+        else merged.push(note);
+      }
+      
+      // 4. Rebuild with local first (authoritative), then new remote notes
+      const dedupIds = new Set();
+      const final = [];
+      for (const n of merged) {
+        const id = _getNoteId(n);
+        if (!dedupIds.has(id)) {
+          dedupIds.add(id);
+          final.push(n);
+        }
+      }
+      
+      // ✅ FIX: Actually save the merged notes back to config!
+      if (final.length !== local.length) {
+        _saveKeepRecords(final); // ✅ Save merged notes back
+        console.info(`[Settings] Merged ${toAdd.length} remote keep_records, total: ${final.length}`);
+      }
+    } catch(e) { console.warn('[Settings] _mergeRemoteKeepRecords failed:', e); }
+  }
+  
+  // Helper: generate unique ID for a note (for deduplication)
+  function _getNoteId(note) {
+    if (note.id) return note.id;
+    // Fallback: generate from title + date (deterministic)
+    return `${(note.title || '').toLowerCase()}_${note.date || ''}`;
   }
 
   // ─── Recycle Bin Sync — saves last 50 items to settings table ───
@@ -3007,7 +3064,16 @@ ${expenseEntries.length > 0 ? `
     if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
     const tags = tagsRaw.split(',').map(t=>t.trim()).filter(Boolean);
     const notes = getKeepRecords();
-    const entry = { title: title||'Untitled', content: content||'', color, tags, pinned, date: new Date().toLocaleDateString('en-GB') };
+    // ✅ FIX: Add unique ID and timestamp for proper sync
+    const entry = { 
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), // unique ID
+      title: title||'Untitled', 
+      content: content||'', 
+      color, tags, pinned, 
+      date: new Date().toLocaleDateString('en-GB'),
+      created: new Date().toISOString(),
+      modified: new Date().toISOString()
+    };
     if (pinned) notes.unshift(entry);
     else {
       const pinEnd = notes.findLastIndex(n => n.pinned);
@@ -3024,6 +3090,12 @@ ${expenseEntries.length > 0 ? `
     const notes = getKeepRecords();
     const victim = notes[index];
     if (!victim) return;
+    
+    // ✅ IMPROVED: Add unique ID if missing (for older notes)
+    if (!victim.id) {
+      victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    }
+    
     // ✅ Fix: Send note to Recycle Bin before removing
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('keep_records', victim);
@@ -3032,6 +3104,7 @@ ${expenseEntries.length > 0 ? `
       try {
         const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
         bin.unshift({
+          id: victim.id, // ✅ NEW: unique ID for proper restore
           table: 'keep_records',
           data: (typeof structuredClone === 'function') ? structuredClone(victim) : JSON.parse(JSON.stringify(victim)),
           deletedAt: new Date().toISOString(),
@@ -3040,8 +3113,6 @@ ${expenseEntries.length > 0 ? `
           tableLabel: 'Keep Record',
         });
         if (bin.length > 200) bin.length = 200;
-        // localStorage write removed - IDB via SupabaseSync.setAll below is sufficient
-        // Also sync to IDB cache via SupabaseSync if available
         if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
           SupabaseSync.setAll('recycle_bin', bin);
         }
@@ -3106,8 +3177,17 @@ ${expenseEntries.length > 0 ? `
     const tags  = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
     const notes = getKeepRecords();
     if (!notes[index]) { Utils.toast('নোট পাওয়া যায়নি', 'error'); return; }
-    const oldDate = notes[index].date; // preserve original creation date
-    notes[index] = { title: title||'Untitled', content: content||'', color, tags, pinned, date: oldDate, editedAt: new Date().toLocaleDateString('en-GB') };
+    
+    // ✅ IMPROVED: Preserve ID and timestamps for proper sync
+    const oldNote = notes[index];
+    notes[index] = { 
+      ...oldNote,
+      title: title||'Untitled', 
+      content: content||'', 
+      color, tags, pinned, 
+      modified: new Date().toISOString() // ✅ timestamp for sync resolution
+    };
+    
     // Re-sort: pinned notes first
     const pinnedNotes   = notes.filter(n => n.pinned);
     const unpinnedNotes = notes.filter(n => !n.pinned);

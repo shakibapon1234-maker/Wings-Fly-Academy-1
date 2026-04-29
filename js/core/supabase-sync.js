@@ -1007,35 +1007,104 @@ const SupabaseSync = (() => {
 
   function _queueRetry(table, record) {
     try {
-      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
-      queue.push({ table, record, at: Date.now() });
-      localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
-    } catch { /* ignore */ }
+      // ✅ FIX: Use IndexedDB (persistent) instead of localStorage (5MB limit)
+      // Queue records separately for better reliability
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
+        const queue = SupabaseSync.getAll('retry_queue') || [];
+        queue.push({ 
+          table, 
+          record, 
+          at: Date.now(),
+          attempts: 0,
+          lastError: null
+        });
+        // Keep only last 100 retry items to avoid bloating IDB
+        if (queue.length > 100) {
+          queue.splice(0, queue.length - 100);
+        }
+        SupabaseSync.setAll('retry_queue', queue);
+        console.log(`[Sync] Queued ${table} record for retry. Queue size: ${queue.length}`);
+      } else {
+        // Fallback to localStorage only if IDB unavailable
+        const queue = (() => { 
+          try { 
+            return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; 
+          } catch { 
+            return []; 
+          } 
+        })();
+        queue.push({ table, record, at: Date.now() });
+        localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
+        console.warn('[Sync] Queued to localStorage (IDB unavailable)');
+      }
+    } catch (e) { 
+      console.warn('[Sync] Failed to queue retry:', e);
+    }
   }
 
   async function processRetryQueue() {
     try {
-      const queue = (() => { try { return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; } catch { return []; } })();
+      // ✅ FIX: Read from IndexedDB (persistent) first, fallback to localStorage
+      let queue = [];
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
+        queue = SupabaseSync.getAll('retry_queue') || [];
+      }
+      // Fallback to localStorage if IDB empty
+      if (!queue || queue.length === 0) {
+        queue = (() => { 
+          try { 
+            return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; 
+          } catch { 
+            return []; 
+          } 
+        })();
+      }
+      
       if (!queue.length) return;
+      
       const { client } = window.SUPABASE_CONFIG;
       const remaining = [];
+      let successCount = 0;
+      
       for (const item of queue) {
         try {
+          // Track retry attempts
+          item.attempts = (item.attempts || 0) + 1;
+          
           if (item.record && item.record._deleteOnly === true) {
             const { error } = await client.from(item.table).delete().eq('id', item.record.id);
             if (error) throw error;
+            successCount++;
           } else {
             const clean = _sanitizeRecord(item.record, item.table);
             const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
             if (error) throw error;
+            successCount++;
           }
-        } catch { remaining.push(item); }
+        } catch (e) { 
+          // Keep failed items for next retry (max 5 attempts)
+          if ((item.attempts || 0) < 5) {
+            item.lastError = e.message;
+            remaining.push(item);
+          } else {
+            console.warn(`[Sync] Retry limit exceeded for ${item.table}:`, e);
+          }
+        }
       }
-      localStorage.setItem('wfa_retry_queue', JSON.stringify(remaining));
-      if (remaining.length === 0 && queue.length > 0) {
-        console.log('[Sync] Retry queue cleared');
+      
+      // Save remaining back to IDB
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
+        SupabaseSync.setAll('retry_queue', remaining);
+      } else {
+        localStorage.setItem('wfa_retry_queue', JSON.stringify(remaining));
       }
-    } catch { /* ignore */ }
+      
+      if (successCount > 0) {
+        console.log(`[Sync] Retry queue processed: ${successCount} succeeded, ${remaining.length} remaining`);
+      }
+    } catch (e) { 
+      console.warn('[Sync] processRetryQueue failed:', e);
+    }
   }
 
   const _balanceLocks = {};
@@ -1443,10 +1512,19 @@ const SyncEngine = (() => {
 
     const localMap = new Map(localRows.map(r => [r.id, r]));
 
-    deletedIds.forEach(id => localMap.delete(id));
+    // ✅ FIX: Use Set for O(1) lookup instead of array includes() which is O(n)
+    const deletedIdSet = new Set(deletedIds || []);
+    
+    deletedIdSet.forEach(id => localMap.delete(id));
 
     for (const cloudRow of changedCloudRows) {
-      if (deletedIds.includes(cloudRow.id)) continue;
+      // ✅ CRITICAL FIX: If record is deleted, don't apply cloud updates
+      if (deletedIdSet.has(cloudRow.id)) {
+        // Record is deleted - ensure it stays deleted
+        localMap.delete(cloudRow.id);
+        console.warn(`[Sync] Record ${cloudRow.id} is marked deleted - rejecting cloud update`);
+        continue;
+      }
 
       const localRow = localMap.get(cloudRow.id);
       if (!localRow) {
