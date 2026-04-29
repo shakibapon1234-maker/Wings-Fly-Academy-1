@@ -187,6 +187,8 @@ const Attendance = (() => {
         </div>
       </div>
     `;
+    // ✅ লজিক ৪ FIX: renderModal শেষে DD/MM/YYYY Flatpickr apply করো
+    _applyAttFlatpickr();
   }
 
   /* ═══════════════════════════════════════════
@@ -484,6 +486,26 @@ const Attendance = (() => {
   function refreshSheet() {
     const content = document.getElementById('att-tab-content');
     if (content) content.innerHTML = renderTabContent();
+    // ✅ লজিক ৪ FIX: DD/MM/YYYY Flatpickr apply করো সব date inputs-এ
+    _applyAttFlatpickr();
+  }
+
+  // ✅ লজিক ৪: Attendance modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY)
+  // att-date-sel (Mark tab), att-course-from/to (Course tab), att-blank-startdate (Blank tab)
+  function _applyAttFlatpickr() {
+    if (typeof flatpickr === 'undefined') return;
+    const ids = ['att-date-sel', 'att-course-from', 'att-course-to', 'att-blank-startdate'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el._flatpickr) return; // already initialized
+      flatpickr(el, {
+        dateFormat:    'Y-m-d',   // stored value: YYYY-MM-DD (filter logic অক্ষুণ্ণ)
+        altInput:      true,
+        altFormat:     'd/m/Y',   // displayed as DD/MM/YYYY
+        allowInput:    true,
+        disableMobile: false,
+      });
+    });
   }
 
   function setStatus(btn, status) {

@@ -3216,6 +3216,22 @@ ${expenseEntries.length > 0 ? `
       </div>`;
     wrap.addEventListener('click', e => { if (e.target === wrap) closeSettingsInternalModal(); });
     document.body.appendChild(wrap);
+    // ✅ লজিক ৪ FIX: inner modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY) apply করো
+    // adv-date, ret-adv-date, inv-date, ret-inv-date সহ যেকোনো ভবিষ্যৎ date input
+    setTimeout(() => {
+      if (typeof flatpickr === 'undefined') return;
+      wrap.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
+        if (!el._flatpickr) {
+          flatpickr(el, {
+            dateFormat:  'Y-m-d',   // stored value: YYYY-MM-DD
+            altInput:    true,
+            altFormat:   'd/m/Y',   // user sees DD/MM/YYYY
+            allowInput:  true,
+            locale:      { firstDayOfWeek: 1 },
+          });
+        }
+      });
+    }, 10);
   }
 
   function closeSettingsInternalModal() {
