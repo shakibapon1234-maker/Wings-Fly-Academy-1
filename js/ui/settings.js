@@ -3501,7 +3501,7 @@ ${expenseEntries.length > 0 ? `
     investments.push({ source, amount, method, date, note, returns: [] });
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
-      type: 'Income', method, category: 'Investment Receiving',
+      type: 'Investment In', method, category: 'Investment Receiving',
       description: `Investment from ${source}`, amount, date, note
     });
     closeSettingsInternalModal();
@@ -3576,7 +3576,7 @@ ${expenseEntries.length > 0 ? `
     investments[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
-      type: 'Expense', method: retMethod, category: 'Investment Return',
+      type: 'Investment Out', method: retMethod, category: 'Investment Return',
       description: `Investment return to ${inv.source}`, amount: retAmount, date: retDate, note: retNote
     });
     closeSettingsInternalModal();

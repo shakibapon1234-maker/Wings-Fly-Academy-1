@@ -807,25 +807,58 @@ const SupabaseSync = (() => {
               const students = getAll('students');
               const sIdx = students.findIndex(s => s.id === r.ref_id);
               if (sIdx !== -1) {
-                const s = students[sIdx];
-                const newPaid = (parseFloat(s.paid) || 0) + amount;
-                const newDue  = Math.max(0, (parseFloat(s.total_fee) || 0) - newPaid);
-                students[sIdx] = { ...s, paid: newPaid, due: newDue, updated_at: new Date().toISOString() };
+                // RECALCULATE from ALL finance entries for this student to ensure accuracy
+                const allFinance = getAll('finance_ledger');
+                const studentPayments = allFinance.filter(f => 
+                  f.ref_id === r.ref_id && 
+                  f.category === 'Student Fee' &&
+                  !f._isLoan
+                );
+                const totalPaid = studentPayments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+                const totalFee = parseFloat(students[sIdx].total_fee) || 0;
+                students[sIdx] = { 
+                  ...students[sIdx], 
+                  paid: totalPaid, 
+                  due: Math.max(0, totalFee - totalPaid), 
+                  updated_at: new Date().toISOString() 
+                };
                 setAll('students', students);
                 await _pushRecord('students', students[sIdx]);
               }
             }
           }
-        } else if (table === 'loans') {
+         } else if (table === 'loans') {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
           updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
 
-          if (r._linkedFinanceId) {
+          // Find linked finance entry by matching fields (same as delete logic)
+          const financeEntries = getAll('finance_ledger').filter(f =>
+            f._isLoan === true &&
+            (f.person_name === (r.person_name || r.person)) &&
+            f.type === r.type &&
+            f.amount == r.amount &&
+            f.date === r.date
+          );
+          const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
+          
+          if (linkedFinanceId) {
+            // Already exists in finance ledger, nothing to do
+          } else {
+            // Check recycle bin for the linked finance entry
             const allBin = getAll('recycle_bin');
-            const linkedIdx = allBin.findIndex(b => b?.data?.id === r._linkedFinanceId);
-            if (linkedIdx !== -1) {
+            const linkedInBin = allBin.find(b => 
+              b?.table === 'finance_ledger' &&
+              b?.data?._isLoan === true &&
+              (b.data.person_name === r.person_name || b.data.person_name === r.person) &&
+              b.data.type === r.type &&
+              b.data.amount == r.amount &&
+              b.data.date === r.date
+            );
+            
+            if (linkedInBin) {
+              // Restore the linked finance entry
               const linkedRecord = {
-                ...allBin[linkedIdx].data,
+                ...linkedInBin.data,
                 updated_at: new Date().toISOString(),
                 _device: _deviceId(),
               };
@@ -836,8 +869,12 @@ const SupabaseSync = (() => {
               setAll('finance_ledger', finRows);
               untrackDeletion('finance_ledger', linkedRecord.id);
               await _pushRecord('finance_ledger', linkedRecord);
-              allBin.splice(linkedIdx, 1);
-              setAll('recycle_bin', allBin);
+              
+              // Remove from recycle bin
+              const freshBin = getAll('recycle_bin');
+              const realIdx = freshBin.findIndex(x => x?.data?.id === linkedRecord.id);
+              if (realIdx !== -1) freshBin.splice(realIdx, 1);
+              setAll('recycle_bin', freshBin);
             }
           }
         }
@@ -863,9 +900,10 @@ const SupabaseSync = (() => {
           setAll('finance_ledger', finRows);
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
-          if (fr.method && parseFloat(fr.amount) > 0) {
-            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in', true); // restore: force=true
-          }
+           if (fr.method && parseFloat(fr.amount) > 0) {
+             const dir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
+             updateAccountBalance(fr.method, parseFloat(fr.amount), dir, true); // restore: force=true
+           }
           const freshBin = getAll('recycle_bin');
           const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
           if (realIdx !== -1) freshBin.splice(realIdx, 1);

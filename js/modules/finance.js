@@ -44,13 +44,13 @@ const Finance = (() => {
     const net      = income - expense;
 
     /* Running balance */
-    let running = 0;
-    const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
-      const amt = Utils.safeNum(f.amount);
-      if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In') running+=amt;
-      else running-=amt;
-      return {...f, _running: running};
-    }).reverse();
+     let running = 0;
+     const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
+       const amt = Utils.safeNum(f.amount);
+       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment Out') running+=amt;
+       else running-=amt;
+       return {...f, _running: running};
+     }).reverse();
 
     container.innerHTML = `
       <!-- Summary -->
