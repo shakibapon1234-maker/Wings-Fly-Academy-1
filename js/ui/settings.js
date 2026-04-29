@@ -4902,22 +4902,22 @@ ${expenseEntries.length > 0 ? `
     const subs = getSubAccounts();
     const target = subs[idx];
     if (target) {
-      // ✅ Req 2: push to recycle bin before deleting so it can be restored
-      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
-      bin.unshift({
-        table: 'settings_subaccount',
-        type:  'subaccount',
-        name:  `@${target.username}`,
-        data:  target,
-        deletedAt: new Date().toISOString(),
-      });
-      if (bin.length > 500) bin.length = 500;
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
+      // ✅ Req 2: push to recycle bin (IDB-backed) before deleting so it can be restored
+      if (!target.id) target.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+        SupabaseSync._addToRecycleBinPublic('settings_subaccount', target);
+      } else {
+        const bin = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll('recycle_bin') || []) : [];
+        bin.unshift({ table: 'settings_subaccount', type: 'subaccount', name: `@${target.username}`, data: target, deletedAt: new Date().toISOString() });
+        if (bin.length > 500) bin.length = 500;
+        if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      }
+      _saveRecycleBinToSettings();
 
       subs.splice(idx, 1);
       localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
-      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
+      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted → Recycle Bin-এ আছে', 'warning');
       refreshModal();
     }
   }

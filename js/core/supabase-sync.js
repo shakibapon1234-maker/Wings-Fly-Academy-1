@@ -678,6 +678,8 @@ const SupabaseSync = (() => {
       keep_records: 'note',
       advance_payments: 'advance',
       investments: 'investment',
+      settings_category: 'category',
+      settings_subaccount: 'sub-account',
     };
     return map[table] || 'record';
   }
@@ -706,7 +708,7 @@ const SupabaseSync = (() => {
           ? (r.student_name + (r.subject ? ' — ' + r.subject : '') + (r.marks != null ? ' (' + r.marks + '%)' : ''))
           : (r.reg_id || '—');
       case 'attendance':
-        return r.person_name ? (r.person_name + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
+        return (r.entityName || r.person_name) ? ((r.entityName || r.person_name) + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
       case 'visitors':
         return r.name ? (r.name + (r.phone ? ' (' + r.phone + ')' : '') + (r.purpose ? ' — ' + r.purpose : '')) : '—';
       case 'notices':
@@ -717,6 +719,12 @@ const SupabaseSync = (() => {
         return r.person ? (r.person + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
       case 'investments':
         return r.source ? (r.source + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
+      case 'settings_category':
+        return r.item ? (r.item + (r.key ? ' (' + r.key + ')' : '')) : '—';
+      case 'settings_subaccount':
+        return r.username ? ('@' + r.username + (r.role ? ' — ' + r.role : '')) : '—';
+      case 'keep_records':
+        return r.title ? ('"' + r.title + '"' + (r.date ? ' (' + r.date + ')' : '')) : '—';
       default:
         return r.name || r.title || r.description || r.person_name || '—';
     }
