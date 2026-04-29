@@ -13,7 +13,7 @@
 
 const AIAssistant = (() => {
   // ── Config — Get free key from: https://aistudio.google.com/app/apikey ──
-  const API_KEY = localStorage.getItem('wfa_gemini_key') || 'AIzaSyCPFedj4Mm90eFIEUb4IfhMGPdu-qcxiCk';
+  const API_KEY = localStorage.getItem('wfa_gemini_key') || 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
   const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
 
   let chatHistory = [];

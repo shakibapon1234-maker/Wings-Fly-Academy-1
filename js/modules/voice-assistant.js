@@ -671,8 +671,8 @@ const VoiceAssistant = (() => {
   ════════════════════════════════════════════════ */
   function checkVisibility() {
     if (!btn) return;
-    const ok = localStorage.getItem('wfa_logged_in') === 'true';
-    btn.style.display        = ok ? 'flex' : 'none';
+    // Removed login restriction for testing
+    btn.style.display        = 'flex';
     btn.style.alignItems     = 'center';
     btn.style.justifyContent = 'center';
   }

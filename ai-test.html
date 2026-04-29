@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Assistant Test - Wings Fly</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1a2e 100%);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .test-container {
+      max-width: 600px;
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(0,212,255,0.3);
+      border-radius: 16px;
+      padding: 30px;
+    }
+    h1 {
+      color: #00d4ff;
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin: 15px 0;
+      font-size: 0.9rem;
+    }
+    .status.success { background: rgba(0,255,136,0.1); border: 1px solid rgba(0,255,136,0.3); color: #00ff88; }
+    .status.error { background: rgba(255,107,53,0.1); border: 1px solid rgba(255,107,53,0.3); color: #ff6b35; }
+    .status.warning { background: rgba(255,193,7,0.1); border: 1px solid rgba(255,193,7,0.3); color: #ffc107; }
+    button {
+      background: linear-gradient(135deg, #00d4ff, #a855f7);
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      font-size: 1rem;
+      margin: 10px 5px;
+      transition: all 0.2s;
+    }
+    button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,212,255,0.4); }
+    button:active { transform: translateY(0); }
+    .info { 
+      background: rgba(255,255,255,0.03); 
+      padding: 15px; 
+      border-radius: 8px; 
+      margin: 15px 0;
+      border-left: 3px solid #a855f7;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+    code {
+      background: rgba(0,0,0,0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #00ff88;
+      font-family: 'Courier New', monospace;
+    }
+    .test-result {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .test-result pre {
+      background: rgba(0,0,0,0.3);
+      padding: 12px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-top: 10px;
+      font-size: 0.8rem;
+      color: #00ff88;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1>🤖 AI Assistant Test</h1>
+    <p style="opacity: 0.7; margin-bottom: 20px;">Wings Fly Aviation Academy</p>
+
+    <div id="status-check"></div>
+
+    <div class="info">
+      <strong>📋 Checklist:</strong><br>
+      ✅ AI Assistant JavaScript loaded<br>
+      ✅ Gemini API configured<br>
+      ✅ UI components ready<br>
+      ✅ Mobile optimized for Z Fold 6
+    </div>
+
+    <div>
+      <button onclick="setAPIKey()" style="background:linear-gradient(135deg, #ff6b35, #f7b733);">⚙️ Set Custom API Key</button>
+      <button onclick="testAPIKey()">🔑 Test API Key</button>
+      <button onclick="testAIChat()">💬 Test Chat</button>
+      <button onclick="openAIAssistant()">✨ Open AI Assistant</button>
+    </div>
+
+    <div id="test-result"></div>
+
+    <div class="info" style="margin-top: 20px;">
+      <strong>⚙️ Troubleshooting:</strong><br>
+      <small>
+        1. <strong>No response?</strong> Check API Key in localStorage<br>
+        2. <strong>API Error?</strong> Verify Gemini API key from <code>aistudio.google.com</code><br>
+        3. <strong>Network error?</strong> Check internet connection<br>
+        4. <strong>Button missing?</strong> Wait 2 seconds for DOM to load
+      </small>
+    </div>
+  </div>
+
+  <!-- Load AI Modules -->
+  <script src="js/modules/ai-assistant.js"></script>
+  <script src="js/modules/voice-assistant.js"></script>
+
+  <script>
+    // Status Check
+    window.addEventListener('load', () => {
+      const statusDiv = document.getElementById('status-check');
+      
+      // Check if AIAssistant is loaded
+      if (typeof AIAssistant !== 'undefined') {
+        statusDiv.innerHTML = '<div class="status success">✅ AI Assistant loaded successfully!</div>';
+        
+        // Check API Key
+        const apiKey = localStorage.getItem('wfa_gemini_key') || 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
+        if (apiKey && apiKey !== 'YOUR-KEY-HERE') {
+          statusDiv.innerHTML += '<div class="status success">✅ API Key configured</div>';
+        } else {
+          statusDiv.innerHTML += '<div class="status warning">⚠️ Default API Key in use. Add your own key for better reliability.</div>';
+        }
+      } else {
+        statusDiv.innerHTML = '<div class="status error">❌ AI Assistant failed to load! Check console for errors.</div>';
+      }
+    });
+
+    function testAPIKey() {
+      const resultDiv = document.getElementById('test-result');
+      const apiKey = localStorage.getItem('wfa_gemini_key') || 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
+      
+      resultDiv.innerHTML = `
+        <div class="test-result">
+          <strong>🔑 API Key Status:</strong>
+          <pre>Key: ${apiKey.substring(0, 15)}...${apiKey.substring(apiKey.length - 5)}
+Length: ${apiKey.length} characters
+Source: ${localStorage.getItem('wfa_gemini_key') ? 'Custom (localStorage)' : 'Default (hardcoded)'}
+Status: ${apiKey.startsWith('AIza') ? '✅ Valid format' : '❌ Invalid format'}</pre>
+        </div>
+      `;
+    }
+
+    async function testAIChat() {
+      const resultDiv = document.getElementById('test-result');
+      
+      if (typeof AIAssistant === 'undefined') {
+        resultDiv.innerHTML = '<div class="test-result"><div class="status error">❌ AIAssistant not loaded!</div></div>';
+        return;
+      }
+
+      resultDiv.innerHTML = '<div class="test-result"><div class="status warning">⏳ Testing AI chat... এক মুহূর্ত অপেক্ষা করুন...</div></div>';
+
+      try {
+        const testMessage = "হ্যালো, আপনি কি আমাকে সাহায্য করতে পারবেন?";
+        const response = await AIAssistant.chat(testMessage);
+        
+        resultDiv.innerHTML = `
+          <div class="test-result">
+            <div class="status success">✅ AI Chat working!</div>
+            <strong>Test Message:</strong>
+            <pre>${testMessage}</pre>
+            <strong>AI Response:</strong>
+            <pre>${response}</pre>
+          </div>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <div class="test-result">
+            <div class="status error">❌ AI Chat failed!</div>
+            <strong>Error:</strong>
+            <pre>${error.message}</pre>
+            <small>Check: Internet connection, API Key validity, CORS settings</small>
+          </div>
+        `;
+        console.error('AI Chat Test Error:', error);
+      }
+    }
+
+    function openAIAssistant() {
+      if (typeof AIAssistant !== 'undefined') {
+        AIAssistant.openChat();
+        document.getElementById('test-result').innerHTML = 
+          '<div class="test-result"><div class="status success">✅ AI Assistant opened! Check bottom-right corner.</div></div>';
+      } else {
+        document.getElementById('test-result').innerHTML = 
+          '<div class="test-result"><div class="status error">❌ AIAssistant not loaded!</div></div>';
+      }
+    }
+
+    // Also add a prompt to set custom API key
+    function setAPIKey() {
+      const key = prompt('Enter your Google Gemini API Key:\n(Get it from: https://aistudio.google.com/app/apikey)');
+      if (key && key.trim()) {
+        localStorage.setItem('wfa_gemini_key', key.trim());
+        alert('✅ API Key saved! Reload page to test.');
+        location.reload();
+      }
+    }
+
+    // Auto-detect mobile and show appropriate message
+    if (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+      const isMobile = document.createElement('div');
+      isMobile.className = 'status success';
+      isMobile.innerHTML = '📱 Mobile device detected! Optimized for Samsung Z Fold 6';
+      isMobile.style.marginTop = '15px';
+      document.querySelector('.test-container').appendChild(isMobile);
+    }
+  </script>
+</body>
+</html>
