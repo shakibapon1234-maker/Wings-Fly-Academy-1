@@ -322,12 +322,33 @@ const Accounts = (() => {
           ❌ Error loading accounts. Please refresh the page. <br><small style="color:var(--text-muted); margin-top:8px; display:block;">${Utils.esc(e.message||'Unknown error')}</small>
         </div>`;
       }
+
+      // ✅ লজিক ৪ FIX: Flatpickr apply করো সব date inputs-এ (DD/MM/YYYY)
+      _applyFlatpickr();
+
     } catch (e) {
       console.error('[Accounts] Render fatal error:', e);
       if (container) {
         container.innerHTML = `<div style="color:#ff4757; padding:20px; text-align:center;">Fatal error in accounts module</div>`;
       }
     }
+  }
+
+  // ✅ লজিক ৪: Accounts module-এর সব date inputs-এ Flatpickr (DD/MM/YYYY) apply করে
+  function _applyFlatpickr() {
+    if (typeof flatpickr === 'undefined') return;
+    const ids = ['acc-search-from', 'acc-search-to', 'hist-from', 'hist-to'];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el || el._flatpickr) return; // already initialized
+      flatpickr(el, {
+        dateFormat:  'Y-m-d',   // stored value stays YYYY-MM-DD for filter logic
+        altInput:    true,
+        altFormat:   'd/m/Y',   // displayed as DD/MM/YYYY to the user
+        allowInput:  true,
+        disableMobile: false,
+      });
+    });
   }
 
   function renderSearchResults(finance, accounts) {
@@ -436,7 +457,7 @@ const Accounts = (() => {
       const typeColor = isPos ? 'rgba(0,255,136,0.15)' : 'rgba(255,71,87,0.15)';
       const typeTextColor = isPos ? '#00ff88' : '#ff4757';
       return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
-        <td style="padding:10px 10px;font-size:0.82rem;color:var(--text-secondary);white-space:nowrap;">${f.date ? f.date.slice(0,10) : '—'}</td>
+        <td style="padding:10px 10px;font-size:0.82rem;color:var(--text-secondary);white-space:nowrap;">${Utils.formatDateDMY(f.date)}</td>
         <td style="padding:10px;"><span style="background:${typeColor};color:${typeTextColor};padding:3px 9px;border-radius:20px;font-size:0.72rem;font-weight:700;">${f.type}</span></td>
         <td style="padding:10px;">${Utils.methodBadge(f.method||'Cash')}</td>
         <td style="padding:10px;font-size:0.82rem;color:var(--text-muted);">${Utils.esc(f.category||'—')}</td>
@@ -566,9 +587,19 @@ const Accounts = (() => {
       if (bal !== oldBal) {
         _upsertOpeningEntry(accountName, bal);
       }
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'accounts',
+          `${accountName} balance updated: ৳${oldBal.toLocaleString()} → ৳${bal.toLocaleString()}`
+        );
+      }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal });
       if (bal > 0) _upsertOpeningEntry(accountName, bal);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'accounts',
+          `${accountName} account created with balance ৳${bal.toLocaleString()}`
+        );
+      }
     }
     Utils.toast('Balance updated ✓','success');
     Utils.closeModal();
@@ -632,10 +663,20 @@ const Accounts = (() => {
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('edit', 'accounts',
+           `Bank account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Bank account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('add', 'accounts',
+           `Bank account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Bank account added','success');
     }
     Utils.closeModal();
@@ -643,9 +684,16 @@ const Accounts = (() => {
   }
 
   async function deleteBank(id) {
-    if (await Utils.confirm('Are you sure you want to delete this bank account?')) {
+    const record = SupabaseSync.getById(DB.accounts, id);
+    const label = record?.name || 'Bank Account';
+    if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Bank Account')) {
       SupabaseSync.remove(DB.accounts, id);
-      Utils.toast('Account deleted', 'info');
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('delete', 'accounts',
+          `Bank account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+        );
+      }
+      Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
       render();
     }
   }
@@ -695,10 +743,20 @@ const Accounts = (() => {
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('edit', 'accounts',
+           `Mobile account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Mobile account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('add', 'accounts',
+           `Mobile account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Mobile account added','success');
     }
     Utils.closeModal();
@@ -706,9 +764,16 @@ const Accounts = (() => {
   }
 
   async function deleteMobile(id) {
-    if (await Utils.confirm('Are you sure you want to delete this mobile account?')) {
+    const record = SupabaseSync.getById(DB.accounts, id);
+    const label = record?.name || 'Mobile Account';
+    if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Mobile Account')) {
       SupabaseSync.remove(DB.accounts, id);
-      Utils.toast('Account deleted', 'info');
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('delete', 'accounts',
+          `Mobile account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+        );
+      }
+      Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
       render();
     }
   }
@@ -752,6 +817,20 @@ const Accounts = (() => {
         <button class="btn-warning" style="font-weight:bold;color:#000;" onclick="Accounts.doTransfer()"><i class="fa fa-check"></i> TRANSFER NOW</button>
       </div>
     `);
+    // ✅ লজিক ৪ FIX: Transfer modal date input-এ Flatpickr (DD/MM/YYYY)
+    if (typeof flatpickr !== 'undefined') {
+      const trDate = document.getElementById('tr-date');
+      if (trDate && !trDate._flatpickr) {
+        flatpickr(trDate, {
+          dateFormat:  'Y-m-d',
+          altInput:    true,
+          altFormat:   'd/m/Y',
+          allowInput:  true,
+          disableMobile: false,
+          defaultDate: Utils.today(),
+        });
+      }
+    }
   }
 
   function doTransfer() {

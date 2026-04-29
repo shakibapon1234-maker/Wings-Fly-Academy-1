@@ -946,6 +946,7 @@ const SettingsModule = (() => {
       deletedAt: new Date().toISOString(),
     });
     if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', recycleBin);
+    _saveRecycleBinToSettings();
 
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
@@ -2868,6 +2869,42 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
+    // ✅ advance_payments restore
+    if (item && item.table === 'advance_payments') {
+      const data = item.data;
+      if (data) {
+        const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
+        const exists = advances.some(a => a.id && a.id === data.id);
+        if (!exists) advances.unshift(data);
+        localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+      }
+      bin.splice(index, 1);
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      _saveRecycleBinToSettings();
+      logActivity('restore', 'settings', `Restored advance payment: ${data?.person || 'Unknown'}`);
+      Utils.toast('Advance payment restored ✓', 'success');
+      refreshModal();
+      return;
+    }
+
+    // ✅ investments restore
+    if (item && item.table === 'investments') {
+      const data = item.data;
+      if (data) {
+        const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
+        const exists = investments.some(i => i.id && i.id === data.id);
+        if (!exists) investments.unshift(data);
+        localStorage.setItem('wfa_investments', JSON.stringify(investments));
+      }
+      bin.splice(index, 1);
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      _saveRecycleBinToSettings();
+      logActivity('restore', 'settings', `Restored investment: ${data?.source || 'Unknown'}`);
+      Utils.toast('Investment restored ✓', 'success');
+      refreshModal();
+      return;
+    }
+
     // Standard restore via SupabaseSync for all other DB records
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
@@ -3216,6 +3253,22 @@ ${expenseEntries.length > 0 ? `
       </div>`;
     wrap.addEventListener('click', e => { if (e.target === wrap) closeSettingsInternalModal(); });
     document.body.appendChild(wrap);
+    // ✅ লজিক ৪ FIX: inner modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY) apply করো
+    // adv-date, ret-adv-date, inv-date, ret-inv-date সহ যেকোনো ভবিষ্যৎ date input
+    setTimeout(() => {
+      if (typeof flatpickr === 'undefined') return;
+      wrap.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
+        if (!el._flatpickr) {
+          flatpickr(el, {
+            dateFormat:  'Y-m-d',   // stored value: YYYY-MM-DD
+            altInput:    true,
+            altFormat:   'd/m/Y',   // user sees DD/MM/YYYY
+            allowInput:  true,
+            locale:      { firstDayOfWeek: 1 },
+          });
+        }
+      });
+    }, 10);
   }
 
   function closeSettingsInternalModal() {
@@ -3309,10 +3362,19 @@ ${expenseEntries.length > 0 ? `
   function deleteAdvance(idx) {
     const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     if (!advances[idx]) return;
-    if (!confirm(`Delete advance for "${advances[idx].person}"?`)) return;
+    const victim = advances[idx];
+    if (!confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+
+    // Recycle Bin-এ পাঠাও
+    if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+      SupabaseSync._addToRecycleBinPublic('advance_payments', victim);
+    }
+
     advances.splice(idx, 1);
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    Utils.toast('Deleted', 'info');
+    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()}`);
+    Utils.toast(`"${victim.person}"-এর advance — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
@@ -3512,10 +3574,19 @@ ${expenseEntries.length > 0 ? `
   function deleteInvestment(idx) {
     const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     if (!investments[idx]) return;
-    if (!confirm(`Delete investment from "${investments[idx].source}"?`)) return;
+    const victim = investments[idx];
+    if (!confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+
+    // Recycle Bin-এ পাঠাও
+    if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+      SupabaseSync._addToRecycleBinPublic('investments', victim);
+    }
+
     investments.splice(idx, 1);
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
-    Utils.toast('Deleted', 'info');
+    logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()}`);
+    Utils.toast(`"${victim.source}"-এর investment — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
@@ -4831,22 +4902,22 @@ ${expenseEntries.length > 0 ? `
     const subs = getSubAccounts();
     const target = subs[idx];
     if (target) {
-      // ✅ Req 2: push to recycle bin before deleting so it can be restored
-      const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
-      bin.unshift({
-        table: 'settings_subaccount',
-        type:  'subaccount',
-        name:  `@${target.username}`,
-        data:  target,
-        deletedAt: new Date().toISOString(),
-      });
-      if (bin.length > 500) bin.length = 500;
-      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
+      // ✅ Req 2: push to recycle bin (IDB-backed) before deleting so it can be restored
+      if (!target.id) target.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+        SupabaseSync._addToRecycleBinPublic('settings_subaccount', target);
+      } else {
+        const bin = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll('recycle_bin') || []) : [];
+        bin.unshift({ table: 'settings_subaccount', type: 'subaccount', name: `@${target.username}`, data: target, deletedAt: new Date().toISOString() });
+        if (bin.length > 500) bin.length = 500;
+        if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      }
+      _saveRecycleBinToSettings();
 
       subs.splice(idx, 1);
       localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
-      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted', 'info');
+      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted → Recycle Bin-এ আছে', 'warning');
       refreshModal();
     }
   }

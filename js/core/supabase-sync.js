@@ -350,7 +350,14 @@ const SupabaseSync = (() => {
     const rows = getAll(table);
     const idx = rows.findIndex(r => r.id === id);
     if (idx >= 0) {
-      rows[idx] = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
+      const merged = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
+      // Logic #1 fix: edit করার সময় date field পরিবর্তন হলে created_at-ও সেই অনুযায়ী update হবে।
+      // এতে sort order সর্বদা import/input date অনুযায়ী থাকবে।
+      const dateField = _TABLE_DATE_FIELD[table];
+      if (dateField && dateField !== 'created_at' && merged[dateField]) {
+        merged.created_at = new Date(merged[dateField]).toISOString();
+      }
+      rows[idx] = merged;
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
       _logActivity('edit', table, _humanReadableLog('edit', table, rows[idx]));
@@ -668,6 +675,11 @@ const SupabaseSync = (() => {
       visitors: 'visitor',
       notices: 'notice',
       settings: 'settings',
+      keep_records: 'note',
+      advance_payments: 'advance',
+      investments: 'investment',
+      settings_category: 'category',
+      settings_subaccount: 'sub-account',
     };
     return map[table] || 'record';
   }
@@ -696,13 +708,23 @@ const SupabaseSync = (() => {
           ? (r.student_name + (r.subject ? ' — ' + r.subject : '') + (r.marks != null ? ' (' + r.marks + '%)' : ''))
           : (r.reg_id || '—');
       case 'attendance':
-        return r.person_name ? (r.person_name + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
+        return (r.entityName || r.person_name) ? ((r.entityName || r.person_name) + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
       case 'visitors':
         return r.name ? (r.name + (r.phone ? ' (' + r.phone + ')' : '') + (r.purpose ? ' — ' + r.purpose : '')) : '—';
       case 'notices':
         return r.title ? ('"' + r.title + '"') : '—';
       case 'settings':
         return 'একাডেমি সেটিংস';
+      case 'advance_payments':
+        return r.person ? (r.person + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
+      case 'investments':
+        return r.source ? (r.source + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
+      case 'settings_category':
+        return r.item ? (r.item + (r.key ? ' (' + r.key + ')' : '')) : '—';
+      case 'settings_subaccount':
+        return r.username ? ('@' + r.username + (r.role ? ' — ' + r.role : '')) : '—';
+      case 'keep_records':
+        return r.title ? ('"' + r.title + '"' + (r.date ? ' (' + r.date + ')' : '')) : '—';
       default:
         return r.name || r.title || r.description || r.person_name || '—';
     }
@@ -721,6 +743,9 @@ const SupabaseSync = (() => {
       visitors:       'ভিজিটর লগ',
       notices:        'নোটিশ বোর্ড',
       settings:       'সেটিংস',
+      keep_records:   'Keep Record নোট',
+      advance_payments: 'অগ্রিম পেমেন্ট',
+      investments:    'বিনিয়োগ রেজিস্টার',
     };
     return map[table] || table;
   }

@@ -600,9 +600,19 @@ const Salary = (() => {
     var isNew = !editingId;
     if (editingId) {
       SupabaseSync.update(DB.salary, editingId, entry);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'salary',
+          `Salary record updated: ${entry.staffName} — ${entry.month} (Net: ৳${net.toLocaleString()})`
+        );
+      }
       Utils.toast('Salary record updated ✓', 'success');
     } else {
       SupabaseSync.insert(DB.salary, entry);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'salary',
+          `Salary record added: ${entry.staffName} — ${entry.month} (Net: ৳${net.toLocaleString()})`
+        );
+      }
       Utils.toast('Salary record saved ✓', 'success');
     }
 
@@ -632,6 +642,11 @@ const Salary = (() => {
     }
 
     SupabaseSync.remove(DB.salary, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'salary',
+        `Salary record deleted: ${r ? r.staffName : 'Unknown'} — ${r ? (r.month || '') : ''}`
+      );
+    }
     renderContent();
     Utils.toast((r ? r.staffName : 'Record') + ' — RecycleBin-এ গেছে', 'warning');
   }

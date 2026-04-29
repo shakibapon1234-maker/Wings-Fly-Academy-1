@@ -384,16 +384,17 @@ const HRStaff = (() => {
   /* ─── Delete ─── */
   async function deleteStaff(id) {
     const staffData = SupabaseSync.getById(DB.staff, id);
-    const ok = await Utils.confirm('Delete this staff member?', 'Delete Staff');
+    const label = staffData?.name || 'Unknown';
+    const ok = await Utils.confirm(`"${label}"-কে ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Staff');
     if (!ok) return;
     SupabaseSync.remove(DB.staff, id);
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('delete', 'hr-staff', 
-        `Deleted staff: ${staffData?.name || 'Unknown'} (${staffData?.role || 'N/A'})`
+        `Deleted staff: ${label} (${staffData?.role || 'N/A'})`
       );
     }
     render();
-    Utils.toast('Staff has been deleted', 'warning');
+    Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
   }
 
   /* ─── Export Excel ─── */
