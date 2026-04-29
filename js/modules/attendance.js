@@ -134,6 +134,7 @@ const Attendance = (() => {
 
     const tabs = [
       { id: 'mark',     icon: 'fa-calendar-check', label: 'MARK ATTENDANCE' },
+      { id: 'log',      icon: 'fa-list-ul',         label: 'LOG' },
       { id: 'monthly',  icon: 'fa-calendar-days',  label: 'MONTHLY REPORT' },
       { id: 'yearly',   icon: 'fa-chart-bar',      label: 'YEARLY REPORT' },
       { id: 'course',   icon: 'fa-graduation-cap', label: 'COURSE-WISE' },
@@ -219,8 +220,123 @@ const Attendance = (() => {
       case 'yearly':  return renderYearlyTab();
       case 'course':  return renderCourseTab();
       case 'blank':   return renderBlankTab();
+      case 'log':     return renderLogTab();
       default:        return renderMarkTab();
     }
+  }
+
+  /* ─── LOG TAB — Individual records with delete ─── */
+  function renderLogTab() {
+    const logBatch  = document.getElementById('att-log-batch')?.value  || '';
+    const logFrom   = document.getElementById('att-log-from')?.value   || '';
+    const logTo     = document.getElementById('att-log-to')?.value     || '';
+    const logStatus = document.getElementById('att-log-status')?.value || '';
+    const batches   = getBatches();
+
+    let filtered = [...records].filter(r => r.type === 'student');
+    if (logBatch)  filtered = filtered.filter(r => r.batch     === logBatch);
+    if (logStatus) filtered = filtered.filter(r => r.status    === logStatus);
+    if (logFrom)   filtered = filtered.filter(r => r.date && r.date >= logFrom);
+    if (logTo)     filtered = filtered.filter(r => r.date && r.date <= logTo);
+    // Latest first
+    filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    const statusColor = { Present: '#00ff88', Absent: '#ff4757', Late: '#ffd700', Leave: '#00d4ff' };
+
+    return `
+      <div class="att-filter-section" style="flex-wrap:wrap;gap:8px;">
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-layer-group"></i> BATCH</label>
+          <select id="att-log-batch" class="att-filter-select" onchange="Attendance.refreshLog()">
+            <option value="">All Batches</option>
+            ${batches.map(b => `<option value="${b}" ${logBatch===b?'selected':''}>${b}</option>`).join('')}
+          </select>
+        </div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-calendar"></i> FROM</label>
+          <input type="date" id="att-log-from" class="att-filter-input" value="${logFrom}" onchange="Attendance.refreshLog()" />
+        </div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-calendar"></i> TO</label>
+          <input type="date" id="att-log-to" class="att-filter-input" value="${logTo}" onchange="Attendance.refreshLog()" />
+        </div>
+        <div class="att-filter-group">
+          <label class="att-filter-label"><i class="fa fa-filter"></i> STATUS</label>
+          <select id="att-log-status" class="att-filter-select" onchange="Attendance.refreshLog()">
+            <option value="">All Status</option>
+            <option value="Present" ${logStatus==='Present'?'selected':''}>Present</option>
+            <option value="Absent"  ${logStatus==='Absent' ?'selected':''}>Absent</option>
+            <option value="Late"    ${logStatus==='Late'   ?'selected':''}>Late</option>
+            <option value="Leave"   ${logStatus==='Leave'  ?'selected':''}>Leave</option>
+          </select>
+        </div>
+        <div class="att-count-badge">
+          <span class="count-num">${filtered.length}</span> RECORDS
+        </div>
+      </div>
+
+      <div class="att-sheet-area">
+        ${filtered.length === 0 ? `
+          <div class="att-empty-state">
+            <i class="fa fa-list-ul" style="font-size:3rem;opacity:0.3;margin-bottom:16px"></i>
+            <div class="att-empty-text">কোনো রেকর্ড নেই। Filter পরিবর্তন করে দেখুন।</div>
+          </div>
+        ` : `
+          <table class="att-sheet-table" id="att-log-table">
+            <thead>
+              <tr>
+                <th style="width:40px">#</th>
+                <th>DATE</th>
+                <th>STUDENT</th>
+                <th>BATCH</th>
+                <th>STATUS</th>
+                <th style="width:70px">ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filtered.map((r, i) => `
+                <tr>
+                  <td style="text-align:center;color:var(--text-muted)">${i + 1}</td>
+                  <td style="font-family:var(--font-en);font-weight:600">${Utils.formatDateDMY(r.date)}</td>
+                  <td><strong>${Utils.esc(r.entityName || r.person_name || '—')}</strong></td>
+                  <td><span class="badge badge-muted">${Utils.esc(r.batch || '—')}</span></td>
+                  <td><span style="color:${statusColor[r.status]||'#fff'};font-weight:700">${r.status || '—'}</span></td>
+                  <td>
+                    <button class="btn btn-ghost btn-xs" style="color:#ff4757" title="Delete → Recycle Bin"
+                      onclick="Attendance.deleteRecord('${r.id}')">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    `;
+  }
+
+  function refreshLog() {
+    const content = document.getElementById('att-tab-content');
+    if (content) content.innerHTML = renderLogTab();
+  }
+
+  async function deleteRecord(id) {
+    const rec = records.find(r => r.id === id);
+    const label = rec ? `${rec.entityName || 'এই student'}-এর ${Utils.formatDateDMY(rec.date)} (${rec.status})` : 'এই রেকর্ড';
+    const ok = await Utils.confirm(`${label} — মুছে দেবেন? Recycle Bin-এ যাবে।`, 'Delete Attendance Record');
+    if (!ok) return;
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      SupabaseSync.remove(DB.attendance, id);
+      records = records.filter(r => r.id !== id);
+    }
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'attendance',
+        `Deleted attendance: ${rec?.entityName || '?'} — ${rec?.date || ''} (${rec?.status || ''})`
+      );
+    }
+    Utils.toast(`${label} — Recycle Bin-এ গেছে ✓`, 'warning');
+    refreshLog();
   }
 
   /* ─── MARK ATTENDANCE TAB ─── */
@@ -1388,8 +1504,9 @@ const Attendance = (() => {
 
   return {
     init, load, render, openModal, closeModal,
-    switchTab, refreshSheet, setStatus,
-    saveAllAttendance, loadMonthlyReport, loadYearlyReport,
+    switchTab, refreshSheet, refreshLog, setStatus,
+    saveAllAttendance, deleteRecord,
+    loadMonthlyReport, loadYearlyReport,
     loadCourseReport, generateBlankSheet, printBlankSheet,
     smartPrint, printMarkedSheet, printReport,
     exportCSV, getMonthSummary,

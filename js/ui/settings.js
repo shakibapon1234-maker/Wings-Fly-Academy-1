@@ -946,6 +946,7 @@ const SettingsModule = (() => {
       deletedAt: new Date().toISOString(),
     });
     if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', recycleBin);
+    _saveRecycleBinToSettings();
 
     const cfg = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
