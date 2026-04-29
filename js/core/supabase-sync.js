@@ -675,6 +675,9 @@ const SupabaseSync = (() => {
       visitors: 'visitor',
       notices: 'notice',
       settings: 'settings',
+      keep_records: 'note',
+      advance_payments: 'advance',
+      investments: 'investment',
     };
     return map[table] || 'record';
   }
@@ -710,6 +713,10 @@ const SupabaseSync = (() => {
         return r.title ? ('"' + r.title + '"') : '—';
       case 'settings':
         return 'একাডেমি সেটিংস';
+      case 'advance_payments':
+        return r.person ? (r.person + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
+      case 'investments':
+        return r.source ? (r.source + ' — ৳' + Number(r.amount || 0).toLocaleString() + (r.date ? ' (' + r.date + ')' : '')) : '—';
       default:
         return r.name || r.title || r.description || r.person_name || '—';
     }
@@ -728,6 +735,9 @@ const SupabaseSync = (() => {
       visitors:       'ভিজিটর লগ',
       notices:        'নোটিশ বোর্ড',
       settings:       'সেটিংস',
+      keep_records:   'Keep Record নোট',
+      advance_payments: 'অগ্রিম পেমেন্ট',
+      investments:    'বিনিয়োগ রেজিস্টার',
     };
     return map[table] || table;
   }

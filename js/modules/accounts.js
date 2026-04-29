@@ -587,9 +587,19 @@ const Accounts = (() => {
       if (bal !== oldBal) {
         _upsertOpeningEntry(accountName, bal);
       }
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'accounts',
+          `${accountName} balance updated: ৳${oldBal.toLocaleString()} → ৳${bal.toLocaleString()}`
+        );
+      }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal });
       if (bal > 0) _upsertOpeningEntry(accountName, bal);
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'accounts',
+          `${accountName} account created with balance ৳${bal.toLocaleString()}`
+        );
+      }
     }
     Utils.toast('Balance updated ✓','success');
     Utils.closeModal();
@@ -653,10 +663,20 @@ const Accounts = (() => {
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('edit', 'accounts',
+           `Bank account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Bank account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('add', 'accounts',
+           `Bank account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Bank account added','success');
     }
     Utils.closeModal();
@@ -664,9 +684,16 @@ const Accounts = (() => {
   }
 
   async function deleteBank(id) {
-    if (await Utils.confirm('Are you sure you want to delete this bank account?')) {
+    const record = SupabaseSync.getById(DB.accounts, id);
+    const label = record?.name || 'Bank Account';
+    if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Bank Account')) {
       SupabaseSync.remove(DB.accounts, id);
-      Utils.toast('Account deleted', 'info');
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('delete', 'accounts',
+          `Bank account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+        );
+      }
+      Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
       render();
     }
   }
@@ -716,10 +743,20 @@ const Accounts = (() => {
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record);
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('edit', 'accounts',
+           `Mobile account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Mobile account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record);
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       if (typeof SupabaseSync.logActivity === 'function') {
+         SupabaseSync.logActivity('add', 'accounts',
+           `Mobile account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+         );
+       }
        Utils.toast('Mobile account added','success');
     }
     Utils.closeModal();
@@ -727,9 +764,16 @@ const Accounts = (() => {
   }
 
   async function deleteMobile(id) {
-    if (await Utils.confirm('Are you sure you want to delete this mobile account?')) {
+    const record = SupabaseSync.getById(DB.accounts, id);
+    const label = record?.name || 'Mobile Account';
+    if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Mobile Account')) {
       SupabaseSync.remove(DB.accounts, id);
-      Utils.toast('Account deleted', 'info');
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('delete', 'accounts',
+          `Mobile account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+        );
+      }
+      Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
       render();
     }
   }

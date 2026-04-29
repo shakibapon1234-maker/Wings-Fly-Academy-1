@@ -2869,6 +2869,42 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
+    // ✅ advance_payments restore
+    if (item && item.table === 'advance_payments') {
+      const data = item.data;
+      if (data) {
+        const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
+        const exists = advances.some(a => a.id && a.id === data.id);
+        if (!exists) advances.unshift(data);
+        localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+      }
+      bin.splice(index, 1);
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      _saveRecycleBinToSettings();
+      logActivity('restore', 'settings', `Restored advance payment: ${data?.person || 'Unknown'}`);
+      Utils.toast('Advance payment restored ✓', 'success');
+      refreshModal();
+      return;
+    }
+
+    // ✅ investments restore
+    if (item && item.table === 'investments') {
+      const data = item.data;
+      if (data) {
+        const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
+        const exists = investments.some(i => i.id && i.id === data.id);
+        if (!exists) investments.unshift(data);
+        localStorage.setItem('wfa_investments', JSON.stringify(investments));
+      }
+      bin.splice(index, 1);
+      if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
+      _saveRecycleBinToSettings();
+      logActivity('restore', 'settings', `Restored investment: ${data?.source || 'Unknown'}`);
+      Utils.toast('Investment restored ✓', 'success');
+      refreshModal();
+      return;
+    }
+
     // Standard restore via SupabaseSync for all other DB records
     SupabaseSync.restoreRecycleBinItem(index).then((ok) => {
       if (ok) {
@@ -3326,10 +3362,19 @@ ${expenseEntries.length > 0 ? `
   function deleteAdvance(idx) {
     const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     if (!advances[idx]) return;
-    if (!confirm(`Delete advance for "${advances[idx].person}"?`)) return;
+    const victim = advances[idx];
+    if (!confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+
+    // Recycle Bin-এ পাঠাও
+    if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+      SupabaseSync._addToRecycleBinPublic('advance_payments', victim);
+    }
+
     advances.splice(idx, 1);
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    Utils.toast('Deleted', 'info');
+    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()}`);
+    Utils.toast(`"${victim.person}"-এর advance — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
@@ -3529,10 +3574,19 @@ ${expenseEntries.length > 0 ? `
   function deleteInvestment(idx) {
     const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     if (!investments[idx]) return;
-    if (!confirm(`Delete investment from "${investments[idx].source}"?`)) return;
+    const victim = investments[idx];
+    if (!confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+
+    // Recycle Bin-এ পাঠাও
+    if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
+      SupabaseSync._addToRecycleBinPublic('investments', victim);
+    }
+
     investments.splice(idx, 1);
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
-    Utils.toast('Deleted', 'info');
+    logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()}`);
+    Utils.toast(`"${victim.source}"-এর investment — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
