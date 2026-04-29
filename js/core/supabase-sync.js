@@ -350,7 +350,14 @@ const SupabaseSync = (() => {
     const rows = getAll(table);
     const idx = rows.findIndex(r => r.id === id);
     if (idx >= 0) {
-      rows[idx] = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
+      const merged = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
+      // Logic #1 fix: edit করার সময় date field পরিবর্তন হলে created_at-ও সেই অনুযায়ী update হবে।
+      // এতে sort order সর্বদা import/input date অনুযায়ী থাকবে।
+      const dateField = _TABLE_DATE_FIELD[table];
+      if (dateField && dateField !== 'created_at' && merged[dateField]) {
+        merged.created_at = new Date(merged[dateField]).toISOString();
+      }
+      rows[idx] = merged;
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
       _logActivity('edit', table, _humanReadableLog('edit', table, rows[idx]));
