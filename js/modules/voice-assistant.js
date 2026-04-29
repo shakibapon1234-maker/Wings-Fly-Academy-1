@@ -45,7 +45,7 @@ const VoiceAssistant = (() => {
   let lastSpeech    = '';
   let isNavigating  = false;
   let isContinuous  = false;  // ★ NEW: Continuous listening mode
-  let currentLang   = 'en-US'; // ★ NEW: Current language (en-US or bn-IN)
+  let currentLang   = localStorage.getItem('wfa_language') === 'bn' ? 'bn-IN' : 'en-US'; // ✅ Bug #7 Fix: Dynamic language
   let _isRestarting = false;  // ✅ Fix: prevent duplicate recognition.start() calls
   let _isAutoRestarting = false; // ✅ Fix: prevent repeated 'speak now' toasts
 
