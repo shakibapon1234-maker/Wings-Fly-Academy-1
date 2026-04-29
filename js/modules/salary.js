@@ -383,9 +383,10 @@ const Salary = (() => {
     var method    = (document.getElementById('pay-method') || {}).value;
     var note      = ((document.getElementById('pay-note') || {}).value || '').trim();
 
-    if (!payAmount || payAmount <= 0) { Utils.toast('Valid payment amount দিন', 'error'); return; }
-    if (!method)   { Utils.toast('Payment method select করুন', 'error'); return; }
-    if (!payDate)  { Utils.toast('Payment date দিন', 'error'); return; }
+     if (!payAmount || payAmount <= 0) { Utils.toast('Valid payment amount দিন', 'error'); return; }
+     if (!method)   { Utils.toast('Payment method select করুন', 'error'); return; }
+     if (!Utils.isValidPaymentMethod(method)) { Utils.toast('Invalid Payment Method', 'error'); return; }
+     if (!payDate)  { Utils.toast('Payment date দিন', 'error'); return; }
 
     var available = Utils.getAccountBalance ? Utils.getAccountBalance(method) : Infinity;
     if (payAmount > available) {

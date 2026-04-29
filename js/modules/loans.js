@@ -394,9 +394,10 @@ const Loans = (() => {
     const errEl  = document.getElementById('lf-error');
     errEl.classList.add('hidden');
 
-    if (!person) { errEl.textContent='Person Name required'; errEl.classList.remove('hidden'); return; }
-    if (!amount) { errEl.textContent='Valid amount required'; errEl.classList.remove('hidden'); return; }
-    if (!method) { errEl.textContent='Payment Method required'; errEl.classList.remove('hidden'); return; }
+     if (!person) { errEl.textContent='Person Name required'; errEl.classList.remove('hidden'); return; }
+     if (!amount) { errEl.textContent='Valid amount required'; errEl.classList.remove('hidden'); return; }
+     if (!method) { errEl.textContent='Payment Method required'; errEl.classList.remove('hidden'); return; }
+     if (!Utils.isValidPaymentMethod(method)) { errEl.textContent='Invalid or inactive Payment Method'; errEl.classList.remove('hidden'); return; }
 
     // Loan দেওয়ার সময় account থেকে টাকা কাটবে — balance check
     if (type === 'Loan Giving') {

@@ -474,10 +474,11 @@ const Exam = (() => {
     const fee    = Utils.safeNum(Utils.formVal('ef-fee'));
     const method = Utils.formVal('ef-method');
 
-    // ✅ LOGIC #7: Block if balance insufficient
-    if (!editingId && fee > 0) {
-      if (!method) { showErr('Payment Method is required when Exam Fee is entered'); return; }
-      const bal = Utils.getAccountBalance(method);
+     // ✅ LOGIC #7: Block if balance insufficient
+     if (!editingId && fee > 0) {
+       if (!method) { showErr('Payment Method is required when Exam Fee is entered'); return; }
+       if (!Utils.isValidPaymentMethod(method)) { showErr('Invalid Payment Method selected'); return; }
+       const bal = Utils.getAccountBalance(method);
       if (fee > bal) {
         showErr(`Insufficient balance! "${method}" এ আছে ৳${bal.toLocaleString()}, কিন্তু ফি ৳${fee.toLocaleString()}`);
         return;

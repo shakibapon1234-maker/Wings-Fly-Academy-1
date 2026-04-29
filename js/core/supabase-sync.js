@@ -883,6 +883,201 @@ const SupabaseSync = (() => {
       console.warn('[Restore] Balance update failed:', e);
     }
 
+        return (r.staff_name || r.staffName)
+          ? ((r.staff_name || r.staffName) + ' — ৳' + Number(r.net_salary || r.amount || 0).toLocaleString() + ' (' + (r.month || '') + ')')
+          : '—';
+      case 'exams':
+        return r.student_name
+          ? (r.student_name + (r.subject ? ' — ' + r.subject : '') + (r.marks != null ? ' (' + r.marks + '%)' : ''))
+          : (r.reg_id || '—');
+      case 'attendance':
+        return r.person_name ? (r.person_name + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
+      case 'visitors':
+        return r.name ? (r.name + (r.phone ? ' (' + r.phone + ')' : '') + (r.purpose ? ' — ' + r.purpose : '')) : '—';
+      case 'notices':
+        return r.title ? ('"' + r.title + '"') : '—';
+      case 'settings':
+        return 'একাডেমি সেটিংস';
+      default:
+        return r.name || r.title || r.description || r.person_name || '—';
+    }
+  }
+
+  function _tableDisplayName(table) {
+    const map = {
+      students:       'ছাত্র/ছাত্রী তালিকা',
+      finance_ledger: 'আয়-ব্যয় লেজার',
+      accounts:       'একাউন্ট রেজিস্টার',
+      loans:          'লোন রেজিস্টার',
+      exams:          'পরীক্ষা তালিকা',
+      staff:          'স্টাফ তালিকা',
+      salary:         'বেতন রেজিস্টার',
+      attendance:     'উপস্থিতি',
+      visitors:       'ভিজিটর লগ',
+      notices:        'নোটিশ বোর্ড',
+      settings:       'সেটিংস',
+    };
+    return map[table] || table;
+  }
+
+  function _humanReadableLog(action, table, r) {
+    const label    = _tableDisplayName(table);
+    const itemName = _recycleDisplayName(table, r);
+    switch (action) {
+      case 'add':     return label + '-এ নতুন এন্ট্রি যোগ করা হয়েছে — ' + itemName;
+      case 'edit':    return label + '-এ তথ্য আপডেট করা হয়েছে — ' + itemName;
+      case 'delete':  return label + ' থেকে মুছে ফেলা হয়েছে — ' + itemName;
+      case 'restore': return 'রিসাইকেল বিন থেকে পুনরুদ্ধার করা হয়েছে — ' + itemName + ' (' + label + ')';
+      default:        return label + ': ' + itemName;
+    }
+  }
+
+  function _addToRecycleBin(table, record) {
+    try {
+      const bin = getAll('recycle_bin');
+      if (!Array.isArray(bin)) return;
+      bin.unshift({
+        table,
+        // ✅ Fix #4: structuredClone is safer than JSON.parse(JSON.stringify()) for deep cloning
+        data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
+        deletedAt: new Date().toISOString(),
+        type: _recycleTypeLabel(table),
+        name: _recycleDisplayName(table, record),
+        tableLabel: _tableDisplayName(table),
+      });
+      if (bin.length > RECYCLE_MAX) bin.length = RECYCLE_MAX;
+      setAll('recycle_bin', bin);
+      _syncRecycleBinToSettings();
+    } catch (e) {
+      console.warn('[Recycle] add failed:', e);
+    }
+  }
+
+  function _syncRecycleBinToSettings() {
+    if (typeof window.SettingsModule !== 'undefined' && typeof window.SettingsModule.syncRecycleBin === 'function') {
+      try {
+        window.SettingsModule.syncRecycleBin();
+      } catch (e) {
+        console.warn('[Sync] recycle bin sync failed:', e);
+      }
+    }
+  }
+
+  async function restoreRecycleBinItem(index) {
+    const bin = getAll('recycle_bin');
+    if (!Array.isArray(bin)) return false;
+    const item = bin[index];
+    if (!item?.table || !item?.data?.id) return false;
+
+    const table = item.table;
+    const record = {
+      ...item.data,
+      updated_at: new Date().toISOString(),
+      _device: _deviceId(),
+    };
+
+    const rows = getAll(table);
+    const idx = rows.findIndex((r) => r.id === record.id);
+    if (idx >= 0) rows[idx] = record;
+    else rows.unshift(record);
+    setAll(table, rows);
+
+    untrackDeletion(table, record.id);
+    await _pushRecord(table, record);
+
+    try {
+      const r = record;
+      const amount = parseFloat(r.amount) || 0;
+      const method = r.method || '';
+
+      if (method && amount > 0) {
+        if (table === 'finance_ledger') {
+          if (!r._isLoan) {
+            const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
+            const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
+            if (isIncome)  updateAccountBalance(method, amount, 'in',  true); // restore: force=true
+            if (isExpense) updateAccountBalance(method, amount, 'out', true); // restore: force=true
+
+            if (isIncome && r.category === 'Student Fee' && r.ref_id) {
+              const students = getAll('students');
+              const sIdx = students.findIndex(s => s.id === r.ref_id);
+              if (sIdx !== -1) {
+                // RECALCULATE from ALL finance entries for this student to ensure accuracy
+                const allFinance = getAll('finance_ledger');
+                const studentPayments = allFinance.filter(f => 
+                  f.ref_id === r.ref_id && 
+                  f.category === 'Student Fee' &&
+                  !f._isLoan
+                );
+                const totalPaid = studentPayments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+                const totalFee = parseFloat(students[sIdx].total_fee) || 0;
+                students[sIdx] = { 
+                  ...students[sIdx], 
+                  paid: totalPaid, 
+                  due: Math.max(0, totalFee - totalPaid), 
+                  updated_at: new Date().toISOString() 
+                };
+                setAll('students', students);
+                await _pushRecord('students', students[sIdx]);
+              }
+            }
+          }
+         } else if (table === 'loans') {
+          const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
+          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
+
+          // Find linked finance entry by matching fields (same as delete logic)
+          const financeEntries = getAll('finance_ledger').filter(f =>
+            f._isLoan === true &&
+            (f.person_name === (r.person_name || r.person)) &&
+            f.type === r.type &&
+            f.amount == r.amount &&
+            f.date === r.date
+          );
+          const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
+          
+          if (linkedFinanceId) {
+            // Already exists in finance ledger, nothing to do
+          } else {
+            // Check recycle bin for the linked finance entry
+            const allBin = getAll('recycle_bin');
+            const linkedInBin = allBin.find(b => 
+              b?.table === 'finance_ledger' &&
+              b?.data?._isLoan === true &&
+              (b.data.person_name === r.person_name || b.data.person_name === r.person) &&
+              b.data.type === r.type &&
+              b.data.amount == r.amount &&
+              b.data.date === r.date
+            );
+            
+            if (linkedInBin) {
+              // Restore the linked finance entry
+              const linkedRecord = {
+                ...linkedInBin.data,
+                updated_at: new Date().toISOString(),
+                _device: _deviceId(),
+              };
+              const finRows = getAll('finance_ledger');
+              const fIdx = finRows.findIndex(f => f.id === linkedRecord.id);
+              if (fIdx >= 0) finRows[fIdx] = linkedRecord;
+              else finRows.unshift(linkedRecord);
+              setAll('finance_ledger', finRows);
+              untrackDeletion('finance_ledger', linkedRecord.id);
+              await _pushRecord('finance_ledger', linkedRecord);
+              
+              // Remove from recycle bin
+              const freshBin = getAll('recycle_bin');
+              const realIdx = freshBin.findIndex(x => x?.data?.id === linkedRecord.id);
+              if (realIdx !== -1) freshBin.splice(realIdx, 1);
+              setAll('recycle_bin', freshBin);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[Restore] Balance update failed:', e);
+    }
+
     if (table === 'students') {
       try {
         const currentBin = getAll('recycle_bin');
@@ -988,13 +1183,16 @@ const SupabaseSync = (() => {
     const allowedCols = _TABLE_COLS[tableKey]
       || (typeof SyncEngine !== 'undefined' && SyncEngine.TABLE_COLUMNS && SyncEngine.TABLE_COLUMNS[tableKey])
       || null;
+    // ✅ Bug #30 Fix: HTML-escape user strings to block XSS. Structured/binary cols are exempt.
+    const _SAFE_COLS = new Set(['admin_password','security_answer','exam_questions','exam_settings','income_categories','expense_categories','courses','employee_roles','keep_records','recycle_bin_sync']);
+    function _esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
     const o = {};
     for (const [k, v] of Object.entries(record)) {
       if (v === undefined) continue;
       if (k.startsWith('_')) continue;
       if (_AUTO_COLS.has(k)) continue;
       if (allowedCols && !allowedCols.includes(k)) continue;
-      o[k] = v;
+      o[k] = (typeof v === 'string' && !_SAFE_COLS.has(k)) ? _esc(v) : v;
     }
     return o;
   }

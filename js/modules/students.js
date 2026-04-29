@@ -914,11 +914,15 @@ const Students = (() => {
       }
       const studentUUID = inserted.id; // UUID — finance ref_id-এ ব্যবহার হবে
 
-      // Initial payment থাকলে finance-এ log করো (ref_id = UUID)
-      if (paid > 0) {
-        const method = Utils.formVal('sf-method');
-        if (method) {
-          SupabaseSync.insert(DB.finance, {
+       // Initial payment থাকলে finance-এ log করো (ref_id = UUID)
+       if (paid > 0) {
+         const method = Utils.formVal('sf-method');
+         if (method) {
+           if (!Utils.isValidPaymentMethod(method)) {
+             Utils.toast('Invalid Payment Method selected', 'error');
+             return;
+           }
+           SupabaseSync.insert(DB.finance, {
             type:        'Income',
             category:    'Student Fee',
             description: `${name} (${record.student_id}) — Initial Admission Payment`,
@@ -967,11 +971,15 @@ const Students = (() => {
       errEl.classList.remove('hidden'); return;
     }
 
-    const method = Utils.formVal('pay-method');
-    if (!method) {
-      errEl.textContent = 'Please select a Payment Method';
-      errEl.classList.remove('hidden'); return;
-    }
+     const method = Utils.formVal('pay-method');
+     if (!method) {
+       errEl.textContent = 'Please select a Payment Method';
+       errEl.classList.remove('hidden'); return;
+     }
+     if (!Utils.isValidPaymentMethod(method)) {
+       errEl.textContent = 'Invalid or inactive Payment Method selected';
+       errEl.classList.remove('hidden'); return;
+     }
 
     const newPaid = Utils.safeNum(s.paid) + amount;
     const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);

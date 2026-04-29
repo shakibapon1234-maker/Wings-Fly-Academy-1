@@ -13,8 +13,30 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 // Supabase client (global window.supabase is loaded from CDN)
 // Guard: slow connection বা CDN block হলে window.supabase undefined হতে পারে
+// ✅ Bug #4 Fix: Show user-visible offline warning when Supabase CDN fails
 if (!window.supabase) {
   console.error('[Config] Supabase CDN not loaded! Check internet connection. App will run in offline/local-only mode.');
+  // Show banner after DOM is ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const banner = document.createElement('div');
+    banner.id = 'supabase-offline-banner';
+    banner.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
+      'background:linear-gradient(90deg,#ff6b35,#ff4757)',
+      'color:#fff', 'font-size:0.82rem', 'font-weight:700',
+      'padding:8px 16px', 'text-align:center',
+      'box-shadow:0 2px 12px rgba(255,71,87,0.4)',
+      'letter-spacing:0.3px'
+    ].join(';');
+    banner.innerHTML = '⚠️ Cloud connection unavailable — running in <strong>Offline Mode</strong>. Your data is safe locally. Reload when internet is back.';
+    // Add close button
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕';
+    closeBtn.style.cssText = 'margin-left:16px;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700';
+    closeBtn.onclick = () => banner.remove();
+    banner.appendChild(closeBtn);
+    document.body.prepend(banner);
+  });
 }
 
 const supabaseClient = window.supabase

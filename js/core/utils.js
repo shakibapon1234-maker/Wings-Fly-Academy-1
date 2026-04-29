@@ -567,39 +567,48 @@ const Utils = (() => {
     }
 
     // ── Payment Methods Dropdown ──────────────────────────────
-    function getPaymentMethodsHTML(selectedValue = '') {
-      const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
-      const sel = selectedValue;
-      const opt = (val, label) =>
-        `<option value="${escAttr(val)}" ${sel === val ? 'selected' : ''}>${escText(label)}</option>`;
+     function getPaymentMethodsHTML(selectedValue = '') {
+       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll(window.DB.accounts) : [];
+       const sel = selectedValue;
+       const opt = (val, label) =>
+         `<option value="${escAttr(val)}" ${sel === val ? 'selected' : ''}>${escText(label)}</option>`;
 
-      let h = opt('Cash', 'Cash');
+       let h = opt('Cash', 'Cash');
 
-      // Deduplicate by name — একই নামে একাধিক entry থাকলে শুধু প্রথমটা নেওয়া হবে
-      const seenNames = new Set();
+       // Deduplicate by name — একই নামে একাধিক entry থাকলে শুধু প্রথমটা নেওয়া হবে
+       const seenNames = new Set();
 
-      const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
-      banks.forEach(b => {
-        const name = b.name.trim();
-        if (!seenNames.has(name.toLowerCase())) {
-          seenNames.add(name.toLowerCase());
-          h += opt(name, name);
-        }
-      });
+       const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
+       banks.forEach(b => {
+         const name = b.name.trim();
+         if (!seenNames.has(name.toLowerCase())) {
+           seenNames.add(name.toLowerCase());
+           h += opt(name, name);
+         }
+       });
 
-      const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
-      mobiles.forEach(m => {
-        const name = m.name.trim();
-        if (!seenNames.has(name.toLowerCase())) {
-          seenNames.add(name.toLowerCase());
-          h += opt(name, name);
-        }
-      });
+       const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
+       mobiles.forEach(m => {
+         const name = m.name.trim();
+         if (!seenNames.has(name.toLowerCase())) {
+           seenNames.add(name.toLowerCase());
+           h += opt(name, name);
+         }
+       });
 
-      return h;
-    }
+       return h;
+     }
 
-    function getAccountBalance(methodName) {
+     function isValidPaymentMethod(method) {
+       if (!method || method === 'Cash') return true; // Cash is always valid
+       if (!window.SupabaseSync || !window.DB) return false;
+       const accounts = window.SupabaseSync.getAll(window.DB.accounts);
+       return accounts.some(a => 
+         (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') && a.name === method
+       );
+     }
+
+     function getAccountBalance(methodName) {
       if (!window.SupabaseSync || !methodName) return 0;
       const accounts = window.SupabaseSync.getAll(window.DB.accounts);
       const finance = window.SupabaseSync.getAll(window.DB.finance);

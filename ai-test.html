@@ -135,11 +135,11 @@
         statusDiv.innerHTML = '<div class="status success">✅ AI Assistant loaded successfully!</div>';
         
         // Check API Key
-        const apiKey = localStorage.getItem('wfa_gemini_key') || 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
-        if (apiKey && apiKey !== 'YOUR-KEY-HERE') {
+        const apiKey = localStorage.getItem('wfa_gemini_key');
+        if (apiKey) {
           statusDiv.innerHTML += '<div class="status success">✅ API Key configured</div>';
         } else {
-          statusDiv.innerHTML += '<div class="status warning">⚠️ Default API Key in use. Add your own key for better reliability.</div>';
+          statusDiv.innerHTML += '<div class="status warning">⚠️ No API Key set. Click "Set Custom API Key" to add yours.</div>';
         }
       } else {
         statusDiv.innerHTML = '<div class="status error">❌ AI Assistant failed to load! Check console for errors.</div>';
@@ -148,14 +148,17 @@
 
     function testAPIKey() {
       const resultDiv = document.getElementById('test-result');
-      const apiKey = localStorage.getItem('wfa_gemini_key') || 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
-      
+      const apiKey = localStorage.getItem('wfa_gemini_key'); // ✅ Bug #1 Fix
+      if (!apiKey) {
+        resultDiv.innerHTML = '<div class="test-result"><div class="status warning">⚠️ No API Key set. Click "Set Custom API Key" first.</div></div>';
+        return;
+      }
       resultDiv.innerHTML = `
         <div class="test-result">
           <strong>🔑 API Key Status:</strong>
           <pre>Key: ${apiKey.substring(0, 15)}...${apiKey.substring(apiKey.length - 5)}
 Length: ${apiKey.length} characters
-Source: ${localStorage.getItem('wfa_gemini_key') ? 'Custom (localStorage)' : 'Default (hardcoded)'}
+Source: Custom (localStorage)
 Status: ${apiKey.startsWith('AIza') ? '✅ Valid format' : '❌ Invalid format'}</pre>
         </div>
       `;

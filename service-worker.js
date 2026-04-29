@@ -16,8 +16,8 @@ const STATIC_ASSETS = [
   './css/exam.css',
   './css/cert-v2.css',
   './css/print.css',
-  // DISABLED: AI Chat CSS removed (2025-01-15)
-  // './css/ai-assistant.css',
+  // ✅ Bug #2 Fix: ai-assistant.css was removed from project; entry removed to avoid 404 errors
+  './js/modules/ai-assistant.js',
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',
   './js/core/sync-guard.js',
