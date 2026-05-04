@@ -9,7 +9,7 @@ const AppUpdater = (() => {
   const GITHUB_REPO = 'shakibapon1234-maker/Wings-Fly-Academy-1';
   const VERSION_KEY = 'wfa_app_version';
   const LAST_CHECK_KEY = 'wfa_update_last_check';
-  const CHECK_INTERVAL = 6 * 60 * 60 * 1000; // Check every 6 hours
+  const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check every 24 hours (no releases yet)
   const CURRENT_VERSION = '1.0.0';
 
   function init() {
@@ -30,7 +30,13 @@ const AppUpdater = (() => {
         `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
         { headers: { 'Accept': 'application/vnd.github.v3+json' } }
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        // 404 = no releases published yet — not an error, just skip silently
+        if (res.status === 404) {
+          console.info('[AppUpdater] No releases found on GitHub yet.');
+        }
+        return;
+      }
 
       const release = await res.json();
       const remoteVersion = release.tag_name?.replace(/^v/, '') || '';

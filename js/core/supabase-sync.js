@@ -1479,8 +1479,8 @@ const SyncEngine = (() => {
   // â”€â”€ Storage Size Guard (IndexedDB-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // IndexedDB à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾à¦¯à¦¼ 5MB limit à¦†à¦° à¦¨à§‡à¦‡à¥¤
   // Warning/Critical threshold à¦…à¦¨à§‡à¦• à¦¬à¦¾à¦¡à¦¼à¦¿à¦¯à¦¼à§‡ à¦¦à§‡à¦“à¦¯à¦¼à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤
-  const STORAGE_WARN_KB  = 51200;   // 50 MB
-  const STORAGE_CRIT_KB  = 102400;  // 100 MB
+  const STORAGE_WARN_KB  = 204800;  // 200 MB — IndexedDB can hold 500MB+
+  const STORAGE_CRIT_KB  = 409600;  // 400 MB — only warn when truly high
 
   function _getStorageUsageKB() {
     return WFA_IDB.getUsageKB();
@@ -1580,7 +1580,21 @@ const SyncEngine = (() => {
             console.warn(`[Sync] Pull skipped for "${key}" (HTTP 400):`, error.message);
             continue;
           }
-          throw error;
+          // ✅ Fix: Catch HTTP 500 from missing columns (e.g. exam_settings, exam_questions)
+          //         These are schema mismatches — skip the table rather than crash the whole pull.
+          if (
+            error.status === 500 ||
+            String(error.code) === '500' ||
+            error.code === 'PGRST204' ||
+            error.message?.includes('column') ||
+            error.message?.includes('schema')
+          ) {
+            console.warn(`[Sync] Pull skipped for "${key}" (schema/column mismatch — add missing columns in Supabase):`, error.message);
+            continue;
+          }
+          // Unknown error — log but don't crash the whole pull
+          console.warn(`[Sync] Pull error for "${key}" (skipping):`, error.message || error);
+          continue;
         }
 
         const localRows  = SupabaseSync.getAll(key);

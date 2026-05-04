@@ -4504,24 +4504,45 @@ ${expenseEntries.length > 0 ? `
   }
 
   // ── Auto Snapshots ──────────────────────────────────────────────
+  // ✅ Fix: Snapshots now stored in IndexedDB (via WFA_IDB) instead of localStorage.
+  //         localStorage has a 5MB hard limit — snapshots containing all data easily exceed it.
+  //         IndexedDB supports 500MB+ so quota errors are eliminated.
+  const SNAPSHOT_IDB_KEY = 'wfa_snapshots';
+
   function getSnapshots() {
+    try {
+      if (typeof WFA_IDB !== 'undefined') {
+        return WFA_IDB.getTable(SNAPSHOT_IDB_KEY) || [];
+      }
+    } catch {}
+    // Fallback: try reading from localStorage for backwards-compat
     return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
 
-  // ✅ Fix: Quota-safe localStorage writer — trims oldest snapshots until data fits
+  // ✅ Fix: Save snapshots to IndexedDB — no quota limit
   function _saveSnapshotsQuotaSafe(snapshots) {
+    try {
+      if (typeof WFA_IDB !== 'undefined') {
+        WFA_IDB.setTable(SNAPSHOT_IDB_KEY, snapshots);
+        // Also clear old localStorage snapshots to free space
+        try { localStorage.removeItem('wfa_auto_snapshots'); } catch {}
+        return true;
+      }
+    } catch (e) {
+      console.error('[Snapshot] IDB write failed:', e);
+    }
+    // Fallback to localStorage with quota protection
     const MAX_ATTEMPTS = snapshots.length;
     for (let attempt = 0; attempt <= MAX_ATTEMPTS; attempt++) {
       try {
         localStorage.setItem('wfa_auto_snapshots', JSON.stringify(snapshots));
-        return true; // success
+        return true;
       } catch (e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
           if (snapshots.length === 0) {
             console.warn('[Snapshot] Storage quota exceeded — cannot save even 1 snapshot. Skipping.');
             return false;
           }
-          // Drop oldest (last) snapshot and retry
           snapshots.pop();
           console.warn(`[Snapshot] Quota hit — trimmed to ${snapshots.length} snapshot(s).`);
         } else {
@@ -4567,8 +4588,8 @@ ${expenseEntries.length > 0 ? `
       data: data,
     });
 
-    // ✅ Fix: Cap at 5 (was 10) to reduce localStorage pressure
-    if (snapshots.length > 5) snapshots.length = 5;
+    // ✅ Fix: Cap at 7 — now stored in IndexedDB so no storage pressure
+    if (snapshots.length > 7) snapshots.length = 7;
 
     const saved = _saveSnapshotsQuotaSafe(snapshots);
     if (manual) {
@@ -4686,7 +4707,7 @@ ${expenseEntries.length > 0 ? `
         <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,150,255,0.05);padding:12px 18px;border-radius:8px;border:1px solid rgba(0,217,255,0.2);margin-bottom:15px">
            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
              <span style="color:var(--brand-primary);font-weight:600;font-size:0.95rem">প্রতি ১ ঘণ্টায় auto snapshot</span>
-             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 7 রাখা হয়</span>
+             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 7 রাখা হয় · IndexedDB</span>
            </div>
            <button class="btn btn-outline" style="border-color:var(--brand-cyan);color:var(--brand-primary);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(0,217,255,0.2)" onclick="SettingsModule.saveSnapshot(true)">
               <i class="fa fa-camera-retro"></i> এখনই নিন

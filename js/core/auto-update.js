@@ -4,10 +4,10 @@
 // ============================================================
 
 const AutoUpdateModule = (() => {
-  const VERSION_FILE_URL = 'https://wings-fly.vercel.app/version.json'; // CHANGE THIS TO YOUR DOMAIN
+  const VERSION_FILE_URL = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json'; // GitHub Pages hosted version
   const LOCAL_VERSION_KEY = 'wfa_app_version';
   const LAST_CHECK_KEY = 'wfa_last_update_check';
-  const CHECK_INTERVAL_HOURS = 1; // Check every 1 hour
+  const CHECK_INTERVAL_HOURS = 24; // Check once per day to avoid 503 spam
 
   // ── Check if new version available ──
   async function checkForUpdate() {

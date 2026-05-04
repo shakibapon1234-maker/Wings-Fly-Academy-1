@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260428-offline-mode';
+const DEPLOY_ID = '20260505-bugfix-console-errors';
 const CACHE_NAME = `wfa-v5-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -53,6 +53,7 @@ const STATIC_ASSETS = [
   './assets/icon-192.png',
   './assets/icon-512.png',
   './migrate.html',
+  './version.json',
 ];
 
 // ── Install: Pre-cache static assets ──
