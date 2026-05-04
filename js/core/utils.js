@@ -113,6 +113,43 @@ const Utils = (() => {
     return html;
   }
 
+  // ── Bug #29 Fix: Date Validation Helpers ────────────────────────
+  // Settings/Auto-Heal dependency: date strings must be validated
+  // before use to prevent NaN errors and wrong date-range filters.
+
+  // Check if a date string is a valid calendar date (not just valid format)
+  function isValidDate(dateStr) {
+    if (!dateStr || typeof dateStr !== 'string') return false;
+    // Accept ISO YYYY-MM-DD or DD/MM/YYYY formats
+    const iso = /^\d{4}-\d{2}-\d{2}$/.test(dateStr)
+      ? dateStr
+      : parseAnyDate(dateStr);
+    if (!iso) return false;
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return false;
+    // Reject sentinel/impossible dates
+    const year = d.getFullYear();
+    if (year < 1900 || year > 2100) return false;
+    return true;
+  }
+
+  // Check that start <= end and both are valid dates
+  function isValidDateRange(startStr, endStr) {
+    if (!isValidDate(startStr) || !isValidDate(endStr)) return false;
+    const start = new Date(parseAnyDate(startStr) || startStr);
+    const end   = new Date(parseAnyDate(endStr)   || endStr);
+    return start <= end;
+  }
+
+  // Sanitize: return ISO date or fallback
+  function sanitizeDate(dateStr, fallback) {
+    if (isValidDate(dateStr)) {
+      return parseAnyDate(dateStr) || dateStr;
+    }
+    const fb = fallback !== undefined ? fallback : new Date().toISOString().split('T')[0];
+    return isValidDate(fb) ? fb : new Date().toISOString().split('T')[0];
+  }
+
   // ── Number Helpers ─────────────────────────────────────────
   function safeNum(val) {
     const n = parseFloat(val);
@@ -151,11 +188,34 @@ const Utils = (() => {
     if (el) el.value = val;
   }
 
-  // ── DOM Helpers ───────────────────────────────────────────
-  function el(id) { return document.getElementById(id); }
+  // ── DOM Helpers (Bug #17 Fix: Cached querySelector) ─────
+  // Repeated getElementById is O(n) per call. Cache results in a Map.
+  const _domCache = new Map();
+  function el(id) {
+    if (_domCache.has(id)) {
+      const cached = _domCache.get(id);
+      // Invalidate if element removed from DOM
+      if (cached && cached.isConnected) return cached;
+    }
+    const elem = document.getElementById(id);
+    if (elem) _domCache.set(id, elem);
+    return elem;
+  }
+  // Clear cache (call after major DOM rebuilds e.g. module navigation)
+  function clearDomCache() { _domCache.clear(); }
 
-  // ── Toast Notifications ───────────────────────────────────
-  function toast(msg, type = 'info', duration = 3000) {
+  // ── Toast Notifications (Bug #9 Fix: Queue System) ─────────
+  // একসাথে অনেক toast দেখালে overlap হতো। এখন queue system দিয়ে
+  // সর্বোচ্চ 5টা toast একসাথে দেখাবে, বাকিগুলো queue-এ থাকবে.
+  const _toastQueue = [];
+  let _activeToasts = 0;
+  const _MAX_VISIBLE_TOASTS = 5;
+
+  function _processToastQueue() {
+    if (_activeToasts >= _MAX_VISIBLE_TOASTS || _toastQueue.length === 0) return;
+    const { msg, type, duration } = _toastQueue.shift();
+    _activeToasts++;
+
     let container = document.getElementById('toast-container');
     if (!container) {
       container = document.createElement('div');
@@ -165,9 +225,25 @@ const Utils = (() => {
     const t = document.createElement('div');
     t.className = `toast toast-${type}`;
     t.textContent = msg;
+    t.style.cursor = 'pointer';
+    t.title = 'Click to dismiss';
+    t.addEventListener('click', () => {
+      t.classList.remove('show');
+      setTimeout(() => { t.remove(); _activeToasts = Math.max(0, _activeToasts - 1); _processToastQueue(); }, 300);
+    });
     container.appendChild(t);
     requestAnimationFrame(() => t.classList.add('show'));
-    setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, duration);
+    setTimeout(() => {
+      t.classList.remove('show');
+      setTimeout(() => { t.remove(); _activeToasts = Math.max(0, _activeToasts - 1); _processToastQueue(); }, 300);
+    }, duration);
+  }
+
+  function toast(msg, type = 'info', duration = 3000) {
+    // Deduplicate: same message already queued → skip
+    if (_toastQueue.some(q => q.msg === msg)) return;
+    _toastQueue.push({ msg, type, duration });
+    _processToastQueue();
   }
 
   // ── Modal ─────────────────────────────────────────────────
@@ -732,6 +808,10 @@ const Utils = (() => {
       validateForm,
       // Req 4: Filter bar flatpickr DD/MM/YYYY initializer
       initFilterDatePickers,
+      // Bug #17: Cached DOM helper + cache clear
+      clearDomCache,
+      // Bug #29: Date validation helpers
+      isValidDate, isValidDateRange, sanitizeDate,
     };
 })();
 

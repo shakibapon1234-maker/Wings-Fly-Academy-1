@@ -146,7 +146,7 @@
       }
     });
 
-    // ── Handle back button on Android (Capacitor) ─────────
+    // ── Handle back button on Android (Capacitor) ─────────────
     if (window.Capacitor) {
       document.addEventListener('backbutton', function (e) {
         // Close more menu first
@@ -178,6 +178,77 @@
         }
       }, false);
     }
+
+    // ── Bug #20 Fix: Browser History API — PWA back button (non-Capacitor) ──
+    // Push initial state so popstate fires on back button press
+    if (!window.Capacitor && window.history && window.history.pushState) {
+      // Push a base state on load
+      window.history.pushState({ wfa: true, section: 'dashboard' }, '', window.location.href);
+
+      window.addEventListener('popstate', function (e) {
+        // Close more menu first
+        if (moreMenu && moreMenu.classList.contains('open')) {
+          moreMenu.classList.remove('open');
+          window.history.pushState({ wfa: true }, '', window.location.href);
+          return;
+        }
+        // Close sidebar
+        if (sidebar && sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          if (overlay) overlay.classList.remove('active');
+          window.history.pushState({ wfa: true }, '', window.location.href);
+          return;
+        }
+        // Close any open modal
+        var modal = document.getElementById('modal-backdrop');
+        if (modal && modal.classList.contains('open')) {
+          if (typeof Utils !== 'undefined') Utils.closeModal();
+          window.history.pushState({ wfa: true }, '', window.location.href);
+          return;
+        }
+        // Go to dashboard if not on it
+        var dashSection = document.getElementById('section-dashboard');
+        if (dashSection && dashSection.style.display === 'none') {
+          if (typeof App !== 'undefined') App.navigateTo('dashboard');
+          updateBottomNavActive('dashboard');
+          window.history.pushState({ wfa: true, section: 'dashboard' }, '', window.location.href);
+        }
+      });
+
+      // Push state on every WFA navigation
+      window.addEventListener('wfa:navigate', function (e) {
+        if (e.detail && e.detail.section) {
+          window.history.pushState({ wfa: true, section: e.detail.section }, '', window.location.href);
+        }
+      });
+    }
+
+    // ── Bug #18 Fix: Touch swipe gesture — swipe right from left edge to open sidebar ──
+    var _touchStartX = 0;
+    var _touchStartY = 0;
+    document.addEventListener('touchstart', function (e) {
+      _touchStartX = e.touches[0].clientX;
+      _touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    document.addEventListener('touchend', function (e) {
+      var dx = e.changedTouches[0].clientX - _touchStartX;
+      var dy = e.changedTouches[0].clientY - _touchStartY;
+      var isHorizontal = Math.abs(dx) > Math.abs(dy);
+      if (!isHorizontal || Math.abs(dx) < 60) return;
+
+      if (dx > 0 && _touchStartX < 30 && sidebar) {
+        // Swipe right from left edge → open sidebar
+        if (!sidebar.classList.contains('open')) {
+          sidebar.classList.add('open');
+          if (overlay) overlay.classList.add('active');
+        }
+      } else if (dx < 0 && sidebar && sidebar.classList.contains('open')) {
+        // Swipe left → close sidebar
+        sidebar.classList.remove('open');
+        if (overlay) overlay.classList.remove('active');
+      }
+    }, { passive: true });
 
   });
 })();

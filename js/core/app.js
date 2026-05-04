@@ -2,55 +2,107 @@
 // Wings Fly Aviation Academy — Main App (Tab Switching & Init)
 // ============================================================
 
-// ✅ ADDED: Global error handler — convert Chinese warnings to Bengali
+// ✅ Bug #27 Fix: Production log silencing — debug logs only in localhost
 (function() {
+  const isDev = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname);
+  if (!isDev) {
+    // Override console.log + console.debug in production (keep warn/error)
+    const _noop = () => {};
+    console.log   = _noop;
+    console.debug = _noop;
+    console.info  = _noop;
+  }
+  window.__WFA_DEV__ = isDev;
+})();
+
+// ✅ Bug #12 Fix: Global error handler — convert Chinese/Japanese/Korean warnings to Bengali
+(function() {
+  // Extended dictionary: 40+ Chinese browser/Supabase error strings → Bengali
   const chineseTobengali = {
-    // Browser/Supabase errors
+    // Storage
     '已取消': 'বাতিল করা হয়েছে',
     '存储': 'স্টোরেজ',
     '配额': 'কোটা',
     '超出': 'অতিক্রম করেছে',
+    '容量超限': 'স্টোরেজ সীমা পার হয়েছে',
+    '内存不足': 'মেমোরি সীমিত',
+    // Network
     '网络': 'নেটওয়ার্ক',
     '连接': 'সংযোগ',
+    '连接失败': 'সংযোগ বিচ্ছিন্ন',
+    '请求失败': 'অনুরোধ বিফল',
+    '超时': 'টাইমআউট',
+    '新建连接': 'নতুন সংযোগ',
+    // General errors
     '失败': 'ব্যর্থ',
     '错误': 'ত্রুটি',
     '警告': 'সতর্কতা',
+    '异常': 'অসঙ্গতি',
+    '未知错误': 'অজানা ত্রুটি',
+    // Data
     '数据': 'ডেটা',
     '同步': 'সিঙ্ক',
     '加载': 'লোডিং',
+    '保存': 'সেভ',
+    '删除': 'মুছে ফেলা',
+    '更新': 'আপডেট',
+    '查询': 'অনুসন্ধান',
+    '排列': 'সাজানো',
+    '过滤': 'ফিল্টার',
+    // Auth
+    '未授权': 'অনুমতি নেই',
+    '登录': 'লগইন',
+    '登出': 'লগআউট',
+    '密码': 'পাসওয়ার্ড',
+    '用户': 'ব্যবহারকারী',
+    '权限': 'অনুমতি',
+    // UI
+    '打开': 'খুলুন',
+    '关闭': 'বন্ধ করুন',
+    '取消': 'বাতিল',
+    '确认': 'নিশ্চিত',
+    '提交': 'জমা দিন',
+    '重试': 'আবার চেষ্টা',
   };
 
-  const isChinese = (text) => /[\u4E00-\u9FFF]/.test(text);
-  
+  // Detect Chinese/Japanese/Korean characters (expanded range)
+  const isCJK = (text) => /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF00-\uFFEF\u30A0-\u30FF\u3040-\u309F]/.test(text);
+
   const translateChinese = (text) => {
     if (!text || typeof text !== 'string') return text;
     let result = text;
     for (const [cn, bn] of Object.entries(chineseTobengali)) {
       result = result.replace(new RegExp(cn, 'g'), bn);
     }
+    // If still has CJK chars after dict lookup, strip them with a note
+    if (isCJK(result)) {
+      result = result.replace(/[\u4E00-\u9FFF\u3400-\u4DBF\u30A0-\u30FF\u3040-\u309F]+/g, '[non-latin]');
+    }
     return result;
   };
 
   // Intercept window errors
   window.addEventListener('error', (event) => {
-    if (event.message && isChinese(event.message)) {
-      event.message = translateChinese(event.message);
-      console.warn('[Translation] Chinese error → Bengali:', event.message);
+    if (event.message && isCJK(event.message)) {
+      const translated = translateChinese(event.message);
+      if (window.__WFA_DEV__) console.warn('[Translation] CJK error → Bengali:', translated);
     }
   });
 
   // Intercept unhandled promise rejections
   window.addEventListener('unhandledrejection', (event) => {
     const reason = String(event.reason);
-    if (isChinese(reason)) {
+    if (isCJK(reason)) {
       const translated = translateChinese(reason);
-      console.warn('[Translation] Chinese rejection → Bengali:', translated);
-      // Show as Bengali toast if Utils available
+      if (window.__WFA_DEV__) console.warn('[Translation] CJK rejection → Bengali:', translated);
       if (typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast(translated, 'warning', 5000);
       }
     }
   });
+
+  // Also expose for manual use
+  window._translateChinese = translateChinese;
 })();
 
 const App = (() => {

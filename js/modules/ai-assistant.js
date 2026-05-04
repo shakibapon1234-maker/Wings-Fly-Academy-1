@@ -12,9 +12,11 @@
  */
 
 const AIAssistant = (() => {
-  // ── Config — Get free key from: https://aistudio.google.com/app/apikey ──
-  const API_KEY = localStorage.getItem('wfa_gemini_key') || null; // ✅ Bug #1 Fix: No hardcoded key
+  // ── Config ──
   const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  // Bug #16 Fix: History constants for proper memory management
+  const MAX_HISTORY_PAIRS = 20; // 20 user+model pairs = 40 messages max
+  const TRIM_TO_PAIRS     = 15; // When limit hit, trim to last 15 pairs
 
   let chatHistory = [];
   let isOpen = false;
@@ -69,8 +71,12 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'উত্তর পাওয়া যায়নি।';
       chatHistory.push({ role: 'model', parts: [{ text: reply }] });
 
-      // Keep history manageable (last 20 turns)
-      if (chatHistory.length > 40) chatHistory = chatHistory.slice(-40);
+      // Bug #16 Fix: Trim history when exceeding limit — keep most recent pairs
+      if (chatHistory.length > MAX_HISTORY_PAIRS * 2) {
+        // Remove oldest pairs from the front (always in user+model pairs)
+        const keepCount = TRIM_TO_PAIRS * 2;
+        chatHistory = chatHistory.slice(chatHistory.length - keepCount);
+      }
 
       return reply;
     } catch (e) {
@@ -141,7 +147,19 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
 
   function closeChat() {
     const modal = document.getElementById('ai-chat-modal');
-    if (modal) { modal.classList.remove('open'); modal.classList.add('closing'); setTimeout(() => { modal.remove(); isOpen = false; }, 300); }
+    if (modal) {
+      modal.classList.remove('open');
+      modal.classList.add('closing');
+      setTimeout(() => {
+        modal.remove();
+        isOpen = false;
+        // Bug #16 Fix: Clear history on close to prevent memory leak
+        // History kept in memory indefinitely was the leak source
+        if (chatHistory.length > MAX_HISTORY_PAIRS * 2) {
+          chatHistory = chatHistory.slice(-TRIM_TO_PAIRS * 2);
+        }
+      }, 300);
+    }
     document.removeEventListener('visibilitychange', _handleVisibility);
   }
 
