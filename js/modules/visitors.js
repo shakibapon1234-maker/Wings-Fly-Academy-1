@@ -188,7 +188,7 @@ const VisitorsModule = (() => {
 
                 return `
                 <tr>
-                  <td style="white-space:nowrap; color:var(--text-muted); font-size:0.85rem;"><i class="fa fa-calendar-day" style="margin-right:4px;"></i>${Utils.formatDateEN(v.visit_date || v.visitDate)}</td>
+                  <td style="white-space:nowrap; color:var(--text-muted); font-size:0.85rem;"><i class="fa fa-calendar-day" style="margin-right:4px;"></i>${Utils.formatDateDMY(v.visit_date || v.visitDate)}</td>
                   <td>
                     <div style="font-weight:700; color:#fff; font-size:1rem;">${Utils.esc(v.name)}</div>
                     <div style="font-size:0.8rem; color:var(--text-muted);"><i class="fa fa-phone" style="font-size:0.7rem; margin-right:4px;"></i>${Utils.esc(v.phone)}</div>
@@ -199,7 +199,7 @@ const VisitorsModule = (() => {
                   </td>
                   <td style="font-weight:600; color:#00d4ff;">${Utils.esc(v.interested_course || '-')}</td>
                   <td>${statusBadge}</td>
-                  <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}">${v.follow_up_date ? '<i class="fa fa-clock"></i> ' + Utils.formatDateEN(v.follow_up_date) : '-'}</span></td>
+                  <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}"><i class="fa fa-clock"></i> ${v.follow_up_date ? Utils.formatDateDMY(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
                     <button class="btn btn-secondary btn-sm" data-action="vis-convert" data-id="${v.id}" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
                     <button class="btn btn-secondary btn-sm" data-action="vis-edit"    data-id="${v.id}" style="border-radius:20px; padding:4px 12px;"><i class="fa fa-pen"></i> Edit</button>
@@ -231,6 +231,46 @@ const VisitorsModule = (() => {
     if (!r) return;
     Utils.openModal('<i class="fa fa-pen" style="color:#00d4ff;"></i> EDIT VISITOR', formHTML(r));
     setTimeout(_bindModalEvents, 30); // ✅ Issue #2: bind modal buttons after render
+  }
+
+  // ─── DD/MM/YYYY Date Selector Helper ───────────────────────────────
+  function _dateSelectHTML(prefix, dateStr) {
+    const parts = (dateStr || '').split('-');
+    const yyyy  = parts[0] || '';
+    const mm    = parts[1] || '';
+    const dd    = parts[2] || '';
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const currentYear = new Date().getFullYear();
+    const years = Array.from({length: 6}, (_, i) => currentYear - 2 + i);
+    return `
+      <div style="display:flex;gap:6px;">
+        <select id="${prefix}-dd" class="form-control" style="flex:0 0 70px;" onchange="VisitorsModule._syncDate('${prefix}')">
+          <option value="">DD</option>
+          ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+        </select>
+        <select id="${prefix}-mm" class="form-control" style="flex:1;" onchange="VisitorsModule._syncDate('${prefix}')">
+          <option value="">Month</option>
+          ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+        </select>
+        <select id="${prefix}-yyyy" class="form-control" style="flex:0 0 90px;" onchange="VisitorsModule._syncDate('${prefix}')">
+          <option value="">Year</option>
+          ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
+      <input type="hidden" id="${prefix}" value="${dateStr || ''}" />
+    `;
+  }
+
+  function _syncDate(prefix) {
+    const dd   = document.getElementById(prefix + '-dd')?.value   || '';
+    const mm   = document.getElementById(prefix + '-mm')?.value   || '';
+    const yyyy = document.getElementById(prefix + '-yyyy')?.value || '';
+    const h    = document.getElementById(prefix);
+    if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
   function formHTML(r) {
@@ -280,11 +320,11 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Visit Date</label>
-          <input type="date" id="vis-vdate" class="form-control" value="${r?.visit_date || Utils.today()}" />
+          ${_dateSelectHTML('vis-vdate', r?.visit_date || Utils.today())}
         </div>
         <div class="form-group">
           <label>Follow-up Date</label>
-          <input type="date" id="vis-fdate" class="form-control" value="${r?.follow_up_date || ''}" />
+          ${_dateSelectHTML('vis-fdate', r?.follow_up_date || '')}
         </div>
       </div>
 
@@ -378,7 +418,7 @@ const VisitorsModule = (() => {
     }, 200);
   }
 
-  return { init, render, onSearch, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent };
+  return { init, render, onSearch, openAddModal, openEditModal, saveRecord, deleteRecord, convertToStudent, _syncDate };
 
 })();
 window.VisitorsModule = VisitorsModule;

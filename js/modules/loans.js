@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/loans.js
    Loan Management — Person-wise tracking
@@ -474,7 +474,12 @@ const Loans = (() => {
 
   function toggleStatus(id, currentStatus) {
     const newStatus = currentStatus==='Paid'?'Outstanding':'Paid';
+    const record = SupabaseSync.getById(DB.loans, id);
     SupabaseSync.update(DB.loans, id, { status:newStatus });
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('update', 'loans',
+        `Loan status changed: ${record?.person_name || id} -> ${newStatus}`);
+    }
     Utils.toast(`Status Changed: ${newStatus==='Paid'?'Paid':'Due'}`,'info');
     render();
   }

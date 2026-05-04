@@ -1,4 +1,4 @@
-/* ════════════════════════════════════════════════
+﻿/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/students.js
    Student Module — CRUD, Search, Filter, Print, Export
@@ -343,7 +343,7 @@ const Students = (() => {
             </div>
             <div class="sf-field">
               <label class="sf-label">Admission Date</label>
-              <input id="sf-date" type="date" class="sf-input" value="${today}" />
+              ${Students._dateSelectHTML('sf-date', today, 'sf-input sf-select')}
             </div>
           </div>
           <div class="sf-grid-2" style="margin-bottom:12px;">
@@ -479,7 +479,7 @@ const Students = (() => {
         </div>
         <div class="form-group">
           <label>Admission Date</label>
-          <input id="sf-date" type="date" class="form-control" value="${(s.admission_date||'').split('T')[0]}" />
+          ${Students._dateSelectHTML('sf-date', (s.admission_date||'').split('T')[0], 'form-control')}
         </div>
       </div>
       <div class="form-row">
@@ -711,7 +711,7 @@ const Students = (() => {
           </div>
           <div>
             <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">DATE</label>
-            <input id="pay-date" type="date" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" value="${Utils.today()}" />
+            ${Students._dateSelectHTML('pay-date', Utils.today(), 'form-control')}
           </div>
           <div>
             <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:8px; font-weight:800; font-size:0.85rem; padding:11px 20px; white-space:nowrap; cursor:pointer;" onclick="Students.savePayment('${id}')">
@@ -1430,6 +1430,45 @@ const Students = (() => {
     try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.render(); } catch { /* ignore */ }
   }
 
+
+  /* ── DD/MM/YYYY Date Select Helper (shared by add/edit/payment forms) ─── */
+  function _dateSelectHTML(prefix, dateStr, cls) {
+    cls = cls || 'form-control';
+    const parts = (dateStr || '').split('-');
+    const yyyy  = parts[0] || '';
+    const mm    = parts[1] || '';
+    const dd    = parts[2] || '';
+    const months = [
+      ['01','January'],['02','February'],['03','March'],['04','April'],
+      ['05','May'],['06','June'],['07','July'],['08','August'],
+      ['09','September'],['10','October'],['11','November'],['12','December']
+    ];
+    const curYear = new Date().getFullYear();
+    const years = Array.from({length:8}, (_,i) => curYear - 4 + i);
+    return `<div style="display:flex;gap:6px;">
+      <select id="${prefix}-dd" class="${cls}" style="flex:0 0 70px;" onchange="Students._syncDate('${prefix}')">
+        <option value="">DD</option>
+        ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+      </select>
+      <select id="${prefix}-mm" class="${cls}" style="flex:1;" onchange="Students._syncDate('${prefix}')">
+        <option value="">Month</option>
+        ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+      </select>
+      <select id="${prefix}-yyyy" class="${cls}" style="flex:0 0 90px;" onchange="Students._syncDate('${prefix}')">
+        <option value="">Year</option>
+        ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+      </select>
+    </div>
+    <input type="hidden" id="${prefix}" value="${dateStr || ''}" />`;
+  }
+
+  function _syncDate(prefix) {
+    const dd   = document.getElementById(prefix + '-dd')?.value   || '';
+    const mm   = document.getElementById(prefix + '-mm')?.value   || '';
+    const yyyy = document.getElementById(prefix + '-yyyy')?.value || '';
+    const h    = document.getElementById(prefix);
+    if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+  }
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
@@ -1440,7 +1479,8 @@ const Students = (() => {
     printReceipt,
     deletePayment,
     setReminder, _saveReminder,
-    _forceSave, _resetDupWarning
+    _forceSave, _resetDupWarning,
+    _dateSelectHTML, _syncDate
   };
 
 })();
