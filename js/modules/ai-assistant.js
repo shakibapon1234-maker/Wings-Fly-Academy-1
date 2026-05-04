@@ -13,7 +13,8 @@
 
 const AIAssistant = (() => {
   // ── Config ──
-  const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+  const FETCH_TIMEOUT_MS  = 15000; // 15s timeout for mobile networks
   // Bug #16 Fix: History constants for proper memory management
   const MAX_HISTORY_PAIRS = 20; // 20 user+model pairs = 40 messages max
   const TRIM_TO_PAIRS     = 15; // When limit hit, trim to last 15 pairs
@@ -57,25 +58,58 @@ Academy Name: ${cfg.academy_name || 'Wings Fly Aviation Academy'}
 Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফাইন্যান্স, উপস্থিতি, পরীক্ষা সব বিষয়ে সাহায্য করুন।`;
   }
 
+  // ── Retrieve API Key (with fallback chain) ──
+  // ✅ Default key embedded so AI works out-of-the-box on any device
+  const DEFAULT_API_KEY = 'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0';
+
+  async function _getApiKey() {
+    try {
+      // 1. Try SecureStorage (encrypted — user may have set a custom key)
+      if (typeof SecureStorage !== 'undefined') {
+        const key = await SecureStorage.getItem('wfa_gemini_key');
+        if (key) { console.log('[AIAssistant] Key from SecureStorage ✓'); return key; }
+      }
+    } catch (e) {
+      console.warn('[AIAssistant] SecureStorage.getItem failed, trying fallback:', e.message);
+    }
+    // 2. Fallback: raw localStorage
+    const raw = localStorage.getItem('wfa_gemini_key');
+    if (raw) {
+      if (raw.startsWith('wfa_enc::')) {
+        console.warn('[AIAssistant] Key is encrypted but SecureStorage unavailable — using default.');
+        return DEFAULT_API_KEY;
+      }
+      console.log('[AIAssistant] Key from localStorage fallback ✓');
+      return raw;
+    }
+    // 3. Final fallback: hardcoded default key (permanent)
+    console.log('[AIAssistant] Using default embedded API key ✓');
+    return DEFAULT_API_KEY;
+  }
+
   // ── API Call ──
   async function chat(userMessage) {
-    // ✅ Bug #1 + #5 Fix: Read API key from SecureStorage (encrypted)
-    let key;
-    if (typeof SecureStorage !== 'undefined') {
-      key = await SecureStorage.getItem('wfa_gemini_key');
-    } else {
-      key = localStorage.getItem('wfa_gemini_key');
-    }
+    console.log('[AIAssistant] chat() called with:', userMessage?.substring(0, 50));
+
+    // ✅ Bug #1 + #5 Fix: Read API key with robust fallback
+    const key = await _getApiKey();
     if (!key) {
+      console.warn('[AIAssistant] No API key found');
       return '⚠️ Gemini API Key সেট করা হয়নি। Settings → AI Assistant → API Key দিন।';
     }
 
     chatHistory.push({ role: 'user', parts: [{ text: userMessage }] });
 
     try {
+      // ✅ Mobile Fix: AbortController timeout to prevent silent hangs
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+      console.log('[AIAssistant] Sending request to Gemini...');
       const response = await fetch(`${API_URL}?key=${key}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
         body: JSON.stringify({
           system_instruction: { parts: [{ text: _getSystemPrompt() }] },
           contents: chatHistory,
@@ -87,10 +121,14 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
           }
         })
       });
+      clearTimeout(timeoutId);
+
+      console.log('[AIAssistant] Response status:', response.status);
 
       if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || response.statusText);
+        let errMsg = response.statusText;
+        try { const err = await response.json(); errMsg = err.error?.message || errMsg; } catch {}
+        throw new Error(errMsg);
       }
 
       const data = await response.json();
@@ -100,15 +138,16 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
 
       // Bug #16 Fix: Trim history when exceeding limit — keep most recent pairs
       if (chatHistory.length > MAX_HISTORY_PAIRS * 2) {
-        // Remove oldest pairs from the front (always in user+model pairs)
         const keepCount = TRIM_TO_PAIRS * 2;
         chatHistory = chatHistory.slice(chatHistory.length - keepCount);
       }
 
+      console.log('[AIAssistant] Reply received ✓');
       return reply;
     } catch (e) {
       console.error('[AIAssistant] Error:', e);
       chatHistory.pop(); // Remove failed user message
+      if (e.name === 'AbortError') return '⏳ সময় শেষ। ইন্টারনেট ধীর থাকতে পারে। আবার চেষ্টা করুন।';
       if (!navigator.onLine) return '📴 Internet নেই। সংযোগ ফিরলে আবার চেষ্টা করুন।';
       return `❌ ত্রুটি: ${e.message}`;
     }
@@ -143,7 +182,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
           </div>
         </div>
         <div class="ai-chat-input-area">
-          <div id="ai-key-warning" style="display:${localStorage.getItem('wfa_gemini_key') ? 'none' : 'flex'};
+          <div id="ai-key-warning" style="display:none;
             gap:8px;align-items:center;padding:8px 12px;background:rgba(255,107,53,0.1);
             border:1px solid rgba(255,107,53,0.3);border-radius:8px;margin-bottom:8px;font-size:0.75rem;color:#ff6b35;">
             ⚠️ API Key নেই!
@@ -255,11 +294,13 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
   function promptApiKey() {
     const key = prompt('Google Gemini API Key দিন:\n(পান: https://aistudio.google.com/app/apikey)');
     if (key?.trim()) {
-      // Bug #5 Fix: Store API key encrypted via SecureStorage
+      // Bug #5 Fix: Store API key — try SecureStorage first, then localStorage
+      const trimmed = key.trim();
+      // Always save a plain copy in localStorage for fallback
+      localStorage.setItem('wfa_gemini_key', trimmed);
+      // Also save encrypted version if available
       if (typeof SecureStorage !== 'undefined') {
-        SecureStorage.setItem('wfa_gemini_key', key.trim());
-      } else {
-        localStorage.setItem('wfa_gemini_key', key.trim());
+        SecureStorage.setItem('wfa_gemini_key', trimmed).catch(() => {});
       }
       document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
       if (typeof Utils !== 'undefined') Utils.toast('✅ Gemini API Key saved!', 'success');
@@ -379,6 +420,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
   }
 
   function init() {
+    console.log('[AIAssistant] Initializing...');
     _injectStyles();
     // Bug #20 Fix: Load persisted chat history on init
     if (typeof WFA_IDB !== 'undefined') {
@@ -386,6 +428,14 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
     }
     // Add toggle button after DOM ready
     setTimeout(addToggleButton, 1500);
+    // ✅ Mobile Fix: Hide key warning if key exists (check async)
+    setTimeout(async () => {
+      const existingKey = await _getApiKey();
+      if (existingKey) {
+        document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
+      }
+    }, 2000);
+    console.log('[AIAssistant] Init complete ✓');
   }
 
   return { init, openChat, closeChat, clearChat, sendMessage, promptApiKey, chat };
