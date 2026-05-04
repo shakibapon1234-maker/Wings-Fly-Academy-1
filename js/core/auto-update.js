@@ -9,9 +9,20 @@ const AutoUpdateModule = (() => {
   const LAST_CHECK_KEY = 'wfa_last_update_check';
   const CHECK_INTERVAL_HOURS = 24; // Check once per day to avoid 503 spam
 
+  // ── Detect dev/local environment — skip update check to avoid CSP noise ──
+  function _isDevEnvironment() {
+    const h = window.location.hostname;
+    return h === 'localhost' || h === '127.0.0.1' || h.startsWith('192.168.') || h === '';
+  }
+
   // ── Check if new version available ──
   async function checkForUpdate() {
     try {
+      // ✅ Fix: Skip entirely on localhost/dev — avoid CSP violation noise in console
+      if (_isDevEnvironment()) {
+        return { available: false, reason: 'dev-environment' };
+      }
+
       if (!navigator.onLine) return { available: false, reason: 'offline' };
 
       const lastCheck = parseInt(localStorage.getItem(LAST_CHECK_KEY) || '0');
@@ -24,13 +35,16 @@ const AutoUpdateModule = (() => {
 
       let response;
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
         response = await fetch(VERSION_FILE_URL, {
           cache: 'no-store',
           mode: 'cors',
-          signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
       } catch (fetchErr) {
-        // CSP block, network error, or timeout — silently ignore, don't spam console
+        // CSP block, network error, or timeout — silently skip
         return { available: false, reason: 'fetch-blocked' };
       }
 
@@ -52,7 +66,6 @@ const AutoUpdateModule = (() => {
       return { available: false, reason: 'up-to-date' };
 
     } catch (error) {
-      // Silent fail — don't log errors to avoid console noise
       return { available: false, reason: 'error' };
     }
   }
