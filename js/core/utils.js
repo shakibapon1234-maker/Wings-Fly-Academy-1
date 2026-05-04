@@ -315,7 +315,12 @@ const Utils = (() => {
 
   function closeModal() {
     const backdrop = document.getElementById('modal-backdrop');
-    if (backdrop) backdrop.classList.remove('open');
+    if (backdrop) {
+      backdrop.classList.remove('open');
+      // Bug #17 Fix: Clean up modal body to prevent event listener accumulation
+      const bodyEl = document.getElementById('modal-body');
+      if (bodyEl) setTimeout(() => { bodyEl.innerHTML = ''; }, 350); // delay to allow closing animation
+    }
   }
 
   // ── Confirm Dialog ────────────────────────────────────────

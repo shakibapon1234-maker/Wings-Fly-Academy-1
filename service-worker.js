@@ -26,6 +26,7 @@ const STATIC_ASSETS = [
   './js/core/utils.js',
   './js/core/inline-handlers.js',
   './js/core/app-updater.js',
+  './js/core/i18n.js',
   './js/core/mobile-nav.js',
   './js/ui/dashboard.js',
   './js/ui/login.js',

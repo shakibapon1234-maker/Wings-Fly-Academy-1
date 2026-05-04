@@ -20,6 +20,26 @@ const AIAssistant = (() => {
 
   let chatHistory = [];
   let isOpen = false;
+
+  // Bug #20 Fix: Persist chat history via IndexedDB
+  function _saveChatHistory() {
+    try {
+      if (typeof WFA_IDB !== 'undefined') {
+        WFA_IDB.setTable('ai_chat_history', chatHistory);
+      }
+    } catch (e) { console.warn('[AIAssistant] Save history failed:', e); }
+  }
+
+  function _loadChatHistory() {
+    try {
+      if (typeof WFA_IDB !== 'undefined') {
+        const saved = WFA_IDB.getTable('ai_chat_history');
+        if (Array.isArray(saved) && saved.length > 0) {
+          chatHistory = saved;
+        }
+      }
+    } catch (e) { console.warn('[AIAssistant] Load history failed:', e); }
+  }
   let isTyping = false;
 
   // ── System Prompt ──
@@ -70,6 +90,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
       const data = await response.json();
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'উত্তর পাওয়া যায়নি।';
       chatHistory.push({ role: 'model', parts: [{ text: reply }] });
+      _saveChatHistory(); // Bug #20 Fix: Persist after each exchange
 
       // Bug #16 Fix: Trim history when exceeding limit — keep most recent pairs
       if (chatHistory.length > MAX_HISTORY_PAIRS * 2) {
@@ -165,6 +186,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
 
   function clearChat() {
     chatHistory = [];
+    _saveChatHistory(); // Bug #20 Fix: Clear persisted history too
     const msgs = document.getElementById('ai-chat-messages');
     if (msgs) msgs.innerHTML = `<div class="ai-msg ai-msg-bot"><span>✨ Chat cleared! নতুন প্রশ্ন করুন।</span></div>`;
   }
@@ -347,6 +369,10 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
 
   function init() {
     _injectStyles();
+    // Bug #20 Fix: Load persisted chat history on init
+    if (typeof WFA_IDB !== 'undefined') {
+      WFA_IDB.onReady(() => _loadChatHistory());
+    }
     // Add toggle button after DOM ready
     setTimeout(addToggleButton, 1500);
   }
