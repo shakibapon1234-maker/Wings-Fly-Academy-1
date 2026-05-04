@@ -11,11 +11,19 @@ const AppUpdater = (() => {
   const LAST_CHECK_KEY = 'wfa_update_last_check';
   const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // Check every 24 hours (no releases yet)
   const CURRENT_VERSION = '1.0.0';
+  // ✅ Set to true once you publish your first GitHub Release
+  const HAS_GITHUB_RELEASES = false;
 
   function init() {
     // Save current version if not set
     if (!localStorage.getItem(VERSION_KEY)) {
       localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+    }
+    // ✅ Skip GitHub API check until HAS_GITHUB_RELEASES = true
+    // Avoids red 404 console errors when no releases are published yet
+    if (!HAS_GITHUB_RELEASES) {
+      console.info('[AppUpdater] GitHub release check disabled — no releases published yet.');
+      return;
     }
     // Check for updates on app start (with throttle)
     const lastCheck = parseInt(localStorage.getItem(LAST_CHECK_KEY) || '0');
