@@ -1733,13 +1733,47 @@ const SettingsModule = (() => {
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE START DATE</label>
-            <input type="text" id="bp-start" class="form-control" value="${monthAgo}" />
+            <input type="text" id="bp-start" class="form-control"
+              placeholder="DD/MM/YY" autocomplete="off" />
+            <input type="hidden" id="bp-start-raw" value="${monthAgo}" />
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE END DATE</label>
-            <input type="text" id="bp-end" class="form-control" value="${today}" />
+            <input type="text" id="bp-end" class="form-control"
+              placeholder="DD/MM/YY" autocomplete="off" />
+            <input type="hidden" id="bp-end-raw" value="${today}" />
           </div>
         </div>
+        <script>
+          (function() {
+            setTimeout(function() {
+              if (typeof flatpickr === 'undefined') return;
+              var cfg = {
+                dateFormat:  'd/m/y',
+                allowInput:  true,
+                locale: { firstDayOfWeek: 1 },
+                onChange: function(dates, str, inst) {
+                  var raw = dates[0] ? dates[0].toISOString().split('T')[0] : '';
+                  var hidId = inst.element.id + '-raw';
+                  var hid = document.getElementById(hidId);
+                  if (hid) hid.value = raw;
+                }
+              };
+              var s = document.getElementById('bp-start');
+              var e = document.getElementById('bp-end');
+              if (s && !s._flatpickr) {
+                var fp = flatpickr(s, cfg);
+                fp.setDate('${monthAgo}', false);
+                document.getElementById('bp-start-raw').value = '${monthAgo}';
+              }
+              if (e && !e._flatpickr) {
+                var fp2 = flatpickr(e, cfg);
+                fp2.setDate('${today}', false);
+                document.getElementById('bp-end-raw').value = '${today}';
+              }
+            }, 80);
+          })();
+        <\/script>
 
         <!-- Previous Balance row -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;align-items:flex-end;">
@@ -1774,8 +1808,11 @@ const SettingsModule = (() => {
 
   function renderBatchReport() {
     const batch   = document.getElementById('bp-batch')?.value || '';
-    const start   = document.getElementById('bp-start')?.value || '';
-    const end     = document.getElementById('bp-end')?.value || '';
+    // Flatpickr hidden raw values (YYYY-MM-DD)
+    const start   = document.getElementById('bp-start-raw')?.value ||
+                    document.getElementById('bp-start')?.value || '';
+    const end     = document.getElementById('bp-end-raw')?.value ||
+                    document.getElementById('bp-end')?.value || '';
     const prevBal = parseFloat(document.getElementById('bp-prev')?.value || 0) || 0;
 
     const students = SupabaseSync.getAll(DB.students);
