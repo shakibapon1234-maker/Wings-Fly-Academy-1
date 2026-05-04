@@ -35,7 +35,7 @@ jobs:
       run: node build-www.js
     
     - name: Sync Capacitor Plugins
-      run: npx @capacitor/cli sync
+      run: ./node_modules/.bin/cap sync
     
     - name: Build Android Debug APK
       working-directory: ./android
