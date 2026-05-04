@@ -494,12 +494,14 @@ const Loans = (() => {
     // ── 1. Account balance ALWAYS reverse করো (finance entry খোঁজার আগে) ──────
     // Loan Given ছিল → টাকা বের হয়েছিল → এখন ফেরত দাও = 'in'
     // Loan Received ছিল → টাকা এসেছিল → এখন ফেরত নাও = 'out'
-    if (record.method && Utils.safeNum(record.amount) > 0) {
+    const method = record.method || 'Cash';
+    if (Utils.safeNum(record.amount) > 0) {
       const wasGiven = record.type === 'Loan Giving' || record.direction === 'given';
       SupabaseSync.updateAccountBalance(
-        record.method,
+        method,
         Utils.safeNum(record.amount),
-        wasGiven ? 'in' : 'out'
+        wasGiven ? 'in' : 'out',
+        true // force update even if negative
       );
     }
 
