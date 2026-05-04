@@ -176,7 +176,11 @@ const App = (() => {
   }
 
   function isAdmin() {
-    return localStorage.getItem('wfa_user_role') === 'admin';
+    const role = localStorage.getItem('wfa_user_role');
+    // ✅ Fix: if logged in but role key is missing (e.g. first visit on GitHub Pages
+    // before a proper login sets the key), default to admin so Settings isn't blocked.
+    if (!role && localStorage.getItem('wfa_logged_in') === 'true') return true;
+    return role === 'admin';
   }
 
   function getUserPermissions() {
