@@ -12,38 +12,36 @@ const AutoUpdateModule = (() => {
   // ── Check if new version available ──
   async function checkForUpdate() {
     try {
-      if (!navigator.onLine) {
-        console.log('[AutoUpdate] Offline - skipping check');
-        return { available: false, reason: 'offline' };
-      }
+      if (!navigator.onLine) return { available: false, reason: 'offline' };
 
       const lastCheck = parseInt(localStorage.getItem(LAST_CHECK_KEY) || '0');
       const now = Date.now();
       const hoursSinceCheck = (now - lastCheck) / (1000 * 60 * 60);
 
       if (lastCheck && hoursSinceCheck < CHECK_INTERVAL_HOURS) {
-        console.log('[AutoUpdate] Checked recently, skipping');
         return { available: false, reason: 'too-soon' };
       }
 
-      console.log('[AutoUpdate] Checking for updates...');
-      const response = await fetch(VERSION_FILE_URL, { cache: 'no-store' });
-      
-      if (!response.ok) {
-        console.warn('[AutoUpdate] Failed to fetch version:', response.status);
-        return { available: false, reason: 'fetch-failed' };
+      let response;
+      try {
+        response = await fetch(VERSION_FILE_URL, {
+          cache: 'no-store',
+          mode: 'cors',
+          signal: AbortSignal.timeout ? AbortSignal.timeout(5000) : undefined
+        });
+      } catch (fetchErr) {
+        // CSP block, network error, or timeout — silently ignore, don't spam console
+        return { available: false, reason: 'fetch-blocked' };
       }
+
+      if (!response || !response.ok) return { available: false, reason: 'fetch-failed' };
 
       const remoteVersion = await response.json();
       const localVersion = localStorage.getItem(LOCAL_VERSION_KEY) || '1.0.0';
-
-      // Update last check time
       localStorage.setItem(LAST_CHECK_KEY, now.toString());
 
       const hasUpdate = compareVersions(remoteVersion.version, localVersion) > 0;
-
       if (hasUpdate) {
-        console.log('[AutoUpdate] New version available:', remoteVersion.version);
         return {
           available: true,
           version: remoteVersion.version,
@@ -51,13 +49,11 @@ const AutoUpdateModule = (() => {
           size: remoteVersion.size || 'unknown'
         };
       }
-
-      console.log('[AutoUpdate] Already on latest version:', localVersion);
       return { available: false, reason: 'up-to-date' };
 
     } catch (error) {
-      console.error('[AutoUpdate] Check failed:', error);
-      return { available: false, reason: 'error', error: error.message };
+      // Silent fail — don't log errors to avoid console noise
+      return { available: false, reason: 'error' };
     }
   }
 
@@ -237,30 +233,24 @@ const AutoUpdateModule = (() => {
 
   // ── Initialize auto-check on app start ──
   function init() {
-    // Check on app load
-    checkForUpdate().then(result => {
-      if (result.available) {
-        console.log('[AutoUpdate] Update available, showing prompt');
-        showUpdatePrompt(result);
-      }
-    });
+    // Delay check by 5s so it doesn't slow down initial app load
+    setTimeout(() => {
+      checkForUpdate().then(result => {
+        if (result.available) showUpdatePrompt(result);
+      });
+    }, 5000);
 
     // Check periodically (every hour)
     setInterval(() => {
       checkForUpdate().then(result => {
-        if (result.available) {
-          showUpdatePrompt(result);
-        }
+        if (result.available) showUpdatePrompt(result);
       });
     }, CHECK_INTERVAL_HOURS * 60 * 60 * 1000);
 
-    // Check when online
+    // Check when back online
     window.addEventListener('online', () => {
-      console.log('[AutoUpdate] Back online, checking for updates');
       checkForUpdate().then(result => {
-        if (result.available) {
-          showUpdatePrompt(result);
-        }
+        if (result.available) showUpdatePrompt(result);
       });
     });
   }

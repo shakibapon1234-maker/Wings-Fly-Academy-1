@@ -908,24 +908,12 @@ const SupabaseSync = (() => {
       console.warn('[Restore] Balance update failed:', e);
     }
 
-        return (r.staff_name || r.staffName)
-          ? ((r.staff_name || r.staffName) + ' — ৳' + Number(r.net_salary || r.amount || 0).toLocaleString() + ' (' + (r.month || '') + ')')
-          : '—';
-      case 'exams':
-        return r.student_name
-          ? (r.student_name + (r.subject ? ' — ' + r.subject : '') + (r.marks != null ? ' (' + r.marks + '%)' : ''))
-          : (r.reg_id || '—');
-      case 'attendance':
-        return r.person_name ? (r.person_name + ' — ' + (r.date || '') + ' (' + (r.status || '') + ')') : '—';
-      case 'visitors':
-        return r.name ? (r.name + (r.phone ? ' (' + r.phone + ')' : '') + (r.purpose ? ' — ' + r.purpose : '')) : '—';
-      case 'notices':
-        return r.title ? ('"' + r.title + '"') : '—';
-      case 'settings':
-        return 'একাডেমি সেটিংস';
-      default:
-        return r.name || r.title || r.description || r.person_name || '—';
-    }
+    // Remove from recycle bin array
+    const updatedBin = getAll('recycle_bin').filter((_, i) => i !== index);
+    setAll('recycle_bin', updatedBin);
+    _syncRecycleBinToSettings();
+    _logActivity('restore', table, _humanReadableLog('restore', table, record));
+    return true;
   }
 
   function _tableDisplayName(table) {
