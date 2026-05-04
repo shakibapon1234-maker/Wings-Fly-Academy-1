@@ -5,7 +5,7 @@
   "main": "service-worker.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:mobile": "node build-www.js && npx --yes cap sync",
+    "build:mobile": "node build-www.js && npx @capacitor/cli sync",
     "watch": "node watch-sync.js"
   },
   "repository": {
