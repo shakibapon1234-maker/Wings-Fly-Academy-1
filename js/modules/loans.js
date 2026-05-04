@@ -1,4 +1,4 @@
-﻿/* ════════════════════════════════════════════════
+/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/loans.js
    Loan Management — Person-wise tracking
@@ -491,29 +491,10 @@ const Loans = (() => {
     const record = SupabaseSync.getById(DB.loans, id);
     if (!record) return;
 
-    // ── Finance এ linked entry খুঁজো ──────────────────────────────────
-    // saveLoan() এ finance এ insert করার সময় person_name ও _isLoan flag দেওয়া হয়েছিল
-    const financeEntries = SupabaseSync.getAll(DB.finance).filter(f =>
-      f._isLoan === true &&
-      (f.person_name === (record.person_name || record.person)) &&
-      f.type === record.type &&
-      f.amount == record.amount &&
-      f.date === record.date
-    );
-    const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
-
-    // ── Loan remove ───────────────────────────────────────────────────
-    SupabaseSync.remove(DB.loans, id);
-    if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'loans', 
-        `Deleted loan record: ${record.person_name} (${record.type})`
-      );
-    }
-
-    // ── Account balance reverse করো ───────────────────────────────────
+    // ── 1. Account balance ALWAYS reverse করো (finance entry খোঁজার আগে) ──────
     // Loan Given ছিল → টাকা বের হয়েছিল → এখন ফেরত দাও = 'in'
     // Loan Received ছিল → টাকা এসেছিল → এখন ফেরত নাও = 'out'
-    if (record.method && record.amount) {
+    if (record.method && Utils.safeNum(record.amount) > 0) {
       const wasGiven = record.type === 'Loan Giving' || record.direction === 'given';
       SupabaseSync.updateAccountBalance(
         record.method,
@@ -522,12 +503,39 @@ const Loans = (() => {
       );
     }
 
-    // ── Linked Finance entry-ও remove করো ────────────────────────────
-    if (linkedFinanceId) {
-      SupabaseSync.remove(DB.finance, linkedFinanceId);
+    // ── 2. Finance এ linked entry খুঁজো ──────────────────────────────────
+    // _isLoan flag Supabase column sanitizer দ্বারা strip হয়ে যেতে পারে,
+    // তাই _isLoan ছাড়াও match করার fallback রাখা হয়েছে
+    const allFinance = SupabaseSync.getAll(DB.finance);
+    const personName = record.person_name || record.person || '';
+    const recDate    = record.date;
+    const recAmt     = Utils.safeNum(record.amount);
+    const recType    = record.type;
+
+    const linked = allFinance.find(f =>
+      (f.person_name === personName) &&
+      f.type  === recType &&
+      Math.abs(Utils.safeNum(f.amount) - recAmt) < 0.01 &&
+      f.date  === recDate &&
+      f.category === 'Loan'
+    );
+
+    // ── 3. Loan record remove ─────────────────────────────────────────────
+    SupabaseSync.remove(DB.loans, id);
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('delete', 'loans',
+        `Deleted loan: ${record.person_name} (${record.type}) ৳${Utils.formatMoneyPlain(record.amount)}`
+      );
     }
 
-    Utils.toast('Loan deleted', 'warning');
+    // ── 4. Linked Finance entry-ও remove করো ─────────────────────────────
+    // Finance entry নিজে remove করার সময় balance reverse করবে না (_isLoan guard)
+    // তাই শুধু data cleanup এর জন্য remove করি — balance আগেই (step 1) ঠিক হয়েছে
+    if (linked?.id) {
+      SupabaseSync.remove(DB.finance, linked.id);
+    }
+
+    Utils.toast('Loan deleted — balance updated ✓', 'warning');
     render();
   }
 

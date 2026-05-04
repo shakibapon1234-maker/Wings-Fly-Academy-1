@@ -1733,47 +1733,28 @@ const SettingsModule = (() => {
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE START DATE</label>
-            <input type="text" id="bp-start" class="form-control"
-              placeholder="DD/MM/YY" autocomplete="off" />
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="text" id="bp-start" class="form-control" readonly
+                placeholder="DD/MM/YY" autocomplete="off"
+                style="cursor:pointer;padding-right:38px;"
+                value="${(function(){var d=new Date(monthAgo);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+String(d.getFullYear()).slice(-2);})()}" />
+              <i class="fa fa-calendar-days" style="position:absolute;right:12px;color:var(--brand-primary);font-size:0.9rem;pointer-events:none;"></i>
+            </div>
             <input type="hidden" id="bp-start-raw" value="${monthAgo}" />
           </div>
           <div class="form-group" style="margin:0">
             <label class="settings-label">EXPENSE END DATE</label>
-            <input type="text" id="bp-end" class="form-control"
-              placeholder="DD/MM/YY" autocomplete="off" />
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="text" id="bp-end" class="form-control" readonly
+                placeholder="DD/MM/YY" autocomplete="off"
+                style="cursor:pointer;padding-right:38px;"
+                value="${(function(){var d=new Date(today);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+String(d.getFullYear()).slice(-2);})()}" />
+              <i class="fa fa-calendar-days" style="position:absolute;right:12px;color:var(--brand-primary);font-size:0.9rem;pointer-events:none;"></i>
+            </div>
             <input type="hidden" id="bp-end-raw" value="${today}" />
           </div>
         </div>
-        <script>
-          (function() {
-            setTimeout(function() {
-              if (typeof flatpickr === 'undefined') return;
-              var cfg = {
-                dateFormat:  'd/m/y',
-                allowInput:  true,
-                locale: { firstDayOfWeek: 1 },
-                onChange: function(dates, str, inst) {
-                  var raw = dates[0] ? dates[0].toISOString().split('T')[0] : '';
-                  var hidId = inst.element.id + '-raw';
-                  var hid = document.getElementById(hidId);
-                  if (hid) hid.value = raw;
-                }
-              };
-              var s = document.getElementById('bp-start');
-              var e = document.getElementById('bp-end');
-              if (s && !s._flatpickr) {
-                var fp = flatpickr(s, cfg);
-                fp.setDate('${monthAgo}', false);
-                document.getElementById('bp-start-raw').value = '${monthAgo}';
-              }
-              if (e && !e._flatpickr) {
-                var fp2 = flatpickr(e, cfg);
-                fp2.setDate('${today}', false);
-                document.getElementById('bp-end-raw').value = '${today}';
-              }
-            }, 80);
-          })();
-        <\/script>
+        <!-- flatpickr is initialized via _initSettingsDatePickers() on tab switch -->
 
         <!-- Previous Balance row -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;align-items:flex-end;">
@@ -1859,15 +1840,10 @@ const SettingsModule = (() => {
 
     const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
 
-    // ── Other Income (non-student) in date range ──
-    const otherIncomeEntries = finance.filter(f => {
-      if (f.type !== 'Income' || f.category === 'Student Fee') return false;
-      const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
-      return inRange;
-    });
-    const otherIncome = otherIncomeEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
-
-    const grossIncome = totalCollected + otherIncome;
+    // ── Income = ALL collected fees from batch students (NO date filter) ──
+    // Date range applies to EXPENSES only, not income.
+    // Students in a batch enroll at different times, so all-time collected is the correct income figure.
+    const grossIncome = totalCollected;  // from batchStudents.reduce paid
     const netProfit   = grossIncome - totalExpense + prevBalance;
     const isProfit    = netProfit >= 0;
 
@@ -1886,8 +1862,9 @@ const SettingsModule = (() => {
     // ── Store data for export ──
     window._bpReportData = {
       batch: selectedBatch || 'All Batches', startDate, endDate, prevBalance,
-      batchStudents, expenseEntries, otherIncomeEntries,
-      totalStudentFee, totalCollected, totalDue, totalExpense, otherIncome, grossIncome, netProfit,
+      batchStudents, expenseEntries,
+      totalStudentFee, totalCollected, totalDue, totalExpense,
+      grossIncome, netProfit,
       academyName, reportDate
     };
 
@@ -1932,8 +1909,7 @@ const SettingsModule = (() => {
             <div style="font-weight:700;color:#00ff88;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(0,255,136,0.2);padding-bottom:6px;">
               ✦ আয় (Income)
             </div>
-            ${plRow('ছাত্রদের ফি সংগ্রহ', totalCollected, '#00ff88')}
-            ${otherIncome > 0 ? plRow('অন্যান্য আয়', otherIncome, '#00ff88') : ''}
+            ${plRow('ব্যাচের মোট সংগৃহীত ফি (সম্পূর্ণ)', totalCollected, '#00ff88')}
             ${prevBalance !== 0 ? plRow('পূর্ববর্তী ব্যালেন্স', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
             <div style="border-top:1.5px solid rgba(0,255,136,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
               <span style="color:#fff;">মোট আয়</span>
@@ -2706,17 +2682,41 @@ ${expenseEntries.length > 0 ? `
     if (typeof flatpickr === 'undefined') return;
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
+
+    // General date inputs (type=date)
     overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
       if (!el._flatpickr) {
         flatpickr(el, {
-          dateFormat: 'Y-m-d',   // backend keeps YYYY-MM-DD
-          altInput:   true,       // separate visible input
-          altFormat:  'd/m/Y',   // user sees DD/MM/YYYY
+          dateFormat: 'Y-m-d',
+          altInput:   true,
+          altFormat:  'd/m/Y',
           allowInput: true,
           locale:     { firstDayOfWeek: 1 },
         });
       }
     });
+
+    // Batch Profit Report calendar pickers (bp-start / bp-end)
+    const bpCfg = {
+      dateFormat:    'd/m/y',
+      disableMobile: true,
+      locale:        { firstDayOfWeek: 1 },
+      onChange: function(dates, _str, inst) {
+        const raw = dates[0] ? dates[0].toISOString().split('T')[0] : '';
+        const hid = document.getElementById(inst.element.id + '-raw');
+        if (hid) hid.value = raw;
+      }
+    };
+    const bpStart = document.getElementById('bp-start');
+    const bpEnd   = document.getElementById('bp-end');
+    if (bpStart && !bpStart._flatpickr) {
+      const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
+      if (bpStart.value) fp.setDate(bpStart.value, false);
+    }
+    if (bpEnd && !bpEnd._flatpickr) {
+      const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
+      if (bpEnd.value) fp2.setDate(bpEnd.value, false);
+    }
   }
 
   // ─── SyncGuard Panel ──────────────────────────────────────────
