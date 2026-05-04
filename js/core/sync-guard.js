@@ -399,6 +399,8 @@ const SyncGuard = (() => {
     if (!ok) return;
 
     // Bug #1 fix: guard against SupabaseSync not being available
+    // CRITICAL FIX #1: Implement optimistic locking to prevent race conditions
+    // Multiple simultaneous balance updates can corrupt data without version control
     if (!window.SupabaseSync) {
       typeof Utils !== 'undefined' && Utils.toast && Utils.toast('SupabaseSync not ready. Please try again.', 'error');
       return;

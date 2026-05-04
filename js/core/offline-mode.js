@@ -51,13 +51,14 @@ const OfflineModeModule = (() => {
       const transaction = db.transaction(['offline-queue'], 'readwrite');
       const store = transaction.objectStore('offline-queue');
       
-      const item = {
-        action,           // 'INSERT', 'UPDATE', 'DELETE'
-        table,            // table name
-        data,             // data to sync
-        timestamp: Date.now(),
-        status: 'pending' // pending, synced, failed
-      };
+       const item = {
+         action,           // 'INSERT', 'UPDATE', 'DELETE'
+         table,            // table name
+         data,             // data to sync
+         timestamp: Date.now(),
+         status: 'pending', // pending, synced, failed
+         retries: 0        // CRITICAL FIX: Initialize retry counter
+       };
 
       return new Promise((resolve, reject) => {
         const request = store.add(item);
@@ -94,53 +95,143 @@ const OfflineModeModule = (() => {
     }
   }
 
-  // ── Sync pending actions with server ──
-  async function syncQueue() {
-    if (!isOnline) {
-      console.log('[Offline] Still offline, sync skipped');
-      return { synced: 0, failed: 0 };
-    }
+   // ── Sync pending actions with server ──
+   async function syncQueue() {
+     if (!isOnline) {
+       console.log('[Offline] Still offline, sync skipped');
+       return { synced: 0, failed: 0 };
+     }
 
-    try {
-      const queue = await getPendingQueue();
-      if (queue.length === 0) return { synced: 0, failed: 0 };
+     try {
+       const queue = await getPendingQueue();
+       if (queue.length === 0) return { synced: 0, failed: 0 };
 
-      console.log('[Offline] Syncing', queue.length, 'pending actions...');
+       console.log('[Offline] Syncing', queue.length, 'pending actions...');
 
-      let synced = 0;
-      let failed = 0;
+       let synced = 0;
+       let failed = 0;
 
-      for (const item of queue) {
-        try {
-          const success = await syncItem(item);
-          if (success) {
-            await markItemSynced(item.id);
-            synced++;
-          } else {
-            failed++;
-          }
-        } catch (e) {
-          console.error('[Offline] Sync failed for item:', item.id, e);
-          failed++;
-        }
-      }
+       // CRITICAL FIX #3: Add retry counter and max retry limit
+       // When network drops mid-sync, items won't be orphaned
+       const MAX_RETRIES = 3;
 
-      // Clean up synced items
-      await cleanupSyncedQueue();
+       for (const item of queue) {
+         try {
+           // Check retry count before attempting
+           const retries = item.retries || 0;
+           if (retries >= MAX_RETRIES) {
+             console.warn(`[Offline] Item ${item.id} exceeded max retries, marking as failed`);
+             await markItemFailed(item.id);
+             failed++;
+             continue;
+           }
 
-      console.log('[Offline] Sync complete:', synced, 'synced,', failed, 'failed');
-      
-      if (typeof Utils !== 'undefined') {
-        Utils.toast(`অফলাইন ডেটা সিঙ্ক হয়েছে: ${synced} successful`, 'success');
-      }
+           const success = await syncItem(item);
+           if (success) {
+             await markItemSynced(item.id);
+             synced++;
+           } else {
+             // Increment retry counter on failure
+             await incrementRetryCount(item.id);
+             failed++;
+           }
+         } catch (e) {
+           console.error('[Offline] Sync failed for item:', item.id, e);
+           // Increment retry on exception too
+           await incrementRetryCount(item.id);
+           failed++;
+         }
+       }
 
-      return { synced, failed };
+       // Clean up synced items
+       await cleanupSyncedQueue();
+       
+       // Clean up permanently failed items after max retries
+       await cleanupFailedQueue();
 
-    } catch (e) {
-      console.error('[Offline] Sync queue failed:', e);
-      return { synced: 0, failed: queue.length };
-    }
-  }
+       console.log('[Offline] Sync complete:', synced, 'synced,', failed, 'failed');
+       
+       if (typeof Utils !== 'undefined') {
+         Utils.toast(`অফলাইন ডেটা সিঙ্ক হয়েছে: ${synced} successful, ${failed} failed`, 'success');
+       }
+
+       return { synced, failed };
+
+     } catch (e) {
+       console.error('[Offline] Sync queue failed:', e);
+       return { synced: 0, failed: queue.length };
+     }
+   }
+
+   // ── Increment retry counter for failed items ──
+   async function incrementRetryCount(itemId) {
+     try {
+       if (!db) await initDB();
+       const transaction = db.transaction(['offline-queue'], 'readwrite');
+       const store = transaction.objectStore('offline-queue');
+       
+       return new Promise((resolve, reject) => {
+         const getRequest = store.get(itemId);
+         getRequest.onsuccess = () => {
+           const item = getRequest.result;
+           if (item) {
+             item.retries = (item.retries || 0) + 1;
+             item.lastRetry = Date.now();
+             item.status = item.retries >= 3 ? 'failed' : 'pending';
+             const putRequest = store.put(item);
+             putRequest.onsuccess = () => resolve(true);
+             putRequest.onerror = () => reject(putRequest.error);
+           }
+         };
+       });
+     } catch (e) {
+       console.error('[Offline] Failed to increment retry:', e);
+       return false;
+     }
+   }
+
+   // ── Mark item as permanently failed ──
+   async function markItemFailed(itemId) {
+     try {
+       if (!db) await initDB();
+       const transaction = db.transaction(['offline-queue'], 'readwrite');
+       const store = transaction.objectStore('offline-queue');
+       
+       return new Promise((resolve, reject) => {
+         const getRequest = store.get(itemId);
+         getRequest.onsuccess = () => {
+           const item = getRequest.result;
+           if (item) {
+             item.status = 'failed';
+             const putRequest = store.put(item);
+             putRequest.onsuccess = () => resolve(true);
+             putRequest.onerror = () => reject(putRequest.error);
+           }
+         };
+       });
+     } catch (e) {
+       console.error('[Offline] Failed to mark item as failed:', e);
+       return false;
+     }
+   }
+
+   // ── Clean up permanently failed items ──
+   async function cleanupFailedQueue() {
+     try {
+       if (!db) await initDB();
+       const transaction = db.transaction(['offline-queue'], 'readwrite');
+       const store = transaction.objectStore('offline-queue');
+       const queue = await getPendingQueue();
+       
+       for (const item of queue) {
+         if (item.status === 'failed' && item.retries >= 3) {
+           store.delete(item.id);
+           console.warn(`[Offline] Removed permanently failed item: ${item.id}`);
+         }
+       }
+     } catch (e) {
+       console.error('[Offline] Cleanup failed items failed:', e);
+     }
 
   // ── Sync individual item ──
   async function syncItem(item) {
