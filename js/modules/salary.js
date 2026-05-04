@@ -641,10 +641,30 @@ const Salary = (() => {
       SupabaseSync.update(DB.salary, id, { name: r.staffName });
     }
 
+    // ✅ FIX: Salary paid amount থাকলে Finance Expense + Account balance reverse করো
+    // confirmPay()/_logToFinance() এ যে Expense entry গিয়েছিল সেটা undo করতে হবে।
+    var paidAmt = Utils.safeNum(r && r.paidAmount);
+    if (r && paidAmt > 0 && r.method) {
+      var finEntries = SupabaseSync.getAll(DB.finance).filter(function(f) {
+        return f.category === 'Salary' &&
+               f.type === 'Expense' &&
+               (f.person_name === r.staffName ||
+                (f.description && f.description.indexOf(r.staffName) !== -1));
+      });
+      var totalLinked = 0;
+      finEntries.forEach(function(f) {
+        totalLinked += Utils.safeNum(f.amount);
+        SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+      });
+      if (totalLinked > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(r.method, totalLinked, 'in');
+      }
+    }
+
     SupabaseSync.remove(DB.salary, id);
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('delete', 'salary',
-        `Salary record deleted: ${r ? r.staffName : 'Unknown'} — ${r ? (r.month || '') : ''}`
+        `Salary record deleted: ${r ? r.staffName : 'Unknown'} — ${r ? (r.month || '') : ''}${paidAmt > 0 ? ' (Finance reversed)' : ''}`
       );
     }
     renderContent();

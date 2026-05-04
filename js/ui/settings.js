@@ -3348,12 +3348,18 @@ ${expenseEntries.length > 0 ? `
       if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
     }
     const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
-    advances.push({ person, amount, method, date, note, returns: [] });
+    const newAdv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), person, amount, method, date, note, returns: [] };
+    advances.push(newAdv);
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    SupabaseSync.insert(DB.finance, {
+    const finEntry = SupabaseSync.insert(DB.finance, {
       type: 'Expense', method, category: 'Advance Payment',
-      description: `Advance to ${person}`, amount, date, note
+      description: `Advance to ${person}`, amount, date, note,
+      _advId: newAdv.id  // link করার জন্য
     });
+    // ✅ FIX: Account balance কমাও (Advance দেওয়া = টাকা বের হয়)
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(method, amount, 'out');
+    }
     closeSettingsInternalModal();
     Utils.toast('Advance payment saved ✓', 'success');
     refreshModal();
@@ -3371,9 +3377,27 @@ ${expenseEntries.length > 0 ? `
       SupabaseSync._addToRecycleBinPublic('advance_payments', victim);
     }
 
+    // ✅ FIX: Finance linked entry reverse করো
+    const finEntries = SupabaseSync.getAll(DB.finance).filter(f =>
+      f.category === 'Advance Payment' && f.type === 'Expense' &&
+      (f._advId === victim.id ||
+       (f.description && f.description.includes(victim.person) &&
+        parseFloat(f.amount) === parseFloat(victim.amount)))
+    );
+    var totalFinLinked = 0;
+    finEntries.forEach(f => {
+      totalFinLinked += parseFloat(f.amount) || 0;
+      SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+    });
+    // ✅ FIX: Account balance ফেরত দাও (Expense ছিল → 'in' করো)
+    if (victim.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+      const reverseAmt = totalFinLinked > 0 ? totalFinLinked : parseFloat(victim.amount) || 0;
+      if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'in');
+    }
+
     advances.splice(idx, 1);
     localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
-    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()}`);
+    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
     Utils.toast(`"${victim.person}"-এর advance — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
@@ -3560,12 +3584,18 @@ ${expenseEntries.length > 0 ? `
     if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
     if (!method) { Utils.toast('Account required', 'error'); return; }
     const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
-    investments.push({ source, amount, method, date, note, returns: [] });
+    const newInv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), source, amount, method, date, note, returns: [] };
+    investments.push(newInv);
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
       type: 'Investment In', method, category: 'Investment Receiving',
-      description: `Investment from ${source}`, amount, date, note
+      description: `Investment from ${source}`, amount, date, note,
+      _invId: newInv.id  // link করার জন্য
     });
+    // ✅ FIX: Account balance বাড়াও (Investment পাওয়া = টাকা আসে)
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(method, amount, 'in');
+    }
     closeSettingsInternalModal();
     Utils.toast('Investment saved ✓', 'success');
     refreshModal();
@@ -3583,9 +3613,27 @@ ${expenseEntries.length > 0 ? `
       SupabaseSync._addToRecycleBinPublic('investments', victim);
     }
 
+    // ✅ FIX: Finance linked entry reverse করো
+    const finEntries = SupabaseSync.getAll(DB.finance).filter(f =>
+      f.category === 'Investment Receiving' &&
+      (f._invId === victim.id ||
+       (f.description && f.description.includes(victim.source) &&
+        parseFloat(f.amount) === parseFloat(victim.amount)))
+    );
+    var totalFinLinked = 0;
+    finEntries.forEach(f => {
+      totalFinLinked += parseFloat(f.amount) || 0;
+      SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+    });
+    // ✅ FIX: Account balance ফেরত দাও (Investment In ছিল → 'out' করো)
+    if (victim.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+      const reverseAmt = totalFinLinked > 0 ? totalFinLinked : parseFloat(victim.amount) || 0;
+      if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'out');
+    }
+
     investments.splice(idx, 1);
     localStorage.setItem('wfa_investments', JSON.stringify(investments));
-    logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()}`);
+    logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
     Utils.toast(`"${victim.source}"-এর investment — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
