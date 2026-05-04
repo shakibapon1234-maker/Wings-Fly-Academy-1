@@ -28,6 +28,9 @@ jobs:
     - name: Install dependencies
       run: npm install
     
+    - name: Prepare Android gradlew permissions
+      run: chmod +x android/gradlew
+    
     - name: Build web assets
       run: npm run build:mobile
     
@@ -35,7 +38,6 @@ jobs:
       working-directory: ./android
       run: |
         export GRADLE_USER_HOME=$(pwd)/../.gradle
-        chmod +x gradlew
         ./gradlew clean assembleDebug
     
     - name: Upload APK to Release
