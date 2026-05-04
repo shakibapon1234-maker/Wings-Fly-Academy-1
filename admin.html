@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="content-language" content="bn, en">
 <title>Wings Fly Academy — Admin Panel</title>
 <style>
   :root {
@@ -434,7 +435,7 @@
       </div>
 
       <div style="text-align:center;margin-top:16px;">
-        <a href="exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজে যান</a>
+        <a href="./exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজে যান</a>
       </div>
     </div>
   </div>
@@ -647,7 +648,7 @@
       </div>
 
       <div style="text-align:center;margin-top:8px;">
-        <a href="exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজ দেখুন</a>
+        <a href="./exam.html" style="font-size:13px;color:var(--primary);">← স্টুডেন্ট পেজ দেখুন</a>
       </div>
     </div>
 
@@ -782,17 +783,23 @@ function renderQuestionList() {
     return;
   }
 
+  // Local XSS escape helper (admin.html doesn't always have Utils)
+  function _adminEsc(s) {
+    if (!s && s !== 0) return '';
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   list.innerHTML = qs.map((q, i) => `
     <div class="q-item">
       <div class="q-item-top">
-        <div class="q-item-text">${i+1}. ${q.question} <span style="font-size:12px;color:var(--muted); font-weight:normal;">[মান: ${q.marks || 1}]</span></div>
+        <div class="q-item-text">${i+1}. ${_adminEsc(q.question)} <span style="font-size:12px;color:var(--muted); font-weight:normal;">[মান: ${_adminEsc(q.marks || 1)}]</span></div>
         <div class="q-item-actions">
           <button class="btn btn-outline btn-sm" onclick="editQuestion(${i})">✏️</button>
           <button class="btn btn-danger btn-sm" onclick="deleteQuestion(${i})">🗑️</button>
         </div>
       </div>
       <div class="q-options-preview">
-        ${q.options.map((o, j) => `<span class="q-opt-pill ${j===q.answer?'correct':''}">${['ক','খ','গ','ঘ'][j]}. ${o}</span>`).join('')}
+        ${q.options.map((o, j) => `<span class="q-opt-pill ${j===q.answer?'correct':''}">${['ক','খ','গ','ঘ'][j]}. ${_adminEsc(o)}</span>`).join('')}
       </div>
     </div>
   `).join('');

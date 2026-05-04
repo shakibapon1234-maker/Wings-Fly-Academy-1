@@ -583,7 +583,8 @@ const Utils = (() => {
     pagesHtml += `<button class="page-btn ${currentPage === totalPages ? 'disabled' : ''}" onclick="${currentPage < totalPages ? `${moduleName}.changePage(${currentPage + 1})` : ''}"><i class="fa fa-chevron-right"></i></button>`;
 
     return `
-      <div class="pagination-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px;">
+      <div class="pagination-wrapper" style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 16px; flex-wrap: wrap;">
+        <span style="font-size:0.78rem;color:rgba(255,255,255,0.45);margin-right:4px;">Page ${currentPage} of ${totalPages} (${totalItems} total)</span>
         ${pagesHtml}
         <select class="page-size-select" onchange="${moduleName}.changePageSize(this.value)" style="margin-left: 8px; padding: 6px 12px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; outline: none; cursor: pointer;">
           <option value="10" ${pageSize==10?'selected':''}>10 / page</option>
@@ -755,7 +756,7 @@ const Utils = (() => {
         }
         if (id.includes('amount') || id.includes('fee') || id.includes('balance') || id.includes('price')) {
           const num = parseFloat(value);
-          if (isNaN(num) || num < 0) {
+          if (isNaN(num) || num <= 0) {
             errors.push(`${label} must be a positive number`);
           }
         }
