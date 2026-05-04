@@ -1156,11 +1156,6 @@ window.App = App;
         setInterval(runScheduledTasks, INTERVAL_MS);
         console.info('[Scheduler] Auto snapshot + daily backup scheduler started');
       });
-    } else {
-      setTimeout(() => {
-        runScheduledTasks();
-        setInterval(runScheduledTasks, INTERVAL_MS);
-      }, 30 * 1000);
     }
   }
 
