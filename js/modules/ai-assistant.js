@@ -59,7 +59,13 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
 
   // ── API Call ──
   async function chat(userMessage) {
-    const key = localStorage.getItem('wfa_gemini_key'); // ✅ Bug #1 Fix: Only use user-provided key
+    // ✅ Bug #1 + #5 Fix: Read API key from SecureStorage (encrypted)
+    let key;
+    if (typeof SecureStorage !== 'undefined') {
+      key = await SecureStorage.getItem('wfa_gemini_key');
+    } else {
+      key = localStorage.getItem('wfa_gemini_key');
+    }
     if (!key) {
       return '⚠️ Gemini API Key সেট করা হয়নি। Settings → AI Assistant → API Key দিন।';
     }
@@ -249,7 +255,12 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
   function promptApiKey() {
     const key = prompt('Google Gemini API Key দিন:\n(পান: https://aistudio.google.com/app/apikey)');
     if (key?.trim()) {
-      localStorage.setItem('wfa_gemini_key', key.trim());
+      // Bug #5 Fix: Store API key encrypted via SecureStorage
+      if (typeof SecureStorage !== 'undefined') {
+        SecureStorage.setItem('wfa_gemini_key', key.trim());
+      } else {
+        localStorage.setItem('wfa_gemini_key', key.trim());
+      }
       document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
       if (typeof Utils !== 'undefined') Utils.toast('✅ Gemini API Key saved!', 'success');
     }

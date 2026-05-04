@@ -232,6 +232,7 @@ const OfflineModeModule = (() => {
      } catch (e) {
        console.error('[Offline] Cleanup failed items failed:', e);
      }
+   }
 
   // ── Sync individual item ──
   async function syncItem(item) {
