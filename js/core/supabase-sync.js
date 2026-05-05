@@ -73,13 +73,40 @@ const WFA_IDB = (() => {
     });
   }
 
-  // IndexedDB-à¦¤à§‡ à¦à¦•à¦Ÿà¦¿ table à¦²à§‡à¦–à§‹ (async, fire-and-forget)
+  // IndexedDB write queue — serialize writes and expose completion for safety-critical paths
+  let _writeQueue = Promise.resolve();
+  let _pendingWriteCount = 0;
   function _writeToIDB(tableName, rows) {
-    if (!_db) return;
-    const tx    = _db.transaction(STORE_NAME, 'readwrite');
-    const store = tx.objectStore(STORE_NAME);
-    store.put({ tableName, rows });
-    tx.onerror = (e) => console.error('[IDB] Write failed for', tableName, e.target.error);
+    if (!_db) return Promise.resolve();
+    _pendingWriteCount++;
+    _writeQueue = _writeQueue.then(() => new Promise((resolve, reject) => {
+      try {
+        const tx = _db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ tableName, rows });
+        tx.oncomplete = () => {
+          _pendingWriteCount = Math.max(0, _pendingWriteCount - 1);
+          resolve();
+        };
+        tx.onerror = (e) => {
+          _pendingWriteCount = Math.max(0, _pendingWriteCount - 1);
+          console.error('[IDB] Write failed for', tableName, e.target.error);
+          reject(e.target.error);
+        };
+        tx.onabort = (e) => {
+          _pendingWriteCount = Math.max(0, _pendingWriteCount - 1);
+          console.error('[IDB] Write aborted for', tableName, e.target.error);
+          reject(e.target.error || new Error('IDB transaction aborted'));
+        };
+      } catch (err) {
+        _pendingWriteCount = Math.max(0, _pendingWriteCount - 1);
+        console.error('[IDB] Write setup failed for', tableName, err);
+        reject(err);
+      }
+    })).catch(() => {
+      // Keep queue alive after failures so next writes can still run.
+    });
+    return _writeQueue;
   }
 
   // Initialize â€” app load-à¦ à¦à¦•à¦¬à¦¾à¦° call à¦•à¦°à¦¤à§‡ à¦¹à¦¬à§‡
@@ -211,6 +238,10 @@ const WFA_IDB = (() => {
     _writeToIDB(tableName, rows);
   }
 
+  function flushWrites() {
+    return _writeQueue;
+  }
+
   // Storage usage â€” cache-à¦à¦° JSON size à¦…à¦¨à§à¦®à¦¾à¦¨ à¦•à¦°à§‹
   function getUsageKB() {
     let total = 0;
@@ -230,13 +261,19 @@ const WFA_IDB = (() => {
     } catch { return 0; }
   }
 
-  return { init, onReady, getTable, setTable, getUsageKB, getTableSizeKB };
+  return { init, onReady, getTable, setTable, flushWrites, getUsageKB, getTableSizeKB };
 })();
 
 window.WFA_IDB = WFA_IDB;
 
 // â”€â”€ App à¦¶à§à¦°à§ à¦¹à¦²à§‡ IndexedDB init à¦•à¦°à§‹ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 WFA_IDB.init();
+// Best-effort durability: flush pending writes when app goes to background.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden' && WFA_IDB && typeof WFA_IDB.flushWrites === 'function') {
+    WFA_IDB.flushWrites().catch(() => {});
+  }
+});
 
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1322,6 +1359,7 @@ const SupabaseSync = (() => {
       const { client } = window.SUPABASE_CONFIG;
       const remaining = [];
       let successCount = 0;
+      let droppedCount = 0;
       
       for (const item of queue) {
         try {
@@ -1344,6 +1382,7 @@ const SupabaseSync = (() => {
             item.lastError = e.message;
             remaining.push(item);
           } else {
+            droppedCount++;
             console.warn(`[Sync] Retry limit exceeded for ${item.table}:`, e);
           }
         }
@@ -1359,8 +1398,14 @@ const SupabaseSync = (() => {
       if (successCount > 0) {
         console.log(`[Sync] Retry queue processed: ${successCount} succeeded, ${remaining.length} remaining`);
       }
+      if (droppedCount > 0 && typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`⚠️ ${droppedCount} sync item(s) failed permanently after max retries.`, 'warning', 6000);
+      }
     } catch (e) { 
       console.warn('[Sync] processRetryQueue failed:', e);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('❌ Sync retry queue processing failed. Check connection and try Sync now.', 'error', 5000);
+      }
     }
   }
 
@@ -1382,6 +1427,8 @@ const SupabaseSync = (() => {
 
   async function _updateBalanceCore(methodName, amount, direction, force = false) {
     try {
+      const normalizedAmount = Math.round((parseFloat(amount) || 0) * 100) / 100;
+      if (normalizedAmount <= 0) return false;
       const accounts = getAll('accounts');
       let accountIdx = -1;
 
@@ -1397,7 +1444,7 @@ const SupabaseSync = (() => {
         if (methodName === 'Cash') {
           // ✅ Fix: prevent creating Cash account with negative starting balance
           if (direction !== 'in' && !force) {
-            console.warn(`[Sync] ❌ Cannot create Cash account with negative balance (direction: ${direction}, amount: ${amount})`);
+            console.warn(`[Sync] ❌ Cannot create Cash account with negative balance (direction: ${direction}, amount: ${normalizedAmount})`);
             if (typeof Utils !== 'undefined' && Utils.toast) {
               Utils.toast('⚠️ No Cash account exists — please add one in Accounts first.', 'error', 5000);
             }
@@ -1407,7 +1454,7 @@ const SupabaseSync = (() => {
             id: generateId(),
             type: 'Cash',
             name: 'Cash',
-            balance: direction === 'in' ? amount : (force ? -amount : 0),
+            balance: direction === 'in' ? normalizedAmount : (force ? -normalizedAmount : 0),
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           };
@@ -1420,19 +1467,20 @@ const SupabaseSync = (() => {
       }
 
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
-      const newBal = direction === 'in' ? currentBal + amount : currentBal - amount;
+      const newBalRaw = direction === 'in' ? currentBal + normalizedAmount : currentBal - normalizedAmount;
+      const newBal = Math.round(newBalRaw * 100) / 100;
 
       if (newBal < 0 && !force) {
         SyncGuard && SyncGuard.report('negative_balance', {
           account: methodName,
           before: currentBal,
-          change: direction === 'in' ? +amount : -amount,
+          change: direction === 'in' ? +normalizedAmount : -normalizedAmount,
           after: newBal,
         });
         // ✅ Issue #3: Block update AND show user-facing toast — not just console.warn
-        console.warn(`[Sync] ❌ Balance blocked for "${methodName}": ৳${currentBal} - ৳${amount} = ৳${newBal}`);
+        console.warn(`[Sync] ❌ Balance blocked for "${methodName}": ৳${currentBal} - ৳${normalizedAmount} = ৳${newBal}`);
         if (typeof Utils !== 'undefined' && Utils.toast) {
-          Utils.toast(`⚠️ Insufficient balance in "${methodName}" (Available: ৳${currentBal.toLocaleString()}, Needed: ৳${amount.toLocaleString()})`, 'error', 5000);
+          Utils.toast(`⚠️ Insufficient balance in "${methodName}" (Available: ৳${currentBal.toLocaleString()}, Needed: ৳${normalizedAmount.toLocaleString()})`, 'error', 5000);
         }
         return false;
       }

@@ -28,7 +28,7 @@ jobs:
         distribution: 'temurin'
     
     - name: Install dependencies
-      run: npm install
+      run: npm ci
     
     - name: Prepare Android gradlew permissions
       run: chmod +x android/gradlew

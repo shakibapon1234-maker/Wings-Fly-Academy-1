@@ -105,6 +105,27 @@
   window._translateChinese = translateChinese;
 })();
 
+// ✅ Critical stabilization: catch uncaught runtime failures and surface them.
+(function() {
+  let lastUiErrorAt = 0;
+  function notify(errLike) {
+    const now = Date.now();
+    if (now - lastUiErrorAt < 3000) return;
+    lastUiErrorAt = now;
+    const msg = (errLike && errLike.message) ? errLike.message : String(errLike || 'Unknown error');
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast(`Unexpected error: ${msg}`, 'error', 5000);
+    }
+  }
+  window.addEventListener('error', (event) => {
+    const msg = event?.error || event?.message;
+    if (msg) notify(msg);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    notify(event?.reason || 'Unhandled promise rejection');
+  });
+})();
+
 const App = (() => {
 
   const SECTIONS = [
@@ -1162,7 +1183,29 @@ const App = (() => {
   return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
-document.addEventListener('DOMContentLoaded', App.init);
+// ✅ Critical stabilization: wait for core globals to avoid startup race conditions.
+(function bootstrapApp() {
+  let started = false;
+  function hasCoreGlobals() {
+    return (
+      typeof window.Utils !== 'undefined' &&
+      typeof window.SupabaseSync !== 'undefined' &&
+      typeof window.DB !== 'undefined' &&
+      typeof window.WFA_IDB !== 'undefined' &&
+      typeof window.App !== 'undefined'
+    );
+  }
+  function startWhenReady() {
+    if (started) return;
+    if (hasCoreGlobals()) {
+      started = true;
+      window.App.init();
+      return;
+    }
+    setTimeout(startWhenReady, 50);
+  }
+  document.addEventListener('DOMContentLoaded', startWhenReady);
+})();
 window.App = App;
 
 // ── Auto Snapshot + Daily Backup Scheduler ───────────────────────────
@@ -1203,7 +1246,7 @@ window.App = App;
 // ── Date Input locale fix: force DD/MM/YYYY everywhere ──────────────
 (function enforceDateLocale() {
   function fixDateInputs() {
-    document.querySelectorAll('input[type="date"], input.date-picker, input[class*="date"]').forEach(el => {
+    document.querySelectorAll('input[type="date"], input.date-picker').forEach(el => {
       if (!el.hasAttribute('data-locale-fixed') && !el.closest('.flatpickr-calendar')) {
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');

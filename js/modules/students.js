@@ -29,7 +29,8 @@ const Students = (() => {
     filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
     filterCourse = sessionStorage.getItem('wfa_students_course') || '';
     filterStatus = sessionStorage.getItem('wfa_students_status') || '';
-    currentPage  = parseInt(sessionStorage.getItem('wfa_students_page') || '1');
+    const savedPage = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
+    currentPage = Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1;
   }
 
   function _clearFilterState() {
