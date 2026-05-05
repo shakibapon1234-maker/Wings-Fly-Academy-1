@@ -207,13 +207,40 @@ const PatternLockModule = (() => {
 
     if (currentMode === 'register') {
       localStorage.setItem('wfa_admin_pattern', patternString);
+      // ✅ FIX: Also save to cloud settings so it syncs across devices
+      try {
+        if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+          const settingsList = SupabaseSync.getAll(DB.settings);
+          const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
+          settings.admin_pattern = patternString;
+          if (settings.id) {
+            SupabaseSync.update(DB.settings, settings.id, settings);
+          } else {
+            settings.id = SupabaseSync.generateId();
+            SupabaseSync.insert(DB.settings, settings);
+          }
+        }
+      } catch(e) { console.warn('[PatternLock] Cloud save failed:', e); }
       statusEl.textContent = 'Pattern saved! ✅';
       statusEl.style.color = '#00ff88';
       if (typeof Utils !== 'undefined') Utils.toast('Pattern Lock enabled! Use it on the login page.', 'success');
       setTimeout(close, 1500);
     }
     else if (currentMode === 'login') {
-      const savedPattern = localStorage.getItem('wfa_admin_pattern');
+      // ✅ FIX: Check localStorage first, then fall back to cloud settings
+      let savedPattern = localStorage.getItem('wfa_admin_pattern');
+      if (!savedPattern) {
+        try {
+          if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+            const settingsList = SupabaseSync.getAll(DB.settings);
+            const settings = settingsList.find(s => s.admin_pattern) || settingsList[0];
+            if (settings && settings.admin_pattern) {
+              savedPattern = settings.admin_pattern;
+              localStorage.setItem('wfa_admin_pattern', savedPattern); // cache locally
+            }
+          }
+        } catch(e) { console.warn('[PatternLock] Cloud read failed:', e); }
+      }
       if (savedPattern === patternString) {
         statusEl.textContent = 'Pattern Matched! ✅';
         statusEl.style.color = '#00ff88';
@@ -236,6 +263,7 @@ const PatternLockModule = (() => {
   function triggerLoginSuccess() {
     if (typeof App !== 'undefined') {
       localStorage.setItem('wfa_logged_in', 'true');
+      localStorage.setItem('wfa_login_time', String(Date.now())); // ✅ FIX: set session timestamp
       localStorage.setItem('wfa_user_role', 'admin');
       localStorage.setItem('wfa_user_name', 'admin');
       localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));

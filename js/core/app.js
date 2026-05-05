@@ -491,7 +491,8 @@ const App = (() => {
         let needsUpdate = false;
         const mergeFields = ['security_question','security_answer','academy_name',
                              'running_batch','expense_month','monthly_target',
-                             'admin_username','theme'];
+                             'admin_username','theme',
+                             'admin_pattern','admin_face_descriptor']; // ✅ FIX: preserve auth data during merge
         for (const field of mergeFields) {
           if (row[field] && !keeper[field]) {
             keeper[field] = row[field];
@@ -538,13 +539,35 @@ const App = (() => {
     // Face ID button visiblity
     const faceBtn = document.getElementById('face-id-login-btn');
     if (faceBtn) {
-       faceBtn.style.display = localStorage.getItem('wfa_admin_face_descriptor') ? 'flex' : 'none';
+      // ✅ FIX: Check localStorage first, then cloud settings (synced from another device)
+      let hasFace = !!localStorage.getItem('wfa_admin_face_descriptor');
+      if (!hasFace) {
+        try {
+          const s = SupabaseSync.getAll(DB.settings)[0];
+          if (s && s.admin_face_descriptor) {
+            hasFace = true;
+            localStorage.setItem('wfa_admin_face_descriptor', s.admin_face_descriptor);
+          }
+        } catch(e) {}
+      }
+      faceBtn.style.display = hasFace ? 'flex' : 'none';
     }
 
     // Pattern Lock button visibility
     const patBtn = document.getElementById('pattern-lock-login-btn');
     if (patBtn) {
-       patBtn.style.display = localStorage.getItem('wfa_admin_pattern') ? 'flex' : 'none';
+      // ✅ FIX: Check localStorage first, then cloud settings (synced from another device)
+      let hasPat = !!localStorage.getItem('wfa_admin_pattern');
+      if (!hasPat) {
+        try {
+          const s = SupabaseSync.getAll(DB.settings)[0];
+          if (s && s.admin_pattern) {
+            hasPat = true;
+            localStorage.setItem('wfa_admin_pattern', s.admin_pattern);
+          }
+        } catch(e) {}
+      }
+      patBtn.style.display = hasPat ? 'flex' : 'none';
     }
   }
 
