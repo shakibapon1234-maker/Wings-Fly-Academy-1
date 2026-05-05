@@ -1881,8 +1881,25 @@ const SyncEngine = (() => {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow?.id) return;
         const idx = rows.findIndex(r => r.id === newRow.id);
-        if (idx >= 0) rows[idx] = newRow;
-        else rows.unshift(newRow);
+
+        // ✅ FIX: Supabase realtime payload-এ large JSON columns (keep_records, recycle_bin ইত্যাদি)
+        // truncate বা omit হতে পারে। settings table-এর ক্ষেত্রে local-এর এই fields গুলো
+        // preserve করো — না হলে নোট সহ অন্য data মুছে যায়।
+        if (table === 'settings' && idx >= 0) {
+          const localRow = rows[idx];
+          const preserveFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          const merged = { ...newRow };
+          for (const field of preserveFields) {
+            if (!merged[field] && localRow[field]) {
+              merged[field] = localRow[field];
+            }
+          }
+          rows[idx] = merged;
+        } else if (idx >= 0) {
+          rows[idx] = newRow;
+        } else {
+          rows.unshift(newRow);
+        }
         SupabaseSync.setAll(table, rows);
       } else if (eventType === 'DELETE') {
         if (!oldRow?.id) return;

@@ -8,6 +8,8 @@ const SettingsModule = (() => {
   let activeTab = 'general';
   let isOpen = false;
   let _syncListener = null; // wfa:synced listener reference — closeModal-এ remove করার জন্য
+  let _suppressSyncRebuild = false; // ✅ FIX: keep record save করার পরেই wfa:synced fire হয়, তখন modal rebuild রোখার জন্য
+  let _suppressSyncTimer = null;   // ✅ FIX: clearTimeout-এর জন্য আলাদা timer variable
 
   // ─── MODAL OPEN / CLOSE ───────────────────────────────────────
   function openModal() {
@@ -29,10 +31,23 @@ const SettingsModule = (() => {
     if (_syncListener) {
       window.removeEventListener('wfa:synced', _syncListener);
     }
-    _syncListener = () => {
+    _syncListener = (e) => {
       const panel = document.getElementById('settings-overlay');
       if (!panel) return;
-      // শুধু active tab re-render করো — পুরো modal rebuild করলে scroll/focus হারায়
+
+      // ✅ FIX: keeprecord tab-এ wfa:synced এলে কোনো rebuild/grid-refresh করা যাবে না।
+      // কারণ:
+      //   1. _saveKeepRecords() → saveConfig() → Supabase push → realtime ফিরে আসে →
+      //      _handleRealtimeEvent() newRow দিয়ে local overwrite করে (keep_records হারিয়ে যায়) →
+      //      wfa:synced fire → grid refresh → getKeepRecords() empty পায় → নোট ভ্যানিশ।
+      //   2. _suppressSyncRebuild flag 800ms পরে false হলে Supabase realtime event তখনো আসতে পারে।
+      // সমাধান: keeprecord tab active থাকলে wfa:synced event সম্পূর্ণ ignore করো।
+      // নোট save/delete/edit-এ _refreshKeepRecordGrid() সরাসরি call হয়, তাই event দরকার নেই।
+      if (activeTab === 'keeprecord') return;
+
+      if (_suppressSyncRebuild) return;
+
+      // অন্য tab: শুধু active tab re-render করো
       const savedTab = activeTab;
       panel.innerHTML = buildModalHTML();
       activeTab = savedTab;
@@ -2994,10 +3009,21 @@ ${expenseEntries.length > 0 ? `
   // ✅ Save keep_records to the Supabase-synced settings table
   function _saveKeepRecords(notes) {
     try {
+      // ✅ FIX: saveConfig() পরে SupabaseSync.update() → wfa:synced fire করে।
+      // সেই event-এ _syncListener modal rebuild করে ফেলে, ফলে নোট ভ্যানিশ + screen কাঁপে।
+      // suppress flag দিয়ে ৮০০ms-এর জন্য সেই rebuild আটকানো হচ্ছে।
+      _suppressSyncRebuild = true;
+      clearTimeout(_suppressSyncTimer);
+      _suppressSyncTimer = setTimeout(() => { _suppressSyncRebuild = false; }, 800);
+
       const cfg = getConfig();
       cfg.keep_records = JSON.stringify(notes);
       saveConfig(cfg);
-    } catch(e) { console.warn('[Settings] _saveKeepRecords failed:', e); }
+    } catch(e) { 
+      _suppressSyncRebuild = false;
+      clearTimeout(_suppressSyncTimer);
+      console.warn('[Settings] _saveKeepRecords failed:', e); 
+    }
   }
 
   // ✅ IMPROVED: Merge remote keep_records from cfg into local view after a Supabase pull
