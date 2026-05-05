@@ -23,7 +23,7 @@ const Utils = (() => {
     if (!phone) return '—';
     const p = String(phone).trim();
     if (typeof App !== 'undefined' && App.isAdmin && App.isAdmin()) return esc(p);
-    if (p.length <= 4) return p; // too short to mask
+    if (p.length <= 4) return esc(p); // too short to mask
     return esc(p.slice(0, 3) + '••••' + p.slice(-4));
   }
 

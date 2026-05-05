@@ -718,7 +718,7 @@ function startExam() {
       }
 
       // ✅ FIX: Check per subject — same student can take different subject exams
-      if (typeof window.DB !== 'undefined' && SupabaseSync && SupabaseSync.getAll) {
+      if (typeof window.DB !== 'undefined' && typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
         const exams = SupabaseSync.getAll(DB.exams) || [];
         const currentSubject = examSettings.examName || '';
         const alreadyTaken = exams.find(e => 

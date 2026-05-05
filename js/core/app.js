@@ -147,7 +147,7 @@ const App = (() => {
 
   // ── Auth ───────────────────────────────────────────────────
   // ── Session expiry constants ────────────────────────────────
-  const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 hour
+  const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
   const MAX_LOGIN_ATTEMPTS  = 5;
   const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -1115,7 +1115,7 @@ const App = (() => {
         idleTimer = setTimeout(() => {
           logout();
           Utils.toast('Session expired due to inactivity', 'warning', 5000);
-        }, 30 * 60 * 1000); // 30 minutes
+        }, 2 * 60 * 60 * 1000); // 2 hours
       }
     }
     document.addEventListener('click', resetIdleTimer);
@@ -1159,7 +1159,7 @@ const App = (() => {
     });
   }
 
-  return { init, navigateTo, login, logout, isLoggedIn, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
+  return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);

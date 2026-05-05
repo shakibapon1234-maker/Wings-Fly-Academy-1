@@ -250,7 +250,7 @@ const TABLE_COLUMNS = {
   // ✅ Fix: admin_pattern, admin_face_descriptor যোগ করা হয়েছে — cross-device Face ID ও Pattern Lock sync
   settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','admin_pattern','admin_face_descriptor'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
-  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
+  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','installment_plan'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
   accounts:      ['id','name','type','balance','description','note'],
   loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],

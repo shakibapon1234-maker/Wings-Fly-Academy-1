@@ -1244,12 +1244,19 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   border: 1.5px solid rgba(0, 217, 255, 0.35);
   border-radius: var(--radius-lg);
   box-shadow: 0 0 30px rgba(0,217,255,0.12), 0 0 60px rgba(181,55,242,0.08), var(--shadow-lg);
-  width: 100%;
+  width: 95%;
   max-width: 560px;
   padding: 28px;
   position: relative;
   backdrop-filter: blur(20px);
+  overflow-x: hidden; /* Prevent content overflow breakage */
+  transition: max-width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
+.modal-box.modal-sm { max-width: 420px; }
+.modal-box.modal-lg { max-width: 720px; }
+.modal-box.modal-xl { max-width: 980px; width: 98vw; }
+.modal-box.modal-xxl { max-width: 1200px; width: 98vw; }
 
 /* ── Dynamic Modal Animations ── */
 .modal-box.anim-slide-left { animation: slideLeftAnim 0.75s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
