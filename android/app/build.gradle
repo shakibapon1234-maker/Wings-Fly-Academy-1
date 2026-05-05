@@ -3,7 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace "com.wingsfly.academy"
     compileSdkVersion rootProject.ext.compileSdkVersion
-
+    
     defaultConfig {
         applicationId "com.wingsfly.academy"
         minSdkVersion rootProject.ext.minSdkVersion
@@ -26,6 +26,10 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+    }
+    
+    dependenciesInfo {
+        includeInBundle = false
     }
 }
 
