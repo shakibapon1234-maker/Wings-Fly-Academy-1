@@ -223,39 +223,12 @@ const FaceIDModule = (() => {
     if (mode === 'register') {
       const descriptorJson = JSON.stringify(Array.from(descriptor));
       localStorage.setItem('wfa_admin_face_descriptor', descriptorJson);
-      // ✅ FIX: Also save to cloud settings so it syncs across devices
-      try {
-        if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-          const settingsList = SupabaseSync.getAll(DB.settings);
-          const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
-          settings.admin_face_descriptor = descriptorJson;
-          if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings);
-          } else {
-            settings.id = SupabaseSync.generateId();
-            SupabaseSync.insert(DB.settings, settings);
-          }
-        }
-      } catch(e) { console.warn('[FaceID] Cloud save failed:', e); }
       if (statusEl) { statusEl.innerText = 'Face registered successfully!'; statusEl.style.color = '#00ff88'; }
       if (typeof Utils !== 'undefined') Utils.toast('Face ID saved! You can now use it on the login page.', 'success');
       setTimeout(() => closeScannerModal(), 1500);
     }
     else if (mode === 'login') {
-      // ✅ FIX: Check localStorage first, then fall back to cloud settings
       let savedStr = localStorage.getItem('wfa_admin_face_descriptor');
-      if (!savedStr) {
-        try {
-          if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-            const settingsList = SupabaseSync.getAll(DB.settings);
-            const settings = settingsList.find(s => s.admin_face_descriptor) || settingsList[0];
-            if (settings && settings.admin_face_descriptor) {
-              savedStr = settings.admin_face_descriptor;
-              localStorage.setItem('wfa_admin_face_descriptor', savedStr); // cache locally
-            }
-          }
-        } catch(e) { console.warn('[FaceID] Cloud read failed:', e); }
-      }
       if (!savedStr) {
         if (statusEl) { statusEl.innerText = 'No Face ID registered!'; statusEl.style.color = '#ff6b7a'; }
         setTimeout(() => closeScannerModal(), 2000);
@@ -308,15 +281,7 @@ const FaceIDModule = (() => {
   }
 
   function isFaceIdRegistered() {
-    if (localStorage.getItem('wfa_admin_face_descriptor')) return true;
-    // ✅ FIX: also check cloud settings (synced from another device)
-    try {
-      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-        const settings = SupabaseSync.getAll(DB.settings)[0];
-        return !!(settings && settings.admin_face_descriptor);
-      }
-    } catch(e) {}
-    return false;
+    return !!localStorage.getItem('wfa_admin_face_descriptor');
   }
 
   return { openScannerModal, closeScannerModal, isFaceIdRegistered };

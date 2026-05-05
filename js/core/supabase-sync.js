@@ -1928,14 +1928,7 @@ const SyncEngine = (() => {
         if (missingTables.has(key)) continue;
         const rows = SupabaseSync.getAll(key);
         if (!rows.length) continue;
-        const cleanRows = rows.map(r => {
-          const o = {};
-          for (const [k, v] of Object.entries(r)) {
-            if (v === undefined || k.startsWith('_')) continue;
-            o[k] = v;
-          }
-          return o;
-        });
+        const cleanRows = rows.map(r => _sanitizeRecord(r, key));
         const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
         if (error) console.error(`[Sync] Push failed for "${key}":`, error);
       }

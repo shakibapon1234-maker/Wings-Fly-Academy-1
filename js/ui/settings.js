@@ -2727,13 +2727,16 @@ ${expenseEntries.length > 0 ? `
     };
     const bpStart = document.getElementById('bp-start');
     const bpEnd   = document.getElementById('bp-end');
+    const isValidDmy = (v) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(String(v || '').trim());
     if (bpStart && !bpStart._flatpickr) {
       const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
-      if (bpStart.value) fp.setDate(bpStart.value, false);
+      if (bpStart.value && isValidDmy(bpStart.value)) fp.setDate(bpStart.value, false);
+      else if (bpStart.value) bpStart.value = '';
     }
     if (bpEnd && !bpEnd._flatpickr) {
       const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
-      if (bpEnd.value) fp2.setDate(bpEnd.value, false);
+      if (bpEnd.value && isValidDmy(bpEnd.value)) fp2.setDate(bpEnd.value, false);
+      else if (bpEnd.value) bpEnd.value = '';
     }
   }
 

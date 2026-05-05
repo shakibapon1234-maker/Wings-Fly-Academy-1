@@ -557,19 +557,12 @@ const App = (() => {
     if (loginEl) loginEl.style.display = 'flex';
     if (appEl) appEl.style.display = 'none';
     
-    // Face ID button visiblity
+    // Face ID button visibility
     const faceBtn = document.getElementById('face-id-login-btn');
     if (faceBtn) {
-      // ✅ FIX: Check localStorage first, then cloud settings (synced from another device)
       let hasFace = !!localStorage.getItem('wfa_admin_face_descriptor');
-      if (!hasFace) {
-        try {
-          const s = SupabaseSync.getAll(DB.settings)[0];
-          if (s && s.admin_face_descriptor) {
-            hasFace = true;
-            localStorage.setItem('wfa_admin_face_descriptor', s.admin_face_descriptor);
-          }
-        } catch(e) {}
+      if (!hasFace && typeof FaceIDModule !== 'undefined' && typeof FaceIDModule.isFaceIdRegistered === 'function') {
+        hasFace = FaceIDModule.isFaceIdRegistered();
       }
       faceBtn.style.display = hasFace ? 'flex' : 'none';
     }
@@ -577,16 +570,9 @@ const App = (() => {
     // Pattern Lock button visibility
     const patBtn = document.getElementById('pattern-lock-login-btn');
     if (patBtn) {
-      // ✅ FIX: Check localStorage first, then cloud settings (synced from another device)
       let hasPat = !!localStorage.getItem('wfa_admin_pattern');
-      if (!hasPat) {
-        try {
-          const s = SupabaseSync.getAll(DB.settings)[0];
-          if (s && s.admin_pattern) {
-            hasPat = true;
-            localStorage.setItem('wfa_admin_pattern', s.admin_pattern);
-          }
-        } catch(e) {}
+      if (!hasPat && typeof PatternLockModule !== 'undefined' && typeof PatternLockModule.isPatternRegistered === 'function') {
+        hasPat = PatternLockModule.isPatternRegistered();
       }
       patBtn.style.display = hasPat ? 'flex' : 'none';
     }

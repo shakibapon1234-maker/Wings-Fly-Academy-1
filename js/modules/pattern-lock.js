@@ -156,14 +156,6 @@ const PatternLockModule = (() => {
 
   function close() {
     if (modal) modal.style.display = 'none';
-
-    // FIX: remove global listeners to prevent memory leak
-    if (_stopDrawingFn) {
-      window.removeEventListener('mouseup', _stopDrawingFn);
-      window.removeEventListener('touchend', _stopDrawingTouchFn);
-      _stopDrawingFn = null;
-      _stopDrawingTouchFn = null;
-    }
   }
 
   function resetGrid() {
@@ -207,40 +199,13 @@ const PatternLockModule = (() => {
 
     if (currentMode === 'register') {
       localStorage.setItem('wfa_admin_pattern', patternString);
-      // ✅ FIX: Also save to cloud settings so it syncs across devices
-      try {
-        if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-          const settingsList = SupabaseSync.getAll(DB.settings);
-          const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
-          settings.admin_pattern = patternString;
-          if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings);
-          } else {
-            settings.id = SupabaseSync.generateId();
-            SupabaseSync.insert(DB.settings, settings);
-          }
-        }
-      } catch(e) { console.warn('[PatternLock] Cloud save failed:', e); }
       statusEl.textContent = 'Pattern saved! ✅';
       statusEl.style.color = '#00ff88';
       if (typeof Utils !== 'undefined') Utils.toast('Pattern Lock enabled! Use it on the login page.', 'success');
       setTimeout(close, 1500);
     }
     else if (currentMode === 'login') {
-      // ✅ FIX: Check localStorage first, then fall back to cloud settings
       let savedPattern = localStorage.getItem('wfa_admin_pattern');
-      if (!savedPattern) {
-        try {
-          if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-            const settingsList = SupabaseSync.getAll(DB.settings);
-            const settings = settingsList.find(s => s.admin_pattern) || settingsList[0];
-            if (settings && settings.admin_pattern) {
-              savedPattern = settings.admin_pattern;
-              localStorage.setItem('wfa_admin_pattern', savedPattern); // cache locally
-            }
-          }
-        } catch(e) { console.warn('[PatternLock] Cloud read failed:', e); }
-      }
       if (savedPattern === patternString) {
         statusEl.textContent = 'Pattern Matched! ✅';
         statusEl.style.color = '#00ff88';
@@ -272,7 +237,11 @@ const PatternLockModule = (() => {
     }
   }
 
-  return { open, close };
+  function isPatternRegistered() {
+    return !!localStorage.getItem('wfa_admin_pattern');
+  }
+
+  return { open, close, isPatternRegistered };
 })();
 
 window.PatternLockModule = PatternLockModule;
