@@ -2701,16 +2701,39 @@ ${expenseEntries.length > 0 ? `
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
 
+    // Helper: validate and sanitize date strings
+    const sanitizeDate = (val) => {
+      if (!val || typeof val !== 'string') return '';
+      const trimmed = val.trim();
+      // Check if it matches YYYY-MM-DD format
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return trimmed;
+      }
+      // Try to parse and reformat
+      try {
+        const d = new Date(trimmed);
+        if (isNaN(d.getTime())) return '';
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      } catch { return ''; }
+    };
+
     // General date inputs (type=date)
     overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
+      // Sanitize value before initializing flatpickr
+      el.value = sanitizeDate(el.value);
       if (!el._flatpickr) {
-        flatpickr(el, {
-          dateFormat: 'Y-m-d',
-          altInput:   true,
-          altFormat:  'd/m/Y',
-          allowInput: true,
-          locale:     { firstDayOfWeek: 1 },
-        });
+        try {
+          flatpickr(el, {
+            dateFormat: 'Y-m-d',
+            altInput:   true,
+            altFormat:  'd/m/Y',
+            allowInput: true,
+            locale:     { firstDayOfWeek: 1 },
+          });
+        } catch (e) {
+          console.warn('[Settings] Flatpickr init error for date input:', e);
+          el.value = '';
+        }
       }
     });
 
@@ -2729,14 +2752,24 @@ ${expenseEntries.length > 0 ? `
     const bpEnd   = document.getElementById('bp-end');
     const isValidDmy = (v) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(String(v || '').trim());
     if (bpStart && !bpStart._flatpickr) {
-      const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
-      if (bpStart.value && isValidDmy(bpStart.value)) fp.setDate(bpStart.value, false);
-      else if (bpStart.value) bpStart.value = '';
+      try {
+        const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
+        if (bpStart.value && isValidDmy(bpStart.value)) fp.setDate(bpStart.value, false);
+        else if (bpStart.value) bpStart.value = '';
+      } catch (e) {
+        console.warn('[Settings] Flatpickr init error for bp-start:', e);
+        bpStart.value = '';
+      }
     }
     if (bpEnd && !bpEnd._flatpickr) {
-      const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
-      if (bpEnd.value && isValidDmy(bpEnd.value)) fp2.setDate(bpEnd.value, false);
-      else if (bpEnd.value) bpEnd.value = '';
+      try {
+        const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
+        if (bpEnd.value && isValidDmy(bpEnd.value)) fp2.setDate(bpEnd.value, false);
+        else if (bpEnd.value) bpEnd.value = '';
+      } catch (e) {
+        console.warn('[Settings] Flatpickr init error for bp-end:', e);
+        bpEnd.value = '';
+      }
     }
   }
 

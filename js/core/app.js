@@ -512,8 +512,7 @@ const App = (() => {
         let needsUpdate = false;
         const mergeFields = ['security_question','security_answer','academy_name',
                              'running_batch','expense_month','monthly_target',
-                             'admin_username','theme',
-                             'admin_pattern','admin_face_descriptor']; // ✅ FIX: preserve auth data during merge
+                             'admin_username','theme']; // Note: admin_pattern & admin_face_descriptor stored in localStorage
         for (const field of mergeFields) {
           if (row[field] && !keeper[field]) {
             keeper[field] = row[field];

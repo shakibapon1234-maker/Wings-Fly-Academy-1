@@ -284,8 +284,8 @@ document.addEventListener('visibilitychange', () => {
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
-  // ✅ Fix: admin_pattern, admin_face_descriptor যোগ করা হয়েছে — cross-device Face ID ও Pattern Lock sync
-  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','admin_pattern','admin_face_descriptor'],
+  // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase (sync only these columns)
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','installment_plan'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -1221,8 +1221,8 @@ const SupabaseSync = (() => {
 
   const _TABLE_COLS = {
     // ✅ keep_records + recycle_bin_sync added for cross-device sync via settings table
-    // ✅ admin_pattern + admin_face_descriptor added for cross-device Pattern Lock & Face ID sync
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','admin_pattern','admin_face_descriptor'],
+    // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings'],
     salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -2015,18 +2015,29 @@ const SyncEngine = (() => {
     stopAutoSync();
     syncInterval = setInterval(() => {
       if (realtimeChannels.length === 0) {
-        pull({ silent: true });
+        pull({ silent: true }).catch(e => {
+          console.error('[Sync] Silent pull interval error:', e);
+        });
       } else {
         if (Date.now() - _lastSyncTime > 60_000) {
-          pull({ silent: true });
+          pull({ silent: true }).catch(e => {
+            console.error('[Sync] Silent pull interval error (with realtime):', e);
+          });
         }
       }
     }, 30_000);
 
+    // ✅ Fix: Add error handler to initial pull
     pull({ silent: true }).then(() => {
       startRealtime();
       // ✅ App চালু হলে সব device-এর activity log pull করো
-      SupabaseSync.pullActivityLog && SupabaseSync.pullActivityLog();
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.pullActivityLog === 'function') {
+        SupabaseSync.pullActivityLog();
+      }
+    }).catch(e => {
+      console.error('[Sync] Initial pull failed:', e);
+      // Still start realtime even if initial pull fails
+      startRealtime();
     });
   }
 
