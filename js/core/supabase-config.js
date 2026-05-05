@@ -55,17 +55,22 @@ window.supabaseClient = supabaseClient;
 // Table Names (DB constants used by all modules)
 // ============================================================
 const DB = {
-  students:    'students',
-  finance:     'finance_ledger',
-  accounts:    'accounts',
-  loans:       'loans',
-  exams:       'exams',
-  attendance:  'attendance',
-  staff:       'staff',
-  salary:      'salary',
-  visitors:    'visitors',
-  notices:     'notices',
-  settings:    'settings',
+  students:         'students',
+  finance:          'finance_ledger',
+  accounts:         'accounts',
+  loans:            'loans',
+  exams:            'exams',
+  attendance:       'attendance',
+  staff:            'staff',
+  salary:           'salary',
+  visitors:         'visitors',
+  notices:          'notices',
+  settings:         'settings',
+  advance_payments: 'advance_payments',
+  investments:      'investments',
+  keep_records:     'keep_records',
+  custom_themes:    'custom_themes',
+  sub_accounts:     'sub_accounts',
 };
 
 // ============================================================

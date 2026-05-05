@@ -258,6 +258,11 @@ const TABLE_COLUMNS = {
   staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
   visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
   notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
+  advance_payments: ['id','person','amount','method','date','note','returns','created_at','updated_at'],
+  investments:      ['id','source','amount','method','date','note','returns','created_at','updated_at'],
+  keep_records:     ['id','title','content','color','tags','pinned','date','created','modified','created_at','updated_at'],
+  custom_themes:    ['id','name','colors','variables','created_at','updated_at'],
+  sub_accounts:     ['id','username','password','name','role','permissions','created_at','updated_at'],
 };
 
 const SupabaseSync = (() => {
@@ -1623,6 +1628,17 @@ const SyncEngine = (() => {
           if (localRows[0].security_answer && !merged[0].security_answer) {
             merged[0].security_answer = localRows[0].security_answer;
           }
+
+          // ✅ FIX: keep_records, recycle_bin, activity_log, snapshots — এগুলো large JSON fields।
+          // Supabase pull/realtime payload-এ এরা missing বা truncated আসতে পারে।
+          // Cloud-এ এই field না থাকলে local version সবসময় preserve করো।
+          // এটা না করলে প্রতি ৩০ সেকেন্ডের auto-pull-এ নোটগুলো ভ্যানিশ হয়।
+          const largeFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          for (const field of largeFields) {
+            if (localRows[0][field] && !merged[0][field]) {
+              merged[0][field] = localRows[0][field];
+            }
+          }
         }
 
         const oldJson = JSON.stringify(localRows);
@@ -1756,7 +1772,21 @@ const SyncEngine = (() => {
         continue;
       }
 
-      // Both have different non-empty values — prefer newer timestamp
+      // Both have different non-empty values
+      // If the field is a JSON array (e.g. categories, courses), merge them
+      let arrayMerged = false;
+      try {
+        const localArr = JSON.parse(localVal);
+        const cloudArr = JSON.parse(cloudVal);
+        if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
+          result[key] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+          arrayMerged = true;
+        }
+      } catch(e) {}
+
+      if (arrayMerged) continue;
+
+      // Otherwise prefer newer timestamp
       if (localTime >= cloudTime) {
         result[key] = localVal;
       }
@@ -1796,7 +1826,31 @@ const SyncEngine = (() => {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
         if (cloudTime >= localTime) {
-          localMap.set(cloudRow.id, cloudRow);
+          // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
+          // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
+          if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined || localRow.courses !== undefined) {
+            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+            const merged = { ...cloudRow };
+            for (const f of protected_fields) {
+              if (localRow[f] && !merged[f]) merged[f] = localRow[f];
+            }
+            // Smart Array Merge for Settings race conditions
+            const array_fields = ['income_categories', 'expense_categories', 'courses', 'employee_roles'];
+            for (const f of array_fields) {
+              if (localRow[f] && merged[f]) {
+                try {
+                  const localArr = JSON.parse(localRow[f]);
+                  const cloudArr = JSON.parse(merged[f]);
+                  if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
+                    merged[f] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+                  }
+                } catch(e) {}
+              }
+            }
+            localMap.set(cloudRow.id, merged);
+          } else {
+            localMap.set(cloudRow.id, cloudRow);
+          }
         }
       }
     }
@@ -1881,8 +1935,25 @@ const SyncEngine = (() => {
       if (eventType === 'INSERT' || eventType === 'UPDATE') {
         if (!newRow?.id) return;
         const idx = rows.findIndex(r => r.id === newRow.id);
-        if (idx >= 0) rows[idx] = newRow;
-        else rows.unshift(newRow);
+
+        // ✅ FIX: Supabase realtime payload-এ large JSON columns (keep_records, recycle_bin ইত্যাদি)
+        // truncate বা omit হতে পারে। settings table-এর ক্ষেত্রে local-এর এই fields গুলো
+        // preserve করো — না হলে নোট সহ অন্য data মুছে যায়।
+        if (table === 'settings' && idx >= 0) {
+          const localRow = rows[idx];
+          const preserveFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          const merged = { ...newRow };
+          for (const field of preserveFields) {
+            if (!merged[field] && localRow[field]) {
+              merged[field] = localRow[field];
+            }
+          }
+          rows[idx] = merged;
+        } else if (idx >= 0) {
+          rows[idx] = newRow;
+        } else {
+          rows.unshift(newRow);
+        }
         SupabaseSync.setAll(table, rows);
       } else if (eventType === 'DELETE') {
         if (!oldRow?.id) return;

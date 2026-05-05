@@ -103,15 +103,7 @@ const PushNotificationModule = (() => {
       console.log('[Push] Notification permission:', permission);
     }
 
-    // Register service worker for web push
-    if ('serviceWorker' in navigator) {
-      try {
-        await navigator.serviceWorker.register('service-worker.js');
-        console.log('[Push] Service Worker registered for push');
-      } catch (e) {
-        console.warn('[Push] Service Worker registration failed:', e);
-      }
-    }
+    // ✅ FIXED: Service Worker registration moved to inline-handlers.js (single source of truth)
   }
 
   // ── Save FCM token to Supabase ──
