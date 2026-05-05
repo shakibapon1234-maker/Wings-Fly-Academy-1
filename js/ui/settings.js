@@ -3157,7 +3157,30 @@ ${expenseEntries.length > 0 ? `
     closeSettingsInternalModal();
     Utils.toast('নোট সেভ হয়েছে ✓', 'success');
     logActivity('add', 'note', `Added note: ${title}`);
-    refreshModal();
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
+  }
+
+  // ✅ NEW: Lightweight grid refresh for Keep Record (prevents flickering)
+  function _refreshKeepRecordGrid() {
+    if (activeTab !== 'keeprecord') return; // Only if Keep Record tab is active
+    const grid = document.getElementById('kr-notes-grid');
+    if (!grid) return;
+    
+    const notes = getKeepRecords();
+    const colorMap = { red:'#ff4757', green:'#00ff88', blue:'#00d9ff', yellow:'#ffd700', purple:'#b537f2', orange:'#ff6b35' };
+    const bgMap    = { red:'rgba(255,71,87,0.10)', green:'rgba(0,255,136,0.08)', blue:'rgba(0,217,255,0.08)', yellow:'rgba(255,215,0,0.08)', purple:'rgba(181,55,242,0.10)', orange:'rgba(255,107,53,0.10)' };
+    const borderMap = { red:'rgba(255,71,87,0.30)', green:'rgba(0,255,136,0.25)', blue:'rgba(0,217,255,0.25)', yellow:'rgba(255,215,0,0.25)', purple:'rgba(181,55,242,0.30)', orange:'rgba(255,107,53,0.25)' };
+    
+    if (notes.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><i class="fa fa-flag" style="font-size:2.5rem;color:#b537f2;opacity:.4;display:block;margin-bottom:14px"></i><div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">কোনো নোট পাওয়া যায়নি</div><div style="color:#00ff88;font-size:.82rem">নতুন নোট যোগ করতে উপরের বাটনে ক্লিক করুন</div></div>`;
+      return;
+    }
+    
+    grid.innerHTML = notes.map((n, i) => {
+      const c = n.color || 'blue';
+      const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
+      return `<div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}<button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button><button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button><div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px"><div style="display:flex;gap:5px;flex-wrap:wrap">${(n.tags||[]).map(t=>`<span style="font-size:.68rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);border-radius:10px;padding:2px 8px">${Utils.esc(t)}</span>`).join('')}</div><span style="font-size:.7rem;color:rgba(255,255,255,0.3)">${n.date||''}</span></div></div>`;
+    }).join('');
   }
 
   function deleteNote(index) {
@@ -3168,7 +3191,6 @@ ${expenseEntries.length > 0 ? `
     // ✅ IMPROVED: Add unique ID if missing (for older notes)
     if (!victim.id) {
       victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
-    }
     
     // ✅ Fix: Send note to Recycle Bin before removing
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
@@ -3197,7 +3219,7 @@ ${expenseEntries.length > 0 ? `
     _saveRecycleBinToSettings(); // ✅ sync recycle bin after note delete
     Utils.toast('নোট রিসাইকেল বিনে গেছে 🗑️', 'info');
     logActivity('delete', 'note', `Deleted note: ${victim.title || 'Untitled'}`);
-    refreshModal();
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
   }
 
   function editNote(index) {
@@ -3270,7 +3292,7 @@ ${expenseEntries.length > 0 ? `
     closeSettingsInternalModal();
     Utils.toast('নোট আপডেট হয়েছে ✓', 'success');
     logActivity('edit', 'note', `Edited note: ${title}`);
-    refreshModal();
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
   }
 
   // ─── Settings-এর ভেতরে নিজস্ব modal (z-index সমস্যা সমাধান) ───
