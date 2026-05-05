@@ -258,6 +258,11 @@ const TABLE_COLUMNS = {
   staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
   visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
   notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
+  advance_payments: ['id','person','amount','method','date','note','returns','created_at','updated_at'],
+  investments:      ['id','source','amount','method','date','note','returns','created_at','updated_at'],
+  keep_records:     ['id','title','content','color','tags','pinned','date','created','modified','created_at','updated_at'],
+  custom_themes:    ['id','name','colors','variables','created_at','updated_at'],
+  sub_accounts:     ['id','username','password','name','role','permissions','created_at','updated_at'],
 };
 
 const SupabaseSync = (() => {
@@ -1767,7 +1772,21 @@ const SyncEngine = (() => {
         continue;
       }
 
-      // Both have different non-empty values — prefer newer timestamp
+      // Both have different non-empty values
+      // If the field is a JSON array (e.g. categories, courses), merge them
+      let arrayMerged = false;
+      try {
+        const localArr = JSON.parse(localVal);
+        const cloudArr = JSON.parse(cloudVal);
+        if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
+          result[key] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+          arrayMerged = true;
+        }
+      } catch(e) {}
+
+      if (arrayMerged) continue;
+
+      // Otherwise prefer newer timestamp
       if (localTime >= cloudTime) {
         result[key] = localVal;
       }
@@ -1809,11 +1828,24 @@ const SyncEngine = (() => {
         if (cloudTime >= localTime) {
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
           // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
-          if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined) {
+          if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined || localRow.courses !== undefined) {
             const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
             const merged = { ...cloudRow };
             for (const f of protected_fields) {
               if (localRow[f] && !merged[f]) merged[f] = localRow[f];
+            }
+            // Smart Array Merge for Settings race conditions
+            const array_fields = ['income_categories', 'expense_categories', 'courses', 'employee_roles'];
+            for (const f of array_fields) {
+              if (localRow[f] && merged[f]) {
+                try {
+                  const localArr = JSON.parse(localRow[f]);
+                  const cloudArr = JSON.parse(merged[f]);
+                  if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
+                    merged[f] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+                  }
+                } catch(e) {}
+              }
             }
             localMap.set(cloudRow.id, merged);
           } else {

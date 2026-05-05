@@ -2402,7 +2402,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildAdvancePaymentSection() {
-    const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const advancesWithCalc = advances.map((a, i) => {
       const returns = a.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2488,7 +2488,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function buildInvestmentSection() {
-    const investments = SupabaseSync.getAll(DB.investments || 'investments');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const invWithCalc = investments.map((inv, i) => {
       const returns = inv.returns || [];
       const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
@@ -2876,7 +2876,9 @@ ${expenseEntries.length > 0 ? `
     if (item && item.table === 'settings_subaccount') {
       const subData = item.data;
       if (subData) {
-        SupabaseSync.insert(DB.sub_accounts || 'sub_accounts', subData);
+        const subs = getSubAccounts();
+        if (!subs.find(s => s.username === subData.username)) subs.push(subData);
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
@@ -2923,7 +2925,7 @@ ${expenseEntries.length > 0 ? `
     if (item && item.table === 'advance_payments') {
       const data = item.data;
       if (data) {
-        const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+        const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
         const exists = advances.some(a => a.id && a.id === data.id);
         if (!exists) advances.unshift(data);
         localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
@@ -2941,7 +2943,7 @@ ${expenseEntries.length > 0 ? `
     if (item && item.table === 'investments') {
       const data = item.data;
       if (data) {
-        const investments = SupabaseSync.getAll(DB.investments || 'investments');
+        const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
         const exists = investments.some(i => i.id && i.id === data.id);
         if (!exists) investments.unshift(data);
         localStorage.setItem('wfa_investments', JSON.stringify(investments));
@@ -2992,44 +2994,43 @@ ${expenseEntries.length > 0 ? `
   const _KR_KEY = 'wfa_keep_records_v2';
 
   function getKeepRecords() {
-    return typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.keep_records || 'keep_records') : [];
-  }
-
-  // ✅ Migration: পুরনো data localStorage থেকে Supabase-এ সিঙ্ক করো
-  function _migrateOfflineDataToCloud() {
     try {
-      if (typeof SupabaseSync === 'undefined' || !SupabaseSync.insert) return;
-
-      const keysToMigrate = [
-        { localKey: 'wfa_keep_records_v2', table: 'keep_records' },
-        { localKey: 'wfa_advance_payments', table: 'advance_payments' },
-        { localKey: 'wfa_investments', table: 'investments' },
-        { localKey: 'wfa_sub_accounts', table: 'sub_accounts' },
-        { localKey: 'wfa_custom_themes', table: 'custom_themes' }
-      ];
-
-      let migrated = false;
-      for (const { localKey, table } of keysToMigrate) {
-        const raw = localStorage.getItem(localKey);
-        if (raw) {
-          const items = Utils.safeJSON(raw, []);
-          if (Array.isArray(items) && items.length > 0) {
-            items.forEach(item => SupabaseSync.insert(table, item, { silent: true }));
-            console.info(`[Migration] Migrated ${items.length} items from ${localKey} to ${table}`);
-            migrated = true;
-          }
-          // Remove local key so it doesn't migrate again
-          localStorage.removeItem(localKey);
+      // Primary: localStorage থেকে পড়ো
+      const lsData = localStorage.getItem(_KR_KEY);
+      if (lsData) {
+        const parsed = Utils.safeJSON(lsData, null);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      // Migration: পুরনো data settings table-এ থাকলে একবার migrate করো
+      const cfg = getConfig();
+      if (cfg.keep_records) {
+        const old = Utils.safeJSON(cfg.keep_records, []);
+        if (Array.isArray(old) && old.length > 0) {
+          localStorage.setItem(_KR_KEY, JSON.stringify(old));
+          console.info('[KeepRecord] Migrated from settings table to localStorage:', old.length, 'notes');
+          return old;
         }
       }
-      if (migrated && typeof SupabaseSync.push === 'function') {
-        SupabaseSync.push();
+      // Migration: আরো পুরনো key থেকেও migrate
+      const legacy = Utils.safeJSON(localStorage.getItem('wfa_keep_records'), []);
+      if (Array.isArray(legacy) && legacy.length > 0) {
+        localStorage.setItem(_KR_KEY, JSON.stringify(legacy));
+        localStorage.removeItem('wfa_keep_records');
+        return legacy;
       }
-    } catch(e) { console.warn('[Migration] Offline data migration failed:', e); }
+      return [];
+    } catch { return []; }
   }
 
-  // Run migration on load
-  setTimeout(_migrateOfflineDataToCloud, 2000);
+  // ✅ Save keep_records — শুধু localStorage, কোনো Supabase/settings call নেই
+  // এতে activity log দূষিত হয় না, auto-pull-এ নোট হারায় না
+  function _saveKeepRecords(notes) {
+    try {
+      localStorage.setItem(_KR_KEY, JSON.stringify(notes));
+    } catch(e) {
+      console.warn('[KeepRecord] Save failed:', e);
+    }
+  }
 
   // ✅ IMPROVED: Merge remote keep_records from cfg into local view after a Supabase pull
   // This prevents data loss when two devices edit notes simultaneously
@@ -3179,7 +3180,12 @@ ${expenseEntries.length > 0 ? `
       created: new Date().toISOString(),
       modified: new Date().toISOString()
     };
-    SupabaseSync.insert(DB.keep_records || 'keep_records', entry);
+    if (pinned) notes.unshift(entry);
+    else {
+      const pinEnd = notes.findLastIndex(n => n.pinned);
+      notes.splice(pinEnd + 1, 0, entry);
+    }
+    _saveKeepRecords(notes); // ✅ synced to Supabase
     closeSettingsInternalModal();
     Utils.toast('নোট সেভ হয়েছে ✓', 'success');
     logActivity('add', 'note', `Added note: ${title}`);
@@ -3241,7 +3247,9 @@ ${expenseEntries.length > 0 ? `
         }
       } catch(e) { console.warn('[Recycle] note delete failed:', e); }
     }
-    SupabaseSync.remove(DB.keep_records || 'keep_records', victim.id); // ✅ sync recycle bin after note delete
+    notes.splice(index, 1);
+    _saveKeepRecords(notes); // ✅ synced to Supabase
+    _saveRecycleBinToSettings(); // ✅ sync recycle bin after note delete
     Utils.toast('নোট রিসাইকেল বিনে গেছে 🗑️', 'info');
     logActivity('delete', 'note', `Deleted note: ${victim.title || 'Untitled'}`);
     _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
@@ -3309,7 +3317,11 @@ ${expenseEntries.length > 0 ? `
       modified: new Date().toISOString() // ✅ timestamp for sync resolution
     };
     
-    SupabaseSync.update(DB.keep_records || 'keep_records', oldNote.id, notes[index]);
+    // Re-sort: pinned notes first
+    const pinnedNotes   = notes.filter(n => n.pinned);
+    const unpinnedNotes = notes.filter(n => !n.pinned);
+    const sorted = [...pinnedNotes, ...unpinnedNotes];
+    _saveKeepRecords(sorted); // ✅ synced to Supabase
     closeSettingsInternalModal();
     Utils.toast('নোট আপডেট হয়েছে ✓', 'success');
     logActivity('edit', 'note', `Edited note: ${title}`);
@@ -3427,8 +3439,10 @@ ${expenseEntries.length > 0 ? `
       const available = Utils.getAccountBalance(method);
       if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
     }
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const newAdv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), person, amount, method, date, note, returns: [] };
-    SupabaseSync.insert(DB.advance_payments || 'advance_payments', newAdv);
+    advances.push(newAdv);
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     const finEntry = SupabaseSync.insert(DB.finance, {
       type: 'Expense', method, category: 'Advance Payment',
       description: `Advance to ${person}`, amount, date, note,
@@ -3444,7 +3458,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteAdvance(idx) {
-    const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     if (!advances[idx]) return;
     const victim = advances[idx];
     if (!confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
@@ -3473,14 +3487,15 @@ ${expenseEntries.length > 0 ? `
       if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'in');
     }
 
-    SupabaseSync.remove(DB.advance_payments || 'advance_payments', victim.id);
+    advances.splice(idx, 1);
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
     Utils.toast(`"${victim.person}"-এর advance — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
   function openReturnAdvanceModal(idx) {
-    const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -3525,7 +3540,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-adv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-adv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-adv-note')?.value || '';
-    const advances  = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+    const advances  = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const totalReturned = (a.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -3534,7 +3549,7 @@ ${expenseEntries.length > 0 ? `
     if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
     if (!advances[idx].returns) advances[idx].returns = [];
     advances[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
-    SupabaseSync.update(DB.advance_payments || 'advance_payments', advances[idx].id, advances[idx]);
+    localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
     SupabaseSync.insert(DB.finance, {
       type: 'Income', method: retMethod, category: 'Advance Return',
       description: `Advance return from ${a.person}`, amount: retAmount, date: retDate, note: retNote
@@ -3545,7 +3560,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewAdvanceLedger(idx) {
-    const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+    const advances = Utils.safeJSON(localStorage.getItem('wfa_advance_payments'), []);
     const a = advances[idx];
     if (!a) return;
     const returns = a.returns || [];
@@ -3660,8 +3675,10 @@ ${expenseEntries.length > 0 ? `
     if (!source) { Utils.toast('Source/Investor name required', 'error'); return; }
     if (!amount || amount <= 0) { Utils.toast('Amount required', 'error'); return; }
     if (!method) { Utils.toast('Account required', 'error'); return; }
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const newInv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), source, amount, method, date, note, returns: [] };
-    SupabaseSync.insert(DB.investments || 'investments', newInv);
+    investments.push(newInv);
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
       type: 'Investment In', method, category: 'Investment Receiving',
       description: `Investment from ${source}`, amount, date, note,
@@ -3677,7 +3694,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function deleteInvestment(idx) {
-    const investments = SupabaseSync.getAll(DB.investments || 'investments');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     if (!investments[idx]) return;
     const victim = investments[idx];
     if (!confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
@@ -3706,14 +3723,15 @@ ${expenseEntries.length > 0 ? `
       if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'out');
     }
 
-    SupabaseSync.remove(DB.investments || 'investments', victim.id);
+    investments.splice(idx, 1);
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
     logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
     Utils.toast(`"${victim.source}"-এর investment — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
   function openReturnInvestmentModal(idx) {
-    const investments = SupabaseSync.getAll(DB.investments || 'investments');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -3758,7 +3776,7 @@ ${expenseEntries.length > 0 ? `
     const retDate   = document.getElementById('ret-inv-date')?.value || Utils.today();
     const retMethod = document.getElementById('ret-inv-method')?.value || 'Cash';
     const retNote   = document.getElementById('ret-inv-note')?.value || '';
-    const investments = SupabaseSync.getAll(DB.investments || 'investments');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const totalReturned = (inv.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
@@ -3767,7 +3785,7 @@ ${expenseEntries.length > 0 ? `
     if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
     if (!investments[idx].returns) investments[idx].returns = [];
     investments[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
-    SupabaseSync.update(DB.investments || 'investments', investments[idx].id, investments[idx]);
+    localStorage.setItem('wfa_investments', JSON.stringify(investments));
     SupabaseSync.insert(DB.finance, {
       type: 'Investment Out', method: retMethod, category: 'Investment Return',
       description: `Investment return to ${inv.source}`, amount: retAmount, date: retDate, note: retNote
@@ -3778,7 +3796,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function viewInvestmentLedger(idx) {
-    const investments = SupabaseSync.getAll(DB.investments || 'investments');
+    const investments = Utils.safeJSON(localStorage.getItem('wfa_investments'), []);
     const inv = investments[idx];
     if (!inv) return;
     const returns = inv.returns || [];
@@ -4954,7 +4972,7 @@ ${expenseEntries.length > 0 ? `
       }
     }
     if (changed) {
-      subs.forEach(s => SupabaseSync.update(DB.sub_accounts || 'sub_accounts', s.id, s));
+      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       console.info('[Security] Sub-account passwords migrated to SHA-256 hashes.');
     }
   }
@@ -5034,7 +5052,7 @@ ${expenseEntries.length > 0 ? `
         password: hashedPw,   // SHA-256 hashed — plaintext কখনো store হয় না
         permissions: permissions
      });
-     subs.forEach(s => SupabaseSync.update(DB.sub_accounts || 'sub_accounts', s.id, s));
+     localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
      
      logActivity('add', 'security', `Added sub-account @${un}`);
      if(typeof Utils !== 'undefined') Utils.toast('Sub-account created ✅', 'success');
@@ -5058,7 +5076,7 @@ ${expenseEntries.length > 0 ? `
       _saveRecycleBinToSettings();
 
       subs.splice(idx, 1);
-      subs.forEach(s => SupabaseSync.update(DB.sub_accounts || 'sub_accounts', s.id, s));
+      localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
       if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted → Recycle Bin-এ আছে', 'warning');
       refreshModal();
