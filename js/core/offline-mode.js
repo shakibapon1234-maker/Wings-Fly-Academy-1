@@ -399,15 +399,7 @@ const OfflineModeModule = (() => {
         }
       });
 
-      // Register service worker for caching
-      if ('serviceWorker' in navigator) {
-        try {
-          await navigator.serviceWorker.register('service-worker.js');
-          console.log('[Offline] Service Worker registered');
-        } catch (e) {
-          console.warn('[Offline] Service Worker registration failed:', e);
-        }
-      }
+      // ✅ FIXED: Service Worker registration moved to inline-handlers.js (single source of truth)
 
       // Auto-sync when coming online
       if (!isOnline && navigator.onLine) {
