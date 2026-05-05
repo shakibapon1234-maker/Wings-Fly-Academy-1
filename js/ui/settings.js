@@ -3191,6 +3191,7 @@ ${expenseEntries.length > 0 ? `
     // ✅ IMPROVED: Add unique ID if missing (for older notes)
     if (!victim.id) {
       victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+    }
     
     // ✅ Fix: Send note to Recycle Bin before removing
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
