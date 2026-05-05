@@ -1248,6 +1248,14 @@ window.App = App;
   function fixDateInputs() {
     document.querySelectorAll('input[type="date"], input.date-picker').forEach(el => {
       if (!el.hasAttribute('data-locale-fixed') && !el.closest('.flatpickr-calendar')) {
+        const rawVal = String(el.value || '').trim();
+        const isIso = /^\d{4}-\d{2}-\d{2}$/.test(rawVal);
+        const isDmy = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(rawVal);
+        if (rawVal && !isIso && !isDmy) {
+          // Guard against accidental non-date preload values (e.g. "admin")
+          // which cause Flatpickr "Invalid date provided" console errors.
+          el.value = '';
+        }
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
         // ✅ REQUIREMENT #4: Force DD/MM/YYYY display while keeping YYYY-MM-DD storage

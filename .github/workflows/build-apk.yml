@@ -29,6 +29,16 @@ jobs:
     
     - name: Install dependencies
       run: npm ci
+
+    - name: Patch speech-recognition Gradle compatibility
+      run: |
+        FILE="node_modules/@capacitor-community/speech-recognition/android/build.gradle"
+        if [ -f "$FILE" ]; then
+          sed -i "s/proguard-android.txt/proguard-android-optimize.txt/g" "$FILE"
+          echo "Patched deprecated proguard file reference in $FILE"
+        else
+          echo "Plugin build.gradle not found, skipping patch"
+        fi
     
     - name: Prepare Android gradlew permissions
       run: chmod +x android/gradlew
