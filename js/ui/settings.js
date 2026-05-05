@@ -735,8 +735,11 @@ const SettingsModule = (() => {
     const cfg = getConfig();
     const students = SupabaseSync.getAll(DB.students);
     const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
-    const today = new Date().toISOString().split('T')[0];
-    const expStart = cfg.expense_start_date || today;
+    // ✅ FIX: Use local timezone date (not UTC) — Bangladesh is UTC+6
+    const _d = new Date();
+    const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
+    // ✅ FIX: Don't default to today — empty means "show all expenses"
+    const expStart = cfg.expense_start_date || '';
     const expEnd = cfg.expense_end_date || today;
 
     return `
@@ -4114,8 +4117,13 @@ ${expenseEntries.length > 0 ? `
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
     const rawBatch = document.getElementById('set-running-batch')?.value;
     cfg.running_batch = rawBatch !== undefined && rawBatch !== null ? String(rawBatch) : (cfg.running_batch != null ? String(cfg.running_batch) : '');
-    cfg.expense_start_date = document.getElementById('set-expense-start')?.value || cfg.expense_start_date;
-    cfg.expense_end_date = new Date().toISOString().split('T')[0];
+    // ✅ FIX: Allow empty string (user deliberately cleared = show all expenses)
+    // Do NOT use || fallback — that prevents clearing the date
+    const startVal = document.getElementById('set-expense-start')?.value;
+    cfg.expense_start_date = (startVal !== undefined && startVal !== null) ? startVal : (cfg.expense_start_date || '');
+    // ✅ FIX: Use local timezone date — Bangladesh UTC+6 must not show yesterday's date
+    const _now = new Date();
+    cfg.expense_end_date = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
     saveConfig(cfg);
     logActivity('edit', 'settings', 'Updated academy info');
     Utils.toast('Academy info saved ✅', 'success');
