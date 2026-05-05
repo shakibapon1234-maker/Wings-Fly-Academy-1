@@ -2707,7 +2707,10 @@ ${expenseEntries.length > 0 ? `
       const trimmed = val.trim();
       // Check if it matches YYYY-MM-DD format
       if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        return trimmed;
+        try {
+          const d = new Date(trimmed + 'T00:00:00Z');
+          if (!isNaN(d.getTime())) return trimmed;
+        } catch {}
       }
       // Try to parse and reformat
       try {
@@ -2720,7 +2723,8 @@ ${expenseEntries.length > 0 ? `
     // General date inputs (type=date)
     overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
       // Sanitize value before initializing flatpickr
-      el.value = sanitizeDate(el.value);
+      const cleanValue = sanitizeDate(el.value);
+      el.value = cleanValue;
       if (!el._flatpickr) {
         try {
           flatpickr(el, {
@@ -2748,24 +2752,47 @@ ${expenseEntries.length > 0 ? `
         if (hid) hid.value = raw;
       }
     };
+    
     const bpStart = document.getElementById('bp-start');
     const bpEnd   = document.getElementById('bp-end');
     const isValidDmy = (v) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(String(v || '').trim());
+    
     if (bpStart && !bpStart._flatpickr) {
       try {
+        // Clear invalid values before flatpickr init
+        if (bpStart.value && !isValidDmy(bpStart.value)) {
+          bpStart.value = '';
+        }
         const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
-        if (bpStart.value && isValidDmy(bpStart.value)) fp.setDate(bpStart.value, false);
-        else if (bpStart.value) bpStart.value = '';
+        if (bpStart.value && isValidDmy(bpStart.value)) {
+          try {
+            fp.setDate(bpStart.value, false);
+          } catch (e) {
+            console.warn('[Settings] setDate error for bp-start:', e);
+            bpStart.value = '';
+          }
+        }
       } catch (e) {
         console.warn('[Settings] Flatpickr init error for bp-start:', e);
         bpStart.value = '';
       }
     }
+    
     if (bpEnd && !bpEnd._flatpickr) {
       try {
+        // Clear invalid values before flatpickr init
+        if (bpEnd.value && !isValidDmy(bpEnd.value)) {
+          bpEnd.value = '';
+        }
         const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
-        if (bpEnd.value && isValidDmy(bpEnd.value)) fp2.setDate(bpEnd.value, false);
-        else if (bpEnd.value) bpEnd.value = '';
+        if (bpEnd.value && isValidDmy(bpEnd.value)) {
+          try {
+            fp2.setDate(bpEnd.value, false);
+          } catch (e) {
+            console.warn('[Settings] setDate error for bp-end:', e);
+            bpEnd.value = '';
+          }
+        }
       } catch (e) {
         console.warn('[Settings] Flatpickr init error for bp-end:', e);
         bpEnd.value = '';
