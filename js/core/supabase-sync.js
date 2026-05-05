@@ -1623,6 +1623,17 @@ const SyncEngine = (() => {
           if (localRows[0].security_answer && !merged[0].security_answer) {
             merged[0].security_answer = localRows[0].security_answer;
           }
+
+          // ✅ FIX: keep_records, recycle_bin, activity_log, snapshots — এগুলো large JSON fields।
+          // Supabase pull/realtime payload-এ এরা missing বা truncated আসতে পারে।
+          // Cloud-এ এই field না থাকলে local version সবসময় preserve করো।
+          // এটা না করলে প্রতি ৩০ সেকেন্ডের auto-pull-এ নোটগুলো ভ্যানিশ হয়।
+          const largeFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          for (const field of largeFields) {
+            if (localRows[0][field] && !merged[0][field]) {
+              merged[0][field] = localRows[0][field];
+            }
+          }
         }
 
         const oldJson = JSON.stringify(localRows);
@@ -1796,7 +1807,18 @@ const SyncEngine = (() => {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
         if (cloudTime >= localTime) {
-          localMap.set(cloudRow.id, cloudRow);
+          // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
+          // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
+          if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined) {
+            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+            const merged = { ...cloudRow };
+            for (const f of protected_fields) {
+              if (localRow[f] && !merged[f]) merged[f] = localRow[f];
+            }
+            localMap.set(cloudRow.id, merged);
+          } else {
+            localMap.set(cloudRow.id, cloudRow);
+          }
         }
       }
     }
