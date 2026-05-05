@@ -246,8 +246,11 @@ const Utils = (() => {
     _processToastQueue();
   }
 
-  // ── Modal ─────────────────────────────────────────────────
+  let _modalCleanupTimer = null;
+
   function openModal(title, bodyHTML, sizeClass) {
+    // Cancel any pending body-cleanup from a previous closeModal call
+    if (_modalCleanupTimer) { clearTimeout(_modalCleanupTimer); _modalCleanupTimer = null; }
     const backdrop = document.getElementById('modal-backdrop');
     const titleEl = document.getElementById('modal-title');
     const bodyEl = document.getElementById('modal-body');
@@ -317,9 +320,8 @@ const Utils = (() => {
     const backdrop = document.getElementById('modal-backdrop');
     if (backdrop) {
       backdrop.classList.remove('open');
-      // Bug #17 Fix: Clean up modal body to prevent event listener accumulation
       const bodyEl = document.getElementById('modal-body');
-      if (bodyEl) setTimeout(() => { bodyEl.innerHTML = ''; }, 350); // delay to allow closing animation
+      if (bodyEl) _modalCleanupTimer = setTimeout(() => { bodyEl.innerHTML = ''; _modalCleanupTimer = null; }, 350);
     }
   }
 
@@ -800,6 +802,7 @@ const Utils = (() => {
       // Misc
       debounce, paginate, renderPaginationUI,
       getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange,
+      isValidPaymentMethod,
       getSettlementKey, getPaymentMethodBucket, financeMatchesAccountCategory,
       // Phase 2-4 additions
       parseAnyDate, loadingSkeleton,

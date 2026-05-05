@@ -1,4 +1,4 @@
-﻿/* ════════════════════════════════════════════════
+/* ════════════════════════════════════════════════
    Wings Fly Aviation Academy
    js/modules/students.js
    Student Module — CRUD, Search, Filter, Print, Export
@@ -604,8 +604,8 @@ const Students = (() => {
         <div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">ID: ${s.student_id}</div>
       </div>
       
-      <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 300)">
-        <i class="fa fa-sack-dollar"></i> PAYMENTS & HISTORY
+      <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 400)">
+        <i class="fa fa-plus-circle"></i> ADD INSTALLMENT
       </button>
       
       <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${id}')">
@@ -616,7 +616,7 @@ const Students = (() => {
         <i class="fa fa-award"></i> GENERATE CERTIFICATE
       </button>
       
-      <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${id}'), 300)">
+      <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${id}'), 400)">
         <i class="fa fa-user-pen"></i> EDIT PROFILE
       </button>
       
@@ -628,7 +628,7 @@ const Students = (() => {
         <i class="fa fa-bell"></i> SET REMINDER
       </button>
       
-      <button class="action-btn-glow btn-red" onclick="Utils.closeModal(); setTimeout(()=>Students.deleteStudent('${id}'), 300)">
+      <button class="action-btn-glow btn-red" onclick="Utils.closeModal(); setTimeout(()=>Students.deleteStudent('${id}'), 400)">
         <i class="fa fa-trash"></i> DELETE
       </button>
       
@@ -645,111 +645,163 @@ const Students = (() => {
     const s = SupabaseSync.getById(DB.students, id);
     if (!s) return;
 
-    // Get past payments for this student
     const allFinance = SupabaseSync.getAll(DB.finance);
+    // Match by UUID (new) OR by student_id string (legacy) for backward compatibility
     const history = allFinance
-       .filter(f => f.ref_id === id && f.category === 'Student Fee')
-       .sort((a,b) => new Date(b.date) - new Date(a.date)); // Latest first
+      .filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s.student_id))
+      .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+    const totalFee  = Utils.safeNum(s.total_fee);
+    const totalPaid = Utils.safeNum(s.paid);
+    const totalDue  = Utils.safeNum(s.due);
+    const paidPct   = totalFee > 0 ? Math.min(100, Math.round((totalPaid / totalFee) * 100)) : 0;
+    const barColor  = paidPct >= 100 ? '#00ff88' : paidPct >= 50 ? '#ffaa00' : '#ff4757';
+
+    // Start running total from any paid amount not recorded in finance ledger
+    // (e.g. initial payment saved without a method, or legacy data)
+    const sumOfFinanceEntries = history.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    let runningTotal = Math.max(0, totalPaid - sumOfFinanceEntries);
     let historyTableRows = '';
     if (history.length === 0) {
-      historyTableRows = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:12px;">No payment history found</td></tr>';
+      historyTableRows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;"><i class="fa fa-inbox" style="display:block;font-size:1.8rem;opacity:.3;margin-bottom:8px;"></i>No payment history yet</td></tr>';
     } else {
-      historyTableRows = history.map((f, index) => `
-        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05)">
-          <td style="padding:10px 8px">${index + 1}</td>
-          <td style="padding:10px 8px">${Utils.formatDateDMY(f.date)}</td>
-          <td style="padding:10px 8px"><span class="badge badge-info">${f.method||'Cash'}</span></td>
-          <td style="padding:10px 8px;font-weight:700;color:var(--success)">${Utils.takaEn(f.amount)}</td>
-          <td style="padding:10px 8px;text-align:right"><button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')">Delete</button></td>
-        </tr>
-      `).join('');
+      historyTableRows = history.map((f, idx) => {
+        runningTotal += Utils.safeNum(f.amount);
+        const remaining = Math.max(0, totalFee - runningTotal);
+        return `
+        <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
+          <td style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">${idx + 1}</td>
+          <td style="padding:10px 12px">${Utils.formatDateDMY(f.date)}</td>
+          <td style="padding:10px 12px"><span class="badge badge-info">${Utils.esc(f.method || 'Cash')}</span></td>
+          <td style="padding:10px 12px;font-weight:700;color:#00ff88">${Utils.takaEn(f.amount)}</td>
+          <td style="padding:10px 12px;color:${remaining > 0 ? '#ff4757' : '#00ff88'};font-weight:600">${Utils.takaEn(remaining)}</td>
+          <td style="padding:10px 12px;text-align:right">
+            ${f.note ? `<span style="font-size:0.78rem;color:var(--text-muted);margin-right:8px">${Utils.esc(f.note)}</span>` : ''}
+            <button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')"><i class="fa fa-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join('');
     }
 
-    Utils.openModal('<i class="fa fa-credit-card"></i> Payment History & Installments', `
+    // Build installment form HTML (no nested backticks inside main template)
+    let installmentFormHTML;
+    if (totalDue > 0) {
+      const datePickerHTML = Students._dateSelectHTML('pay-date', Utils.today(), 'form-control');
+      const methodsHTML    = Utils.getPaymentMethodsHTML();
+      installmentFormHTML =
+        '<div style="border:1.5px solid rgba(0,212,255,0.2);border-radius:10px;padding:20px;margin-bottom:22px;background:rgba(0,0,0,0.15)">' +
+          '<div style="font-size:0.95rem;font-weight:800;color:var(--brand-primary);margin-bottom:14px;display:flex;align-items:center;gap:8px">' +
+            '<i class="fa fa-plus-circle"></i> Add New Installment' +
+            '<button onclick="document.getElementById(\'pay-amount\').value=' + totalDue + '" style="margin-left:auto;padding:4px 12px;background:rgba(0,255,136,0.1);border:1px solid rgba(0,255,136,0.3);color:#00ff88;border-radius:6px;font-size:0.75rem;font-weight:700;cursor:pointer">' +
+              'Pay Full Due \u09F3' + Utils.formatMoneyPlain(totalDue) +
+            '</button>' +
+          '</div>' +
+          '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">' +
+            '<div>' +
+              '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">AMOUNT (\u09F3) *</label>' +
+              '<input id="pay-amount" type="number" class="form-control" placeholder="0" max="' + totalDue + '" min="1" onkeypress="if(event.key===\'Enter\') Students.savePayment(\'' + id + '\')" />' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">PAYMENT METHOD *</label>' +
+              '<select id="pay-method" class="form-control" onchange="Utils.onPaymentMethodChange(this,\'pay-bal-display\')">' +
+                '<option value="">Select Method...</option>' + methodsHTML +
+              '</select>' +
+            '</div>' +
+            '<div>' +
+              '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">DATE</label>' +
+              datePickerHTML +
+            '</div>' +
+          '</div>' +
+          '<div style="margin-bottom:12px">' +
+            '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">NOTE (optional)</label>' +
+            '<input id="pay-note" class="form-control" placeholder="e.g. 2nd installment, advance payment..." />' +
+          '</div>' +
+          '<div id="pay-bal-display" style="display:none;margin-bottom:8px"></div>' +
+          '<div id="pay-error" class="form-error hidden" style="margin-bottom:8px"></div>' +
+          '<button onclick="Students.savePayment(\'' + id + '\')" style="width:100%;padding:12px;background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;border-radius:8px;font-weight:800;font-size:0.9rem;color:#fff;cursor:pointer;letter-spacing:0.5px">' +
+            '<i class="fa fa-plus"></i> SAVE INSTALLMENT' +
+          '</button>' +
+        '</div>';
+    } else {
+      installmentFormHTML =
+        '<div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:16px;margin-bottom:22px;text-align:center">' +
+          '<i class="fa fa-circle-check" style="color:#00ff88;font-size:1.5rem;margin-bottom:6px;display:block"></i>' +
+          '<div style="font-weight:700;color:#00ff88">Fully Paid \u2014 No Outstanding Due</div>' +
+        '</div>';
+    }
+
+    Utils.openModal('<i class="fa fa-plus-circle"></i> Add Installment', `
       <!-- Student Info Bar -->
-      <div style="background:rgba(0,180,255,0.08); border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:14px 20px; margin-bottom:18px; display:flex; align-items:center; gap:16px;">
-        <i class="fa fa-user-graduate" style="font-size:1.5rem; color:var(--brand-primary);"></i>
-        <div>
-          <div style="font-size:1.1rem; font-weight:800; color:var(--text-primary);">${s.name}</div>
-          <div style="font-size:0.82rem; color:var(--text-secondary);">ID: ${s.student_id} &nbsp;|&nbsp; Course: ${s.course||'—'} &nbsp;|&nbsp; Batch: ${s.batch||'—'}</div>
+      <div style="background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);border-radius:10px;padding:14px 20px;margin-bottom:18px;display:flex;align-items:center;gap:16px;">
+        <i class="fa fa-user-graduate" style="font-size:1.5rem;color:var(--brand-primary);"></i>
+        <div style="flex:1">
+          <div style="font-size:1.05rem;font-weight:800;color:var(--text-primary)">${Utils.esc(s.name)}</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary)">ID: ${Utils.esc(s.student_id)} &nbsp;|&nbsp; ${Utils.esc(s.course||'—')} &nbsp;|&nbsp; Batch: ${Utils.esc(s.batch||'—')}</div>
+        </div>
+        <button onclick="Students.printReceipt('${id}')" style="padding:8px 16px;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);color:#ff6b35;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">
+          <i class="fa fa-print"></i> Print
+        </button>
+      </div>
+
+      <!-- Summary Cards -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="background:rgba(0,0,0,0.35);border:1.5px solid rgba(0,217,255,0.25);border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:0.7rem;font-weight:800;color:var(--text-secondary);letter-spacing:1.5px;margin-bottom:8px">TOTAL FEE</div>
+          <div style="font-size:1.6rem;font-weight:900;color:#00d9ff">${Utils.takaEn(totalFee)}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.35);border:1.5px solid rgba(0,255,136,0.25);border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:0.7rem;font-weight:800;color:var(--text-secondary);letter-spacing:1.5px;margin-bottom:8px">PAID (${history.length} payments)</div>
+          <div style="font-size:1.6rem;font-weight:900;color:#00ff88">${Utils.takaEn(totalPaid)}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.35);border:1.5px solid rgba(255,71,87,0.25);border-radius:10px;padding:16px;text-align:center">
+          <div style="font-size:0.7rem;font-weight:800;color:var(--text-secondary);letter-spacing:1.5px;margin-bottom:8px">OUTSTANDING DUE</div>
+          <div style="font-size:1.6rem;font-weight:900;color:#ff4757">${Utils.takaEn(totalDue)}</div>
         </div>
       </div>
 
-      <!-- Top Cards -->
-      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; margin-bottom:22px;">
-        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(0,217,255,0.25); border-radius:10px; padding:20px; text-align:center;">
-          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">TOTAL FEE</div>
-          <div style="font-size:1.8rem; font-weight:900; color:#00d9ff">${Utils.takaEn(s.total_fee)}</div>
+      <!-- Progress Bar -->
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;color:var(--text-muted);margin-bottom:6px;font-weight:600">
+          <span>Payment Progress</span>
+          <span style="color:${barColor}">${paidPct}% Completed</span>
         </div>
-        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(0,255,136,0.25); border-radius:10px; padding:20px; text-align:center;">
-          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">PAID TO DATE</div>
-          <div style="font-size:1.8rem; font-weight:900; color:#00ff88">${Utils.takaEn(s.paid)}</div>
-        </div>
-        <div style="background:rgba(0,0,0,0.35); border:1.5px solid rgba(255,71,87,0.25); border-radius:10px; padding:20px; text-align:center;">
-          <div style="font-size:0.72rem; font-weight:800; color:var(--text-secondary); letter-spacing:1.5px; margin-bottom:10px;">OUTSTANDING DUE</div>
-          <div style="font-size:1.8rem; font-weight:900; color:#ff4757">${Utils.takaEn(s.due)}</div>
+        <div style="height:10px;background:rgba(255,255,255,0.08);border-radius:10px;overflow:hidden">
+          <div style="height:100%;width:${paidPct}%;background:linear-gradient(90deg,${barColor},${barColor}88);border-radius:10px;transition:width 0.5s ease"></div>
         </div>
       </div>
 
-      <!-- Add Installment Section -->
-      <div style="border: 1.5px solid var(--border-glow); border-radius: 10px; padding: 22px; margin-bottom: 26px; position: relative; background:rgba(0,0,0,0.15);">
-        <div style="font-size:1rem; font-weight:800; color:var(--brand-primary); margin-bottom:16px; display:flex; align-items:center; gap:8px;">
-          <i class="fa fa-plus-circle"></i> Add New Installment
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:14px; align-items:end;">
-          <div>
-            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">AMOUNT (৳)</label>
-            <input id="pay-amount" type="number" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" placeholder="e.g. ${s.due}" max="${s.due}" onkeypress="if(event.key==='Enter') Students.savePayment('${id}')" />
-          </div>
-          <div>
-            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">PAYMENT METHOD</label>
-            <select id="pay-method" class="form-control" style="width:100%; font-size:1rem; padding:10px 14px;" onchange="Utils.onPaymentMethodChange(this, 'pay-bal-display')">
-              <option value="">Select Method...</option>
-              ${Utils.getPaymentMethodsHTML()}
-            </select>
-          </div>
-          <div>
-            <label style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); letter-spacing:0.8px; display:block; margin-bottom:6px;">DATE</label>
-            ${Students._dateSelectHTML('pay-date', Utils.today(), 'form-control')}
-          </div>
-          <div>
-            <button class="btn-primary" style="background: linear-gradient(90deg, #00d9ff, #b537f2); border:none; border-radius:8px; font-weight:800; font-size:0.85rem; padding:11px 20px; white-space:nowrap; cursor:pointer;" onclick="Students.savePayment('${id}')">
-              <i class="fa fa-plus"></i> ADD & PRINT RECEIPT
-            </button>
-          </div>
-        </div>
-        <div id="pay-bal-display" style="display:none; margin-top:10px;"></div>
-        <div id="pay-error" class="form-error hidden" style="margin-top:10px"></div>
-      </div>
+      <!-- Add Installment Form -->
+      ${installmentFormHTML}
 
-      <!-- History Table Section -->
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px;">
-        <div style="font-size:1rem; font-weight:800; color:var(--brand-primary); display:flex; align-items:center; gap:8px;">
-          <i class="fa fa-history"></i> Payment History
-          <span style="background:var(--brand-primary); color:#000; font-size:0.72rem; font-weight:900; padding:2px 8px; border-radius:20px;">${history.length} records</span>
+      <!-- History Table -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:0.95rem;font-weight:800;color:var(--brand-primary);display:flex;align-items:center;gap:8px">
+          <i class="fa fa-list-ol"></i> Installment History
+          <span style="background:var(--brand-primary);color:#000;font-size:0.7rem;font-weight:900;padding:2px 8px;border-radius:20px">${history.length}</span>
         </div>
-        <button class="btn-outline btn-xs" style="color:#ff6b35; border-color:#ff6b35; padding:7px 14px;" onclick="Students.printHistory('${id}')"><i class="fa fa-print"></i> PRINT HISTORY</button>
+        <button onclick="Students.printReceipt('${id}')" style="padding:6px 14px;background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.35);color:#ff6b35;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer">
+          <i class="fa fa-print"></i> Print All
+        </button>
       </div>
-      <div style="overflow:hidden; border-radius:10px; border:1px solid rgba(255,255,255,0.1)">
-        <table style="width:100%; border-collapse:collapse; font-size:0.92rem; text-align:left;">
-          <thead style="background:rgba(255,255,255,0.07); border-bottom:2px solid var(--brand-primary);">
+      <div style="overflow:hidden;border-radius:10px;border:1px solid rgba(255,255,255,0.08)">
+        <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+          <thead style="background:rgba(255,255,255,0.06);border-bottom:2px solid var(--brand-primary)">
             <tr>
-              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">#</th>
-              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">DATE</th>
-              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">METHOD</th>
-              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px">AMOUNT</th>
-              <th style="padding:12px 14px;font-weight:800;letter-spacing:1px;text-align:right">ACTION</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:left">#</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:left">DATE</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:left">METHOD</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:left">PAID</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:left">REMAINING</th>
+              <th style="padding:10px 12px;font-weight:800;letter-spacing:1px;text-align:right">NOTE / ACTION</th>
             </tr>
           </thead>
-          <tbody>
-            ${historyTableRows}
-          </tbody>
+          <tbody>${historyTableRows}</tbody>
         </table>
-        <div style="height:4px; background:linear-gradient(90deg, var(--brand-primary), var(--brand-accent)); width:100%"></div>
+        <div style="height:3px;background:linear-gradient(90deg,var(--brand-primary),var(--brand-accent))"></div>
       </div>
     `, 'modal-xl');
   }
+
 
   /* ══════════════════════════════════════════
      SAVE / UPDATE STUDENT
@@ -959,58 +1011,57 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   function savePayment(studentId) {
     const s      = SupabaseSync.getById(DB.students, studentId);
-    const amount = Utils.safeNum(Utils.formVal('pay-amount'));
     const errEl  = document.getElementById('pay-error');
 
-    if (!amount || amount <= 0) {
-      errEl.textContent = 'Payment amount required';
-      errEl.classList.remove('hidden'); return;
-    }
-    if (amount > Utils.safeNum(s.due)) {
-      errEl.textContent = 'Amount cannot exceed due';
-      errEl.classList.remove('hidden'); return;
+    // Null guard
+    if (!s) {
+      console.error('[savePayment] Student not found:', studentId);
+      Utils.toast('Student not found. Please close and reopen the payment modal.', 'error');
+      return;
     }
 
-     const method = Utils.formVal('pay-method');
-     if (!method) {
-       errEl.textContent = 'Please select a Payment Method';
-       errEl.classList.remove('hidden'); return;
-     }
-     if (!Utils.isValidPaymentMethod(method)) {
-       errEl.textContent = 'Invalid or inactive Payment Method selected';
-       errEl.classList.remove('hidden'); return;
-     }
+    const amount = Utils.safeNum(Utils.formVal('pay-amount'));
+
+    function showErr(msg) {
+      if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); }
+      else { Utils.toast(msg, 'error'); }
+    }
+
+    if (!amount || amount <= 0) { showErr('Payment amount required'); return; }
+    if (amount > Utils.safeNum(s.due)) { showErr('Amount ৳' + Utils.formatMoneyPlain(amount) + ' cannot exceed due ৳' + Utils.formatMoneyPlain(s.due)); return; }
+
+    const method = Utils.formVal('pay-method');
+    if (!method) { showErr('Please select a Payment Method'); return; }
+    if (!Utils.isValidPaymentMethod(method)) { showErr('Invalid or inactive Payment Method selected'); return; }
+
+    if (errEl) errEl.classList.add('hidden');
 
     const newPaid = Utils.safeNum(s.paid) + amount;
     const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
 
-    /* Student Update */
     SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
 
-    /* Finance ledger entry */
     SupabaseSync.insert(DB.finance, {
       type:        'Income',
       category:    'Student Fee',
-      description: `${s.name} (${s.student_id}) — Course Fee`,
+      description: s.name + ' (' + s.student_id + ') — Course Fee Installment',
       amount:      amount,
       method:      method,
       date:        Utils.formVal('pay-date') || Utils.today(),
-      note:        Utils.formVal('pay-note'),
+      note:        Utils.formVal('pay-note') || '',
       ref_id:      studentId,
     });
 
-    // Account balance-এ যোগ করো (Income → 'in')
     if (typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
     }
-
-    Utils.toast('Payment added ✓', 'success');
-    // ✅ লজিক ৫: Student payment specific log
-    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
+    if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('payment', 'students',
-        `Payment received: ${s.name} (${s.student_id}) — ৳${Utils.formatMoneyPlain(amount)} via ${method}`);
+        'Payment received: ' + s.name + ' (' + s.student_id + ') — \u09F3' + Utils.formatMoneyPlain(amount) + ' via ' + method);
     }
-    Utils.closeModal();
+
+    Utils.toast('Payment saved \u2713 \u09F3' + Utils.formatMoneyPlain(amount), 'success');
+    openPayModal(studentId);
     render();
     App.updateNotifCount();
   }
@@ -1029,9 +1080,10 @@ const Students = (() => {
       // or synced incorrectly. This approach is always accurate regardless
       // of which installment (#1, #3, #5...) is deleted.
       const allFin = SupabaseSync.getAll(DB.finance);
+      // Match by UUID or legacy student_id string
       const newPaid = allFin
-        .filter(f => f.ref_id === studentId &&
-                     f.category === 'Student Fee' &&
+        .filter(f => f.category === 'Student Fee' &&
+                     (f.ref_id === studentId || f.ref_id === student.student_id) &&
                      f.id !== paymentId)
         .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
       const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
@@ -1063,9 +1115,9 @@ const Students = (() => {
     const logoUrl      = cfg.logo_url       || '';
 
     const allFinance = SupabaseSync.getAll(DB.finance);
-    const payments   = allFinance
-      .filter(f => f.ref_id === id && f.category === 'Student Fee')
-      .sort((a, b) => new Date(b.date) - new Date(a.date)); // ✅ লজিক ৪: Latest first
+    const payments = allFinance
+      .filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s.student_id))
+      .sort((a, b) => new Date(a.date) - new Date(b.date)); // oldest first = #1 is first payment
 
     const totalFee  = Utils.safeNum(s.total_fee);
     const totalPaid = Utils.safeNum(s.paid);
@@ -1075,12 +1127,14 @@ const Students = (() => {
     const receiptNo = `RCP-${s.student_id}-${Date.now().toString().slice(-5)}`;
     const printDate = Utils.formatDateDMY(Utils.today());
 
-    let runningBalance = 0;
+    // Start from unrecorded paid amount (initial payment not in finance ledger)
+    const sumFinance = payments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    let runningBalance = Math.max(0, totalPaid - sumFinance);
     const paymentRows = payments.length === 0
-      ? `<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">No payment records found</td></tr>`
+      ? `<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">No installment records found</td></tr>`
       : payments.map((f, i) => {
           runningBalance += Utils.safeNum(f.amount);
-          const remaining = totalFee - runningBalance;
+          const remaining = Math.max(0, totalFee - runningBalance);
           return `
           <tr style="border-bottom:1px solid #e8e8e8; ${i % 2 === 0 ? 'background:#fafafa;' : ''}">
             <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${i + 1}</td>
@@ -1331,7 +1385,8 @@ const Students = (() => {
 
     // এই student-এর সব finance payment খুঁজে account balance reverse করো
     const allFinance = SupabaseSync.getAll(DB.finance);
-    const studentPayments = allFinance.filter(f => f.ref_id === id && f.category === 'Student Fee');
+    // Match by UUID or legacy student_id string
+    const studentPayments = allFinance.filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s?.student_id));
     studentPayments.forEach(f => {
       if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out');
