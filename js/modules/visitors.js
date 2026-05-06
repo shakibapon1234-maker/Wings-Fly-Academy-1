@@ -348,6 +348,12 @@ const VisitorsModule = (() => {
       Utils.toast('Name and phone are required.', 'error');
       return;
     }
+    // ✅ BUG #25 Fix: accept both BD (01...) and international (+880, +1, etc.) formats
+    const phoneClean = phone.replace(/[\s\-()]/g, '');
+    if (!/^[+]?[0-9]{6,20}$/.test(phoneClean)) {
+      Utils.toast('Please enter a valid phone number (local or international format)', 'error');
+      return;
+    }
 
     const data = {
       name,

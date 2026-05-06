@@ -378,8 +378,9 @@ const CertificatesModule = (() => {
   }
 
   function previewForStudent(id) {
+    // ✅ BUG #26 Fix: verify student exists before generating certificate
     const s = SupabaseSync.getAll(DB.students).find(st => st.id === id);
-    if (!s) return;
+    if (!s) { Utils.toast('Student not found. Cannot generate certificate.', 'error'); return; }
     const modal = document.getElementById('cert-preview-modal');
     const area = document.getElementById('cert-preview-area');
     if (modal && area) {
@@ -389,8 +390,9 @@ const CertificatesModule = (() => {
   }
 
   function printForStudent(id) {
+    // ✅ BUG #26 Fix: verify student exists before printing certificate
     const s = SupabaseSync.getAll(DB.students).find(st => st.id === id);
-    if (!s) return;
+    if (!s) { Utils.toast('Student not found. Cannot print certificate.', 'error'); return; }
     print(buildDataFromStudent(s));
     // Activity log
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {

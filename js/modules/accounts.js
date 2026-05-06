@@ -648,6 +648,9 @@ const Accounts = (() => {
   function saveBank(id) {
     const name = Utils.formVal('bm-name');
     if (!name) { Utils.toast('Account Name required','error'); return; }
+    // ✅ BUG #24 Fix: reject negative initial balance
+    const rawBal = Utils.safeNum(Utils.formVal('bm-bal'));
+    if (rawBal < 0) { Utils.toast('Initial balance cannot be negative.', 'error'); return; }
     
     const record = {
       type: 'Bank_Detail',
@@ -655,7 +658,7 @@ const Accounts = (() => {
       bankName: Utils.formVal('bm-bank'),
       branch: Utils.formVal('bm-branch'),
       accountNo: Utils.formVal('bm-acno'),
-      balance: Utils.safeNum(Utils.formVal('bm-bal'))
+      balance: rawBal
     };
 
     if (id) {
@@ -730,12 +733,15 @@ const Accounts = (() => {
   function saveMobile(id) {
     const name = Utils.formVal('mm-name');
     if (!name) { Utils.toast('Account Name required','error'); return; }
+    // ✅ BUG #24 Fix: reject negative initial balance
+    const rawBal = Utils.safeNum(Utils.formVal('mm-bal'));
+    if (rawBal < 0) { Utils.toast('Initial balance cannot be negative.', 'error'); return; }
     
     const record = {
       type: 'Mobile_Detail',
       name,
       accountNo: Utils.formVal('mm-acno'),
-      balance: Utils.safeNum(Utils.formVal('mm-bal'))
+      balance: rawBal
     };
 
     if (id) {

@@ -18,25 +18,59 @@ if (!window.supabase) {
   console.error('[Config] Supabase CDN not loaded! Check internet connection. App will run in offline/local-only mode.');
   // Show banner after DOM is ready
   document.addEventListener('DOMContentLoaded', () => {
-    const banner = document.createElement('div');
-    banner.id = 'supabase-offline-banner';
-    banner.style.cssText = [
-      'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
-      'background:linear-gradient(90deg,#ff6b35,#ff4757)',
-      'color:#fff', 'font-size:0.82rem', 'font-weight:700',
-      'padding:8px 16px', 'text-align:center',
-      'box-shadow:0 2px 12px rgba(255,71,87,0.4)',
-      'letter-spacing:0.3px'
-    ].join(';');
-    banner.innerHTML = '⚠️ Cloud connection unavailable — running in <strong>Offline Mode</strong>. Your data is safe locally. Reload when internet is back.';
-    // Add close button
-    const closeBtn = document.createElement('button');
-    closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'margin-left:16px;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700';
-    closeBtn.onclick = () => banner.remove();
-    banner.appendChild(closeBtn);
-    document.body.prepend(banner);
+    _showOfflineBanner();
   });
+}
+
+// ✅ BUG #19 Fix: Persistent real-time offline/online network status indicator
+function _showOfflineBanner() {
+  if (document.getElementById('wfa-offline-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'wfa-offline-banner';
+  banner.style.cssText = [
+    'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
+    'background:linear-gradient(90deg,#ff6b35,#ff4757)',
+    'color:#fff', 'font-size:0.82rem', 'font-weight:700',
+    'padding:8px 16px', 'text-align:center',
+    'box-shadow:0 2px 12px rgba(255,71,87,0.4)',
+    'letter-spacing:0.3px', 'display:flex', 'align-items:center',
+    'justify-content:center', 'gap:8px'
+  ].join(';');
+  banner.innerHTML = '⚠️ Cloud connection unavailable — running in <strong>Offline Mode</strong>. Your data is safe locally. Reload when internet is back.';
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = '✕';
+  closeBtn.style.cssText = 'margin-left:16px;background:rgba(255,255,255,0.2);border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-weight:700';
+  closeBtn.onclick = () => banner.remove();
+  banner.appendChild(closeBtn);
+  document.body.prepend(banner);
+}
+
+function _hideOfflineBanner() {
+  const b = document.getElementById('wfa-offline-banner');
+  if (b) b.remove();
+}
+
+function _showOnlineToast() {
+  const t = document.createElement('div');
+  t.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;background:#00c851;color:#fff;padding:10px 24px;border-radius:24px;font-size:0.85rem;font-weight:700;box-shadow:0 4px 20px rgba(0,200,81,0.4);transition:opacity 0.4s';
+  t.textContent = '✅ Back Online! Cloud sync resumed.';
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3000);
+}
+
+// Listen for browser network status changes
+window.addEventListener('offline', () => {
+  document.addEventListener('DOMContentLoaded', _showOfflineBanner, { once: true });
+  if (document.readyState !== 'loading') _showOfflineBanner();
+});
+window.addEventListener('online', () => {
+  _hideOfflineBanner();
+  if (document.readyState !== 'loading') _showOnlineToast();
+  else document.addEventListener('DOMContentLoaded', _showOnlineToast, { once: true });
+});
+// Also show badge immediately if already offline on load
+if (!navigator.onLine) {
+  document.addEventListener('DOMContentLoaded', _showOfflineBanner, { once: true });
 }
 
 const supabaseClient = window.supabase

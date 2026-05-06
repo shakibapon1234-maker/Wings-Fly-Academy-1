@@ -478,6 +478,8 @@ const Exam = (() => {
     const marksRaw = Utils.formVal('ef-marks');
     const marksVal = Utils.safeNum(marksRaw);
     if (marksRaw !== '' && marksRaw !== null && marksVal > 100) { showErr('Number cannot exceed 100'); return; }
+    // ✅ BUG #16 Fix: reject decimal marks
+    if (marksRaw !== '' && marksRaw !== null && !Number.isInteger(marksVal)) { showErr('Number must be a whole number (e.g. 75, not 75.5)'); return; }
 
     const fee    = Utils.safeNum(Utils.formVal('ef-fee'));
     const method = Utils.formVal('ef-method');

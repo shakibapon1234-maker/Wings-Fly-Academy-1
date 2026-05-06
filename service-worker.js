@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260505-bugfix-console-errors';
+const DEPLOY_ID = '20260506-bugfix-batch';
 const CACHE_NAME = `wfa-v5-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -16,7 +16,8 @@ const STATIC_ASSETS = [
   './css/exam.css',
   './css/cert-v2.css',
   './css/print.css',
-  // ✅ Bug #2 Fix: ai-assistant.css was removed from project; entry removed to avoid 404 errors
+  // ✅ BUG #1 Fix: ai-assistant.css exists in project — added back to cache
+  './css/ai-assistant.css',
   './js/modules/ai-assistant.js',
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',

@@ -112,10 +112,9 @@
           if (section) {
             updateBottomNavActive(section);
           }
-          setTimeout(function () {
-            sidebar.classList.remove('open');
-            overlay.classList.remove('active');
-          }, 150);
+          sidebar.classList.remove('open');
+          if (overlay) overlay.classList.remove('active');
+          if (moreMenu) moreMenu.classList.remove('open'); // BUG #22 Fix
         }
       });
     }
