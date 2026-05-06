@@ -23,7 +23,20 @@ const SettingsModule = (() => {
     });
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
-    setTimeout(_initSettingsDatePickers, 20);
+    
+    // ✅ FIX: Sanitize all date inputs IMMEDIATELY after DOM is created, BEFORE flatpickr init
+    setTimeout(() => {
+      const dateInputs = overlay.querySelectorAll('input[type="date"]');
+      dateInputs.forEach(el => {
+        const val = el.value || '';
+        // Only YYYY-MM-DD format is valid for date inputs
+        if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+          el.value = '';
+        }
+      });
+      _initSettingsDatePickers();
+    }, 10);
+    
     document.body.style.overflow = 'hidden';
     // ── Real-time Activity Log refresh ────────────────────────────
     // Settings panel খোলা থাকলে যেকোনো কাজ করলে activity log ও
@@ -128,6 +141,7 @@ const SettingsModule = (() => {
       { id: 'accounts-mgmt', icon: 'fa-briefcase',           label: 'Accounts Management' },
       { id: 'monitor',       icon: 'fa-chart-line',          label: 'Monitor' },
       { id: 'syncguard',     icon: 'fa-shield-halved',       label: 'Sync Guard' },
+      { id: 'ai-assistant',  icon: 'fa-robot',               label: 'AI Assistant' },
     ];
     return tabs.map(t => `
       <button class="settings-tab ${activeTab === t.id ? 'active' : ''}"
@@ -154,6 +168,7 @@ const SettingsModule = (() => {
       ${panelAccountsMgmt()}
       ${panelMonitor()}
       ${panelSyncGuard()}
+      ${panelAIAssistant()}
     `;
   }
 
@@ -2701,30 +2716,18 @@ ${expenseEntries.length > 0 ? `
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
 
-    // Helper: validate and sanitize date strings
-    const sanitizeDate = (val) => {
-      if (!val || typeof val !== 'string') return '';
-      const trimmed = val.trim();
-      // Check if it matches YYYY-MM-DD format
-      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-        try {
-          const d = new Date(trimmed + 'T00:00:00Z');
-          if (!isNaN(d.getTime())) return trimmed;
-        } catch {}
+    // CRITICAL: Sanitize ALL date inputs before ANY flatpickr initialization
+    overlay.querySelectorAll('input[type="date"]').forEach(el => {
+      const val = (el.value || '').trim();
+      // Only allow YYYY-MM-DD format
+      if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        console.warn('[Settings] Clearing invalid date value:', val);
+        el.value = '';
       }
-      // Try to parse and reformat
-      try {
-        const d = new Date(trimmed);
-        if (isNaN(d.getTime())) return '';
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      } catch { return ''; }
-    };
+    });
 
-    // General date inputs (type=date)
+    // General date inputs (type=date) - NOW they are all guaranteed to have valid values
     overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
-      // Sanitize value before initializing flatpickr
-      const cleanValue = sanitizeDate(el.value);
-      el.value = cleanValue;
       if (!el._flatpickr) {
         try {
           flatpickr(el, {
@@ -2735,13 +2738,32 @@ ${expenseEntries.length > 0 ? `
             locale:     { firstDayOfWeek: 1 },
           });
         } catch (e) {
-          console.warn('[Settings] Flatpickr init error for date input:', e);
+          console.warn('[Settings] Flatpickr init error:', e);
           el.value = '';
         }
       }
     });
 
     // Batch Profit Report calendar pickers (bp-start / bp-end)
+    const bpStart = document.getElementById('bp-start');
+    const bpEnd   = document.getElementById('bp-end');
+    
+    // Pre-sanitize both inputs
+    if (bpStart) {
+      const val = (bpStart.value || '').trim();
+      if (val && !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(val)) {
+        console.warn('[Settings] Clearing invalid bp-start value:', val);
+        bpStart.value = '';
+      }
+    }
+    if (bpEnd) {
+      const val = (bpEnd.value || '').trim();
+      if (val && !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(val)) {
+        console.warn('[Settings] Clearing invalid bp-end value:', val);
+        bpEnd.value = '';
+      }
+    }
+
     const bpCfg = {
       dateFormat:    'd/m/y',
       disableMobile: true,
@@ -2753,25 +2775,9 @@ ${expenseEntries.length > 0 ? `
       }
     };
     
-    const bpStart = document.getElementById('bp-start');
-    const bpEnd   = document.getElementById('bp-end');
-    const isValidDmy = (v) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(String(v || '').trim());
-    
     if (bpStart && !bpStart._flatpickr) {
       try {
-        // Clear invalid values before flatpickr init
-        if (bpStart.value && !isValidDmy(bpStart.value)) {
-          bpStart.value = '';
-        }
-        const fp = flatpickr(bpStart, Object.assign({}, bpCfg));
-        if (bpStart.value && isValidDmy(bpStart.value)) {
-          try {
-            fp.setDate(bpStart.value, false);
-          } catch (e) {
-            console.warn('[Settings] setDate error for bp-start:', e);
-            bpStart.value = '';
-          }
-        }
+        flatpickr(bpStart, Object.assign({}, bpCfg));
       } catch (e) {
         console.warn('[Settings] Flatpickr init error for bp-start:', e);
         bpStart.value = '';
@@ -2780,19 +2786,7 @@ ${expenseEntries.length > 0 ? `
     
     if (bpEnd && !bpEnd._flatpickr) {
       try {
-        // Clear invalid values before flatpickr init
-        if (bpEnd.value && !isValidDmy(bpEnd.value)) {
-          bpEnd.value = '';
-        }
-        const fp2 = flatpickr(bpEnd, Object.assign({}, bpCfg));
-        if (bpEnd.value && isValidDmy(bpEnd.value)) {
-          try {
-            fp2.setDate(bpEnd.value, false);
-          } catch (e) {
-            console.warn('[Settings] setDate error for bp-end:', e);
-            bpEnd.value = '';
-          }
-        }
+        flatpickr(bpEnd, Object.assign({}, bpCfg));
       } catch (e) {
         console.warn('[Settings] Flatpickr init error for bp-end:', e);
         bpEnd.value = '';
@@ -5437,6 +5431,75 @@ ${expenseEntries.length > 0 ? `
       refreshModal();
       switchTab('theme');
     }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // TAB: AI ASSISTANT
+  // ════════════════════════════════════════════════════════════════
+  function panelAIAssistant() {
+    const rawKey = localStorage.getItem('wfa_gemini_key') || '';
+    const isEncrypted = rawKey.startsWith('wfa_enc::');
+    const displayKey = isEncrypted ? '•••••••• (Encrypted in SecureStorage)' : rawKey;
+    
+    return `
+    <div class="settings-panel ${activeTab === 'ai-assistant' ? 'active' : ''}" data-panel="ai-assistant">
+      <div class="settings-card glow-cyan">
+        <div class="settings-card-title"><i class="fa fa-robot"></i> AI Assistant Configuration</div>
+        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px;">
+          আপনার ডিফল্ট API Key লিক হওয়ার কারণে গুগলের সার্ভার থেকে ব্লক করা হয়েছে। দয়া করে আপনার নিজের <strong>Google Gemini API Key</strong> এখানে বসান। 
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#00d4ff;text-decoration:underline;">এখান থেকে ফ্রিতে API Key তৈরি করুন</a>।
+        </p>
+        
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Custom Gemini API Key</label>
+          <div style="display:flex;gap:10px;">
+            <input type="password" id="ai-api-key-input" class="form-control" placeholder="AIzaSy..." value="${displayKey}" style="flex:1" />
+            <button class="btn btn-primary" onclick="SettingsModule.saveAIApiKey()">💾 Save Key</button>
+          </div>
+          <small style="color:var(--text-muted);font-size:0.75rem;margin-top:6px;display:block;">
+            * আমরা Gemini 2.0 Flash মডেল ব্যবহার করছি। আপনার নিজের Key দিলে AI আবার আগের মত ফাস্ট ও স্মার্টলি কাজ করবে।
+          </small>
+        </div>
+        
+        <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);padding:12px;border-radius:8px;font-size:0.8rem;color:var(--text-primary);">
+          <strong>Gemini 2.0 Flash-এর সুবিধা:</strong>
+          <ul style="margin-top:6px;margin-bottom:0;padding-left:20px;color:var(--text-secondary);">
+            <li>অনেক বেশি দ্রুত (Low Latency)।</li>
+            <li>বাংলা ভাষায় আগের চেয়ে বেশি নিখুঁত ও ন্যাচারাল উত্তর।</li>
+            <li>জটিল হিসাব ও লজিক আরও ভালোভাবে বুঝতে পারা।</li>
+          </ul>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  async function saveAIApiKey() {
+    const el = document.getElementById('ai-api-key-input');
+    if (!el) return;
+    let key = el.value.trim();
+    
+    if (key.startsWith('••••••••')) {
+      if(typeof Utils !== 'undefined') Utils.toast('No changes made to existing encrypted key.', 'info');
+      return;
+    }
+    
+    if (!key) {
+      localStorage.removeItem('wfa_gemini_key');
+      if (typeof SecureStorage !== 'undefined') {
+        try { await SecureStorage.removeItem('wfa_gemini_key'); } catch(e){}
+      }
+      if(typeof Utils !== 'undefined') Utils.toast('API Key removed.', 'info');
+      refreshModal();
+      return;
+    }
+    
+    localStorage.setItem('wfa_gemini_key', key);
+    if (typeof SecureStorage !== 'undefined') {
+      try { await SecureStorage.setItem('wfa_gemini_key', key); } catch(e){}
+    }
+    
+    if(typeof Utils !== 'undefined') Utils.toast('✅ AI API Key Saved Successfully! AI is now active.', 'success');
+    refreshModal();
   }
 
   // ════════════════════════════════════════════════════════════════

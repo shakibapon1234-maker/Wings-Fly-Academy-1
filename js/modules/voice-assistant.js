@@ -48,6 +48,7 @@ const VoiceAssistant = (() => {
   let currentLang   = localStorage.getItem('wfa_language') === 'bn' ? 'bn-IN' : 'en-US'; // ✅ Bug #7 Fix: Dynamic language
   let _isRestarting = false;  // ✅ Fix: prevent duplicate recognition.start() calls
   let _isAutoRestarting = false; // ✅ Fix: prevent repeated 'speak now' toasts
+  let _isSpeaking = false;    // ✅ Fix: track if speech synthesis is currently active
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -70,7 +71,7 @@ const VoiceAssistant = (() => {
 
     btn = document.createElement('div');
     btn.id = 'ai-avatar-container';
-    btn.className = 'minimized'; // ★ NEW: Default to minimized when offline
+    btn.className = ''; // Reverted: Show normally by default
     btn.title = 'AI Assistant — Click to start (Escape to stop) — English & Bengali supported';
     btn.innerHTML = buildDollHTML();
     btn.onclick = toggleListening;
@@ -214,11 +215,15 @@ const VoiceAssistant = (() => {
         // ★ MODIFIED: Restart if continuous mode is on
         // ✅ ANDROID FIX: Stronger debounce with safety checks for WebView
         if (isContinuous && isActive && isListening) {
+          if (_isSpeaking) {
+            isListening = false; // pause it
+            return;
+          }
           if (_isRestarting) return;
           _isRestarting = true;
           setTimeout(() => {
             _isRestarting = false;
-            if (isContinuous && isActive && isListening) {
+            if (isContinuous && isActive && isListening && !_isSpeaking) {
               try {
                 console.log('[Voice] Restarting recognition (Android-optimized)...');
                 _isAutoRestarting = true;
@@ -228,9 +233,10 @@ const VoiceAssistant = (() => {
                 // Fallback with longer delay
                 setTimeout(() => {
                   try {
-                    if (isContinuous && isActive) {
+                    if (isContinuous && isActive && !_isSpeaking) {
                       _isAutoRestarting = true;
                       recognition.start();
+                      isListening = true;
                     }
                   } catch(e) {
                     console.error('[Voice] Double restart failed:', e.message);
@@ -256,10 +262,12 @@ const VoiceAssistant = (() => {
       if (e.detail?.section === 'dashboard') setTimeout(greetUser, 1500);
     });
 
-    // ★ NEW: Escape key to disable continuous listening
+    // ★ NEW: Escape key to disable continuous listening and stop talking
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && isContinuous && isListening) {
+      if (e.key === 'Escape' && (isContinuous || isActive || _isSpeaking)) {
         e.preventDefault();
+        synth.cancel(); // Stop talking immediately
+        _isSpeaking = false;
         stopContinuousListening();
       }
     });
@@ -694,8 +702,30 @@ const VoiceAssistant = (() => {
       u.voice = voiceInstance;
       u.pitch = 1.15;
       u.rate  = 1.0;
-      u.onstart = () => btn && btn.classList.add('talking');
-      u.onend   = () => btn && btn.classList.remove('talking');
+      u.onstart = () => {
+        _isSpeaking = true;
+        if (btn) btn.classList.add('talking');
+        // Prevent mic from picking up the synthesized voice
+        if (recognition && isListening) {
+          try { recognition.stop(); } catch(e){}
+        }
+      };
+      u.onend = () => {
+        _isSpeaking = false;
+        if (btn) btn.classList.remove('talking');
+        // Resume listening automatically after speaking if in continuous mode
+        if (isContinuous && isActive) {
+          setTimeout(() => {
+            if (!_isSpeaking && !isListening) {
+              try { 
+                _isAutoRestarting = true;
+                recognition.start(); 
+                isListening = true;
+              } catch(e){}
+            }
+          }, 300);
+        }
+      };
       synth.speak(u);
       showBubble(text);
     } catch(e) { console.warn('[Voice] speak error:', e); }
@@ -703,7 +733,11 @@ const VoiceAssistant = (() => {
 
   function greetUser() {
     if (localStorage.getItem('wfa_logged_in') === 'true') {
-      if (sessionStorage.getItem('wfa_greeted') === 'true') return;
+      if (sessionStorage.getItem('wfa_greeted') === 'true') {
+        // Already greeted this session — just auto-start continuous listening
+        setTimeout(() => startContinuousListening(), 2000);
+        return;
+      }
       sessionStorage.setItem('wfa_greeted', 'true');
 
       let userName = localStorage.getItem('wfa_user_name') || 'Shakib';
@@ -712,16 +746,11 @@ const VoiceAssistant = (() => {
       
       if (btn) btn.classList.remove('minimized'); // Pop up to greet
       
+      // ★ FIXED: Start continuous listening BEFORE speaking so speak() knows to auto-resume
+      startContinuousListening();
+      
       const msg = `Welcome back, ${displayName}, How are you? If you need anything, just call me. I am here to assist you.`;
       speak(msg);
-      
-      // ★ NEW: After greeting, go offline automatically
-      setTimeout(() => {
-        if (btn && !isListening) btn.classList.add('minimized'); // Go back to small if not listening
-        if (isContinuous && isListening) {
-          stopContinuousListening();
-        }
-      }, msg.length * 50); // Wait for greeting to finish
     }
   }
 
@@ -773,7 +802,6 @@ const VoiceAssistant = (() => {
     isActive = false;  // ✅ ANDROID FIX: Mark as inactive
     if (btn) {
       btn.classList.remove('listening');
-      btn.classList.add('minimized'); // Make it small when offline
     }
   }
 
@@ -1683,7 +1711,7 @@ const VoiceAssistant = (() => {
 
     // ★ NEW: ADVANCED BATCH QUERIES ─────────────────────────────────
     // Examples: "উনিশ ব্যাচে টোটাল স্টুডেন্ট কত?", "Batch 19 student count", "19 batch এ কত ছাত্র"
-    if (/\b(batch|ব্যাচ)\b/.test(cmd) && /\b(student|ছাত্র|শিক্ষার্থী|count|সংখ্যা|কত)\b/.test(cmd)) {
+    if (/\b(batch|batches|ব্যাচ)\b/.test(cmd) && /\b(students?|ছাত্র|শিক্ষার্থী|count|সংখ্যা|কত)\b/.test(cmd)) {
       const batchId = extractBatch(cmd);
       if (batchId) {
         const students = dbAll('students');
@@ -1735,7 +1763,7 @@ const VoiceAssistant = (() => {
 
     // ★ NEW: BATCH + MONTH COMBINED QUERY ───────────────────────────
     // Examples: "জুন ব্যাচে পেমেন্ট কত?", "Batch 15 collection", "19 ব্যাচের মোট ফি"
-    if (/\b(batch|ব্যাচ)\b/.test(cmd) && /\b(payment|পেমেন্ট|fee|ফি|collection|সংগ্রহ|due|বাকি)\b/.test(cmd)) {
+    if (/\b(batch|batches|ব্যাচ)\b/.test(cmd) && /\b(payments?|পেমেন্ট|fees?|ফি|collections?|সংগ্রহ|dues?|বাকি)\b/.test(cmd)) {
       const batchId = extractBatch(cmd);
       if (batchId) {
         const students = dbAll('students');
@@ -1792,17 +1820,53 @@ const VoiceAssistant = (() => {
     // ── REFRESH ───────────────────────────────────────────────────
     if (/\b(refresh|reload|sync|update data)\b/.test(cmd)) { refreshData(); return; }
 
+    // ── UI CONTROLS ────────────────────────────────────────────────
+    if (/\b(zoom in|increase zoom)\b/.test(cmd)) {
+      document.body.style.zoom = (parseFloat(document.body.style.zoom || 1) + 0.1);
+      speak(currentLang === 'bn-IN' ? 'জুম ইন করছি' : 'Zooming in');
+      return;
+    }
+    if (/\b(zoom out|decrease zoom)\b/.test(cmd)) {
+      document.body.style.zoom = (parseFloat(document.body.style.zoom || 1) - 0.1);
+      speak(currentLang === 'bn-IN' ? 'জুম আউট করছি' : 'Zooming out');
+      return;
+    }
+    if (/\b(dark mode|dark theme|night mode)\b/.test(cmd)) {
+      document.body.classList.add('theme-neon-space');
+      if(typeof Utils !== 'undefined') Utils.toast('Dark Mode Activated', 'success');
+      speak(currentLang === 'bn-IN' ? 'ডার্ক মোড চালু করেছি' : 'Dark mode activated');
+      return;
+    }
+    if (/\b(light mode|light theme|day mode)\b/.test(cmd)) {
+      document.body.classList.remove('theme-neon-space');
+      if(typeof Utils !== 'undefined') Utils.toast('Light Mode Activated', 'success');
+      speak(currentLang === 'bn-IN' ? 'লাইট মোড চালু করেছি' : 'Light mode activated');
+      return;
+    }
+    if (/\b(increase font|bigger font|larger font)\b/.test(cmd)) {
+      const currentSize = parseFloat(getComputedStyle(document.body).fontSize);
+      document.body.style.fontSize = (currentSize + 2) + 'px';
+      speak('Font size increased');
+      return;
+    }
+    if (/\b(decrease font|smaller font|reduce font)\b/.test(cmd)) {
+      const currentSize = parseFloat(getComputedStyle(document.body).fontSize);
+      document.body.style.fontSize = (currentSize - 2) + 'px';
+      speak('Font size decreased');
+      return;
+    }
+
     // ── NEW STUDENT COMMANDS ───────────────────────────────────────
-    if (/\b(how many student|student count|total student|number of student)\b/.test(cmd)) {
+    if (/\b(how many students?|student count|total students?|number of students?)\b/.test(cmd)) {
       reportStudentCount(); return;
     }
     if (/\b(highest due|who.*due|top due|most due|biggest due)\b/.test(cmd)) {
       reportHighestDue(); return;
     }
-    if (/\b(recent admission|new student|latest student|last.*student)\b/.test(cmd)) {
+    if (/\b(recent admissions?|new students?|latest students?|last.*students?)\b/.test(cmd)) {
       reportRecentAdmissions(); return;
     }
-    if (/\b(how many batch|batch count|all batch|list batch)\b/.test(cmd)) {
+    if (/\b(how many batches?|batch count|all batches?|list batches?)\b/.test(cmd)) {
       reportBatchCount(); return;
     }
 
@@ -1857,11 +1921,11 @@ const VoiceAssistant = (() => {
 
     if(!handled&&((cmd.includes('today')&&(cmd.includes('report')||cmd.includes('summary')))||cmd==='today'||cmd.includes('daily report'))){reportToday();handled=true;}
     if(!handled&&(cmd.includes('salary')||cmd.includes('payroll'))){reportSalary(cmd);handled=true;}
-    if(!handled&&(cmd.includes('student report')||cmd.includes('total student'))){reportStudents();handled=true;}
+    if(!handled&&(cmd.includes('student report')||cmd.includes('student reports')||cmd.includes('total student')||cmd.includes('total students'))){reportStudents();handled=true;}
     if(!handled&&(cmd.includes('finance summary')||cmd.includes('finance report')||cmd.includes('total income')||cmd.includes('total expense'))){reportFinance();handled=true;}
     if(!handled&&(cmd.includes('pending due')||cmd.includes('total due')||cmd.includes('outstanding'))){reportDue(null);handled=true;}
     if(!handled&&(cmd.includes('account balance')||cmd.includes('bank balance')||cmd.includes('total balance'))){reportBalance();handled=true;}
-    if(!handled&&(cmd.includes('help')||cmd.includes('what can you')||cmd.includes('commands')||cmd.includes('command list'))){reportHelp();handled=true;}
+    if(!handled&&(cmd.includes('help')||cmd.includes('what can you')||cmd.includes('commands')||cmd.includes('command list')||cmd.includes('commands list'))){reportHelp();handled=true;}
 
     // ── ★ ANIMATED NAVIGATION v4.0 ★ ─────────────────────────────
     if (!handled) {
@@ -1906,17 +1970,36 @@ const VoiceAssistant = (() => {
       handled=true;
     }
 
-    // ── UNRECOGNIZED ─────────────────────────────────────────────
-    if(!handled){
-      if(typeof Utils!=='undefined') Utils.toast(`Not recognized: "${raw}" — say "help"`, 'warn');
-      const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আই ডোন্ট আন্ডারস্ট্যান্ড।' : 'Sorry Sir, I don\'t understand.';
-      speak(msg);
-      showBubble(msg, false);
+    // ── UNRECOGNIZED (FALLBACK TO GEMINI AI) ──────────────────────
+    if (!handled) {
+      if (typeof AIAssistant !== 'undefined' && AIAssistant.chat) {
+        showBubble('Thinking...', false);
+        AIAssistant.chat(raw).then(reply => {
+          // Remove Markdown bold/stars from speech
+          const cleanSpeech = reply.replace(/\*/g, '').replace(/_/g, '').trim();
+          speak(cleanSpeech);
+          showBubble(cleanSpeech, true);
+        }).catch(err => {
+          const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আমি উত্তরটি খুঁজে পাইনি।' : 'Sorry Sir, I could not process that.';
+          speak(msg);
+          showBubble(msg, false);
+        });
+      } else {
+        if(typeof Utils!=='undefined') Utils.toast(`Not recognized: "${raw}" — say "help"`, 'warn');
+        const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আই ডোন্ট আন্ডারস্ট্যান্ড।' : 'Sorry Sir, I don\'t understand.';
+        speak(msg);
+        showBubble(msg, false);
+      }
     }
   }
 
   return { init, speak };
 })();
 
-document.addEventListener('DOMContentLoaded', () => setTimeout(() => VoiceAssistant.init(), 1500));
+// Since this script is lazy-loaded asynchronously, DOMContentLoaded has already fired.
+setTimeout(() => {
+  if (typeof VoiceAssistant !== 'undefined' && VoiceAssistant.init) {
+    VoiceAssistant.init();
+  }
+}, 500);
 window.VoiceAssistant = VoiceAssistant;
