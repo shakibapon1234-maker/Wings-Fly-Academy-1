@@ -1975,6 +1975,13 @@ const VoiceAssistant = (() => {
       if (typeof AIAssistant !== 'undefined' && AIAssistant.chat) {
         showBubble('Thinking...', false);
         AIAssistant.chat(raw).then(reply => {
+          if (reply.startsWith('❌') || reply.includes('API Key') || reply.includes('Quota exceeded')) {
+            const shortMsg = currentLang === 'bn-IN' ? 'দুঃখিত স্যার, আপনার এপিআই কোটা শেষ হয়ে গেছে। দয়া করে সেটিংসে গিয়ে নতুন কী দিন।' : 'Sorry sir, your API quota has been exceeded. Please provide a new key in Settings.';
+            speak(shortMsg);
+            showBubble('❌ API Quota Exceeded. Add new key in Settings.', false);
+            if (typeof Utils !== 'undefined') Utils.toast('Gemini API Quota Exceeded. Please update your API key in Settings.', 'error', 5000);
+            return;
+          }
           // Remove Markdown bold/stars from speech
           const cleanSpeech = reply.replace(/\*/g, '').replace(/_/g, '').trim();
           speak(cleanSpeech);
