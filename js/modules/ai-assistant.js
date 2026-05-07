@@ -3,7 +3,7 @@
  * Samsung Z Fold 6 Optimized
  *
  * Features:
- * - Gemini 1.5 Flash API (free tier: 15 req/min)
+ * - Gemini 2.0 Flash API (free tier: 15 req/min, 1500 req/day)
  * - Bengali + English bilingual
  * - Academy data context (students, finance, attendance)
  * - Works with existing Voice Assistant angel doll
@@ -16,8 +16,9 @@ const AIAssistant = (() => {
   const API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   const FETCH_TIMEOUT_MS  = 15000; // 15s timeout for mobile networks
   // Bug #16 Fix: History constants for proper memory management
-  const MAX_HISTORY_PAIRS = 20; // 20 user+model pairs = 40 messages max
-  const TRIM_TO_PAIRS     = 15; // When limit hit, trim to last 15 pairs
+  // Reduced from 20→8 pairs to save tokens (each pair costs ~500-1000 tokens)
+  const MAX_HISTORY_PAIRS = 8;  // 8 user+model pairs = 16 messages max
+  const TRIM_TO_PAIRS     = 5;  // When limit hit, trim to last 5 pairs
 
   let chatHistory = [];
   let isOpen = false;
@@ -59,11 +60,11 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
   }
 
   // ── Retrieve API Key (with fallback chain) ──
-  // ✅ Array of keys to auto-fallback if one gets blocked
-  const FALLBACK_KEYS = [
-    'AIzaSyAIs2tGVCxMH-PJzU4NGE7I3h_Y8ucFFK0', // Original (currently reported as leaked)
-    // You can add more fallback keys here in the future
-  ];
+  // ✅ SECURITY: Never hardcode API keys in source code!
+  // Keys are stored in localStorage/SecureStorage by the user via Settings.
+  // To add multiple keys for rotation, save them as:
+  //   localStorage.setItem('wfa_gemini_key_2', 'YOUR_KEY_2');
+  //   localStorage.setItem('wfa_gemini_key_3', 'YOUR_KEY_3');
 
   async function _getApiKeys() {
     let keysToTry = [];
@@ -76,18 +77,27 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
     } catch (e) {
       console.warn('[AIAssistant] SecureStorage.getItem failed, trying fallback:', e.message);
     }
-    // 2. Fallback: raw localStorage
+    // 2. Fallback: raw localStorage (primary key)
     const raw = localStorage.getItem('wfa_gemini_key');
     if (raw && !raw.startsWith('wfa_enc::') && !keysToTry.includes(raw)) {
       keysToTry.push(raw);
     }
-    
-    // 3. Add all fallback keys
-    FALLBACK_KEYS.forEach(k => {
-      if (!keysToTry.includes(k)) keysToTry.push(k);
-    });
+    // 3. Additional rotation keys from localStorage (wfa_gemini_key_2, _3, etc.)
+    for (let i = 2; i <= 5; i++) {
+      const extra = localStorage.getItem(`wfa_gemini_key_${i}`);
+      if (extra && !keysToTry.includes(extra)) keysToTry.push(extra);
+    }
 
     return keysToTry;
+  }
+
+  // Detect if an error means quota/rate-limit (skip key) vs. temporary (retry)
+  function _isQuotaError(msg = '') {
+    return msg.includes('429') ||
+           msg.includes('quota') ||
+           msg.includes('RESOURCE_EXHAUSTED') ||
+           msg.includes('Too Many Requests') ||
+           msg.includes('rate limit');
   }
 
   // ── API Call ──
@@ -134,16 +144,22 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
         if (!response.ok) {
           let errMsg = response.statusText;
           try { const err = await response.json(); errMsg = err.error?.message || errMsg; } catch {}
-          throw new Error(errMsg);
+          const err = new Error(errMsg);
+          err.isQuota = _isQuotaError(errMsg) || response.status === 429;
+          throw err;
         }
 
         const data = await response.json();
         reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'উত্তর পাওয়া যায়নি।';
         break; // Success! Exit loop.
       } catch (e) {
-        console.error(`[AIAssistant] Error with key ${i + 1}:`, e.message);
         lastError = e;
-        // If it's the last key, we don't break, we just let it finish the loop
+        if (e.isQuota || _isQuotaError(e.message)) {
+          console.warn(`[AIAssistant] Key ${i + 1} quota exceeded, trying next key...`);
+          continue; // Try next key
+        }
+        console.error(`[AIAssistant] Error with key ${i + 1}:`, e.message);
+        // Non-quota error (network, etc.) — still try next key
       }
     }
 
@@ -179,7 +195,7 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
             <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">✨</div>
             <div>
               <div style="font-weight:800;color:#00d4ff;font-size:0.95rem;">Wings AI Assistant</div>
-              <div style="font-size:0.7rem;color:#00ff88;">● Online — Gemini 1.5 Flash</div>
+              <div style="font-size:0.7rem;color:#00ff88;">● Online — Gemini 2.0 Flash</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;">
@@ -302,20 +318,35 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
     return div;
   }
 
-  function promptApiKey() {
-    const key = prompt('Google Gemini API Key দিন:\n(পান: https://aistudio.google.com/app/apikey)');
+  function promptApiKey(slotNumber = 1) {
+    const slotKey = slotNumber === 1 ? 'wfa_gemini_key' : `wfa_gemini_key_${slotNumber}`;
+    const slotLabel = slotNumber === 1 ? 'Primary' : `Backup ${slotNumber - 1}`;
+    const key = prompt(
+      `Google Gemini API Key দিন (${slotLabel}):\n` +
+      `পান: https://aistudio.google.com/app/apikey\n\n` +
+      `⚠️ একাধিক key থাকলে limit শেষ হলে auto-switch হবে।`
+    );
     if (key?.trim()) {
-      // Bug #5 Fix: Store API key — try SecureStorage first, then localStorage
       const trimmed = key.trim();
-      // Always save a plain copy in localStorage for fallback
-      localStorage.setItem('wfa_gemini_key', trimmed);
-      // Also save encrypted version if available
+      localStorage.setItem(slotKey, trimmed);
       if (typeof SecureStorage !== 'undefined') {
-        SecureStorage.setItem('wfa_gemini_key', trimmed).catch(() => {});
+        SecureStorage.setItem(slotKey, trimmed).catch(() => {});
       }
       document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
-      if (typeof Utils !== 'undefined') Utils.toast('✅ Gemini API Key saved!', 'success');
+      if (typeof Utils !== 'undefined') {
+        Utils.toast(`✅ API Key (${slotLabel}) saved! আরো key যোগ করতে পারেন (slot 2-5)।`, 'success');
+      }
     }
+  }
+
+  // Add a 2nd/3rd backup key for auto-rotation
+  function addBackupKey() {
+    // Find next empty slot
+    let nextSlot = 2;
+    for (let i = 2; i <= 5; i++) {
+      if (!localStorage.getItem(`wfa_gemini_key_${i}`)) { nextSlot = i; break; }
+    }
+    promptApiKey(nextSlot);
   }
 
   // ── Battery: pause animations when hidden ──
