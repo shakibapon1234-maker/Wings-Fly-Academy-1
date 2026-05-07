@@ -93,17 +93,10 @@ const PushNotificationModule = (() => {
 
   // ── Web Push API (Fallback) ──
   async function initWebPush() {
-    if (!('Notification' in window)) {
-      console.warn('[Push] Notifications not supported');
-      return;
-    }
-
-    if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      console.log('[Push] Notification permission:', permission);
-    }
-
-    // ✅ FIXED: Service Worker registration moved to inline-handlers.js (single source of truth)
+    // ⚠️ Web Push disabled: VAPID key not configured.
+    // To enable: generate VAPID keys and call pushManager.subscribe({ applicationServerKey })
+    // See: https://web.dev/push-notifications-subscribing-a-user/
+    console.info('[Push] Web Push not configured — VAPID key needed. Feature disabled.');
   }
 
   // ── Save FCM token to Supabase ──
