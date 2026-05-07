@@ -259,21 +259,16 @@ const Utils = (() => {
 
     // ✅ Fix #5: Wrap modal content injection in try/catch to prevent UI freeze
     try {
-      // ✅ BUG #6 Fix: bodyEl uses a safe sanitizer instead of raw innerHTML
-      // Preserve trusted HTML (form fields, buttons) but strip on* handlers
-      const _sanitizeHTML = (html) => {
-        const tmp = document.createElement('div');
-        tmp.innerHTML = html;
-        // Remove all on* event attributes from all elements
-        tmp.querySelectorAll('*').forEach(el => {
-          [...el.attributes].forEach(attr => {
-            if (/^on/i.test(attr.name)) el.removeAttribute(attr.name);
-          });
-        });
-        return tmp.innerHTML;
-      };
+      // ✅ XSS Protection Note:
+      // Modal body HTML comes from trusted JS templates where ALL user-supplied
+      // values (names, notes, IDs) are already escaped via Utils.esc() before
+      // being embedded. Applying a blanket on* stripper here breaks ALL button
+      // functionality (onclick, onchange, onkeypress etc.) inside every modal.
+      //
+      // Title gets sanitized to prevent on* injection in the title string itself.
+      // Body is rendered as-is — safe because templates use Utils.esc() on data.
       titleEl.innerHTML = title.replace(/\s+on\w+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]*)/gi, '');
-      bodyEl.innerHTML = _sanitizeHTML(bodyHTML);
+      bodyEl.innerHTML = bodyHTML;
     } catch (e) {
       console.error('[Modal] Content render error:', e);
       titleEl.textContent = 'Error';
