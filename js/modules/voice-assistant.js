@@ -49,6 +49,7 @@ const VoiceAssistant = (() => {
   let _isRestarting = false;  // ✅ Fix: prevent duplicate recognition.start() calls
   let _isAutoRestarting = false; // ✅ Fix: prevent repeated 'speak now' toasts
   let _isSpeaking = false;    // ✅ Fix: track if speech synthesis is currently active
+  let _hardStop   = false;    // ✅ Fix: set true on Escape/perm-error, blocks any auto-restart
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -195,12 +196,24 @@ const VoiceAssistant = (() => {
         const errorMap = {
           'no-speech': currentLang === 'bn-IN' ? '⚠️ কোনো শব্দ শোনা যায়নি। আবার চেষ্টা করুন।' : '⚠️ No speech detected. Try again.',
           'network': currentLang === 'bn-IN' ? '📡 নেটওয়ার্ক সমস্যা। ইন্টারনেট চেক করুন।' : '📡 Network error. Check internet.',
-          'not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক অনুমতি নেই। Settings → Microphone → ON' : '🔒 Mic permission denied. Enable in Settings.',
+          'not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক অনুমতি নেই। Settings → Microphone → ON' : '🔒 Mic permission denied. Enable in browser/OS settings.',
           'service-not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক পরিষেবা অক্ষম।' : '🔒 Mic service not allowed.',
         };
         const msg = errorMap[e.error] || ('Mic error: ' + e.error);
         console.warn('[Voice] Error:', e.error);
-        
+
+        // ✅ Desktop FIX: permission errors → hard-stop continuous mode
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          _hardStop = true;
+          isContinuous = false;
+          isActive = false;
+          isListening = false;
+          showBubble(msg, true);
+          if (typeof Utils !== 'undefined') Utils.toast(msg, 'error', 5000);
+          stopUI();
+          return;
+        }
+
         // In continuous mode, no-speech is expected, so don't show the error bubble
         if (!(isContinuous && e.error === 'no-speech')) {
           showBubble(msg, true);
@@ -212,6 +225,11 @@ const VoiceAssistant = (() => {
         if (!isContinuous) stopUI();
       };
       recognition.onend = () => {
+        // ✅ Desktop FIX: _hardStop blocks ALL auto-restarts (Escape / perm-error)
+        if (_hardStop) {
+          stopUI();
+          return;
+        }
         // ★ MODIFIED: Restart if continuous mode is on
         // ✅ ANDROID FIX: Stronger debounce with safety checks for WebView
         if (isContinuous && isActive && isListening) {
@@ -223,9 +241,11 @@ const VoiceAssistant = (() => {
           _isRestarting = true;
           setTimeout(() => {
             _isRestarting = false;
-            if (isContinuous && isActive && isListening && !_isSpeaking) {
+            // Double-check _hardStop again (Escape may have fired during the timeout)
+            if (_hardStop || !isContinuous || !isActive) return;
+            if (isListening && !_isSpeaking) {
               try {
-                console.log('[Voice] Restarting recognition (Android-optimized)...');
+                console.log('[Voice] Restarting recognition (desktop-safe)...');
                 _isAutoRestarting = true;
                 recognition.start();
               } catch(ex) {
@@ -233,7 +253,7 @@ const VoiceAssistant = (() => {
                 // Fallback with longer delay
                 setTimeout(() => {
                   try {
-                    if (isContinuous && isActive && !_isSpeaking) {
+                    if (!_hardStop && isContinuous && isActive && !_isSpeaking) {
                       _isAutoRestarting = true;
                       recognition.start();
                       isListening = true;
@@ -262,13 +282,22 @@ const VoiceAssistant = (() => {
       if (e.detail?.section === 'dashboard') setTimeout(greetUser, 1500);
     });
 
-    // ★ NEW: Escape key to disable continuous listening and stop talking
+    // ✅ Desktop FIX: Escape key — abort() is stronger than stop(), and _hardStop blocks restart
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && (isContinuous || isActive || _isSpeaking)) {
+      if (e.key === 'Escape' && (isContinuous || isActive || _isSpeaking || isListening)) {
         e.preventDefault();
-        synth.cancel(); // Stop talking immediately
+        synth.cancel();       // Stop speech immediately
         _isSpeaking = false;
-        stopContinuousListening();
+        _hardStop = true;     // Block ALL auto-restarts
+        isContinuous = false;
+        isActive = false;
+        isListening = false;
+        _isRestarting = false;
+        try { recognition && recognition.abort(); } catch(ex) {} // abort() > stop() on desktop
+        stopUI();
+        const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
+        showBubble(msg, false);
+        if (typeof Utils !== 'undefined') Utils.toast(msg, 'success');
       }
     });
   }
@@ -772,6 +801,7 @@ const VoiceAssistant = (() => {
     isContinuous = true;
     isActive = true;  // ✅ ANDROID FIX: Mark as active
     _isAutoRestarting = false; // ✅ Reset flag on manual start
+    _hardStop = false;         // ✅ Desktop FIX: clear hard-stop so recognition can restart
     try { 
       recognition.start(); 
       isListening = true;

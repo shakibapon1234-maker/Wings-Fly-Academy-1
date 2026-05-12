@@ -784,6 +784,22 @@ const Accounts = (() => {
     }
   }
 
+  /* Internal Transfer — balance preview helper */
+  function _showTransferBal(selectId, badgeId) {
+    const sel   = document.getElementById(selectId);
+    const badge = document.getElementById(badgeId);
+    if (!sel || !badge) return;
+    const accName = sel.value;
+    if (!accName) { badge.innerHTML = ''; return; }
+    const bal   = (typeof Utils.getAccountBalance === 'function') ? Utils.getAccountBalance(accName) : 0;
+    const color = bal > 0 ? '#00ff88' : '#ff4757';
+    const icon  = bal > 0 ? '💰' : '⚠️';
+    badge.innerHTML = `<span style="display:inline-flex;align-items:center;gap:6px;background:rgba(0,0,0,0.25);border:1px solid ${color}44;border-radius:8px;padding:4px 10px;">
+      <span style="color:${color};font-size:0.78rem;font-weight:700;">${icon} Available:</span>
+      <span style="color:${color};font-weight:800;font-family:var(--font-en);">${Utils.takaEn(bal)}</span>
+    </span>`;
+  }
+
   /* Internal Transfer */
   function openTransferModal() {
     // Build dynamic account list from DB (Cash + each named bank + each named mobile)
@@ -803,17 +819,19 @@ const Accounts = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>From <span class="req">*</span></label>
-          <select id="tr-from" class="form-control">
+          <select id="tr-from" class="form-control" onchange="Accounts._showTransferBal('tr-from','tr-from-bal')">
             <option value="">-- From Account --</option>
             ${_optHTML}
           </select>
+          <div id="tr-from-bal" style="margin-top:5px;min-height:22px;"></div>
         </div>
         <div class="form-group">
           <label>To <span class="req">*</span></label>
-          <select id="tr-to" class="form-control">
+          <select id="tr-to" class="form-control" onchange="Accounts._showTransferBal('tr-to','tr-to-bal')">
             <option value="">-- To Account --</option>
             ${_optHTML}
           </select>
+          <div id="tr-to-bal" style="margin-top:5px;min-height:22px;"></div>
         </div>
       </div>
       <div class="form-row">
@@ -1019,7 +1037,9 @@ const Accounts = (() => {
     doSearch, clearSearch, filterHistory, clearHistoryFilter,
     exportSearchExcel, printSearch,
     // 🆕 BUG #5: Verification functions
-    verifyAccountBalance, recalculateBalance
+    verifyAccountBalance, recalculateBalance,
+    // Transfer balance preview
+    _showTransferBal
   };
 
 })();
