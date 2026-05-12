@@ -2632,9 +2632,10 @@ ${expenseEntries.length > 0 ? `
           <div style="display:flex;align-items:center;gap:10px">
             <span style="color:var(--brand-primary);font-size:1rem;font-weight:700">Total records (all tables): ${totalRecords}</span>
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
+            <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsModule.rebuildMonitorData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 10 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
 
         <div class="table-wrapper">
           <table>
@@ -4054,6 +4055,97 @@ ${expenseEntries.length > 0 ? `
       `
     , '720px');
   }
+  // ─── Rebuild Monitor Data ───────────────────────────────────────
+  // Finance ledger থেকে শেষ ১৫টি ট্রান্সেকশন নিয়ে Data Monitor-এ populate করে।
+  // যদি wfa_recent_changes খালি হয়ে যায় বা হারিয়ে যায়, এই function দিয়ে rebuild করা যায়।
+  function rebuildMonitorData() {
+    try {
+      const allFinance = SupabaseSync.getAll(DB.finance);
+      const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving'];
+
+      // Filter only allowed transaction types and sort by date (newest first)
+      const filtered = allFinance
+        .filter(f => allowedTypes.includes(String(f.type || '').toLowerCase()))
+        .sort((a, b) => {
+          const da = new Date(a.created_at || a.date || 0);
+          const db = new Date(b.created_at || b.date || 0);
+          return db - da;
+        })
+        .slice(0, 15);
+
+      if (filtered.length === 0) {
+        Utils.toast('কোনো ট্রান্সেকশন পাওয়া যায়নি — আগে Income বা Expense add করুন', 'warn');
+        return;
+      }
+
+      // Build current snapshot (same for all — current state of dashboard)
+      let snapshot = {};
+      try {
+        const students = SupabaseSync.getAll(DB.students);
+        const finance  = SupabaseSync.getAll(DB.finance);
+        const accounts = SupabaseSync.getAll(DB.accounts);
+        const cfg      = (SupabaseSync.getAll(DB.settings) || [])[0] || {};
+
+        const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
+        const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
+        const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+        const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+
+        const seen = new Set();
+        const cleanAccounts = accounts.filter(a => {
+          const name = String(a.name || '').trim();
+          if (a.type === 'Cash' && name !== 'Cash') return false;
+          if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+            if (!name || /^\d+$/.test(name)) return false;
+          }
+          const key = `${a.type}||${name}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        const accountBalance = cleanAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+        const accountList = cleanAccounts.map(a => ({ name: a.name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
+
+        const runningBatch = cfg.running_batch || '';
+        const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
+        const batchStudents = runningBatch
+          ? students.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
+          : [];
+        const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
+
+        snapshot = {
+          students: { totalStudents: students.length, totalFee: students.reduce((s, r) => s + Number(r.total_fee || 0), 0), totalPaid: students.reduce((s, r) => s + Number(r.paid || 0), 0), totalDue: students.reduce((s, r) => s + Number(r.due || 0), 0) },
+          accounts: { count: cleanAccounts.length, totalBalance: accountBalance, list: accountList },
+          finance:  { totalIncome, totalExpense },
+          batch: { name: runningBatch, students: batchStudents.length, collection: batchCollection, expense: 0, net: batchCollection },
+          recordedAt: new Date().toISOString(),
+        };
+      } catch (e) {
+        console.warn('[RebuildMonitor] Snapshot build failed:', e);
+      }
+
+      // Build entries
+      const entries = filtered.map(record => ({
+        date: record.created_at ? new Date(record.created_at).toLocaleString() : (record.date || new Date().toLocaleString()),
+        type: record.type,
+        category: String(record.category || record.type || '').slice(0, 100),
+        person: String(record.person_name || record.description || record.note || '—').slice(0, 100),
+        amount: Number(record.amount || 0),
+        method: record.method || '',
+        table: DB.finance,
+        item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
+        snapshot,
+      }));
+
+      localStorage.setItem('wfa_recent_changes', JSON.stringify(entries));
+      Utils.toast(`✅ ${entries.length}টি ট্রান্সেকশন Data Monitor-এ restore হয়েছে`, 'success');
+      refreshModal();
+    } catch (err) {
+      console.error('[RebuildMonitor] Failed:', err);
+      Utils.toast('Rebuild ব্যর্থ হয়েছে — console চেক করুন', 'error');
+    }
+  }
+
   // ─── Diagnostic Functions ─────────────────────────────────────
   function runAutoHeal() {
     let checks = 0, fixes = 0;
@@ -5533,6 +5625,7 @@ ${expenseEntries.length > 0 ? `
     openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
     openSettingsInternalModal, closeSettingsInternalModal,
     runAutoHeal, runSyncCheck, runAutoFix,
+    rebuildMonitorData,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
   };
 })();

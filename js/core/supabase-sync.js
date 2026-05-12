@@ -330,10 +330,10 @@ const SupabaseSync = (() => {
     try {
       const logKey = 'wfa_activity_log';
       const log = (() => { try { return JSON.parse(localStorage.getItem(logKey) || '[]'); } catch { return []; } })();
-      if (log.length > 50) localStorage.setItem(logKey, JSON.stringify(log.slice(-50)));
+      if (log.length > 50) localStorage.setItem(logKey, JSON.stringify(log.slice(0, 50)));
       const rcKey = 'wfa_recent_changes';
       const rc = (() => { try { return JSON.parse(localStorage.getItem(rcKey) || '[]'); } catch { return []; } })();
-      if (rc.length > 20) localStorage.setItem(rcKey, JSON.stringify(rc.slice(-20)));
+      if (rc.length > 15) localStorage.setItem(rcKey, JSON.stringify(rc.slice(0, 15)));
       console.warn('[Storage] Auto-purged old logs. Usage:', _storageUsageKB(), 'KB');
       return true;
     } catch { return false; }
@@ -445,6 +445,10 @@ const SupabaseSync = (() => {
 
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
+      let snapshot = {};
+      try { snapshot = _getMonitorSnapshot(); } catch (snapErr) {
+        console.warn('[DataMonitor] Snapshot capture failed:', snapErr?.message || snapErr);
+      }
       const entry = {
         date: new Date().toLocaleString(),
         type: record.type,         // Income / Expense / Transfer In / Transfer Out
@@ -454,13 +458,29 @@ const SupabaseSync = (() => {
         method: record.method || '',
         table,
         item: _recycleDisplayName(table, record),
-        snapshot: _getMonitorSnapshot(),
+        snapshot,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
-      if (arr.length > 10) arr.length = 10; // Last 10 entries always
-      localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
-    } catch { /* ignore */ }
+      if (arr.length > 15) arr.length = 15; // Last 15 entries
+
+      // Try to save — handle localStorage quota errors gracefully
+      try {
+        localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
+      } catch (quotaErr) {
+        // Quota exceeded — trim older entries and try again
+        console.warn('[DataMonitor] localStorage quota hit, trimming old entries...', quotaErr?.message);
+        while (arr.length > 1) {
+          arr.pop();
+          try {
+            localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
+            break; // success
+          } catch { /* keep trimming */ }
+        }
+      }
+    } catch (err) {
+      console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
+    }
   }
 
   function _getMonitorSnapshot() {
