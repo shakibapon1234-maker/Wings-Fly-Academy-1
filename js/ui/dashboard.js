@@ -478,16 +478,17 @@ const DashboardModule = (() => {
             </div>
             
             <!-- Course Enrollments Doughnut -->
-            <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:24px; height:100%;">
+            <div style="border-left:1px solid rgba(255,255,255,0.1); padding-left:24px; height:100%; display:flex; flex-direction:column;">
               <div style="font-weight:700; color:#fff; margin-bottom:16px;">Course Enrollments</div>
-              <div style="position:relative; width:260px; height:260px; margin: 0 auto; display:flex; justify-content:center; align-items:center;">
+              <div style="position:relative; width:220px; height:220px; margin: 0 auto; display:flex; justify-content:center; align-items:center; flex-shrink:0;">
                 <div class="doughnut-glow-ring"></div>
                 <canvas id="courseChart" style="position:relative; z-index:2; width:100%; height:100%;"></canvas>
-                <div style="position:absolute; top:42%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; z-index:3;">
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); text-align:center; pointer-events:none; z-index:3;">
                   <div class="counter-val" data-target="${rTotalStudents}" style="font-size:2.8rem; font-weight:800; color:#00d4ff; text-shadow:0 0 15px rgba(0,212,255,0.5); line-height:1;">0</div>
                   <div style="font-size:0.75rem; font-weight:700; letter-spacing:0.1em; color:var(--text-secondary); margin-top:4px;">STUDENTS</div>
                 </div>
               </div>
+              <div id="courseLegend" style="margin-top:20px; display:flex; flex-direction:column; gap:8px; overflow-y:auto; max-height:140px; padding-right:4px;"></div>
             </div>
           </div>
         </div>
@@ -703,21 +704,33 @@ const DashboardModule = (() => {
       if (window.dashCourseChart) window.dashCourseChart.destroy();
 
       const courseMap = {};
+      const decodeHtml = (html) => {
+        const txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+      };
+
       students.forEach(s => {
-        const c = s.course || 'Unknown';
+        let c = s.course || 'Unknown';
+        c = decodeHtml(c); // Decode HTML entities like &amp;
+        c = decodeHtml(c); // Double decode for cases like &amp;amp;
         courseMap[c] = (courseMap[c] || 0) + 1;
       });
       const cLabels = Object.keys(courseMap);
       const cData = Object.values(courseMap);
 
-      const style = getComputedStyle(document.body);
       const colorDoughnut = [
         '#00ff88', /* Neon Green */
         '#ffeb3b', /* Bright Yellow */
         '#ff007f', /* Neon Pink */
         '#00d4ff', /* Cyan */
-        '#b537f2'  /* Purple */
+        '#b537f2', /* Purple */
+        '#ff6b35', /* Orange */
+        '#f7b731'  /* Gold */
       ];
+
+      // Assign colors looping through the array if needed
+      const bgColors = cLabels.map((_, i) => colorDoughnut[i % colorDoughnut.length]);
 
       window.dashCourseChart = new Chart(courseCanvas, {
         type: 'doughnut',
@@ -725,7 +738,7 @@ const DashboardModule = (() => {
           labels: cLabels,
           datasets: [{
             data: cData,
-            backgroundColor: colorDoughnut,
+            backgroundColor: bgColors,
             borderWidth: 0,
             hoverOffset: 4
           }]
@@ -734,10 +747,28 @@ const DashboardModule = (() => {
           responsive: true, maintainAspectRatio: false,
           cutout: '75%',
           plugins: {
-            legend: { position: 'bottom', labels: { color: '#fff', font: { size: 11 }, usePointStyle: true } }
+            legend: { display: false } // Hide default legend
           }
         }
       });
+
+      // Custom HTML Legend
+      const legendContainer = document.getElementById('courseLegend');
+      if (legendContainer) {
+        let legendHTML = '';
+        cLabels.forEach((label, index) => {
+          const color = bgColors[index];
+          const count = cData[index];
+          legendHTML += `
+            <div style="display:flex; align-items:flex-start; font-size:0.75rem; color:#d1d5db; gap:8px;">
+              <span style="display:inline-block; width:10px; height:10px; border-radius:50%; background-color:${color}; flex-shrink:0; margin-top:3px; box-shadow:0 0 6px ${color}66;"></span>
+              <span style="flex:1; line-height:1.3; word-break:break-word;">${label}</span>
+              <span style="font-weight:800; color:#fff; font-family:var(--font-ui); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; font-size:0.7rem;">${count}</span>
+            </div>
+          `;
+        });
+        legendContainer.innerHTML = legendHTML;
+      }
     }
   }
 
