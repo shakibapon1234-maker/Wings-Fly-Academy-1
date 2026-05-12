@@ -786,20 +786,33 @@ const Accounts = (() => {
 
   /* Internal Transfer */
   function openTransferModal() {
+    // Build dynamic account list from DB (Cash + each named bank + each named mobile)
+    const _allAccounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts) || []);
+    const _transferOptions = [
+      { value: 'Cash', label: 'Cash' },
+      ..._allAccounts
+        .filter(a => a.type === 'Bank_Detail' && a.name)
+        .map(a => ({ value: a.name, label: `🏦 ${a.name}${a.bankName ? ' — ' + a.bankName : ''}` })),
+      ..._allAccounts
+        .filter(a => a.type === 'Mobile_Detail' && a.name)
+        .map(a => ({ value: a.name, label: `📱 ${a.name}${a.accountNo ? ' (' + a.accountNo + ')' : ''}` })),
+    ];
+    const _optHTML = _transferOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+
     Utils.openModal(`<i class="fa fa-arrow-right-arrow-left"></i> Internal Balance Transfer`, `
       <div class="form-row">
         <div class="form-group">
           <label>From <span class="req">*</span></label>
           <select id="tr-from" class="form-control">
             <option value="">-- From Account --</option>
-            ${CATEGORIES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+            ${_optHTML}
           </select>
         </div>
         <div class="form-group">
           <label>To <span class="req">*</span></label>
           <select id="tr-to" class="form-control">
             <option value="">-- To Account --</option>
-            ${CATEGORIES.map(t=>`<option value="${t}">${t}</option>`).join('')}
+            ${_optHTML}
           </select>
         </div>
       </div>
