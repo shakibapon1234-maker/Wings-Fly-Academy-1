@@ -658,20 +658,43 @@ const Students = (() => {
     const paidPct   = totalFee > 0 ? Math.min(100, Math.round((totalPaid / totalFee) * 100)) : 0;
     const barColor  = paidPct >= 100 ? '#00ff88' : paidPct >= 50 ? '#ffaa00' : '#ff4757';
 
-    // Start running total from any paid amount not recorded in finance ledger
-    // (e.g. initial payment saved without a method, or legacy data)
-    const sumOfFinanceEntries = history.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-    let runningTotal = Math.max(0, totalPaid - sumOfFinanceEntries);
+    // Detect any initial paid amount NOT recorded in finance ledger
+    // (e.g. student added with a paid amount but without selecting a payment method)
+    const sumOfFinanceEntries = history.reduce((acc, f) => acc + Utils.safeNum(f.amount), 0);
+    const unrecordedInitial   = Math.max(0, totalPaid - sumOfFinanceEntries);
+
+    // Build rows — prepend a ghost row for the unrecorded initial payment if present
+    let rowIndex    = 0;
+    let runningTotal = 0;
     let historyTableRows = '';
-    if (history.length === 0) {
+
+    if (unrecordedInitial > 0) {
+      runningTotal += unrecordedInitial;
+      rowIndex++;
+      const remAfterInit = Math.max(0, totalFee - runningTotal);
+      historyTableRows +=
+        '<tr style="border-bottom:1px solid rgba(255,255,255,0.05);background:rgba(255,170,0,0.04)">' +
+          '<td style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">' + rowIndex + '</td>' +
+          '<td style="padding:10px 12px;font-size:0.82rem;color:var(--text-muted)">' + Utils.formatDateDMY(s.admission_date) + '</td>' +
+          '<td style="padding:10px 12px"><span class="badge badge-warning" title="Method not recorded at admission">—</span></td>' +
+          '<td style="padding:10px 12px;font-weight:700;color:#00ff88">' + Utils.takaEn(unrecordedInitial) + '</td>' +
+          '<td style="padding:10px 12px;color:' + (remAfterInit > 0 ? '#ff4757' : '#00ff88') + ';font-weight:600">' + Utils.takaEn(remAfterInit) + '</td>' +
+          '<td style="padding:10px 12px;text-align:right">' +
+            '<span style="font-size:0.75rem;color:#ffaa00;font-style:italic">Initial Payment</span>' +
+          '</td>' +
+        '</tr>';
+    }
+
+    if (history.length === 0 && unrecordedInitial === 0) {
       historyTableRows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;"><i class="fa fa-inbox" style="display:block;font-size:1.8rem;opacity:.3;margin-bottom:8px;"></i>No payment history yet</td></tr>';
     } else {
-      historyTableRows = history.map((f, idx) => {
+      historyTableRows += history.map((f) => {
         runningTotal += Utils.safeNum(f.amount);
+        rowIndex++;
         const remaining = Math.max(0, totalFee - runningTotal);
         return `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-          <td style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">${idx + 1}</td>
+          <td style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">${rowIndex}</td>
           <td style="padding:10px 12px">${Utils.formatDateDMY(f.date)}</td>
           <td style="padding:10px 12px"><span class="badge badge-info">${Utils.esc(f.method || 'Cash')}</span></td>
           <td style="padding:10px 12px;font-weight:700;color:#00ff88">${Utils.takaEn(f.amount)}</td>
@@ -751,7 +774,7 @@ const Students = (() => {
           <div style="font-size:1.6rem;font-weight:900;color:#00d9ff">${Utils.takaEn(totalFee)}</div>
         </div>
         <div style="background:rgba(0,0,0,0.35);border:1.5px solid rgba(0,255,136,0.25);border-radius:10px;padding:16px;text-align:center">
-          <div style="font-size:0.7rem;font-weight:800;color:var(--text-secondary);letter-spacing:1.5px;margin-bottom:8px">PAID (${history.length} payments)</div>
+          <div style="font-size:0.7rem;font-weight:800;color:var(--text-secondary);letter-spacing:1.5px;margin-bottom:8px">PAID (${history.length + (unrecordedInitial > 0 ? 1 : 0)} payments)</div>
           <div style="font-size:1.6rem;font-weight:900;color:#00ff88">${Utils.takaEn(totalPaid)}</div>
         </div>
         <div style="background:rgba(0,0,0,0.35);border:1.5px solid rgba(255,71,87,0.25);border-radius:10px;padding:16px;text-align:center">
@@ -778,7 +801,7 @@ const Students = (() => {
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
         <div style="font-size:0.95rem;font-weight:800;color:var(--brand-primary);display:flex;align-items:center;gap:8px">
           <i class="fa fa-list-ol"></i> Installment History
-          <span style="background:var(--brand-primary);color:#000;font-size:0.7rem;font-weight:900;padding:2px 8px;border-radius:20px">${history.length}</span>
+          <span style="background:var(--brand-primary);color:#000;font-size:0.7rem;font-weight:900;padding:2px 8px;border-radius:20px">${history.length + (unrecordedInitial > 0 ? 1 : 0)}</span>
         </div>
         <button onclick="Students.printReceipt('${id}')" style="padding:6px 14px;background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.35);color:#ff6b35;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer">
           <i class="fa fa-print"></i> Print All
@@ -1128,17 +1151,41 @@ const Students = (() => {
     const receiptNo = `RCP-${s.student_id}-${Date.now().toString().slice(-5)}`;
     const printDate = Utils.formatDateDMY(Utils.today());
 
-    // Start from unrecorded paid amount (initial payment not in finance ledger)
-    const sumFinance = payments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-    let runningBalance = Math.max(0, totalPaid - sumFinance);
-    const paymentRows = payments.length === 0
-      ? `<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">No installment records found</td></tr>`
-      : payments.map((f, i) => {
+    // Detect unrecorded initial payment (paid at admission, no finance entry created)
+    const sumFinance        = payments.reduce((acc, f) => acc + Utils.safeNum(f.amount), 0);
+    const unrecordedInit    = Math.max(0, totalPaid - sumFinance);
+
+    let printRowIdx     = 0;
+    let runningBalance  = 0;
+    let paymentRows     = '';
+
+    // Ghost row for the unrecorded initial payment
+    if (unrecordedInit > 0) {
+      printRowIdx++;
+      runningBalance += unrecordedInit;
+      const remInit = Math.max(0, totalFee - runningBalance);
+      paymentRows += `
+          <tr style="border-bottom:1px solid #e8e8e8; background:#fffbf0;">
+            <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${printRowIdx}</td>
+            <td style="padding:8px 10px;">${Utils.formatDateDMY(s.admission_date)}</td>
+            <td style="padding:8px 10px;text-align:center;">
+              <span style="background:#fff8e1;color:#cc7700;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">Initial</span>
+            </td>
+            <td style="padding:8px 10px;text-align:right;font-weight:700;color:#1a7a1a;">৳${unrecordedInit.toLocaleString('en-IN')}</td>
+            <td style="padding:8px 10px;text-align:right;color:${remInit > 0 ? '#cc3300' : '#1a7a1a'};font-weight:600;">৳${remInit.toLocaleString('en-IN')}</td>
+          </tr>`;
+    }
+
+    if (payments.length === 0 && unrecordedInit === 0) {
+      paymentRows = `<tr><td colspan="5" style="text-align:center;padding:12px;color:#888;">No installment records found</td></tr>`;
+    } else {
+      paymentRows += payments.map((f, i) => {
+          printRowIdx++;
           runningBalance += Utils.safeNum(f.amount);
           const remaining = Math.max(0, totalFee - runningBalance);
           return `
           <tr style="border-bottom:1px solid #e8e8e8; ${i % 2 === 0 ? 'background:#fafafa;' : ''}">
-            <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${i + 1}</td>
+            <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${printRowIdx}</td>
             <td style="padding:8px 10px;">${Utils.formatDateDMY(f.date)}</td>
             <td style="padding:8px 10px;text-align:center;">
               <span style="background:#e8f4f8;color:#0077aa;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">${f.method || 'Cash'}</span>
@@ -1149,6 +1196,7 @@ const Students = (() => {
             </td>
           </tr>`;
         }).join('');
+    }
 
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" style="height:64px;max-width:160px;object-fit:contain;" alt="Logo" />`
@@ -1303,7 +1351,7 @@ const Students = (() => {
   <div class="progress-section">
     <div class="progress-label">
       <span>Payment Progress</span>
-      <span>${paidPct}% Completed (${payments.length} installment${payments.length !== 1 ? 's' : ''})</span>
+      <span>${paidPct}% Completed (${payments.length + (unrecordedInit > 0 ? 1 : 0)} installment${(payments.length + (unrecordedInit > 0 ? 1 : 0)) !== 1 ? 's' : ''})</span>
     </div>
     <div class="progress-bar">
       <div class="progress-fill" style="width:${paidPct}%"></div>
