@@ -1840,7 +1840,10 @@ const Students = (() => {
       console.info('[Reconcile] Fixed students:\n' + auditLog.join('\n'));
     }
     render();
-    // Refresh dashboard totals and fire sync event
+    // Directly refresh dashboard if it's loaded
+    if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') {
+      DashboardModule.render();
+    }
     if (typeof App !== 'undefined' && typeof App.updateNotifCount === 'function') {
       App.updateNotifCount();
     }

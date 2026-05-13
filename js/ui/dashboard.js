@@ -61,9 +61,18 @@ const DashboardModule = (() => {
 
     const totalStudents = students.length;
 
-    // All-Time: "All Collection" = sum of all finance Income records
-    const totalIncome  = finance.filter(f => f.type === 'Income').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-    // All-Time: "Total Expense" = sum of all finance expenses
+    // ── Income Calculation ─────────────────────────────────────────
+    // Student Fee Income = sum of s.paid (authoritative — includes unrecorded initial payments)
+    // Other Income (non-student) = from finance ledger only
+    // Loans & Investments are in separate tables — NOT counted as income/expense
+    const studentFeeTotal  = students.reduce((sum, st) => sum + Utils.safeNum(st.paid), 0);
+    const otherIncome      = finance.filter(f =>
+      f.type === 'Income' &&
+      f.category !== 'Student Fee'
+    ).reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const totalIncome = studentFeeTotal + otherIncome;
+
+    // All-Time: \"Total Expense\" = sum of all finance expenses (loans/investments NOT in ledger)
     const totalExpense = finance.filter(f => f.type === 'Expense').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
     const netProfit    = totalIncome - totalExpense;
 
