@@ -592,13 +592,31 @@ const Finance = (() => {
       }
 
       // ── Student Fee হলে student-এর paid/due ও reverse করো ──
+      // ✅ FIX: Recalculate from finance ledger (source of truth), not just subtraction
+      // Prevents drift if installments deleted out of order or data manually edited
       if (entry.type === 'Income' && entry.category === 'Student Fee' && entry.ref_id) {
         const students = SupabaseSync.getAll(DB.students);
         const sIdx = students.findIndex(s => s.id === entry.ref_id);
         if (sIdx !== -1) {
           const s = students[sIdx];
-          const newPaid = Math.max(0, (parseFloat(s.paid) || 0) - Utils.safeNum(entry.amount));
-          const newDue  = Math.max(0, (parseFloat(s.total_fee) || 0) - newPaid);
+          // Get ALL remaining student fee payments (excluding this one being deleted)
+          const allFin = SupabaseSync.getAll(DB.finance);
+
+          // Ledger sum BEFORE delete (to calculate unrecorded initial)
+          const ledgerBeforeDelete = allFin
+            .filter(f => f.category === 'Student Fee' &&
+                         (f.ref_id === entry.ref_id || f.ref_id === s.student_id))
+            .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+
+          // Ledger sum AFTER delete (excluding this entry)
+          const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(entry.amount);
+
+          // Unrecorded initial = any amount in s.paid NOT in the ledger (legacy/migrated data)
+          const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBeforeDelete);
+
+          // Final paid = remaining ledger + preserved unrecorded initial
+          const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
+          const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
           SupabaseSync.update(DB.students, s.id, { paid: newPaid, due: newDue });
         }
       }
