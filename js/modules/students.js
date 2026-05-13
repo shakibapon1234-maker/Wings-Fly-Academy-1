@@ -526,12 +526,20 @@ const Students = (() => {
           <input id="sf-total-fee" type="number" class="form-control" value="${s.total_fee||0}" oninput="Students.calcDue()" />
         </div>
         <div class="form-group">
-          <label>Paid (৳)</label>
-          <input id="sf-paid" type="number" class="form-control" value="${s.paid||0}" oninput="Students.calcDue()" />
+          <label style="display:flex;align-items:center;gap:5px">Paid (৳) <i class="fa fa-lock" style="font-size:0.7rem;color:#ffaa00;" title="Managed via Installment"></i></label>
+          <input id="sf-paid" type="number" class="form-control" value="${s.paid||0}" readonly style="background:var(--bg-surface);cursor:not-allowed;color:#00ff88;font-weight:700;" />
         </div>
         <div class="form-group">
-          <label>Due (৳)</label>
-          <input id="sf-due" type="number" class="form-control" value="${s.due||0}" readonly style="background:var(--bg-surface)" />
+          <label style="display:flex;align-items:center;gap:5px">Due (৳) <i class="fa fa-lock" style="font-size:0.7rem;color:#ffaa00;"></i></label>
+          <input id="sf-due" type="number" class="form-control" value="${s.due||0}" readonly style="background:var(--bg-surface);cursor:not-allowed;color:#ff4757;font-weight:700;" />
+        </div>
+      </div>
+      <div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:flex-start;gap:10px;">
+        <i class="fa fa-circle-info" style="color:#ffaa00;margin-top:2px;flex-shrink:0;"></i>
+        <div style="font-size:0.82rem;color:#ffaa00;line-height:1.5;">
+          <strong>Payment amount is auto-calculated</strong> from the finance ledger.
+          To add or remove a payment, close this window and use the
+          <strong style="color:#00d4ff;"><i class="fa fa-money-bill-wave"></i> Installment</strong> button on the student row.
         </div>
       </div>
       <div class="form-group">
@@ -973,9 +981,19 @@ const Students = (() => {
     };
 
     if (editingId) {
+      // Recalculate paid/due from finance ledger — never trust the locked form fields
+      const allFin     = SupabaseSync.getAll(DB.finance);
+      const ledgerPaid = allFin
+        .filter(f => f.category === 'Student Fee' &&
+                     (f.ref_id === editingId || f.ref_id === record.student_id))
+        .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+      const ledgerDue  = Math.max(0, total - ledgerPaid);
+      record.paid = ledgerPaid;
+      record.due  = ledgerDue;
+
       SupabaseSync.update(DB.students, editingId, record);
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'students', 
+        SupabaseSync.logActivity('edit', 'students',
           `Updated student: ${name} (ID: ${record.student_id})`
         );
       }
@@ -1573,6 +1591,71 @@ const Students = (() => {
     const h    = document.getElementById(prefix);
     if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
+  /* ══════════════════════════════════════════
+     RECONCILE — Finance Ledger vs Student.paid
+     Scans every student and fixes mismatches.
+  ══════════════════════════════════════════ */
+  function reconcileAllStudents() {
+    const allStudents = SupabaseSync.getAll(DB.students);
+    const allFinance  = SupabaseSync.getAll(DB.finance);
+    let fixedCount    = 0;
+    let auditLog      = [];
+
+    allStudents.forEach(s => {
+      const sid = s.id;
+      // Sum all finance entries for this student (by UUID or student_id string)
+      const ledgerPaid = allFinance
+        .filter(f => f.category === 'Student Fee' &&
+                     (f.ref_id === sid || f.ref_id === s.student_id))
+        .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+
+      const totalFee   = Utils.safeNum(s.total_fee);
+      const storedPaid = Utils.safeNum(s.paid);
+      const storedDue  = Utils.safeNum(s.due);
+      const correctDue = Math.max(0, totalFee - storedPaid); // keep s.paid as-is (may include unrecorded initial)
+
+      // Only fix if the stored DUE doesn't match total_fee - paid
+      // OR if ledger is GREATER than s.paid (ledger is always authoritative upward)
+      const ledgerDue = Math.max(0, totalFee - ledgerPaid);
+
+      let needsFix = false;
+      let newPaid  = storedPaid;
+      let newDue   = storedDue;
+
+      // If ledger sum > s.paid → ledger wins (someone may have deleted a student.paid edit)
+      if (ledgerPaid > storedPaid) {
+        newPaid  = ledgerPaid;
+        newDue   = ledgerDue;
+        needsFix = true;
+      }
+      // If s.paid + s.due ≠ total_fee → recalculate due (keeps manual initial payments)
+      if (Math.abs((storedPaid + storedDue) - totalFee) > 1) {
+        newDue   = Math.max(0, totalFee - newPaid);
+        needsFix = true;
+      }
+
+      if (needsFix) {
+        SupabaseSync.update(DB.students, sid, { paid: newPaid, due: newDue });
+        fixedCount++;
+        auditLog.push(`${s.name} (${s.student_id}): paid ${storedPaid}→${newPaid}, due ${storedDue}→${newDue}`);
+      }
+    });
+
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('system', 'students',
+        `Fee reconciliation ran — ${fixedCount} student(s) corrected`);
+    }
+
+    if (fixedCount === 0) {
+      Utils.toast('✅ All student payment records are consistent — no fixes needed!', 'success');
+    } else {
+      Utils.toast(`🔧 Fixed ${fixedCount} student(s) with payment mismatch. Check Activity Log.`, 'warning');
+      console.info('[Reconcile] Fixed students:\n' + auditLog.join('\n'));
+    }
+    render();
+    return { fixedCount, auditLog };
+  }
+
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
@@ -1584,7 +1667,8 @@ const Students = (() => {
     deletePayment,
     setReminder, _saveReminder,
     _forceSave, _resetDupWarning,
-    _dateSelectHTML, _syncDate
+    _dateSelectHTML, _syncDate,
+    reconcileAllStudents
   };
 
 })();
