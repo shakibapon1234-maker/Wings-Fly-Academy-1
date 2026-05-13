@@ -687,8 +687,11 @@ const Students = (() => {
           '<td style="padding:10px 12px"><span class="badge badge-warning" title="Method not recorded at admission">—</span></td>' +
           '<td style="padding:10px 12px;font-weight:700;color:#00ff88">' + Utils.takaEn(unrecordedInitial) + '</td>' +
           '<td style="padding:10px 12px;color:' + (remAfterInit > 0 ? '#ff4757' : '#00ff88') + ';font-weight:600">' + Utils.takaEn(remAfterInit) + '</td>' +
-          '<td style="padding:10px 12px;text-align:right">' +
-            '<span style="font-size:0.75rem;color:#ffaa00;font-style:italic">Initial Payment</span>' +
+          '<td style="padding:10px 12px;text-align:right;display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
+            '<span style="font-size:0.72rem;color:#ffaa00;font-style:italic;margin-right:4px">Initial Payment</span>' +
+            '<button class="btn btn-ghost btn-xs" onclick="Students.editInitialPayment(\'' + id + '\')" title="Edit initial payment amount" style="color:#ffaa00;border-color:rgba(255,170,0,0.4)">' +
+              '<i class="fa fa-pen"></i>' +
+            '</button>' +
           '</td>' +
         '</tr>';
     }
@@ -709,7 +712,8 @@ const Students = (() => {
           <td style="padding:10px 12px;color:${remaining > 0 ? '#ff4757' : '#00ff88'};font-weight:600">${Utils.takaEn(remaining)}</td>
           <td style="padding:10px 12px;text-align:right">
             ${f.note ? `<span style="font-size:0.78rem;color:var(--text-muted);margin-right:8px">${Utils.esc(f.note)}</span>` : ''}
-            <button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')"><i class="fa fa-trash"></i></button>
+            <button class="btn btn-ghost btn-xs" style="color:#00d4ff;border-color:rgba(0,212,255,0.35);margin-right:4px" onclick="Students.editPayment('${f.id}','${id}')" title="Edit this payment"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')" title="Delete this payment"><i class="fa fa-trash"></i></button>
           </td>
         </tr>`;
       }).join('');
@@ -987,9 +991,13 @@ const Students = (() => {
         .filter(f => f.category === 'Student Fee' &&
                      (f.ref_id === editingId || f.ref_id === record.student_id))
         .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
-      const ledgerDue  = Math.max(0, total - ledgerPaid);
-      record.paid = ledgerPaid;
-      record.due  = ledgerDue;
+      // Preserve existing s.paid (which may include unrecorded initial payment)
+      // Only update paid upward if ledger shows more (finance is source of truth upward)
+      const existingPaid = Utils.safeNum(SupabaseSync.getById(DB.students, editingId)?.paid);
+      const effectivePaid = Math.max(existingPaid, ledgerPaid);
+      const effectiveDue  = Math.max(0, total - effectivePaid);
+      record.paid = effectivePaid;
+      record.due  = effectiveDue;
 
       SupabaseSync.update(DB.students, editingId, record);
       if (typeof SupabaseSync.logActivity === 'function') {
@@ -1139,6 +1147,185 @@ const Students = (() => {
 
     SupabaseSync.remove(DB.finance, paymentId);
     Utils.toast('Payment deleted ✓', 'info');
+    Students.openPayModal(studentId);
+  }
+
+  /* ══════════════════════════════════════════
+     EDIT PAYMENT (finance ledger entry)
+  ══════════════════════════════════════════ */
+  function editPayment(paymentId, studentId) {
+    const payment = SupabaseSync.getById(DB.finance, paymentId);
+    if (!payment) { Utils.toast('Payment not found', 'error'); return; }
+    const s = SupabaseSync.getById(DB.students, studentId);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    const methodsHTML  = Utils.getPaymentMethodsHTML();
+    const dateHTML     = Students._dateSelectHTML('ep-date', payment.date || Utils.today(), 'form-control');
+    const maxAllowed   = Utils.safeNum(s.total_fee);
+
+    Utils.openModal('<i class="fa fa-pen"></i> Edit Payment', `
+      <div style="margin-bottom:16px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:12px 16px;">
+        <div style="font-weight:700;color:#fff">${Utils.esc(s.name)}</div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">ID: ${Utils.esc(s.student_id)} &nbsp;|&nbsp; Total Fee: ${Utils.takaEn(s.total_fee)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">AMOUNT (৳) *</label>
+          <input id="ep-amount" type="number" class="form-control" value="${Utils.safeNum(payment.amount)}" min="1" max="${maxAllowed}" />
+        </div>
+        <div>
+          <label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">PAYMENT METHOD *</label>
+          <select id="ep-method" class="form-control">
+            ${methodsHTML}
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">DATE</label>
+        ${dateHTML}
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">NOTE (optional)</label>
+        <input id="ep-note" class="form-control" value="${Utils.escAttr(payment.note || '')}" placeholder="e.g. 2nd installment..." />
+      </div>
+      <div id="ep-error" class="form-error hidden" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" onclick="Students.saveEditedPayment('${paymentId}','${studentId}')">
+          <i class="fa fa-floppy-disk"></i> Save Changes
+        </button>
+      </div>
+    `);
+
+    // Pre-select the method
+    setTimeout(() => {
+      const sel = document.getElementById('ep-method');
+      if (sel && payment.method) sel.value = payment.method;
+    }, 30);
+  }
+
+  function saveEditedPayment(paymentId, studentId) {
+    const s = SupabaseSync.getById(DB.students, studentId);
+    const errEl = document.getElementById('ep-error');
+    function showErr(msg) { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } }
+
+    if (!s) { showErr('Student not found'); return; }
+    const amount = Utils.safeNum(Utils.formVal('ep-amount'));
+    if (!amount || amount <= 0) { showErr('Amount must be greater than 0'); return; }
+
+    const method = Utils.formVal('ep-method');
+    if (!method) { showErr('Please select a payment method'); return; }
+    if (!Utils.isValidPaymentMethod(method)) { showErr('Invalid or inactive payment method'); return; }
+
+    const oldPayment = SupabaseSync.getById(DB.finance, paymentId);
+    if (!oldPayment) { showErr('Original payment not found'); return; }
+
+    // Reverse old account balance, apply new
+    if (oldPayment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(oldPayment.method, Utils.safeNum(oldPayment.amount), 'out');
+    }
+
+    SupabaseSync.update(DB.finance, paymentId, {
+      amount : amount,
+      method : method,
+      date   : Utils.formVal('ep-date') || Utils.today(),
+      note   : Utils.formVal('ep-note') || '',
+    });
+
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(method, amount, 'in');
+    }
+
+    // Recalculate student paid/due from full ledger
+    const allFin   = SupabaseSync.getAll(DB.finance);
+    const newPaid  = allFin
+      .filter(f => f.category === 'Student Fee' &&
+                   (f.ref_id === studentId || f.ref_id === s.student_id))
+      .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    // Preserve any unrecorded initial (s.paid may be higher than ledger)
+    const effectivePaid = Math.max(newPaid, Utils.safeNum(s.paid) - Utils.safeNum(oldPayment.amount) + amount);
+    const newDue = Math.max(0, Utils.safeNum(s.total_fee) - effectivePaid);
+    SupabaseSync.update(DB.students, studentId, { paid: effectivePaid, due: newDue });
+
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('edit', 'students',
+        `Payment edited: ${s.name} (${s.student_id}) — ${Utils.takaEn(amount)} via ${method}`);
+    }
+
+    Utils.toast('Payment updated ✓', 'success');
+    Students.openPayModal(studentId);
+  }
+
+  /* ══════════════════════════════════════════
+     EDIT INITIAL PAYMENT (unrecorded amount)
+  ══════════════════════════════════════════ */
+  function editInitialPayment(studentId) {
+    const s = SupabaseSync.getById(DB.students, studentId);
+    if (!s) { Utils.toast('Student not found', 'error'); return; }
+
+    const allFin   = SupabaseSync.getAll(DB.finance);
+    const ledgerSum = allFin
+      .filter(f => f.category === 'Student Fee' &&
+                   (f.ref_id === studentId || f.ref_id === s.student_id))
+      .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const currentInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerSum);
+    const maxInitial     = Utils.safeNum(s.total_fee) - ledgerSum;
+
+    Utils.openModal('<i class="fa fa-pen" style="color:#ffaa00"></i> Edit Initial Payment', `
+      <div style="background:rgba(255,170,0,0.07);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:12px 16px;margin-bottom:16px">
+        <div style="font-weight:700;color:#fff">${Utils.esc(s.name)}</div>
+        <div style="font-size:0.8rem;color:var(--text-muted)">এটি admission-এর সময় যে টাকা নেওয়া হয়েছিল কিন্তু payment method ছাড়া save হয়েছে।</div>
+      </div>
+      <div style="margin-bottom:12px">
+        <label style="font-size:0.72rem;font-weight:700;color:#ffaa00;letter-spacing:0.8px;display:block;margin-bottom:5px">INITIAL PAYMENT AMOUNT (৳) *</label>
+        <input id="eip-amount" type="number" class="form-control" value="${currentInitial}" min="0" max="${maxInitial}"
+               style="color:#00ff88;font-weight:700;font-size:1.1rem;" />
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">
+          Maximum: ${Utils.takaEn(maxInitial)} &nbsp;|&nbsp; Finance ledger total: ${Utils.takaEn(ledgerSum)}
+        </div>
+      </div>
+      <div style="background:rgba(0,0,0,0.2);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:0.82rem;color:var(--text-muted)">
+        <i class="fa fa-circle-info" style="color:#ffaa00"></i>
+        0 সেট করলে Initial Payment row টি অদৃশ্য হয়ে যাবে।
+      </div>
+      <div id="eip-error" class="form-error hidden" style="margin-bottom:8px"></div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn-primary" style="background:linear-gradient(90deg,#ffaa00,#ff6b35);border:none;"
+                onclick="Students.saveEditedInitialPayment('${studentId}','${ledgerSum}')">
+          <i class="fa fa-floppy-disk"></i> Save Initial Payment
+        </button>
+      </div>
+    `);
+  }
+
+  function saveEditedInitialPayment(studentId, ledgerSum) {
+    const s    = SupabaseSync.getById(DB.students, studentId);
+    const errEl = document.getElementById('eip-error');
+    function showErr(msg) { if (errEl) { errEl.textContent = msg; errEl.classList.remove('hidden'); } }
+
+    if (!s) { showErr('Student not found'); return; }
+
+    const newInitial = Utils.safeNum(Utils.formVal('eip-amount'));
+    if (newInitial < 0) { showErr('Amount cannot be negative'); return; }
+
+    const totalFee = Utils.safeNum(s.total_fee);
+    const sum      = Utils.safeNum(ledgerSum);
+    if (newInitial + sum > totalFee) {
+      showErr(`Total (initial ৳${newInitial.toLocaleString('en-IN')} + ledger ৳${sum.toLocaleString('en-IN')}) exceeds total fee ৳${totalFee.toLocaleString('en-IN')}`);
+      return;
+    }
+
+    const newPaid = newInitial + sum;
+    const newDue  = Math.max(0, totalFee - newPaid);
+    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+
+    if (typeof SupabaseSync.logActivity === 'function') {
+      SupabaseSync.logActivity('edit', 'students',
+        `Initial payment adjusted: ${s.name} (${s.student_id}) — ৳${newInitial.toLocaleString('en-IN')}`);
+    }
+
+    Utils.toast('Initial payment updated ✓', 'success');
     Students.openPayModal(studentId);
   }
 
@@ -1653,6 +1840,11 @@ const Students = (() => {
       console.info('[Reconcile] Fixed students:\n' + auditLog.join('\n'));
     }
     render();
+    // Refresh dashboard totals and fire sync event
+    if (typeof App !== 'undefined' && typeof App.updateNotifCount === 'function') {
+      App.updateNotifCount();
+    }
+    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { source: 'reconcile' } }));
     return { fixedCount, auditLog };
   }
 
@@ -1668,7 +1860,9 @@ const Students = (() => {
     setReminder, _saveReminder,
     _forceSave, _resetDupWarning,
     _dateSelectHTML, _syncDate,
-    reconcileAllStudents
+    reconcileAllStudents,
+    editPayment, saveEditedPayment,
+    editInitialPayment, saveEditedInitialPayment
   };
 
 })();

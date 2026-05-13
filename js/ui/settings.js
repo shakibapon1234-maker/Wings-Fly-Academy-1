@@ -1224,6 +1224,24 @@ const SettingsModule = (() => {
           <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">📄 Import from JSON</button>
         </div>
       </div>
+      <div class="settings-card glow-cyan" style="margin-top:12px">
+        <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
+        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
+          যদি কোনো Student-এর <strong style="color:#00ff88">Paid</strong> বা <strong style="color:#ff4757">Due</strong>
+          amount Finance Ledger-এর সাথে মিলছে না — এই বাটনটি সব ঠিক করে দেবে।<br/>
+          <span style="font-size:.78rem;color:var(--text-muted);">⚠️ শুধু mismatch fix করে — কোনো payment delete বা add করে না।</span>
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm"
+                  style="background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;padding:10px 20px;font-weight:800;"
+                  onclick="if(typeof Students!=='undefined')Students.reconcileAllStudents();else Utils.toast('Students module not loaded','error')">
+            <i class="fa fa-scale-balanced"></i> Run Fee Reconciliation
+          </button>
+          <span style="font-size:.78rem;color:var(--text-muted);">
+            <i class="fa fa-circle-info"></i> Finance ledger = source of truth
+          </span>
+        </div>
+      </div>
     </div>`;
   }
 
