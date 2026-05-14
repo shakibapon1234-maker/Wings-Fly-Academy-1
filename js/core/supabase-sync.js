@@ -895,20 +895,29 @@ const SupabaseSync = (() => {
               const students = getAll('students');
               const sIdx = students.findIndex(s => s.id === r.ref_id);
               if (sIdx !== -1) {
-                // RECALCULATE from ALL finance entries for this student to ensure accuracy
+                // All finance entries for this student (AFTER restore — entry already back in ledger)
                 const allFinance = getAll('finance_ledger');
-                const studentPayments = allFinance.filter(f => 
-                  f.ref_id === r.ref_id && 
+                const studentPayments = allFinance.filter(f =>
+                  f.ref_id === r.ref_id &&
                   f.category === 'Student Fee' &&
                   !f._isLoan
                 );
-                const totalPaid = studentPayments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+                const ledgerSumAfterRestore = studentPayments.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+
+                // Ledger sum BEFORE this restore = after - restored amount
+                const ledgerSumBeforeRestore = ledgerSumAfterRestore - amount;
+
+                // Preserve any unrecorded initial (s.paid may exceed ledger for legacy/migrated students)
+                const currentPaid = parseFloat(students[sIdx].paid) || 0;
+                const unrecordedInitial = Math.max(0, currentPaid - ledgerSumBeforeRestore);
+
+                const newTotalPaid = ledgerSumAfterRestore + unrecordedInitial;
                 const totalFee = parseFloat(students[sIdx].total_fee) || 0;
-                students[sIdx] = { 
-                  ...students[sIdx], 
-                  paid: totalPaid, 
-                  due: Math.max(0, totalFee - totalPaid), 
-                  updated_at: new Date().toISOString() 
+                students[sIdx] = {
+                  ...students[sIdx],
+                  paid: newTotalPaid,
+                  due: Math.max(0, totalFee - newTotalPaid),
+                  updated_at: new Date().toISOString()
                 };
                 setAll('students', students);
                 await _pushRecord('students', students[sIdx]);

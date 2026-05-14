@@ -1125,17 +1125,22 @@ const Students = (() => {
 
     const student = SupabaseSync.getById(DB.students, studentId);
     if (student) {
-      // ✅ FIX: Recalculate from finance ledger (source of truth).
-      // Subtracting from student.paid can drift if data was manually edited
-      // or synced incorrectly. This approach is always accurate regardless
-      // of which installment (#1, #3, #5...) is deleted.
       const allFin = SupabaseSync.getAll(DB.finance);
-      // Match by UUID or legacy student_id string
-      const newPaid = allFin
+
+      // Ledger sum BEFORE delete
+      const ledgerBeforeDelete = allFin
         .filter(f => f.category === 'Student Fee' &&
-                     (f.ref_id === studentId || f.ref_id === student.student_id) &&
-                     f.id !== paymentId)
+                     (f.ref_id === studentId || f.ref_id === student.student_id))
         .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+
+      // Ledger sum AFTER delete (= before - this payment)
+      const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(payment.amount);
+
+      // Preserve unrecorded initial (s.paid may be higher than ledger — legacy/migrated data)
+      const unrecordedInitial = Math.max(0, Utils.safeNum(student.paid) - ledgerBeforeDelete);
+
+      // Final: remaining ledger + preserved initial
+      const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
       const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
       SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
     }
