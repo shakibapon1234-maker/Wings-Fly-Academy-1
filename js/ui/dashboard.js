@@ -169,7 +169,19 @@ const DashboardModule = (() => {
   }
 
   function renderLastFive(finance) {
-    const rows = Utils.sortBy(finance, 'date', 'desc').slice(0, 5);
+    // ✅ FIX: Activity Log-এর মতো actual insertion time (updated_at) দিয়ে sort করো।
+    // user-selected date field দিয়ে sort করলে পুরনো তারিখের entry শেষে ঢোকালেও
+    // সেই পুরনো তারিখের কারণে তালিকায় উপরে দেখাত — এখন সেটা ঠিক হয়ে গেছে।
+    const sorted = [...finance].sort((a, b) => {
+      const tA = a.updated_at
+        ? new Date(a.updated_at).getTime()
+        : (a.date ? new Date(a.date).getTime() : 0);
+      const tB = b.updated_at
+        ? new Date(b.updated_at).getTime()
+        : (b.date ? new Date(b.date).getTime() : 0);
+      return tB - tA;
+    });
+    const rows = sorted.slice(0, 5);
     if (!rows.length) return `<p class="text-muted" style="padding:16px">No transactions found</p>`;
     return `<div class="table-wrapper"><table><thead><tr>
       <th>Date</th><th>Description</th><th>Type</th><th>Method</th><th class="text-right">Amount</th>
