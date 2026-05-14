@@ -4303,10 +4303,41 @@ ${expenseEntries.length > 0 ? `
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
     const rawBatch = document.getElementById('set-running-batch')?.value;
     cfg.running_batch = rawBatch !== undefined && rawBatch !== null ? String(rawBatch) : (cfg.running_batch != null ? String(cfg.running_batch) : '');
-    // ✅ FIX: Allow empty string (user deliberately cleared = show all expenses)
-    // Do NOT use || fallback — that prevents clearing the date
-    const startVal = document.getElementById('set-expense-start')?.value;
-    cfg.expense_start_date = (startVal !== undefined && startVal !== null) ? startVal : (cfg.expense_start_date || '');
+
+    // ── Expense Start Date — Flatpickr-safe read ──────────────────
+    // Flatpickr altInput=true: original input is hidden (YYYY-MM-DD value),
+    // altInput is visible (DD/MM/YYYY). getElementById returns original hidden input.
+    // We also check Flatpickr instance and altInput as fallback.
+    const expEl = document.getElementById('set-expense-start');
+    let startVal = '';
+    if (expEl) {
+      if (expEl._flatpickr) {
+        // Flatpickr manages this input — use the selectedDates array for reliability
+        const fp = expEl._flatpickr;
+        startVal = fp.selectedDates.length > 0
+          ? fp.formatDate(fp.selectedDates[0], 'Y-m-d')
+          : (expEl.value || '');
+      } else {
+        // Native date input — always returns YYYY-MM-DD
+        startVal = expEl.value || '';
+        // Fallback: if empty, try next sibling altInput (if Flatpickr added it)
+        const altInput = expEl.nextElementSibling;
+        if (!startVal && altInput && altInput.classList.contains('flatpickr-input')) {
+          const altVal = altInput.value || '';
+          // Convert DD/MM/YYYY → YYYY-MM-DD
+          if (/^\d{2}\/\d{2}\/\d{4}$/.test(altVal)) {
+            const [d, m, y] = altVal.split('/');
+            startVal = `${y}-${m}-${d}`;
+          } else {
+            startVal = altVal;
+          }
+        }
+      }
+    }
+    // Preserve existing date only if no new value was selected
+    // (empty startVal = user cleared the field = show all expenses)
+    cfg.expense_start_date = startVal;
+
     // ✅ FIX: Use local timezone date — Bangladesh UTC+6 must not show yesterday's date
     const _now = new Date();
     cfg.expense_end_date = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
@@ -4314,6 +4345,7 @@ ${expenseEntries.length > 0 ? `
     logActivity('edit', 'settings', 'Updated academy info');
     Utils.toast('Academy info saved ✅', 'success');
   }
+
 
   // ── Password ──────────────────────────────────────────────────
   async function changePassword() {
