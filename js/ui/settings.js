@@ -4272,7 +4272,10 @@ ${expenseEntries.length > 0 ? `
       <!-- hint -->
       <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
-        এই snapshot টি transaction-এর সময় automatically save হয়েছিল। Dashboard-এর actual data-ই দেখাচ্ছে, live re-calculation নয়।
+        ${snapshot._note === undefined && item.snapshot?.accounts?._note === 'account_balance_estimated_at_transaction_time'
+          ? '⚠️ এই snapshot টি Rebuild দিয়ে তৈরি। Grand Total সেই সময়ের অনুমানিত (estimated), individual account balance বর্তমান। সবচেয়ে accurate data দেখতে নতুন transaction add করুন।'
+          : 'এই snapshot টি transaction-এর সময় automatically save হয়েছিল। Dashboard-এর actual data-ই দেখাচ্ছে, live re-calculation নয়।'
+        }
       </div>
       `
     , '720px');
@@ -4300,53 +4303,112 @@ ${expenseEntries.length > 0 ? `
         return;
       }
 
-      // Build current snapshot (same for all — current state of dashboard)
-      let snapshot = {};
-      try {
-        const students = SupabaseSync.getAll(DB.students);
-        const finance  = SupabaseSync.getAll(DB.finance);
-        const accounts = SupabaseSync.getAll(DB.accounts);
-        const cfg      = (SupabaseSync.getAll(DB.settings) || [])[0] || {};
+      // ✅ FIX: প্রতিটি transaction-এর জন্য আলাদা snapshot তৈরি করো।
+      // সেই transaction পর্যন্ত যা যা হয়েছিল সেটা দিয়ে cumulative balance বের করো।
+      const allStudents  = SupabaseSync.getAll(DB.students);
+      const allAccounts  = SupabaseSync.getAll(DB.accounts);
+      const allFinanceFull = SupabaseSync.getAll(DB.finance);
+      const cfg          = (SupabaseSync.getAll(DB.settings) || [])[0] || {};
 
-        const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
-        const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
-        const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
-        const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
+      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
 
-        const seen = new Set();
-        const cleanAccounts = accounts.filter(a => {
-          const name = String(a.name || '').trim();
-          if (a.type === 'Cash' && name !== 'Cash') return false;
-          if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-            if (!name || /^\d+$/.test(name)) return false;
-          }
-          const key = `${a.type}||${name}`;
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        const accountBalance = cleanAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
-        const accountList = cleanAccounts.map(a => ({ name: a.name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
+      // Account list (normalized) — balance এখানে running calculation দিয়ে override হবে
+      const seen0 = new Set();
+      const baseAccounts = allAccounts.filter(a => {
+        const name = String(a.name || '').trim();
+        if (a.type === 'Cash' && name !== 'Cash') return false;
+        if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+          if (!name || /^\d+$/.test(name)) return false;
+        }
+        const key = `${a.type}||${name}`;
+        if (seen0.has(key)) return false;
+        seen0.add(key);
+        return true;
+      });
 
-        const runningBatch = cfg.running_batch || '';
-        const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
-        const batchStudents = runningBatch
-          ? students.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
-          : [];
-        const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
+      const runningBatch = cfg.running_batch || '';
+      const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
+      const batchStudents = runningBatch
+        ? allStudents.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
+        : [];
+      const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
 
-        snapshot = {
-          students: { totalStudents: students.length, totalFee: students.reduce((s, r) => s + Number(r.total_fee || 0), 0), totalPaid: students.reduce((s, r) => s + Number(r.paid || 0), 0), totalDue: students.reduce((s, r) => s + Number(r.due || 0), 0) },
-          accounts: { count: cleanAccounts.length, totalBalance: accountBalance, list: accountList },
-          finance:  { totalIncome, totalExpense },
-          batch: { name: runningBatch, students: batchStudents.length, collection: batchCollection, expense: 0, net: batchCollection },
-          recordedAt: new Date().toISOString(),
-        };
-      } catch (e) {
-        console.warn('[RebuildMonitor] Snapshot build failed:', e);
-      }
+      // সব finance records টাইমস্ট্যাম্প অনুযায়ী sort (পুরনো আগে)
+      const allSorted = [...allFinanceFull].sort((a, b) => {
+        const da = new Date(a.created_at || a.updated_at || a.date || 0).getTime();
+        const db2 = new Date(b.created_at || b.updated_at || b.date || 0).getTime();
+        return da - db2;
+      });
 
-      // Build entries
+      // প্রতিটি filtered transaction-এর জন্য — সেই transaction পর্যন্ত cumulative income/expense
+      const _buildSnapshotForRecord = (record) => {
+        try {
+          const cutoff = new Date(record.created_at || record.updated_at || record.date || 0).getTime();
+          // সেই transaction পর্যন্ত (inclusive) সব records
+          const upTo = allSorted.filter(f => {
+            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
+            return ft <= cutoff;
+          });
+          const snapIncome  = upTo.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+          const snapExpense = upTo.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+
+          // Account balance: current balance থেকে এই transaction-এর পরের amounts বাদ দাও
+          // (অর্থাৎ: current_balance - sum_of_amounts_AFTER_this_transaction_for_that_method)
+          // সরলীকরণ: account-এর current balance ব্যবহার করো কিন্তু
+          // income/expense দিয়ে estimate করো কোন account-এ কত ছিল।
+          // সবচেয়ে নির্ভরযোগ্য পদ্ধতি: current balance ব্যবহার করো,
+          // তবে total grand balance adjust করো cumulative finance দিয়ে।
+          const currentTotal = baseAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+          const afterIncome  = allSorted.filter(f => {
+            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
+            return ft > cutoff && INCOME_TYPES.includes(String(f.type).toLowerCase());
+          }).reduce((s, r) => s + Number(r.amount || 0), 0);
+          const afterExpense = allSorted.filter(f => {
+            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
+            return ft > cutoff && EXPENSE_TYPES.includes(String(f.type).toLowerCase());
+          }).reduce((s, r) => s + Number(r.amount || 0), 0);
+          // সেই সময়ের estimated grand total = current_total - after_income + after_expense
+          const estimatedTotal = currentTotal - afterIncome + afterExpense;
+
+          // account list-এ proportional adjustment (account-level breakdown accurate নয়,
+          // তাই grand total accurate রাখি, individual account-এ current balance দেখাই)
+          const accountList = baseAccounts.map(a => ({
+            name: a.name || 'Account',
+            balance: Number(a.balance || 0),
+            type: a.type || '',
+          }));
+
+          return {
+            students: {
+              totalStudents: allStudents.length,
+              totalFee:  allStudents.reduce((s, r) => s + Number(r.total_fee || 0), 0),
+              totalPaid: allStudents.reduce((s, r) => s + Number(r.paid || 0), 0),
+              totalDue:  allStudents.reduce((s, r) => s + Number(r.due  || 0), 0),
+            },
+            accounts: {
+              count: baseAccounts.length,
+              totalBalance: estimatedTotal,
+              list: accountList,
+              _note: 'account_balance_estimated_at_transaction_time',
+            },
+            finance: { totalIncome: snapIncome, totalExpense: snapExpense },
+            batch: {
+              name: runningBatch,
+              students: batchStudents.length,
+              collection: batchCollection,
+              expense: 0,
+              net: batchCollection,
+            },
+            recordedAt: record.created_at || record.updated_at || new Date().toISOString(),
+          };
+        } catch (e) {
+          console.warn('[RebuildMonitor] per-record snapshot failed:', e);
+          return { students: {}, accounts: {}, finance: {}, batch: {}, recordedAt: new Date().toISOString() };
+        }
+      };
+
+      // Build entries — প্রতিটি record-এর জন্য আলাদা snapshot
       const entries = filtered.map(record => ({
         date: record.created_at ? new Date(record.created_at).toLocaleString() : (record.date || new Date().toLocaleString()),
         type: record.type,
@@ -4356,7 +4418,7 @@ ${expenseEntries.length > 0 ? `
         method: record.method || '',
         table: DB.finance,
         item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
-        snapshot,
+        snapshot: _buildSnapshotForRecord(record),
       }));
 
       localStorage.setItem('wfa_recent_changes', JSON.stringify(entries));
