@@ -2707,21 +2707,26 @@ ${expenseEntries.length > 0 ? `
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>DATE</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
+            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
             <tbody>
               ${transactions.length === 0 ?
-                `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
-                transactions.map((c, i) => `
+                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
+                transactions.map((c, i) => {
+                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : '➕ New';
+                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : '#00ff88';
+                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : 'rgba(0,255,136,0.10)';
+                  return `
                   <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
                     <td>${i + 1}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
+                    <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
                     <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
                     <td style="font-size:.82rem">${c.category || '—'}</td>
                     <td style="font-size:.82rem">${c.person || '—'}</td>
                     <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
                   </tr>
-                  <tr><td colspan="6" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`
-                ).join('')
+                  <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
+                }).join('')
               }
             </tbody>
           </table>

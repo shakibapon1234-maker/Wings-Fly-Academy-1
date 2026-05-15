@@ -451,6 +451,7 @@ const SupabaseSync = (() => {
       }
       const entry = {
         date: new Date().toLocaleString(),
+        action,                    // 'insert' | 'update' | 'delete'
         type: record.type,         // Income / Expense / Transfer In / Transfer Out
         category: String(category).slice(0, 100),
         person: String(person).slice(0, 100),
