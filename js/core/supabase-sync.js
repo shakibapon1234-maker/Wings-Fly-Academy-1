@@ -1762,7 +1762,7 @@ const SyncEngine = (() => {
           // Supabase pull/realtime payload-এ এরা missing বা truncated আসতে পারে।
           // Cloud-এ এই field না থাকলে local version সবসময় preserve করো।
           // এটা না করলে প্রতি ৩০ সেকেন্ডের auto-pull-এ নোটগুলো ভ্যানিশ হয়।
-          const largeFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          const largeFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots', 'expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
           for (const field of largeFields) {
             if (localRows[0][field] && !merged[0][field]) {
               merged[0][field] = localRows[0][field];
@@ -1958,7 +1958,7 @@ const SyncEngine = (() => {
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
           // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
           if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined || localRow.courses !== undefined) {
-            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots', 'expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
             const merged = { ...cloudRow };
             for (const f of protected_fields) {
               if (localRow[f] && !merged[f]) merged[f] = localRow[f];
@@ -2063,7 +2063,7 @@ const SyncEngine = (() => {
         // preserve করো — না হলে নোট সহ অন্য data মুছে যায়।
         if (table === 'settings' && idx >= 0) {
           const localRow = rows[idx];
-          const preserveFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+          const preserveFields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots', 'expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
           const merged = { ...newRow };
           for (const field of preserveFields) {
             if (!merged[field] && localRow[field]) {
