@@ -436,11 +436,12 @@ const SupabaseSync = (() => {
     try {
       if (!record || typeof record !== 'object') return;
 
-      // Monitor-e shudhu finance_ledger Income/Expense/Transfer transactions dekhabe.
+      // ✅ Bug Fix 1: investment in/out যোগ করা হয়েছে allowedTypes-এ
+      // Monitor-e finance_ledger Income/Expense/Transfer/Investment transactions dekhabe.
       // Students, accounts, settings, salary etc. changes monitor-e ashbe na.
       if (table !== DB.finance) return;
       const financeType = String(record.type || '').toLowerCase();
-      const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving'];
+      const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving', 'investment in', 'investment out'];
       if (!allowedTypes.includes(financeType)) return;
 
       const person = record.person_name || record.description || record.note || '—';
@@ -495,9 +496,11 @@ const SupabaseSync = (() => {
       const totalFee  = students.reduce((s, r) => s + Number(r.total_fee || 0), 0);
       const totalPaid = students.reduce((s, r) => s + Number(r.paid || 0), 0);
       const totalDue  = students.reduce((s, r) => s + Number(r.due  || 0), 0);
-      // Income = Income + Loan Receiving; Expense = Expense + Loan Giving
-      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
-      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
+      // ✅ Bug Fix 3: Investment In/Out যোগ করা হয়েছে snapshot calculation-এ
+      // Income = Income + Loan Receiving + Investment In
+      // Expense = Expense + Loan Giving + Investment Out
+      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving', 'investment in'];
+      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving',    'investment out'];
       const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
       const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
 
@@ -1004,6 +1007,33 @@ const SupabaseSync = (() => {
     setAll('recycle_bin', updatedBin);
     _syncRecycleBinToSettings();
     _logActivity('restore', table, _humanReadableLog('restore', table, record));
+
+    // ✅ Bug Fix 2 & 4: Restore হলে finance_ledger এবং loans — দুটো table-এর জন্যই
+    // monitor-এ log করা হচ্ছে। finance_ledger এর জন্য allowedTypes চেক হবে,
+    // loans এর জন্য linked finance entry থাকলে সেটা monitor-এ উঠবে।
+    // Restore event সরাসরি একটা synthetic finance entry তৈরি করে monitor-এ দেখাই।
+    try {
+      if (table === 'finance_ledger') {
+        // Finance entry restore — সরাসরি _logRecentChange call করো
+        _logRecentChange(table, 'restore', record);
+      } else if (table === 'loans') {
+        // ✅ Bug Fix 4: Loans restore — linked finance entry খোঁজো এবং monitor-এ দেখাও
+        // Loan নিজে finance table নয়, তাই synthetic entry তৈরি করি
+        const loanType = String(record.type || '').toLowerCase();
+        const syntheticType = (loanType === 'loan giving' || loanType === 'given') ? 'Loan Giving' : 'Loan Receiving';
+        const syntheticEntry = {
+          type: syntheticType,
+          category: 'Loan Restore',
+          person_name: record.person_name || record.person || '—',
+          amount: record.amount || 0,
+          method: record.method || '',
+        };
+        _logRecentChange('finance_ledger', 'restore', syntheticEntry);
+      }
+    } catch (e) {
+      console.warn('[DataMonitor] restore log failed:', e);
+    }
+
     return true;
   }
 
