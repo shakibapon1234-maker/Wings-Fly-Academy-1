@@ -2919,9 +2919,24 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  function clearActivityLog() {
+  async function clearActivityLog() {
+    const ok = await Utils.confirm('সব Activity Log মুছে দেবেন? এটি undo করা যাবে না।', 'Clear Activity Log');
+    if (!ok) return;
+
+    // Clear localStorage
     localStorage.setItem('wfa_activity_log', '[]');
-    Utils.toast('Activity log cleared', 'info');
+
+    // Clear cloud activity_log table
+    try {
+      const { client } = window.SUPABASE_CONFIG;
+      if (client) {
+        await client.from('activity_log').delete().neq('id', '__never_match__');
+      }
+    } catch (e) {
+      console.warn('[ActivityLog] Cloud clear failed:', e);
+    }
+
+    Utils.toast('Activity log cleared ✅', 'success');
     refreshModal();
   }
 
