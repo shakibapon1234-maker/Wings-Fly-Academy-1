@@ -754,7 +754,9 @@ const SettingsModule = (() => {
     const _d = new Date();
     const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
     // ✅ FIX: Don't default to today — empty means "show all expenses"
-    const expStart = cfg.expense_start_date || '';
+    // ✅ SANITIZE: if the stored value is not a valid date (e.g. "admin"), clear it
+    const _rawExpStart = cfg.expense_start_date || '';
+    const expStart = /^\d{4}-\d{2}-\d{2}$/.test(_rawExpStart.trim()) ? _rawExpStart.trim() : '';
     const expEnd = cfg.expense_end_date || today;
 
     return `
