@@ -5169,11 +5169,35 @@ ${expenseEntries.length > 0 ? `
     const data = {};
     if (typeof DB !== 'undefined' && typeof SupabaseSync !== 'undefined') {
       Object.keys(DB).forEach(key => {
-        // Security: admin_password, security_answer বাদ
         let rows = SupabaseSync.getAll(DB[key]);
+        
+        // Security and Bloat Prevention
         if (DB[key] === 'settings') {
-          rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
+          rows = rows.map(r => { 
+            const s = {...r}; 
+            delete s.admin_password; 
+            delete s.security_answer; 
+            // PREVENT RECURSIVE BLOAT!
+            delete s.snapshots;
+            delete s.activity_log;
+            delete s.recycle_bin;
+            delete s.keep_records;
+            return s; 
+          });
         }
+        
+        // Strip heavy base64 data to keep snapshots tiny
+        if (DB[key] === 'students' || DB[key] === 'staff' || DB[key] === 'visitors') {
+          rows = rows.map(r => {
+             const s = {...r};
+             delete s.photo;
+             delete s.signature;
+             delete s.nid_front;
+             delete s.nid_back;
+             return s;
+          });
+        }
+        
         data[DB[key]] = rows;
       });
     }
@@ -5188,8 +5212,8 @@ ${expenseEntries.length > 0 ? `
       data: data,
     });
 
-    // ✅ Fix: Cap at 7 — now stored in IndexedDB so no storage pressure
-    if (snapshots.length > 7) snapshots.length = 7;
+    // ✅ Fix: Cap at 3 to save storage space
+    if (snapshots.length > 3) snapshots.length = 3;
 
     const saved = _saveSnapshotsQuotaSafe(snapshots);
     if (manual) {
@@ -5295,6 +5319,14 @@ ${expenseEntries.length > 0 ? `
     refreshModal();
   }
 
+  async function clearAllSnapshots() {
+    const ok = await Utils.confirm("Are you sure you want to delete ALL auto snapshots?", "Clear All Snapshots");
+    if (!ok) return;
+    _saveSnapshotsQuotaSafe([]);
+    if(typeof Utils !== 'undefined') Utils.toast('All snapshots cleared!', 'success');
+    refreshModal();
+  }
+
   function buildSnapshotsHTML() {
     const snaps = getSnapshots();
     return `
@@ -5307,11 +5339,16 @@ ${expenseEntries.length > 0 ? `
         <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,150,255,0.05);padding:12px 18px;border-radius:8px;border:1px solid rgba(0,217,255,0.2);margin-bottom:15px">
            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
              <span style="color:var(--brand-primary);font-weight:600;font-size:0.95rem">প্রতি ১ ঘণ্টায় auto snapshot</span>
-             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 7 রাখা হয় · IndexedDB</span>
+             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 3 রাখা হয় · IndexedDB</span>
            </div>
-           <button class="btn btn-outline" style="border-color:var(--brand-cyan);color:var(--brand-primary);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(0,217,255,0.2)" onclick="SettingsModule.saveSnapshot(true)">
-              <i class="fa fa-camera-retro"></i> এখনই নিন
-           </button>
+           <div style="display:flex; gap: 8px;">
+             <button class="btn btn-outline" style="border-color:var(--error);color:var(--error);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;" onclick="SettingsModule.clearAllSnapshots()">
+                <i class="fa fa-trash"></i> Clear All
+             </button>
+             <button class="btn btn-outline" style="border-color:var(--brand-cyan);color:var(--brand-primary);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(0,217,255,0.2)" onclick="SettingsModule.saveSnapshot(true)">
+                <i class="fa fa-camera-retro"></i> এখনই নিন
+             </button>
+           </div>
         </div>
 
         <div style="display:flex;flex-direction:column;gap:10px">
@@ -5921,7 +5958,7 @@ ${expenseEntries.length > 0 ? `
   return {
     deleteCustomTheme, openThemeBuilderModal, saveCustomThemeFromBuilder, _getAllThemes,
     _updateThemePreview, _applyThemeBuilderPreset, _THEME_PRESETS,
-    render, openModal, closeModal, switchTab, toggleSettingsSidebar, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot,
+    render, openModal, closeModal, switchTab, toggleSettingsSidebar, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot, clearAllSnapshots,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
     saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,
