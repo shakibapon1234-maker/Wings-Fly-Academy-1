@@ -650,9 +650,27 @@ const SupabaseSync = (() => {
     }
   }
 
+  // Debounce: settings edit logs collapse within 5 sec to avoid duplicate entries
+  const _DEDUP_WINDOW_MS = 5000;
+  const _DEDUP_TYPES = new Set(['settings', 'category']);
+
   function _logActivity(action, type, description, status = 'success') {
     try {
       const now = new Date();
+      const nowMs = now.getTime();
+
+      // ── Deduplicate: suppress rapid-fire same action+type for settings/category ──
+      if (_DEDUP_TYPES.has(type) && action === 'edit') {
+        const existing = _getActivityLogs();
+        const last = existing[0];
+        if (last && last.action === action && last.type === type) {
+          const lastMs = new Date(last.created_at || 0).getTime();
+          if (nowMs - lastMs < _DEDUP_WINDOW_MS) {
+            return; // Skip — same settings save within 5 seconds
+          }
+        }
+      }
+
       const entry = {
         id:         generateId(),
         action,
