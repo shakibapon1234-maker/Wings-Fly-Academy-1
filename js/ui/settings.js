@@ -4630,7 +4630,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (!oldOk) { Utils.toast('Current password incorrect!', 'error'); return; }
-    if (!newPw || newPw.length < 4) { Utils.toast('New password must be at least 4 characters', 'error'); return; }
+    if (!newPw || newPw.length < 8) { Utils.toast('New password must be at least 8 characters', 'error'); return; }
     if (newPw !== confirmPw) { Utils.toast('Passwords do not match!', 'error'); return; }
 
     // Store SHA-256 hash — never plaintext

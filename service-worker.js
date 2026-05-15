@@ -44,6 +44,11 @@ const STATIC_ASSETS = [
   './js/modules/certificates.js',
   './js/modules/notice-board.js',
   './js/core/backup-restore.js',
+  // ✅ Bug Fix: Missing critical files added to SW cache
+  './js/core/secure-storage.js',
+  './js/core/auto-update.js',
+  './js/core/push-notifications.js',
+  './js/core/offline-mode.js',
   './js/modules/voice-assistant.js',
   './js/modules/command-palette.js',
   './js/modules/face-id.js',

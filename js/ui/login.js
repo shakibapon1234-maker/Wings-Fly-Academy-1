@@ -236,7 +236,7 @@ const LoginUI = (() => {
 
         <div style="position:relative;margin-bottom:12px">
           <input type="password" id="reset-new-pw"
-            placeholder="New password (min 4 characters)"
+            placeholder="New password (min 8 characters)"
             style="width:100%;box-sizing:border-box;background:rgba(255,255,255,0.05);
                    border:1.5px solid rgba(0,217,255,0.3);border-radius:10px;
                    color:#fff;font-size:.9rem;padding:11px 44px 11px 14px;
@@ -292,8 +292,8 @@ const LoginUI = (() => {
     const newPw  = (newPwEl.value  || '').trim();
     const confPw = (confEl.value   || '').trim();
 
-    if (!newPw || newPw.length < 4) {
-      resultEl.innerHTML = `<span style="color:#ff6b7a">Password must be at least 4 characters.</span>`;
+    if (!newPw || newPw.length < 8) {
+      resultEl.innerHTML = `<span style="color:#ff6b7a">Password must be at least 8 characters.</span>`;
       return;
     }
     if (newPw !== confPw) {

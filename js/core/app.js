@@ -377,8 +377,11 @@ const App = (() => {
       return false;
     }
 
-    if (!newPassword || newPassword.length < 4) {
-      console.error('[Auth] Password must be at least 4 characters');
+    if (!newPassword || newPassword.length < 8) {
+      console.error('[Auth] Password must be at least 8 characters');
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('❌ Password must be at least 8 characters.', 'error', 4000);
+      }
       return false;
     }
     // Require security answer verification before allowing password reset
