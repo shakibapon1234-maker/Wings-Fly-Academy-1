@@ -1365,7 +1365,7 @@ const SettingsModule = (() => {
                   <div style="font-size:0.8rem; color:#00ff88">ক্যামেরা ব্যবহার করে দ্রুত লগইন করুন</div>
                </div>
             </div>
-            <button class="btn" style="background:linear-gradient(135deg, #00b09b, #96c93d); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('register'); else alert('Face ID module not loaded.')">
+            <button class="btn" style="background:linear-gradient(135deg, #00b09b, #96c93d); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('register'); else Utils.toast('Face ID module not loaded.', 'error')">
                <i class="fa fa-camera"></i> Register Face
             </button>
          </div>
@@ -1383,7 +1383,7 @@ const SettingsModule = (() => {
                   <div style="font-size:0.8rem; color:#00d4ff">ডট মিলিয়ে সিক্রেট প্যাটার্ন তৈরি করুন</div>
                </div>
             </div>
-            <button class="btn" style="background:linear-gradient(135deg, #00d4ff, #0066ff); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('register'); else alert('Pattern Lock module not loaded.')">
+            <button class="btn" style="background:linear-gradient(135deg, #00d4ff, #0066ff); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('register'); else Utils.toast('Pattern Lock module not loaded.', 'error')">
                <i class="fa fa-pen"></i> Set Pattern
             </button>
          </div>

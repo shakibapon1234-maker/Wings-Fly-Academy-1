@@ -68,7 +68,8 @@ const Utils = (() => {
     return `${dd}/${mm}/${d.getFullYear()}`;
   }
 
-  function formatDateEN(dateStr) { return formatDate(dateStr); }
+  // ✅ Req 4: formatDateEN now delegates to DD/MM/YYYY for consistency across the app
+  function formatDateEN(dateStr) { return formatDateDMY(dateStr); }
 
   // ✅ Phase 3.1: CSS-based Virtual Scrolling — drastically improves performance for large pages
   (function injectVirtualScrollCSS() {
