@@ -516,13 +516,22 @@
     }
 
     // Enter key navigation
+    // ✅ Bug Fix: SELECT elements now properly handled — Enter moves to next field
     document.addEventListener('keydown', e => {
       if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'BUTTON') {
         e.preventDefault();
         const fields = [...document.querySelectorAll('input, select, textarea, button.btn-submit')];
         const idx = fields.indexOf(e.target);
-        if (idx >= 0 && idx < fields.length - 1) fields[idx + 1].focus();
-        else submitVisitorForm();
+        if (idx >= 0 && idx < fields.length - 1) {
+          const nextField = fields[idx + 1];
+          nextField.focus();
+          // For select elements, also open the dropdown for better UX
+          if (nextField.tagName === 'SELECT' && typeof nextField.showPicker === 'function') {
+            try { nextField.showPicker(); } catch(_) {}
+          }
+        } else {
+          submitVisitorForm();
+        }
       }
     });
   </script>

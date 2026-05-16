@@ -150,11 +150,29 @@ const Salary = (() => {
   }
 
   function _syncPayDate(prefix) {
-    const dd   = (document.getElementById(`${prefix}-dd`)   || {}).value || '';
-    const mm   = (document.getElementById(`${prefix}-mm`)   || {}).value || '';
-    const yyyy = (document.getElementById(`${prefix}-yyyy`) || {}).value || '';
-    const hidden = document.getElementById(prefix);
-    if (hidden) hidden.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+    const dd   = parseInt((document.getElementById(`${prefix}-dd`)   || {}).value || '', 10);
+    const mm   = parseInt((document.getElementById(`${prefix}-mm`)   || {}).value || '', 10);
+    const yyyy = parseInt((document.getElementById(`${prefix}-yyyy`) || {}).value || '', 10);
+
+    // ✅ Bug Fix: Validate day against actual days in month (leap year aware)
+    if (dd && mm && yyyy) {
+      const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+      if (yyyy % 4 === 0 && (yyyy % 100 !== 0 || yyyy % 400 === 0)) daysInMonth[1] = 29;
+      const maxDay = daysInMonth[mm - 1] || 31;
+      const validDD = Math.min(dd, maxDay);
+
+      // Update dropdown if day was corrected
+      if (validDD !== dd) {
+        const ddEl = document.getElementById(`${prefix}-dd`);
+        if (ddEl) ddEl.value = String(validDD).padStart(2, '0');
+      }
+
+      const hidden = document.getElementById(prefix);
+      if (hidden) hidden.value = `${yyyy}-${String(mm).padStart(2,'0')}-${String(validDD).padStart(2,'0')}`;
+    } else {
+      const hidden = document.getElementById(prefix);
+      if (hidden) hidden.value = '';
+    }
   }
 
   /* ══════════════════════════════════════════
@@ -563,6 +581,8 @@ const Salary = (() => {
     var deduction = Utils.safeNum((document.getElementById('sal-deduction') || {}).value);
     var net       = base + bonus - deduction;
     var payAmount = Utils.safeNum((document.getElementById('sal-pay-amount') || {}).value);
+    // ✅ Bug Fix: Reject negative paidAmount to prevent account balance corruption
+    if (payAmount < 0) { Utils.toast('Payment amount negative হতে পারে না', 'error'); return; }
     var isPaid    = (document.getElementById('sal-paid') || {}).value === '1';
     var payDate   = (document.getElementById('sal-paiddate') || {}).value || Utils.today();
 
