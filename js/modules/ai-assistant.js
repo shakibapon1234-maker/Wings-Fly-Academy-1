@@ -77,20 +77,8 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
     } catch (e) {
       console.warn('[AIAssistant] SecureStorage.getItem failed:', e.message);
     }
-    // ✅ Fix H-04: Only use localStorage if value looks encrypted (wfa_enc:: prefix).
-    // Plain-text keys in localStorage are a security risk — we no longer expose them here.
-    // Users must set the key via Settings > AI Assistant (saved via SecureStorage).
-    const raw = localStorage.getItem('wfa_gemini_key');
-    if (raw && raw.startsWith('wfa_enc::') && !keysToTry.includes(raw)) {
-      // This is the SecureStorage encrypted format — safe to try decoding
-      try {
-        if (typeof SecureStorage !== 'undefined') {
-          const dec = await SecureStorage.getItem('wfa_gemini_key');
-          if (dec && !keysToTry.includes(dec)) keysToTry.push(dec);
-        }
-      } catch { /* ignore */ }
-    }
-    // 3. Additional rotation keys from SecureStorage (wfa_gemini_key_2, _3, etc.)
+    // Gemini API keys: SecureStorage only (no localStorage fallback — DevTools exposure risk).
+    // 2. Additional rotation keys from SecureStorage (wfa_gemini_key_2, _3, etc.)
     for (let i = 2; i <= 5; i++) {
       try {
         if (typeof SecureStorage !== 'undefined') {

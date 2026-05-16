@@ -1,22 +1,51 @@
 // ============================================================
 // Wings Fly Aviation Academy — Supabase Configuration
+// Credentials: js/core/supabase-secrets.js (gitignored) or Settings → Cloud API
 // ============================================================
 
-const SUPABASE_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
-// ⚠️  SECURITY NOTE – Supabase ANON key:
-//   This key is intentionally public (it is a scoped, read-only JWT, NOT a secret).
-//   Supabase is designed for browser apps — the anon key is ALWAYS visible in source.
-//   Real data security is enforced via Row Level Security (RLS) policies in the
-//   Supabase dashboard: https://supabase.com/docs/guides/auth/row-level-security
-//   ACTION REQUIRED: Ensure RLS is enabled on every table in your Supabase project.
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+function _resolveSupabaseCreds() {
+  const secrets = window.WFA_SUPABASE_SECRETS || {};
+  const stored = window.__WFA_SUPABASE_CREDS || {};
+  const url = stored.url || secrets.url || '';
+  const anonKey = stored.anonKey || secrets.anonKey || secrets.anon_key || '';
+  return { url, anonKey };
+}
 
-// Supabase client (global window.supabase is loaded from CDN)
-// Guard: slow connection বা CDN block হলে window.supabase undefined হতে পারে
-// ✅ Bug #4 Fix: Show user-visible offline warning when Supabase CDN fails
+let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
+
+// Re-read from SecureStorage after login (Settings-saved credentials)
+async function _hydrateSupabaseCredsFromStorage() {
+  if (typeof SecureStorage === 'undefined') return;
+  try {
+    const url = await SecureStorage.getItem('wfa_supabase_url');
+    const key = await SecureStorage.getItem('wfa_supabase_anon_key');
+    if (url && key) {
+      window.__WFA_SUPABASE_CREDS = { url, anonKey: key };
+      SUPABASE_URL = url;
+      SUPABASE_ANON_KEY = key;
+      _reinitSupabaseClient();
+    }
+  } catch (e) {
+    console.warn('[Config] Could not load Supabase credentials from SecureStorage:', e.message);
+  }
+}
+
+function _reinitSupabaseClient() {
+  if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: false,
+    },
+  });
+  window.supabaseClient = client;
+  if (window.SUPABASE_CONFIG) window.SUPABASE_CONFIG.client = client;
+}
+
+// Supabase client (global window.supabase is loaded from js/lib or CDN)
 if (!window.supabase) {
-  console.error('[Config] Supabase CDN not loaded! Check internet connection. App will run in offline/local-only mode.');
-  // Show banner after DOM is ready
+  console.error('[Config] Supabase library not loaded! Check js/lib/supabase.min.js or network. App will run in offline/local-only mode.');
   document.addEventListener('DOMContentLoaded', () => {
     _showOfflineBanner();
   });
@@ -58,7 +87,6 @@ function _showOnlineToast() {
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3000);
 }
 
-// Listen for browser network status changes
 window.addEventListener('offline', () => {
   document.addEventListener('DOMContentLoaded', _showOfflineBanner, { once: true });
   if (document.readyState !== 'loading') _showOfflineBanner();
@@ -68,20 +96,20 @@ window.addEventListener('online', () => {
   if (document.readyState !== 'loading') _showOnlineToast();
   else document.addEventListener('DOMContentLoaded', _showOnlineToast, { once: true });
 });
-// Also show badge immediately if already offline on load
 if (!navigator.onLine) {
   document.addEventListener('DOMContentLoaded', _showOfflineBanner, { once: true });
 }
 
-const supabaseClient = window.supabase
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-        detectSessionInUrl: false,
-      }
-    })
-  : null; // offline mode fallback
+_reinitSupabaseClient();
+const supabaseClient = window.supabaseClient || null;
+
+document.addEventListener('DOMContentLoaded', () => {
+  _hydrateSupabaseCredsFromStorage();
+});
+
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.warn('[Config] Supabase URL/anon key not configured. Set js/core/supabase-secrets.js or Settings → Cloud API.');
+}
 
 window.supabaseClient = supabaseClient;
 
@@ -107,91 +135,72 @@ const DB = {
   sub_accounts:     'sub_accounts',
 };
 
-// ============================================================
-// ✅ BUG-11 Fix: RLS Security Verification
-// ============================================================
-/**
- * CRITICAL: Row Level Security (RLS) MUST be enabled on ALL tables in your Supabase project.
- * 
- * Without RLS, the anon key can access all data without restrictions.
- * With RLS, data access is controlled by policies per table.
- * 
- * ✓ Verify RLS is enabled at: https://supabase.com/dashboard/project/fznhiqzrslldybhmgopk/auth/policies
- * ✓ Each table needs 'Enable RLS' toggle switched ON
- * ✓ Policies must restrict access to authenticated users only
- */
 const RLS_WARNING = `
 ⚠️  CRITICAL SECURITY CHECK:
    Row Level Security (RLS) MUST be enabled on all Supabase tables.
-   
-   Checklist:
-   ☐ Login to https://supabase.com/dashboard
-   ☐ Go to Authentication → Policies
-   ☐ For each table (students, finance_ledger, etc.):
-      ☐ Click table name
-      ☐ Toggle "Enable RLS" to ON
-      ☐ Create policy: SELECT for authenticated users only
-      ☐ Create policy: INSERT/UPDATE/DELETE for authenticated users only
-   
    If RLS is NOT enabled, the public anon key exposes ALL data!
 `;
 
-// Log RLS reminder on app load (production systems should verify this programmatically)
 window.addEventListener('load', () => {
   if (supabaseClient && typeof supabaseClient.auth !== 'undefined') {
     console.warn(RLS_WARNING);
   }
 });
 
-// ============================================================
-// Supabase Auth Helpers
-// ============================================================
 const SupabaseAuth = {
   async signIn(email, password) {
-    if (!supabaseClient) throw new Error('Supabase client not available (offline mode)');
-    const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+    if (!window.supabaseClient) throw new Error('Supabase client not available (offline mode)');
+    const { data, error } = await window.supabaseClient.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
   },
 
   async signOut() {
-    if (!supabaseClient) return;
-    const { error } = await supabaseClient.auth.signOut();
+    if (!window.supabaseClient) return;
+    const { error } = await window.supabaseClient.auth.signOut();
     if (error) console.warn('[Auth] Sign out error:', error);
   },
 
   async getSession() {
-    if (!supabaseClient) return null;
-    const { data: { session } } = await supabaseClient.auth.getSession();
+    if (!window.supabaseClient) return null;
+    const { data: { session } } = await window.supabaseClient.auth.getSession();
     return session;
   },
 
   async getUser() {
-    if (!supabaseClient) return null;
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!window.supabaseClient) return null;
+    const { data: { user } } = await window.supabaseClient.auth.getUser();
     return user;
   },
 
   isAuthenticated() {
-    // Check if there's a valid session in storage
     const key = Object.keys(localStorage).find(k => k.includes('supabase.auth.token') || k.includes('sb-'));
     return !!key;
   },
 
-  // Session change listener (e.g., token expiry)
   onAuthStateChange(callback) {
-    if (!supabaseClient) return { data: { subscription: { unsubscribe: () => {} } } };
-    return supabaseClient.auth.onAuthStateChange(callback);
+    if (!window.supabaseClient) return { data: { subscription: { unsubscribe: () => {} } } };
+    return window.supabaseClient.auth.onAuthStateChange(callback);
   },
 };
 
 window.SupabaseAuth = SupabaseAuth;
 
-// ============================================================
-// Export
-// ============================================================
 window.SUPABASE_CONFIG = {
   client: supabaseClient,
   TABLES: DB,
+  saveCloudCredentials: async (url, anonKey) => {
+    if (typeof SecureStorage === 'undefined') throw new Error('SecureStorage unavailable');
+    await SecureStorage.setItem('wfa_supabase_url', url.trim());
+    await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
+    window.__WFA_SUPABASE_CREDS = { url: url.trim(), anonKey: anonKey.trim() };
+    SUPABASE_URL = url.trim();
+    SUPABASE_ANON_KEY = anonKey.trim();
+    _reinitSupabaseClient();
+    window.SUPABASE_CONFIG.client = window.supabaseClient;
+    return window.supabaseClient;
+  },
 };
 window.DB = DB;
+window.SUPABASE_URL = SUPABASE_URL;
+window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;

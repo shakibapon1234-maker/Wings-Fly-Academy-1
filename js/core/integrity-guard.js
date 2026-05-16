@@ -405,6 +405,9 @@ const IntegrityGuard = (() => {
         desc: 'Exam/Admin/Cert URLs এবং Visitor QR কোড লিংক লাইভ আছে কিনা চেক করে',
         critical: true,
         check: async () => {
+          if (!navigator.onLine) {
+            return { ok: true, detail: 'Skipped — offline (cannot HEAD-check URLs)' };
+          }
           try {
             const files = ['/admin.html', '/exam.html', '/certificate.html', '/assets/Visitor.png'];
             const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');

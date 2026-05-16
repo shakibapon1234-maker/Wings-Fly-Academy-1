@@ -12,6 +12,8 @@ const SecureStorage = (() => {
   // Keys to encrypt in localStorage (sensitive data only)
   const SENSITIVE_KEYS = [
     'wfa_gemini_key',      // Bug #22: AI API key
+    'wfa_supabase_url',
+    'wfa_supabase_anon_key',
     'wfa_admin_pattern',   // Pattern lock hash
     'wfa_admin_face_descriptor', // Face ID data
   ];

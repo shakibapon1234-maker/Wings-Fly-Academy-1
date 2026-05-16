@@ -119,9 +119,11 @@
   <p style="margin-top:10px;color:#8b949e;font-size:13px">এখন আপনার WingsFly app refresh করুন।</p>
 </div>
 
+<script src="js/core/supabase-secrets.js" onerror="window.WFA_SUPABASE_SECRETS=window.WFA_SUPABASE_SECRETS||{}"></script>
+<script src="js/core/supabase-standalone-creds.js"></script>
 <script>
-const SUPABASE_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+const SUPABASE_URL = window.WFA_STANDALONE_SUPABASE.url;
+const SUPABASE_KEY = window.WFA_STANDALONE_SUPABASE.key;
 
 // Backup JSON-এ যে tables আছে এবং Supabase-এ কোন নামে যাবে
 const TABLE_MAP = [
@@ -148,7 +150,7 @@ const ALLOWED_KEYS = {
   salary: ['id','staff_id','staff_name','month','year','basic','bonus','deduction','total','paid','method','date','status','note','created_at','updated_at'],
   visitors: ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','created_at','updated_at'],
   notices: ['id','title','body','date','created_at','updated_at'],
-  exams: ['id','title','batch','course','date','created_at','updated_at'],
+  exams: ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
   attendance: ['id','student_id','date','status','note','created_at'],
   settings: ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_start_date','expense_end_date','created_at','updated_at'],
 };

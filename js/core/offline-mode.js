@@ -238,8 +238,9 @@ const OfflineModeModule = (() => {
   async function syncItem(item) {
     try {
       // Use real Supabase URL/Key from global config
-      const supaUrl  = (typeof SUPABASE_URL !== 'undefined')       ? SUPABASE_URL       : 'https://fznhiqzrslldybhmgopk.supabase.co';
-      const supaKey  = (typeof SUPABASE_ANON_KEY !== 'undefined')  ? SUPABASE_ANON_KEY  : '';
+      const _creds   = window.WFA_SUPABASE_SECRETS || {};
+      const supaUrl  = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? SUPABASE_URL : (_creds.url || '');
+      const supaKey  = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY) ? SUPABASE_ANON_KEY : (_creds.anonKey || _creds.anon_key || '');
       const endpoint = `${supaUrl}/rest/v1/${item.table}`;
       const authToken = localStorage.getItem('wfa_session_token') || supaKey;
 

@@ -1342,11 +1342,13 @@ const Students = (() => {
     if (!s) { Utils.toast('Student not found', 'error'); return; }
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const academyName  = cfg.academy_name  || 'Wings Fly Aviation Academy';
-    const academyPhone = cfg.academy_phone || '';
-    const academyEmail = cfg.academy_email || '';
-    const academyAddr  = cfg.academy_address|| '';
-    const logoUrl      = cfg.logo_url       || '';
+    const academyName  = Utils.esc(cfg.academy_name  || 'Wings Fly Aviation Academy');
+    const academyPhone = Utils.esc(cfg.academy_phone || '');
+    const academyEmail = Utils.esc(cfg.academy_email || '');
+    const academyAddr  = Utils.esc(cfg.academy_address|| '');
+    const rawLogo      = String(cfg.logo_url || '').trim();
+    const logoUrl      = (/^https?:\/\//i.test(rawLogo) || rawLogo.startsWith('assets/') || rawLogo.startsWith('./'))
+      ? Utils.escAttr(rawLogo) : '';
 
     const allFinance = SupabaseSync.getAll(DB.finance);
     const payments = allFinance
@@ -1398,7 +1400,7 @@ const Students = (() => {
             <td style="padding:8px 10px;text-align:center;font-weight:600;color:#555;">${printRowIdx}</td>
             <td style="padding:8px 10px;">${Utils.formatDateDMY(f.date)}</td>
             <td style="padding:8px 10px;text-align:center;">
-              <span style="background:#e8f4f8;color:#0077aa;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">${f.method || 'Cash'}</span>
+              <span style="background:#e8f4f8;color:#0077aa;padding:2px 8px;border-radius:4px;font-size:0.8rem;font-weight:600;">${Utils.esc(f.method || 'Cash')}</span>
             </td>
             <td style="padding:8px 10px;text-align:right;font-weight:700;color:#1a7a1a;">৳${Utils.safeNum(f.amount).toLocaleString('en-IN')}</td>
             <td style="padding:8px 10px;text-align:right;color:${remaining > 0 ? '#cc3300' : '#1a7a1a'};font-weight:600;">
@@ -1416,7 +1418,7 @@ const Students = (() => {
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<title>Payment Receipt — ${s.name}</title>
+<title>Payment Receipt — ${Utils.esc(s.name)}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: 'Segoe UI', Arial, sans-serif; background:#f0f2f5; display:flex; justify-content:center; padding:20px; }
@@ -1514,30 +1516,30 @@ const Students = (() => {
     <div class="info-grid">
       <div class="info-item">
         <span class="info-label">Student Name</span>
-        <span class="info-value">${s.name}</span>
+        <span class="info-value">${Utils.esc(s.name)}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Student ID</span>
-        <span class="info-value">${s.student_id || '—'}</span>
+        <span class="info-value">${Utils.esc(s.student_id || '—')}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Course</span>
-        <span class="info-value">${s.course || '—'}</span>
+        <span class="info-value">${Utils.esc(s.course || '—')}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Batch / Session</span>
-        <span class="info-value">${[s.batch, s.session].filter(Boolean).join(' / ') || '—'}</span>
+        <span class="info-value">${Utils.esc([s.batch, s.session].filter(Boolean).join(' / ') || '—')}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Phone</span>
-        <span class="info-value">${s.phone || '—'}</span>
+        <span class="info-value">${Utils.esc(s.phone || '—')}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Admission Date</span>
         <span class="info-value">${Utils.formatDateDMY(s.admission_date)}</span>
       </div>
-      ${s.father_name ? `<div class="info-item"><span class="info-label">Father's Name</span><span class="info-value">${s.father_name}</span></div>` : ''}
-      ${s.address ? `<div class="info-item"><span class="info-label">Address</span><span class="info-value">${s.address}</span></div>` : ''}
+      ${s.father_name ? `<div class="info-item"><span class="info-label">Father's Name</span><span class="info-value">${Utils.esc(s.father_name)}</span></div>` : ''}
+      ${s.address ? `<div class="info-item"><span class="info-label">Address</span><span class="info-value">${Utils.esc(s.address)}</span></div>` : ''}
     </div>
   </div>
 
@@ -1598,7 +1600,7 @@ const Students = (() => {
     <div class="footer-note">
       <strong>Note:</strong> This is a computer-generated receipt.<br/>
       Please retain this for your records. For queries, contact the academy office.
-      ${s.note ? `<br/><em>Remark: ${s.note}</em>` : ''}
+      ${s.note ? `<br/><em>Remark: ${Utils.esc(s.note)}</em>` : ''}
     </div>
     <div class="signature-box">
       <div class="sig-line"></div>
@@ -1622,6 +1624,9 @@ const Students = (() => {
 
     const win = window.open('', '_blank', 'width=860,height=900');
     if (!win) { Utils.toast('Popup blocked! Please allow popups.', 'error'); return; }
+    // #region agent log
+    fetch('http://127.0.0.1:7511/ingest/89b1a3f8-1cb5-4ace-8dc0-b3a3e9a59bde',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'acee3e'},body:JSON.stringify({sessionId:'acee3e',runId:'post-fix',hypothesisId:'XSS',location:'students.js:printReceipt',message:'receipt html escaped',data:{nameRaw:!!s.name,nameInHtml:html.includes(Utils.esc(s.name||'')),scriptBlocked:!html.includes('<script>'),noteEscaped:s.note?html.includes(Utils.esc(s.note)):true},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     win.document.write(html);
     win.document.close();
   }
@@ -1639,7 +1644,7 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   async function deleteStudent(id) {
     const s  = SupabaseSync.getById(DB.students, id);
-    const ok = await Utils.confirm(`Delete student "${s?.name}" and all related payment records?`, 'Delete Student');
+    const ok = await Utils.confirm(`Delete student "${Utils.esc(s?.name || '')}" and all related payment records?`, 'Delete Student');
     if (!ok) return;
 
     // এই student-এর সব finance payment খুঁজে account balance reverse করো

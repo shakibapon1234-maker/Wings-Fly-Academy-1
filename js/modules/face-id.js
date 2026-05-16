@@ -8,8 +8,10 @@
 const FaceIDModule = (() => {
   let isModelsLoaded    = false;
   let isLibraryLoading  = false;
-  const FACE_API_CDN = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
-  const MODEL_URL    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  const FACE_API_CDN = './js/lib/face-api.min.js';
+  const MODEL_URL    = './assets/face-api-models';
+  const FACE_API_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
+  const MODEL_URL_FALLBACK    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
   let videoStream       = null;
   let detectionInterval = null;
   let playListenerAttached = false;
@@ -31,7 +33,14 @@ const FaceIDModule = (() => {
       const script = document.createElement('script');
       script.src = FACE_API_CDN;
       script.onload  = () => { isLibraryLoading = false; resolve(); };
-      script.onerror = () => { isLibraryLoading = false; reject(new Error('face-api CDN load failed')); };
+      script.onerror = () => {
+        if (script.src !== FACE_API_CDN_FALLBACK) {
+          script.src = FACE_API_CDN_FALLBACK;
+          return;
+        }
+        isLibraryLoading = false;
+        reject(new Error('face-api load failed (local + CDN)'));
+      };
       document.head.appendChild(script);
     });
   }
@@ -52,16 +61,21 @@ const FaceIDModule = (() => {
     }
     if (typeof Utils !== 'undefined') Utils.toast('Loading Face ID models… (~2MB, first time only)', 'info');
     try {
-      await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      const loadFrom = async (base) => Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(base),
+        faceapi.nets.faceLandmark68Net.loadFromUri(base),
+        faceapi.nets.faceRecognitionNet.loadFromUri(base),
       ]);
+      try {
+        await loadFrom(MODEL_URL);
+      } catch {
+        await loadFrom(MODEL_URL_FALLBACK);
+      }
       isModelsLoaded = true;
       return true;
     } catch (error) {
       console.error('[FaceID] Model load failed:', error);
-      if (typeof Utils !== 'undefined') Utils.toast('Face ID models failed to load. Check internet.', 'error');
+      if (typeof Utils !== 'undefined') Utils.toast('Face ID models failed to load. Check offline cache or internet.', 'error');
       return false;
     }
   }

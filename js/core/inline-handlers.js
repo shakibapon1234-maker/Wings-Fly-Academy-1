@@ -195,13 +195,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }));
   }
 
-  /* ── Topbar: Logout ── */
-  const logoutBtn = document.getElementById('btn-logout');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', safe(function () {
-      if (typeof App !== 'undefined') App.logout();
-    }));
-  }
+  /* ── Topbar: Logout — handled in app.js init (avoid double-fire) ── */
 
   /* ── Quick Add: Student ── */
   const qaStudent = document.getElementById('btn-quick-student');

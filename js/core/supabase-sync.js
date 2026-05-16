@@ -103,8 +103,14 @@ const WFA_IDB = (() => {
         console.error('[IDB] Write setup failed for', tableName, err);
         reject(err);
       }
-    })).catch(() => {
-      // Keep queue alive after failures so next writes can still run.
+    })).catch((err) => {
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(
+          `Database save failed for "${tableName}" — data kept in memory. Free disk space or reload. (${err?.message || 'IDB error'})`,
+          'error',
+          10000
+        );
+      }
     });
     return _writeQueue;
   }
@@ -1406,7 +1412,9 @@ const SupabaseSync = (() => {
           } 
         })();
         queue.push({ table, record, at: Date.now() });
-        localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
+        (typeof Utils !== 'undefined' && Utils.safeStorageSet)
+          ? Utils.safeStorageSet('wfa_retry_queue', JSON.stringify(queue))
+          : localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
         console.warn('[Sync] Queued to localStorage (IDB unavailable)');
       }
     } catch (e) { 

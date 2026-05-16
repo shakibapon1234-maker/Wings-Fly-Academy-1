@@ -423,10 +423,10 @@
   .closed-notice h2 { font-size: 20px; color: var(--primary); margin-bottom: 8px; }
   .closed-notice p { font-size: 14px; color: var(--muted); }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="js/core/supabase-secrets.js" onerror="window.WFA_SUPABASE_SECRETS=window.WFA_SUPABASE_SECRETS||{}"></script>
+<script src="js/core/supabase-standalone-creds.js"></script>
 <script src="js/core/utils.js"></script>
-<script src="js/core/app.js"></script>
-<script src="js/core/inline-handlers.js"></script>
 <script src="js/core/supabase-config.js"></script>
 <script src="js/core/supabase-sync.js"></script>
 </head>
@@ -616,8 +616,8 @@ function loadData(callback) {
   // exam.html runs on student's browser which has NO local
   // admin data. We must always fetch live from Supabase.
   // ════════════════════════════════════════════════════════
-  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+  const SUPA_URL = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.url) || '';
+  const SUPA_KEY = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.key) || '';
 
   const showNoQuestions = () => {
     const c = document.querySelector('.container');
@@ -686,6 +686,32 @@ function loadData(callback) {
 }
 
 // =====================
+// RETAKE CHECK (Supabase REST — student browsers have no local IDB data)
+// =====================
+async function checkExamTakenRemote(studentId, studentName, subject) {
+  const SUPA_URL = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.url) || '';
+  const SUPA_KEY = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.key) || '';
+  if (!SUPA_URL || !SUPA_KEY) return null;
+  const subj = encodeURIComponent(subject || '');
+  const sid = encodeURIComponent(studentId || '');
+  try {
+    const res = await fetch(
+      `${SUPA_URL}/rest/v1/exams?student_id=eq.${sid}&subject=eq.${subj}&select=id,grade,marks,status,student_name&limit=5`,
+      { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + SUPA_KEY } }
+    );
+    if (!res.ok) return null;
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return null;
+    return rows.find(e =>
+      e.student_id === studentId &&
+      (e.status === 'Passed' || e.status === 'Failed' || (e.marks !== undefined && e.marks !== null))
+    ) || null;
+  } catch {
+    return null;
+  }
+}
+
+// =====================
 // START EXAM
 // =====================
 function startExam() {
@@ -707,7 +733,7 @@ function startExam() {
       return;
     }
 
-    loadData(() => {
+    loadData(async () => {
       if(btn) btn.disabled = false;
       if (examSettings.active === false) {
         showSection('loginSection');
@@ -730,22 +756,13 @@ function startExam() {
         return;
       }
 
-      // ✅ FIX: Check per subject — same student can take different subject exams
-      if (typeof window.DB !== 'undefined' && typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
-        const exams = SupabaseSync.getAll(DB.exams) || [];
-        const currentSubject = examSettings.examName || '';
-        const alreadyTaken = exams.find(e => 
-          e.student_id === studentId && 
-          e.student_name === studentName && 
-          (e.subject || '') === currentSubject &&
-          (e.status === 'Passed' || e.status === 'Failed' || (e.marks !== undefined && e.marks !== null))
-        );
-        
-        if (alreadyTaken) {
-          const subjectLabel = currentSubject ? '"' + currentSubject + '"' : 'এই';
-          alert('দুঃখিত! আপনি ইতিমধ্যে ' + subjectLabel + ' সাবজেক্টের এক্সামটি দিয়েছেন।\nরেজাল্ট: ' + (alreadyTaken.grade || '—') + ' | নম্বর: ' + (alreadyTaken.marks ?? '—') + ' | স্ট্যাটাস: ' + alreadyTaken.status);
-          return;
-        }
+      // ✅ Check per subject via Supabase (local IDB is empty on student devices)
+      const currentSubject = examSettings.examName || '';
+      const alreadyTaken = await checkExamTakenRemote(studentId, studentName, currentSubject);
+      if (alreadyTaken) {
+        const subjectLabel = currentSubject ? '"' + currentSubject + '"' : 'এই';
+        alert('দুঃখিত! আপনি ইতিমধ্যে ' + subjectLabel + ' সাবজেক্টের এক্সামটি দিয়েছেন।\nরেজাল্ট: ' + (alreadyTaken.grade || '—') + ' | নম্বর: ' + (alreadyTaken.marks ?? '—') + ' | স্ট্যাটাস: ' + alreadyTaken.status);
+        return;
       }
       // Debug: log what we got
       console.log('[Exam] Settings:', examSettings, '| Questions:', questions.length);
@@ -791,18 +808,6 @@ function shuffleArray(arr) {
 // =====================
 // RENDER QUESTIONS (One-at-a-time + Shuffle)
 // =====================
-// =====================
-// SHUFFLE HELPERS
-// =====================
-function shuffleArray(arr) {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 // shuffledQuestions: question order + option order both randomized per session
 // (declared above in STATE section — reused here)
 let currentQIdx = 0;
@@ -1023,18 +1028,12 @@ function updateTimerDisplay() {
 // =====================
 // WARNINGS
 // =====================
+let _lastWarningAt = 0;
 function setupWarnings() {
-  // Tab switch detection
+  // Tab switch detection (visibility only — blur would double-count the same leave)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && examActive) {
       triggerWarning('ট্যাব পরিবর্তন', 'আপনি অন্য ট্যাব বা অ্যাপে চলে গিয়েছেন।');
-    }
-  });
-
-  // Window blur (alt+tab, minimize)
-  window.addEventListener('blur', () => {
-    if (examActive) {
-      triggerWarning('উইন্ডো পরিবর্তন', 'আপনি এক্সামের বাইরে চলে গিয়েছেন।');
     }
   });
 
@@ -1059,6 +1058,9 @@ function setupWarnings() {
 }
 
 function triggerWarning(type, msg) {
+  const now = Date.now();
+  if (now - _lastWarningAt < 2000) return;
+  _lastWarningAt = now;
   warningCount++;
   const remaining = maxWarnings - warningCount;
   const overlay = document.getElementById('warningOverlay');
@@ -1284,8 +1286,8 @@ function loadAdminPreview() {
   content.innerHTML = '<div style="text-align:center;padding:20px;color:rgba(255,255,255,0.6);">লোড হচ্ছে...</div>';
 
   // Load data fresh
-  const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
-  const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+  const SUPA_URL = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.url) || '';
+  const SUPA_KEY = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.key) || '';
 
   fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
     headers: {
@@ -1412,8 +1414,8 @@ function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
     localStorage.setItem('wfa_results', JSON.stringify(results));
 
     // 2. Save detailed report to Supabase (exam_reports table if exists, else fallback to exams note)
-    const SUPA_URL = 'https://fznhiqzrslldybhmgopk.supabase.co';
-    const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+    const SUPA_URL = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.url) || '';
+    const SUPA_KEY = (window.WFA_STANDALONE_SUPABASE && window.WFA_STANDALONE_SUPABASE.key) || '';
 
     // Try saving to exam_reports table (detailed)
     fetch(`${SUPA_URL}/rest/v1/exam_reports`, {

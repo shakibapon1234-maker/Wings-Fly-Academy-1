@@ -102,8 +102,9 @@ const PushNotificationModule = (() => {
   // ── Save FCM token to Supabase ──
   async function saveFCMTokenToDatabase(token) {
     try {
-      const supaUrl = (typeof SUPABASE_URL !== 'undefined') ? SUPABASE_URL : 'https://fznhiqzrslldybhmgopk.supabase.co';
-      const supaKey = (typeof SUPABASE_ANON_KEY !== 'undefined') ? SUPABASE_ANON_KEY : '';
+      const _creds  = window.WFA_SUPABASE_SECRETS || {};
+      const supaUrl = (typeof SUPABASE_URL !== 'undefined' && SUPABASE_URL) ? SUPABASE_URL : (_creds.url || '');
+      const supaKey = (typeof SUPABASE_ANON_KEY !== 'undefined' && SUPABASE_ANON_KEY) ? SUPABASE_ANON_KEY : (_creds.anonKey || _creds.anon_key || '');
       const userId  = localStorage.getItem('wfa_user_id') || 'anonymous';
       const response = await fetch(`${supaUrl}/rest/v1/fcm_tokens`, {
         method: 'POST',

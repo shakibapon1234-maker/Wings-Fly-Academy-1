@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260516-payment-audit-fix';
+const DEPLOY_ID = '20260517-security-offline-audit';
 const CACHE_NAME = `wfa-v7-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -59,7 +59,30 @@ const STATIC_ASSETS = [
   './assets/icon-192.png',
   './assets/icon-512.png',
   './migrate.html',
+  './admin.html',
+  './certificate.html',
+  './exam.html',
+  './visitor-form.html',
+  './idb-cleaner.html',
   './version.json',
+  // Vendor libs (offline CDN fallback)
+  './js/lib/chart.umd.min.js',
+  './js/lib/xlsx.full.min.js',
+  './js/lib/supabase.min.js',
+  './js/lib/qrcode.min.js',
+  './js/lib/flatpickr.min.js',
+  './css/lib/font-awesome.min.css',
+  './css/lib/flatpickr-dark.css',
+  './css/webfonts/fa-solid-900.woff2',
+  './css/webfonts/fa-regular-400.woff2',
+  './css/webfonts/fa-brands-400.woff2',
+  './js/lib/face-api.min.js',
+  './assets/face-api-models/ssd_mobilenetv1_model-weights_manifest.json',
+  './assets/face-api-models/ssd_mobilenetv1_model.bin',
+  './assets/face-api-models/face_landmark_68_model-weights_manifest.json',
+  './assets/face-api-models/face_landmark_68_model.bin',
+  './assets/face-api-models/face_recognition_model-weights_manifest.json',
+  './assets/face-api-models/face_recognition_model.bin',
 ];
 
 // ── Install: Pre-cache static assets ──
@@ -98,6 +121,12 @@ self.addEventListener('fetch', (e) => {
 
   // ── Supabase API: Network first, cache fallback (offline support) ──
   if (url.hostname.includes('supabase')) {
+    // Exam/settings must always be fresh — never serve stale cached questions or results
+    const noCachePaths = ['/rest/v1/settings', '/rest/v1/exams', '/rest/v1/exam_reports'];
+    if (e.request.method === 'GET' && noCachePaths.some(p => url.pathname.startsWith(p))) {
+      e.respondWith(fetch(e.request));
+      return;
+    }
     // Only cache GET requests (reads)
     if (e.request.method === 'GET') {
       e.respondWith(

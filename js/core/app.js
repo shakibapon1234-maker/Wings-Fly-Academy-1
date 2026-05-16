@@ -289,7 +289,7 @@ const App = (() => {
               errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]}/3)</small>`;
               errEl.style.display = 'block';
             }
-            return;
+            return 'pending';
           } else {
             // After 3 retries, allow forced setup with a warning
             if (errEl) {
@@ -642,7 +642,8 @@ const App = (() => {
 
     // Attendance opens as a modal overlay
     if (section === 'attendance') {
-      // ✅ Mobile perf: Defer modal to let UI breathe
+      currentSection = section;
+      sessionStorage.setItem('wfa_last_section', section);
       setTimeout(() => {
         if (typeof Attendance !== 'undefined') Attendance.openModal();
       }, 80);
@@ -720,7 +721,7 @@ const App = (() => {
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
-        case 'students':      if (typeof Students !== 'undefined') { setTimeout(() => Students.resetFilters(), 60); } break;
+        case 'students':      if (typeof Students !== 'undefined') { setTimeout(() => Students.render(), 60); } break;
         case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
         case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
         case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;
@@ -1069,6 +1070,7 @@ const App = (() => {
           // ✅ Restore full HTML structure to preserve shimmer animation
           btnEl.innerHTML = '<span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span><div class="login-btn-shimmer"></div>';
         }
+        if (ok === 'pending') return;
         if (!ok) {
           // ✅ Bug #5 + Fix C-01: Track failed attempts and lockout after 5
           // Mirror to sessionStorage — localStorage.clear() won't bypass in same tab
@@ -1199,6 +1201,7 @@ const App = (() => {
 
 // ✅ Critical stabilization: wait for core globals to avoid startup race conditions.
 (function bootstrapApp() {
+  if (!document.getElementById('app-wrapper')) return;
   let started = false;
   function hasCoreGlobals() {
     return (

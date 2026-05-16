@@ -58,19 +58,19 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  <!-- Icons (local + CDN fallback) -->
+  <link rel="stylesheet" href="css/lib/font-awesome.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'" />
 
   <!-- Chart.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <script src="js/lib/chart.umd.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'"></script>
 
   <!-- SheetJS (Excel export) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="js/lib/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'"></script>
 
-  <!-- Supabase JS v2 (guard implemented in supabase-config.js) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase JS v2 -->
+  <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
   <!-- QR Code Generator -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="js/lib/qrcode.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'"></script>
 
   <!-- CSS -->
   <link rel="stylesheet" href="css/main.css" />
@@ -83,8 +83,8 @@
   <link rel="stylesheet" href="css/mobile.css" />
 
   <!-- Flatpickr — DD/MM/YYYY date picker (Req 4) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css" />
-  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <link rel="stylesheet" href="css/lib/flatpickr-dark.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css'" />
+  <script src="js/lib/flatpickr.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/flatpickr'"></script>
 </head>
 <body>
 
@@ -516,6 +516,8 @@
   <script src="js/core/utils.js" defer></script>
   <!-- ✅ Bug #6/#21/#22 Fix: Secure storage with encryption + private browsing fallback -->
   <script src="js/core/secure-storage.js" defer></script>
+  <!-- Optional local Supabase credentials (gitignored; copy from supabase-secrets.example.js) -->
+  <script src="js/core/supabase-secrets.js" defer onerror="window.WFA_SUPABASE_SECRETS=window.WFA_SUPABASE_SECRETS||{}"></script>
   <!-- ✅ Bug #25 Fix: i18n — bilingual (Bengali/English) error message localization -->
   <script src="js/core/i18n.js" defer></script>
   <script src="js/core/supabase-config.js" defer></script>

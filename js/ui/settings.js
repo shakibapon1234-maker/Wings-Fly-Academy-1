@@ -1274,6 +1274,25 @@ const SettingsModule = (() => {
         <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
       </div>
 
+      <!-- Supabase Project API (URL + anon key) -->
+      <div class="settings-card" style="margin-top:16px; border: 1px solid rgba(0,212,255,0.15)">
+        <div style="font-weight:700; font-size:1.05rem; color:#fff; margin-bottom:12px">☁️ Cloud API (Project URL &amp; Anon Key)</div>
+        <div style="font-size:0.8rem; color:#aaa; margin-bottom:12px; line-height:1.5">
+          Stored encrypted on this device. Use Supabase Dashboard → Settings → API, or copy from <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px">supabase-secrets.example.js</code>.
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+          <div class="form-group" style="flex:1;min-width:220px">
+            <label>Project URL</label>
+            <input type="url" id="supa-project-url" class="form-control" placeholder="https://xxx.supabase.co" />
+          </div>
+          <div class="form-group" style="flex:1;min-width:220px">
+            <label>Anon Key (public JWT)</label>
+            <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" />
+          </div>
+        </div>
+        <button class="btn btn-accent" onclick="SettingsModule.saveCloudApiCredentials()">💾 Save API Credentials</button>
+      </div>
+
       <!-- Supabase Cloud Auth -->
       <div class="settings-card" style="margin-top:16px; border: 1px solid rgba(0,212,255,0.2)">
         <div style="display:flex; justify-content:space-between; align-items:center; cursor:pointer" onclick="document.getElementById('supabase-auth-body').classList.toggle('hidden'); const i=this.querySelector('i.fa-caret-down,i.fa-caret-up'); if(i.classList.contains('fa-caret-down')){i.classList.replace('fa-caret-down','fa-caret-up')}else{i.classList.replace('fa-caret-up','fa-caret-down')}">
@@ -5415,6 +5434,29 @@ ${expenseEntries.length > 0 ? `
   }
 
   // ── Supabase Auth credentials save ────────────────────────────
+  async function saveCloudApiCredentials() {
+    const url = document.getElementById('supa-project-url')?.value?.trim();
+    const key = document.getElementById('supa-anon-key')?.value?.trim();
+    if (!url || !url.includes('supabase.co')) {
+      Utils.toast('Valid Supabase project URL required', 'error');
+      return;
+    }
+    if (!key || key.length < 20) {
+      Utils.toast('Valid anon key required', 'error');
+      return;
+    }
+    try {
+      if (!window.SUPABASE_CONFIG?.saveCloudCredentials) {
+        throw new Error('Supabase config not ready');
+      }
+      await window.SUPABASE_CONFIG.saveCloudCredentials(url, key);
+      logActivity('edit', 'security', 'Supabase API credentials updated');
+      Utils.toast('Cloud API credentials saved (encrypted) ✅', 'success');
+    } catch (e) {
+      Utils.toast(`Could not save API credentials: ${e.message}`, 'error');
+    }
+  }
+
   function saveSupabaseAuth() {
     const email = document.getElementById('supa-email')?.value?.trim();
     const pass  = document.getElementById('supa-pass')?.value;
@@ -5977,7 +6019,7 @@ ${expenseEntries.length > 0 ? `
     _updateThemePreview, _applyThemeBuilderPreset, _THEME_PRESETS,
     render, openModal, closeModal, switchTab, toggleSettingsSidebar, getSnapshots, saveSnapshot, tryDailyAutoDownload, restoreSnapshot, downloadSnapshot, deleteSnapshot, clearAllSnapshots,
     saveAllChanges, saveAcademyInfo, changePassword, setTheme,
-    saveRecoverySettings, saveSupabaseAuth, addSubAccount, deleteSubAccount,
+    saveRecoverySettings, saveCloudApiCredentials, saveSupabaseAuth, addSubAccount, deleteSubAccount,
     applyTheme,
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,

@@ -35,6 +35,21 @@ const Utils = (() => {
     catch (e) { console.warn('[safeJSON] Parse failed:', e.message); return fallback; }
   }
 
+  /** localStorage.setItem with QuotaExceededError handling — returns false on failure */
+  function safeStorageSet(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      const quota = e && (e.name === 'QuotaExceededError' || e.code === 22);
+      console.warn('[safeStorageSet] Failed:', key, e?.message || e);
+      if (quota && typeof toast === 'function') {
+        toast(typeof I18n !== 'undefined' ? I18n.t('error.storageFull') : 'Storage full — free space or export backup.', 'error', 10000);
+      }
+      return false;
+    }
+  }
+
   // ── Date Helpers ───────────────────────────────────────────
   function today() {
     return new Date().toISOString().split('T')[0];
@@ -794,7 +809,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc, safeJSON, maskPhone,
+      esc, safeJSON, safeStorageSet, maskPhone,
       // Modal
       openModal, closeModal, confirm,
       // Badges

@@ -19,8 +19,6 @@
   <!-- Core Scripts -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/core/utils.js"></script>
-  <script src="js/core/app.js"></script>
-  <script src="js/core/inline-handlers.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -368,12 +366,14 @@
   <!-- Toast -->
   <div class="toast" id="toast"></div>
 
+  <script src="js/core/supabase-secrets.js" onerror="window.WFA_SUPABASE_SECRETS=window.WFA_SUPABASE_SECRETS||{}"></script>
+  <script src="js/core/supabase-standalone-creds.js"></script>
   <script>
     document.getElementById('yr').textContent = new Date().getFullYear();
 
     // ─── Supabase Config ──────────────────────────────────────────────
-    const SUPABASE_URL  = 'https://fznhiqzrslldybhmgopk.supabase.co';
-    const SUPABASE_KEY  = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+    const SUPABASE_URL  = window.WFA_STANDALONE_SUPABASE.url;
+    const SUPABASE_KEY  = window.WFA_STANDALONE_SUPABASE.key;
 
     let supabaseClient = null;
     try {

@@ -4,7 +4,7 @@
   "description": "Aviation Academy-র জন্য সম্পূর্ণ ম্যানেজমেন্ট সিস্টেম।",
   "main": "service-worker.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest run",
     "build:mobile": "node build-www.js && ./node_modules/.bin/cap sync",
     "watch": "node watch-sync.js"
   },
@@ -26,6 +26,7 @@
     "@capacitor/core": "^8.3.1"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.3.1"
+    "@capacitor/cli": "^8.3.1",
+    "vitest": "^3.2.4"
   }
 }

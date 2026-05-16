@@ -23,12 +23,6 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <!-- ✅ Fix M-05: Auth Guard to prevent unauthorized access -->
-  <script>
-    if (localStorage.getItem('wfa_logged_in') !== 'true') {
-      window.location.href = 'index.html';
-    }
-  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -308,9 +302,11 @@
   <!-- ══════════════════════════════════════════════════════ -->
   <!-- Supabase Config -->
   <!-- ══════════════════════════════════════════════════════ -->
+  <script src="js/core/supabase-secrets.js" onerror="window.WFA_SUPABASE_SECRETS=window.WFA_SUPABASE_SECRETS||{}"></script>
+  <script src="js/core/supabase-standalone-creds.js"></script>
   <script>
-    const SUPABASE_URL      = 'https://fznhiqzrslldybhmgopk.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+    const SUPABASE_URL      = window.WFA_STANDALONE_SUPABASE.url;
+    const SUPABASE_ANON_KEY = window.WFA_STANDALONE_SUPABASE.key;
 
     let sbClient = null;
     let studentData = null;
@@ -349,10 +345,16 @@
       showStatus('info', '<i class="fa fa-spinner fa-spin"></i> ডাটাবেস চেক করা হচ্ছে...');
       document.getElementById('verify-btn').disabled = true;
 
-      const { data: students, error } = await sbClient
-        .from('students')
-        .select('*')
-        .or(`student_id.ilike.%${idInput}%,name.ilike.%${idInput}%`); // Search both ID and Name
+      // Exact ID first; fuzzy name only with sanitized wildcards (avoids PostgREST filter breakage)
+      let students = null;
+      let error = null;
+      ({ data: students, error } = await sbClient.from('students').select('*').eq('student_id', idInput).limit(1));
+      if (!error && (!students || students.length === 0)) {
+        const safeName = idInput.replace(/[%_(),.\\]/g, '');
+        if (safeName) {
+          ({ data: students, error } = await sbClient.from('students').select('*').ilike('name', `%${safeName}%`).limit(5));
+        }
+      }
 
       if (error || !students || students.length === 0) {
         showStatus('error', '<i class="fa fa-triangle-exclamation"></i> এই স্টুডেন্ট আইডি বা নামটি ডাটাবেসে পাওয়া যায়নি!');
