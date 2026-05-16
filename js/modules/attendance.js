@@ -10,6 +10,10 @@ const Attendance = (() => {
   /* ─── State ─── */
   let records = [];
   let activeTab = 'mark';
+  let logBatch  = '';
+  let logFrom   = '';
+  let logTo     = '';
+  let logStatus = '';
 
   /* ─── Init / Load ─── */
   function init() {
@@ -192,22 +196,35 @@ const Attendance = (() => {
     _applyAttFlatpickr();
   }
 
+/* ═══════════════════════════════════════════
+      LOG FILTER STATE
+   ═══════════════════════════════════════════ */
+  function setLogFilter(type, val) {
+    if (type === 'batch')  logBatch  = val;
+    if (type === 'from')   logFrom   = val;
+    if (type === 'to')     logTo     = val;
+    if (type === 'status') logStatus = val;
+  }
+
   /* ═══════════════════════════════════════════
-     TAB SWITCHING
-  ═══════════════════════════════════════════ */
+      TAB SWITCHING
+   ═══════════════════════════════════════════ */
   function switchTab(tab) {
     activeTab = tab;
+    // ✅ BUG-14 Fix: Handle 'log' case explicitly in tab matching
     // Update tab buttons
     document.querySelectorAll('.att-tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.textContent.replace(/\s+/g, '').includes(
         tab === 'mark' ? 'MARKATTENDANCE' :
         tab === 'monthly' ? 'MONTHLYREPORT' :
         tab === 'yearly' ? 'YEARLYREPORT' :
-        tab === 'course' ? 'COURSE-WISE' : 'BLANKSHEET'
+        tab === 'course' ? 'COURSE-WISE' :
+        tab === 'log' ? 'LOG' : 'BLANKSHEET'
       ));
     });
-    // Re-render just tab buttons and content
-    renderModal();
+    // Re-render just tab content (not full modal) to preserve filter state
+    const content = document.getElementById('att-tab-content');
+    if (content) content.innerHTML = renderTabContent();
   }
 
   /* ═══════════════════════════════════════════
@@ -227,10 +244,6 @@ const Attendance = (() => {
 
   /* ─── LOG TAB — Individual records with delete ─── */
   function renderLogTab() {
-    const logBatch  = document.getElementById('att-log-batch')?.value  || '';
-    const logFrom   = document.getElementById('att-log-from')?.value   || '';
-    const logTo     = document.getElementById('att-log-to')?.value     || '';
-    const logStatus = document.getElementById('att-log-status')?.value || '';
     const batches   = getBatches();
 
     let filtered = [...records].filter(r => r.type === 'student');
@@ -247,22 +260,22 @@ const Attendance = (() => {
       <div class="att-filter-section" style="flex-wrap:wrap;gap:8px;">
         <div class="att-filter-group">
           <label class="att-filter-label"><i class="fa fa-layer-group"></i> BATCH</label>
-          <select id="att-log-batch" class="att-filter-select" onchange="Attendance.refreshLog()">
+          <select id="att-log-batch" class="att-filter-select" onchange="Attendance.setLogFilter('batch', this.value); Attendance.refreshLog()">
             <option value="">All Batches</option>
             ${batches.map(b => `<option value="${b}" ${logBatch===b?'selected':''}>${b}</option>`).join('')}
           </select>
         </div>
         <div class="att-filter-group">
           <label class="att-filter-label"><i class="fa fa-calendar"></i> FROM</label>
-          <input type="date" id="att-log-from" class="att-filter-input" value="${logFrom}" onchange="Attendance.refreshLog()" />
+          <input type="date" id="att-log-from" class="att-filter-input" value="${logFrom}" onchange="Attendance.setLogFilter('from', this.value); Attendance.refreshLog()" />
         </div>
         <div class="att-filter-group">
           <label class="att-filter-label"><i class="fa fa-calendar"></i> TO</label>
-          <input type="date" id="att-log-to" class="att-filter-input" value="${logTo}" onchange="Attendance.refreshLog()" />
+          <input type="date" id="att-log-to" class="att-filter-input" value="${logTo}" onchange="Attendance.setLogFilter('to', this.value); Attendance.refreshLog()" />
         </div>
         <div class="att-filter-group">
           <label class="att-filter-label"><i class="fa fa-filter"></i> STATUS</label>
-          <select id="att-log-status" class="att-filter-select" onchange="Attendance.refreshLog()">
+          <select id="att-log-status" class="att-filter-select" onchange="Attendance.setLogFilter('status', this.value); Attendance.refreshLog()">
             <option value="">All Status</option>
             <option value="Present" ${logStatus==='Present'?'selected':''}>Present</option>
             <option value="Absent"  ${logStatus==='Absent' ?'selected':''}>Absent</option>

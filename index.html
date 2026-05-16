@@ -6,13 +6,14 @@
   <meta name="theme-color" content="#0D1B3E" />
   <meta name="description" content="Wings Fly Aviation Academy — Management System" />
   <!-- Bug #19 Fix: Content Security Policy — restricts resource loading to known safe origins -->
+  <!-- BUG-C1: style-src 'unsafe-inline' required for Finance._injectFinanceCSS() and Settings color customizer -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self' https://localhost;
     script-src 'self'
       https://localhost
       https://cdnjs.cloudflare.com
       https://cdn.jsdelivr.net;
-    style-src 'self'
+    style-src 'self' 'unsafe-inline'
       https://localhost
       https://cdnjs.cloudflare.com
       https://cdn.jsdelivr.net

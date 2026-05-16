@@ -606,13 +606,23 @@ const App = (() => {
     
     // ✅ Lazy-load Voice Assistant to prevent Out of Memory crash on slow devices
     if (!document.getElementById('voice-assistant-script')) {
-      setTimeout(() => {
-        const script = document.createElement('script');
-        script.id = 'voice-assistant-script';
-        script.src = 'js/modules/voice-assistant.js';
-        script.defer = true;
-        document.body.appendChild(script);
-      }, 3000); // Wait 3 seconds after dashboard load
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(() => {
+          const script = document.createElement('script');
+          script.id = 'voice-assistant-script';
+          script.src = 'js/modules/voice-assistant.js';
+          script.defer = true;
+          document.body.appendChild(script);
+        }, { timeout: 5000 });
+      } else {
+        setTimeout(() => {
+          const script = document.createElement('script');
+          script.id = 'voice-assistant-script';
+          script.src = 'js/modules/voice-assistant.js';
+          script.defer = true;
+          document.body.appendChild(script);
+        }, 3000);
+      }
     }
   }
 

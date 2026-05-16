@@ -434,12 +434,6 @@ const Finance = (() => {
     if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
-  /* ✅ BUG-10 Fix: Removed dead code _onPersonSelect — ff-person-select element doesn't exist in form */
-  function _onPersonSelect() {
-    // This function is kept for backward compatibility but form elements ff-person-select/ff-person don't exist
-    // If needed in future, implement it with actual form elements
-  }
-
   /* ══════════════════════════════════════════
      SAVE
   ══════════════════════════════════════════ */
@@ -456,12 +450,8 @@ const Finance = (() => {
     if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount (> 0).'; errEl.classList.remove('hidden'); return; }
     if (amount > 99999999) { errEl.textContent = 'Amount exceeds maximum limit (99,999,999).'; errEl.classList.remove('hidden'); return; }
     if (!date) { errEl.textContent = 'Please select a valid date.'; errEl.classList.remove('hidden'); return; }
-    // ✅ BUG-12 Fix: Timezone-aware date validation — compare at midnight UTC to avoid timezone edge cases
-    const [yy, mm, dd] = date.split('-');
-    const inputDate = new Date(yy + '-' + mm + '-' + dd + 'T00:00:00Z');
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    if (inputDate > today) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (date > todayStr) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
 
     // Prevent negative balance for Expense / Transfer Out
     if (type === 'Expense' || type === 'Transfer Out') {
@@ -574,7 +564,7 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
     }
 
     // If Finance tab is currently visible, re-render
-    try { render(); } catch { /* ignore if not mounted */ }
+    try { render(); } catch(e) { if (window.__WFA_DEV__) console.warn('[Finance] render error:', e); }
   }
 
   /* ══════════════════════════════════════════
@@ -672,7 +662,7 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
     openAddModal, openEditModal, updateCategoryDropdown,
     saveEntry, deleteEntry, exportExcel,
     addExternalTransaction,
-    _syncDate, _onPersonSelect,
+    _syncDate,
   };
 
 })();
