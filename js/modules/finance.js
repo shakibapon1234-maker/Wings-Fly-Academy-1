@@ -47,7 +47,7 @@ const Finance = (() => {
      let running = 0;
      const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
        const amt = Utils.safeNum(f.amount);
-       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment Out') running+=amt;
+       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In') running+=amt;
        else running-=amt;
        return {...f, _running: running};
      }).reverse();
@@ -152,7 +152,7 @@ const Finance = (() => {
   function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(9, 'No records found');
     return rows.map((f, i) => {
-      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment Out'; // ✅ Fix H-01: Investment Out is positive
+      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
       return `<tr>
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDateDMY(f.date)}</td>
@@ -182,6 +182,7 @@ const Finance = (() => {
       'Loan Receiving': ['Loan Taken',    'info'],
       'Transfer In':    ['Transfer In',   'primary'],
       'Transfer Out':   ['Transfer Out',  'muted'],
+      'Investment Out': ['Investment Out', 'muted'],
     };
     const [label, type2] = map[type]||[type,'primary'];
     return Utils.badge(label, type2);
@@ -353,10 +354,12 @@ const Finance = (() => {
             <div class="ff-field">
               <label class="ff-label">Type <span class="req">*</span></label>
               <select id="ff-type" class="ff-select" onchange="Finance.updateCategoryDropdown(this)">
-                <option value="Income"       ${d.type==='Income'?'selected':''}>Income (+)</option>
-                <option value="Expense"      ${d.type==='Expense'?'selected':''}>Expense (-)</option>
-                <option value="Transfer In"  ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
-                <option value="Transfer Out" ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
+                <option value="Income"         ${d.type==='Income'?'selected':''}>Income (+)</option>
+                <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense (-)</option>
+                <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
+                <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>Loan Taken</option>
+                <option value="Transfer In"    ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
+                <option value="Transfer Out"   ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
               </select>
             </div>
             <div class="ff-field">
@@ -431,11 +434,10 @@ const Finance = (() => {
     if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
-  /* Person dropdown select → text input এ নাম বসাও */
+  /* ✅ BUG-10 Fix: Removed dead code _onPersonSelect — ff-person-select element doesn't exist in form */
   function _onPersonSelect() {
-    const sel = document.getElementById('ff-person-select');
-    const inp = document.getElementById('ff-person');
-    if (sel && inp && sel.value) inp.value = sel.value;
+    // This function is kept for backward compatibility but form elements ff-person-select/ff-person don't exist
+    // If needed in future, implement it with actual form elements
   }
 
   /* ══════════════════════════════════════════
@@ -454,10 +456,12 @@ const Finance = (() => {
     if (!amount || amount <= 0) { errEl.textContent = 'Please enter a valid amount (> 0).'; errEl.classList.remove('hidden'); return; }
     if (amount > 99999999) { errEl.textContent = 'Amount exceeds maximum limit (99,999,999).'; errEl.classList.remove('hidden'); return; }
     if (!date) { errEl.textContent = 'Please select a valid date.'; errEl.classList.remove('hidden'); return; }
-    // Validate date is not in the future (with 1 day tolerance for timezone)
-    const inputDate = new Date(date + 'T23:59:59');
-    const tomorrow  = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    if (inputDate > tomorrow) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
+    // ✅ BUG-12 Fix: Timezone-aware date validation — compare at midnight UTC to avoid timezone edge cases
+    const [yy, mm, dd] = date.split('-');
+    const inputDate = new Date(yy + '-' + mm + '-' + dd + 'T00:00:00Z');
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    if (inputDate > today) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
 
     // Prevent negative balance for Expense / Transfer Out
     if (type === 'Expense' || type === 'Transfer Out') {
@@ -485,16 +489,12 @@ const Finance = (() => {
        Transfer In / Transfer Out → balance move হয়, কিন্তু income/expense নয়
        Loan Giving / Receiving    → loans.js handle করে — এখানে SKIP
        ─────────────────────────────────────────────────────────────── */
-    const isRealIncome  = type === 'Income';
-    const isRealExpense = type === 'Expense';
-    const isXferIn      = type === 'Transfer In';
-    const isXferOut     = type === 'Transfer Out';
-    const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
+const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
 
     // Helper: account balance direction for this type
     function _balanceDir(t) {
       if (t === 'Income' || t === 'Transfer In')   return 'in';
-      if (t === 'Expense' || t === 'Transfer Out') return 'out';
+      if (t === 'Expense' || t === 'Transfer Out' || t === 'Investment Out') return 'out';
       return null; // Loan types: skip
     }
 
@@ -566,6 +566,7 @@ const Finance = (() => {
       'Income':       'in',
       'Transfer Out': 'out',
       'Transfer In':  'in',
+      'Investment Out': 'out',
     };
     const dir = dirMap[record.type];
     if (dir && record.method && record.amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
@@ -585,7 +586,7 @@ const Finance = (() => {
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in' };
+      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in' };
       const reverseDir = dirMap[entry.type];
       if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir, true);
@@ -608,8 +609,11 @@ const Finance = (() => {
                          (f.ref_id === entry.ref_id || f.ref_id === s.student_id))
             .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
 
-          // Ledger sum AFTER delete (excluding this entry)
-          const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(entry.amount);
+// Ledger sum AFTER delete (excluding this entry)
+           const ledgerAfterDelete = allFin
+             .filter(f => f.id !== id && f.category === 'Student Fee' &&
+                              (f.ref_id === entry.ref_id || f.ref_id === s.student_id))
+             .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
 
           // Unrecorded initial = any amount in s.paid NOT in the ledger (legacy/migrated data)
           const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBeforeDelete);

@@ -6,7 +6,7 @@
 <meta http-equiv="Content-Security-Policy" content="
   default-src 'self' https://fznhiqzrslldybhmgopk.supabase.co;
   script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-  style-src 'self' 'unsafe-inline';
+  style-src 'self';
   img-src 'self' data: blob:;
   connect-src 'self' https://*.supabase.co wss://*.supabase.co;
   font-src 'self';
@@ -424,6 +424,9 @@
   .closed-notice p { font-size: 14px; color: var(--muted); }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/core/utils.js"></script>
+<script src="js/core/app.js"></script>
+<script src="js/core/inline-handlers.js"></script>
 <script src="js/core/supabase-config.js"></script>
 <script src="js/core/supabase-sync.js"></script>
 </head>

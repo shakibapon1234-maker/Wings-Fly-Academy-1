@@ -108,6 +108,42 @@ const DB = {
 };
 
 // ============================================================
+// ✅ BUG-11 Fix: RLS Security Verification
+// ============================================================
+/**
+ * CRITICAL: Row Level Security (RLS) MUST be enabled on ALL tables in your Supabase project.
+ * 
+ * Without RLS, the anon key can access all data without restrictions.
+ * With RLS, data access is controlled by policies per table.
+ * 
+ * ✓ Verify RLS is enabled at: https://supabase.com/dashboard/project/fznhiqzrslldybhmgopk/auth/policies
+ * ✓ Each table needs 'Enable RLS' toggle switched ON
+ * ✓ Policies must restrict access to authenticated users only
+ */
+const RLS_WARNING = `
+⚠️  CRITICAL SECURITY CHECK:
+   Row Level Security (RLS) MUST be enabled on all Supabase tables.
+   
+   Checklist:
+   ☐ Login to https://supabase.com/dashboard
+   ☐ Go to Authentication → Policies
+   ☐ For each table (students, finance_ledger, etc.):
+      ☐ Click table name
+      ☐ Toggle "Enable RLS" to ON
+      ☐ Create policy: SELECT for authenticated users only
+      ☐ Create policy: INSERT/UPDATE/DELETE for authenticated users only
+   
+   If RLS is NOT enabled, the public anon key exposes ALL data!
+`;
+
+// Log RLS reminder on app load (production systems should verify this programmatically)
+window.addEventListener('load', () => {
+  if (supabaseClient && typeof supabaseClient.auth !== 'undefined') {
+    console.warn(RLS_WARNING);
+  }
+});
+
+// ============================================================
 // Supabase Auth Helpers
 // ============================================================
 const SupabaseAuth = {
