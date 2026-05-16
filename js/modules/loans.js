@@ -420,6 +420,47 @@ const Loans = (() => {
     };
 
     if (editingId) {
+      // ── Balance + Finance reversal for edit ──────────────────────────────
+      const oldRecord = SupabaseSync.getById(DB.loans, editingId);
+      if (oldRecord) {
+        const oldAmount = Utils.safeNum(oldRecord.amount);
+        const oldMethod = oldRecord.method || 'Cash';
+        const oldType   = oldRecord.type || oldRecord.direction;
+        const wasGiven  = oldType === 'Loan Giving' || oldType === 'given';
+
+        // 1. Reverse old account balance (force=true to allow negative)
+        if (oldAmount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(oldMethod, oldAmount, wasGiven ? 'in' : 'out', true);
+        }
+
+        // 2. Find and update linked finance entry
+        const allFinance = SupabaseSync.getAll(DB.finance);
+        const linkedFin = allFinance.find(f =>
+          f.category === 'Loan' &&
+          (f.person_name === (oldRecord.person_name || oldRecord.person)) &&
+          f.type === oldRecord.type &&
+          Math.abs(Utils.safeNum(f.amount) - oldAmount) < 0.01 &&
+          f.date === oldRecord.date
+        );
+        if (linkedFin) {
+          SupabaseSync.update(DB.finance, linkedFin.id, {
+            type:        type,
+            method:      method,
+            description: `${type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${person}`,
+            amount:      amount,
+            date:        record.date,
+            note:        record.note,
+            person_name: person,
+          });
+        }
+
+        // 3. Apply new account balance
+        const isGiving = type === 'Loan Giving';
+        if (amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(method, amount, isGiving ? 'out' : 'in');
+        }
+      }
+
       SupabaseSync.update(DB.loans, editingId, record);
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'loans', 

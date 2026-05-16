@@ -957,19 +957,20 @@ const Accounts = (() => {
   }
 
   // 🆕 BUG #5 FIX: Verify account balance against finance records
+  // ✅ Updated: Now includes Loan Giving/Receiving to match recalculateBalance logic
   function verifyAccountBalance(accountName, storedBalance) {
     try {
       if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return null;
       const finance = SupabaseSync.getAll(DB.finance) || [];
       
-      // Find all transactions for this account
+      // Find all transactions for this account (including Loan types)
       let calculated = 0;
       finance.forEach(f => {
-        if ((f.method === accountName || f.account === accountName) && f.type !== 'Loan Receiving' && f.type !== 'Loan Giving') {
+        if (f.method === accountName || f.account === accountName) {
           const amt = Utils.safeNum(f.amount);
-          if (f.type === 'Income' || f.type === 'Transfer In') {
+          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') {
             calculated += amt;
-          } else if (f.type === 'Expense' || f.type === 'Transfer Out') {
+          } else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') {
             calculated -= amt;
           }
         }
@@ -1010,7 +1011,7 @@ const Accounts = (() => {
       const accounts = SupabaseSync.getAll(DB.accounts) || [];
       const account = accounts.find(a => a.name === accountName);
       if (account) {
-        account.balance = Math.max(0, newBalance);
+        account.balance = Math.round(newBalance * 100) / 100; // ✅ Show real balance, don't hide negatives
         SupabaseSync.update(DB.accounts, account.id, account);
         if (typeof Utils !== 'undefined' && Utils.toast) {
           Utils.toast('✅ Balance recalculated and updated', 'success');

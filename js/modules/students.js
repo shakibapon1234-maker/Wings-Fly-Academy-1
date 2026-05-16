@@ -1147,7 +1147,7 @@ const Students = (() => {
 
     // Account balance reverse করো (Income ছিল → 'out' করো)
     if (payment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-      SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out');
+      SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out', true);
     }
 
     SupabaseSync.remove(DB.finance, paymentId);
@@ -1227,7 +1227,7 @@ const Students = (() => {
 
     // Reverse old account balance, apply new
     if (oldPayment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-      SupabaseSync.updateAccountBalance(oldPayment.method, Utils.safeNum(oldPayment.amount), 'out');
+      SupabaseSync.updateAccountBalance(oldPayment.method, Utils.safeNum(oldPayment.amount), 'out', true);
     }
 
     SupabaseSync.update(DB.finance, paymentId, {
@@ -1648,7 +1648,7 @@ const Students = (() => {
     const studentPayments = allFinance.filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s?.student_id));
     studentPayments.forEach(f => {
       if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out');
+        SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out', true);
       }
       SupabaseSync.remove(DB.finance, f.id);
     });

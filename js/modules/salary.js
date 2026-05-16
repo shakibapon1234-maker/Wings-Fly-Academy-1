@@ -616,8 +616,28 @@ const Salary = (() => {
       Utils.toast('Salary record saved ✓', 'success');
     }
 
-    var diff = isNew ? payAmount : Math.max(0, payAmount - prevPaidAmt);
-    if (diff > 0) _logToFinance(entry, diff, payDate, method);
+    var diff = isNew ? payAmount : (payAmount - prevPaidAmt);
+    if (diff > 0) {
+      // paidAmount বাড়েছে → নতুন Expense entry তৈরি করো
+      _logToFinance(entry, diff, payDate, method);
+    } else if (diff < 0 && !isNew) {
+      // paidAmount কমেছে → পার্থক্যটা account-এ ফেরত দাও
+      var reversalAmt = Math.abs(diff);
+      if (typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(method, reversalAmt, 'in', true);
+      }
+      // Finance-এ reversal entry তৈরি করো
+      SupabaseSync.insert(DB.finance, {
+        type:        'Income',
+        category:    'Salary Adjustment',
+        method:      method,
+        description: 'Salary Adjustment (reduced): ' + entry.staffName + ' (' + monthLabel(entry.month) + ')',
+        amount:      reversalAmt,
+        date:        payDate || Utils.today(),
+        note:        'Auto-reversal: paidAmount reduced from ৳' + Utils.formatMoneyPlain(prevPaidAmt) + ' to ৳' + Utils.formatMoneyPlain(payAmount),
+        person_name: entry.staffName,
+      });
+    }
 
     Utils.closeModal();
     renderContent();
@@ -657,7 +677,7 @@ const Salary = (() => {
         SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
       });
       if (totalLinked > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(r.method, totalLinked, 'in');
+        SupabaseSync.updateAccountBalance(r.method, totalLinked, 'in', true);
       }
     }
 

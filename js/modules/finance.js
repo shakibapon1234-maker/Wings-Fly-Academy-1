@@ -504,7 +504,7 @@ const Finance = (() => {
         const oldDir = _balanceDir(oldEntry.type);
         const reverseDir = oldDir === 'in' ? 'out' : oldDir === 'out' ? 'in' : null;
         if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
+          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir, true);
         }
       }
       SupabaseSync.update(DB.finance, editingId, record);
@@ -588,7 +588,7 @@ const Finance = (() => {
       const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in' };
       const reverseDir = dirMap[entry.type];
       if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
+        SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir, true);
       }
 
       // ── Student Fee হলে student-এর paid/due ও reverse করো ──

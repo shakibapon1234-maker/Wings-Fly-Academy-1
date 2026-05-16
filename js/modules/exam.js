@@ -536,6 +536,42 @@ const Exam = (() => {
     };
 
     if (editingId) {
+      // ── Fee change handling: reverse old finance + balance, apply new ──
+      const oldExam = SupabaseSync.getById(DB.exams, editingId);
+      if (oldExam && oldExam.fee_paid && Utils.safeNum(oldExam.exam_fee) > 0) {
+        const oldFee = Utils.safeNum(oldExam.exam_fee);
+        // Fee changed or fee removed → reverse old finance entry
+        if (oldFee !== fee || fee === 0) {
+          const allFin = SupabaseSync.getAll(DB.finance);
+          const oldFinEntry = allFin.find(f =>
+            f.category === 'Exam Fee' && f.type === 'Income' &&
+            Math.abs(Utils.safeNum(f.amount) - oldFee) < 0.01 &&
+            (f.description || '').includes(oldExam.student_name || '')
+          );
+          if (oldFinEntry) {
+            // Reverse old balance
+            if (oldFinEntry.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+              SupabaseSync.updateAccountBalance(oldFinEntry.method, Utils.safeNum(oldFinEntry.amount), 'out', true);
+            }
+            SupabaseSync.remove(DB.finance, oldFinEntry.id);
+          }
+          // Create new finance entry if fee > 0
+          if (fee > 0 && method) {
+            SupabaseSync.insert(DB.finance, {
+              type:        'Income',
+              category:    'Exam Fee',
+              description: `${studentName} (${studentId}) — Exam Fee (${subject})`,
+              amount:      fee,
+              method,
+              date:        examDate,
+            });
+            if (typeof SupabaseSync.updateAccountBalance === 'function') {
+              SupabaseSync.updateAccountBalance(method, fee, 'in');
+            }
+          }
+        }
+      }
+
       // ✅ LOGIC #3
       SupabaseSync.update(DB.exams, editingId, record);
       // ✅ LOGIC #6
