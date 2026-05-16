@@ -564,8 +564,8 @@
   <script src="js/modules/ai-assistant.js" defer></script>
 
 
-  <!-- ✅ Bug #24 Fix: Standardized Loading State Manager (extracted from inline for CSP compliance) -->
-  <script src="js/core/loading-state.js"></script>
+  <!-- ✅ Fix M-04: Added defer — prevents DOM block & race condition with deferred dependencies -->
+  <script src="js/core/loading-state.js" defer></script>
 
 </body>
 </html>

@@ -152,7 +152,7 @@ const Finance = (() => {
   function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(9, 'No records found');
     return rows.map((f, i) => {
-      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
+      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment Out'; // ✅ Fix H-01: Investment Out is positive
       return `<tr>
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDateDMY(f.date)}</td>
@@ -213,7 +213,7 @@ const Finance = (() => {
     if (!catEl) return;
     const type = selectObj.value;
     const categories = getCategories(type);
-    catEl.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+    catEl.innerHTML = categories.map(c => `<option value="${Utils.esc(c)}">${Utils.esc(c)}</option>`).join(''); // ✅ Fix H-03: XSS escape
   }
 
   /* ══════════════════════════════════════════
@@ -372,7 +372,7 @@ const Finance = (() => {
             <div class="ff-field">
               <label class="ff-label">Category</label>
               <select id="ff-category" class="ff-select">
-                ${getCategories(d.type || 'Income').map(c => `<option value="${c}" ${d.category===c?'selected':''}>${c}</option>`).join('')}
+                ${getCategories(d.type || 'Income').map(c => `<option value="${Utils.esc(c)}" ${d.category===c?'selected':''}>${Utils.esc(c)}</option>`).join('')}
               </select>
             </div>
             <div class="ff-field">
@@ -442,7 +442,7 @@ const Finance = (() => {
      SAVE
   ══════════════════════════════════════════ */
   function saveEntry() {
-    const amount = Utils.safeNum(Utils.formVal('ff-amount'));
+    const amount = Math.abs(Utils.safeNum(Utils.formVal('ff-amount'))); // ✅ Fix M-06: Force positive amount
     const type   = Utils.formVal('ff-type');
     const method = Utils.formVal('ff-method');
     const date   = Utils.formVal('ff-date');

@@ -237,10 +237,13 @@ const App = (() => {
 
   async function login(username, password) {
     // ✅ Bug #5: Rate limiting — block after 5 failed attempts for 10 minutes
+    // ✅ Fix C-01: Also check sessionStorage so localStorage.clear() in DevTools can't bypass
     const attemptKey   = 'wfa_login_attempts';
     const lockoutKey   = 'wfa_login_lockout_until';
     const now          = Date.now();
-    const lockoutUntil = parseInt(localStorage.getItem(lockoutKey) || '0');
+    const lockoutLS  = parseInt(localStorage.getItem(lockoutKey) || '0');
+    const lockoutSS  = parseInt(sessionStorage.getItem(lockoutKey) || '0');
+    const lockoutUntil = Math.max(lockoutLS, lockoutSS); // both must expire
 
     if (lockoutUntil && now < lockoutUntil) {
       const remaining = Math.ceil((lockoutUntil - now) / 60000);
@@ -313,14 +316,24 @@ const App = (() => {
         const inputHash = await _hashPw(password);
         adminOk = inputHash === storedPw;
       } else {
-        // Legacy plaintext comparison
+        // ✅ Fix C-02: Legacy plaintext comparison — force-migrate to hash immediately
         adminOk = password === storedPw;
+        if (adminOk) {
+          // Upgrade: replace plaintext with hash now so plaintext is never stored again
+          const upgradedHash = await _hashPw(password);
+          settings.admin_password = upgradedHash;
+          if (settings.id) {
+            SupabaseSync.update(DB.settings, settings.id, settings);
+          }
+          console.log('%c[Auth] ✅ Legacy plaintext password auto-migrated to SHA-256 hash.', 'color:#00ff88;font-weight:bold');
+        }
       }
 
       if (adminOk) {
-        // ✅ Bug #5: Reset attempt counter and save login timestamp
+        // ✅ Bug #5 + Fix C-01: Reset attempt counter in both storages
         localStorage.removeItem('wfa_login_attempts');
         localStorage.removeItem('wfa_login_lockout_until');
+        sessionStorage.removeItem('wfa_login_lockout_until');
         localStorage.setItem('wfa_logged_in', 'true');
         localStorage.setItem('wfa_login_time', String(Date.now()));
         localStorage.setItem('wfa_user_role', 'admin');
@@ -1047,11 +1060,14 @@ const App = (() => {
           btnEl.innerHTML = '<span class="login-btn-text"><i class="fa fa-sign-in-alt"></i>&nbsp; LOGIN</span><div class="login-btn-shimmer"></div>';
         }
         if (!ok) {
-          // ✅ Bug #5: Track failed attempts and lockout after 5
+          // ✅ Bug #5 + Fix C-01: Track failed attempts and lockout after 5
+          // Mirror to sessionStorage — localStorage.clear() won't bypass in same tab
           const attempts = parseInt(localStorage.getItem('wfa_login_attempts') || '0') + 1;
           localStorage.setItem('wfa_login_attempts', String(attempts));
           if (attempts >= MAX_LOGIN_ATTEMPTS) {
-            localStorage.setItem('wfa_login_lockout_until', String(Date.now() + LOCKOUT_DURATION_MS));
+            const lockoutUntil = String(Date.now() + LOCKOUT_DURATION_MS);
+            localStorage.setItem('wfa_login_lockout_until', lockoutUntil);
+            sessionStorage.setItem('wfa_login_lockout_until', lockoutUntil); // C-01 fix
             localStorage.removeItem('wfa_login_attempts');
           }
           if (errEl) {
