@@ -1217,11 +1217,34 @@ const SettingsModule = (() => {
             <i class="fa fa-cloud-arrow-up"></i> IMPORT DATA
           </button>
         </div>
+        <div id="dm-sync-result" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="settings-btn-lg btn-sync-cloud" style="flex:1" onclick="SyncEngine.syncAll({ forcePush:true, forceFull:true }).then(()=>Utils.toast('Full sync complete — সব data নামানো হয়েছে ✅','success'))">
+          <button id="btn-full-sync" class="settings-btn-lg btn-sync-cloud" style="flex:1" onclick="
+            const b=document.getElementById('btn-full-sync');
+            const r=document.getElementById('dm-sync-result');
+            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Syncing...';
+            r.style.display='none';
+            SyncEngine.syncAll({ forcePush:true, forceFull:true, silent:true }).then(res=>{
+              b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-down\'></i> FULL SYNC (সব data)';
+              r.style.display='block';
+              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Full Sync সফল! সব ডেটা Cloud থেকে নামানো হয়েছে।'; Utils.toast('Full Sync সফল ✅','success'); }
+              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ Sync আংশিক সম্পন্ন। Supabase credentials চেক করুন।'; Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn'); }
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-down\'></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
+          ">
             <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (সব data)
           </button>
-          <button class="settings-btn-lg btn-sync-cloud" style="flex:1;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.3);color:#00ff88" onclick="SyncEngine.push({ silent:false })">
+          <button id="btn-push-cloud-dm" class="settings-btn-lg btn-sync-cloud" style="flex:1;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.3);color:#00ff88" onclick="
+            const b=document.getElementById('btn-push-cloud-dm');
+            const r=document.getElementById('dm-sync-result');
+            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Pushing...';
+            r.style.display='none';
+            SyncEngine.push({ silent:true }).then(res=>{
+              b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-up\'></i> PUSH → CLOUD';
+              const sc=res?.successCount||0; const errs=res?.errors||[];
+              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Push সফল! '+sc+' টেবিল Supabase-এ আপলোড হয়েছে।'; Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড','success'); }
+              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ আংশিক Push: '+sc+' সফল, '+errs.length+' সমস্যা। Security & Access-এ credentials চেক করুন।'; Utils.toast('Push — কিছু সমস্যা','warn'); }
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-up\'></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
+          ">
             <i class="fa fa-cloud-arrow-up"></i> PUSH → CLOUD
           </button>
         </div>
@@ -1684,11 +1707,59 @@ const SettingsModule = (() => {
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:12px">
           Supabase real-time sync is active. All changes are automatically synced.
         </p>
+        <div id="sync-diag-result" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button class="btn btn-primary btn-sm" onclick="SyncEngine.syncAll({ silent: false })">⬇ Sync (retry + pull)</button>
-          <button class="btn btn-accent btn-sm" onclick="SyncEngine.push({ silent: false })">⬆ Push to Cloud</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time On','success')">🟢 Real-time On</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time Off','info')">🔴 Real-time Off</button>
+          <button id="btn-sync-pull" class="btn btn-primary btn-sm" onclick="
+            const b=document.getElementById('btn-sync-pull');
+            const r=document.getElementById('sync-diag-result');
+            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Syncing...';
+            r.style.display='none';
+            SyncEngine.syncAll({ silent: true }).then(res=>{
+              b.disabled=false; b.innerHTML='⬇ Sync (retry + pull)';
+              r.style.display='block';
+              if(res && res.ok){
+                r.style.background='rgba(0,255,136,0.08)'; r.style.border='1px solid rgba(0,255,136,0.3)'; r.style.color='#00ff88';
+                r.innerHTML='✅ Sync সফল! ডেটা Cloud থেকে নামানো হয়েছে।';
+                Utils.toast('Sync সফল ✅','success');
+              } else {
+                r.style.background='rgba(255,165,0,0.08)'; r.style.border='1px solid rgba(255,165,0,0.3)'; r.style.color='#ffa502';
+                r.innerHTML='⚠️ Sync সম্পন্ন কিন্তু কিছু সমস্যা হয়েছে। Supabase credentials চেক করুন।';
+                Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn');
+              }
+            }).catch(err=>{
+              b.disabled=false; b.innerHTML='⬇ Sync (retry + pull)';
+              r.style.display='block'; r.style.background='rgba(255,71,87,0.08)'; r.style.border='1px solid rgba(255,71,87,0.3)'; r.style.color='#ff4757';
+              r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||'Unknown error');
+              Utils.toast('Sync ব্যর্থ','error');
+            });
+          ">⬇ Sync (retry + pull)</button>
+          <button id="btn-push-cloud" class="btn btn-accent btn-sm" onclick="
+            const b=document.getElementById('btn-push-cloud');
+            const r=document.getElementById('sync-diag-result');
+            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Pushing...';
+            r.style.display='none';
+            SyncEngine.push({ silent: true }).then(res=>{
+              b.disabled=false; b.innerHTML='⬆ Push to Cloud';
+              r.style.display='block';
+              const sc=res?.successCount||0; const errs=res?.errors||[];
+              if(res && res.ok){
+                r.style.background='rgba(0,255,136,0.08)'; r.style.border='1px solid rgba(0,255,136,0.3)'; r.style.color='#00ff88';
+                r.innerHTML='✅ Push সফল! সব ডেটা Supabase Cloud-এ আপলোড হয়েছে। ('+sc+' টেবিল sync হয়েছে)';
+                Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড হয়েছে','success');
+              } else {
+                r.style.background='rgba(255,165,0,0.08)'; r.style.border='1px solid rgba(255,165,0,0.3)'; r.style.color='#ffa502';
+                r.innerHTML='⚠️ আংশিক Push: '+sc+' টেবিল সফল, '+errs.length+' টেবিলে সমস্যা।<br><small style="color:var(--text-muted)">F12 Console-এ বিস্তারিত দেখুন</small>';
+                Utils.toast('Push — কিছু সমস্যা হয়েছে','warn');
+              }
+            }).catch(err=>{
+              b.disabled=false; b.innerHTML='⬆ Push to Cloud';
+              r.style.display='block'; r.style.background='rgba(255,71,87,0.08)'; r.style.border='1px solid rgba(255,71,87,0.3)'; r.style.color='#ff4757';
+              r.innerHTML='❌ Push ব্যর্থ: '+(err.message||'Unknown error')+'<br><small>Supabase URL ও Anon Key সঠিক আছে কিনা Security & Access-এ চেক করুন।</small>';
+              Utils.toast('Push ব্যর্থ','error');
+            });
+          ">⬆ Push to Cloud</button>
+          <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time চালু ✅','success')">🟢 Real-time On</button>
+          <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time বন্ধ','info')">🔴 Real-time Off</button>
         </div>
         <div style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
           <strong>Device ID:</strong> <code>${typeof SupabaseSync !== 'undefined' ? SupabaseSync._deviceId() : '—'}</code>
