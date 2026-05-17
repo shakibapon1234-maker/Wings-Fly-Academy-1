@@ -4857,103 +4857,111 @@ ${expenseEntries.length > 0 ? `
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      const statusEl = document.getElementById('mig-status');
       try {
         const text = await file.text();
         const data = JSON.parse(text);
         let imported = 0;
-        const statusEl = document.getElementById('mig-status');
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Analyzing backup format...'; }
+        let tableCount = 0;
+        const tableDetails = [];
 
-        // Track which tables received new data
-        const touchedTables = new Set();
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Backup বিশ্লেষণ করা হচ্ছে...'; }
 
+        // Detect legacy format
         const isLegacy = data.hasOwnProperty('employees') ||
                          data.hasOwnProperty('cashBalance') ||
                          data.hasOwnProperty('incomeCategories') ||
                          (data.students && data.students[0] && data.students[0].studentId);
 
         if (isLegacy) {
-          Utils.toast('Legacy backup detected — converting...', 'info');
+          Utils.toast('পুরনো ব্যাকআপ ফরম্যাট পাওয়া গেছে — রূপান্তর করা হচ্ছে...', 'info');
           imported = await importLegacyData(data, statusEl);
-          // Legacy importer can touch many tables
-          Object.values(DB).forEach(t => {
-            if (SupabaseSync.getAll(t).length > 0) touchedTables.add(t);
-          });
         } else {
+          // Meta/non-table keys to skip
+          const SKIP_KEYS = new Set(['meta', 'version', 'exportedAt', '_exportedAt', '_version', '_meta']);
+
+          // Table name aliases (export uses DB table names directly)
           const tableAliases = {
             finance: DB.finance,
             financeLedger: DB.finance,
+            finance_ledger: DB.finance,
             ledger: DB.finance,
             staff: DB.staff,
             employees: DB.staff,
           };
-          for (const [tableName, rows] of Object.entries(data)) {
-            if (tableName === 'meta' || tableName === 'version' || tableName === 'exportedAt') continue;
-            if (!Array.isArray(rows) || !rows.length) continue;
-            const targetTable = tableAliases[tableName] || tableName;
+
+          for (const [key, rows] of Object.entries(data)) {
+            // Skip non-table metadata keys
+            if (SKIP_KEYS.has(key) || key.startsWith('_')) continue;
+            // Must be a non-empty array
+            if (!Array.isArray(rows) || rows.length === 0) continue;
+
+            const targetTable = tableAliases[key] || key;
+
+            // Get existing records in this table
             const existing = SupabaseSync.getAll(targetTable);
             const existingIds = new Set(existing.map(r => r.id));
+
+            // Only import rows that don't already exist (dedup by id)
             const newRows = rows.filter(r => r && r.id && !existingIds.has(r.id));
+
             if (newRows.length > 0) {
+              // Merge: new rows first so they show at top
               SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
               imported += newRows.length;
-              touchedTables.add(targetTable);
+              tableCount++;
+              tableDetails.push(`${targetTable}: ${newRows.length}টি`);
             }
           }
         }
 
-        if (statusEl) statusEl.innerHTML = `✅ Import complete! ${imported} records imported locally.`;
-        Utils.toast(`Import complete! ${imported} records imported`, 'success');
+        // ── Show result ────────────────────────────────────────────
+        if (imported === 0) {
+          if (statusEl) statusEl.innerHTML = '⚠️ কোনো নতুন রেকর্ড পাওয়া যায়নি। ব্যাকআপ ফাইলটি সঠিক কিনা দেখুন অথবা ডেটা ইতিমধ্যে ইম্পোর্ট হয়ে আছে।';
+          Utils.toast('কোনো নতুন রেকর্ড ইম্পোর্ট হয়নি', 'warn');
+          return;
+        }
 
-        if (imported > 0) {
-          if (statusEl) statusEl.innerHTML += '<br>🔄 Pushing to cloud table-by-table...';
+        const detailsStr = tableDetails.length > 0 ? `<br><small style="color:var(--text-muted)">${tableDetails.join(' | ')}</small>` : '';
+        if (statusEl) statusEl.innerHTML = `✅ সফলভাবে <strong>${imported}টি রেকর্ড</strong> ${tableCount}টি টেবিলে ইম্পোর্ট হয়েছে!${detailsStr}<br><br>`;
+        Utils.toast(`✅ ${imported}টি রেকর্ড ইম্পোর্ট হয়েছে!`, 'success');
 
-          // Push table by table with individual status
+        // ── Push to cloud (Supabase) if connected ──────────────────
+        if (statusEl) statusEl.innerHTML += '🔄 Cloud-এ আপলোড হচ্ছে...';
+        try {
           const pushResult = await SyncEngine.push({ silent: true });
-
           if (pushResult?.ok) {
-            if (statusEl) statusEl.innerHTML += '<br>✅ All data synced to cloud successfully!';
-            Utils.toast('Backup uploaded to Supabase ✅', 'success');
+            if (statusEl) statusEl.innerHTML += ' ✅ Cloud sync সফল!';
           } else {
-            // Show partial success info
-            const sc = pushResult?.successCount || 0;
-            const errs = pushResult?.errors || [];
-            let statusHTML = '';
-
-            if (sc > 0) {
-              statusHTML += `<br>✅ <span style="color:var(--success)">${sc} table(s) synced successfully</span>`;
-            }
-
-            if (errs.length > 0) {
-              statusHTML += `<br>⚠️ <span style="color:var(--warning)">${errs.length} table(s) had issues:</span>`;
-              errs.forEach(err => {
-                const tbl = err.table || '?';
-                const msg = String(err.error || '').replace(/</g, '&lt;');
-                // Check if it's a "column does not exist" error and extract column name
-                const colMatch = msg.match(/column\s+"([^"]+)"/i);
-                const hint = colMatch
-                  ? `<br><small style="color:var(--text-muted)">💡 Fix: In Supabase SQL Editor, run: <code>ALTER TABLE ${tbl} ADD COLUMN IF NOT EXISTS "${colMatch[1]}" text;</code></small>`
-                  : '';
-                statusHTML += `<br><span style="color:var(--error);font-size:0.8rem">• ${tbl}: ${msg}</span>${hint}`;
-              });
-              statusHTML += `<br><br><button class="btn btn-outline" style="font-size:0.8rem;padding:6px 14px" onclick="SyncEngine.push().then(r => { if(r.ok) Utils.toast('Push successful!','success'); else Utils.toast('Still failing — check console (F12)','error'); })">🔄 Retry Push</button>`;
-            }
-
-            if (statusEl) statusEl.innerHTML += statusHTML;
-            Utils.toast(
-              sc > 0
-                ? `Import done — ${sc} table(s) synced, ${errs.length} need attention`
-                : 'Import saved locally — cloud push failed (see status below)',
-              'warn'
-            );
+            if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি (Supabase কানেক্ট না থাকলে এটা স্বাভাবিক — লোকালি সেভ হয়েছে)।';
           }
+        } catch (_) {
+          if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি — লোকাল স্টোরে ডেটা আছে।';
         }
 
-        logActivity('add', 'import', `Imported ${imported} records from JSON`);
+        // ── Add reload button so user sees fresh data immediately ──
+        if (statusEl) {
+          statusEl.innerHTML += `
+            <br><br>
+            <div style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);border-radius:10px;padding:14px;margin-top:8px">
+              <div style="font-weight:700;color:#00ff88;margin-bottom:8px">🎉 ইম্পোর্ট সম্পন্ন!</div>
+              <div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
+                ড্যাশবোর্ডে সব ডেটা দেখতে পেজটি রিলোড করুন।
+              </div>
+              <button onclick="location.reload()"
+                style="background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:800;font-size:.95rem;cursor:pointer">
+                🔄 এখনই রিলোড করুন
+              </button>
+            </div>`;
+        }
+
+        logActivity('add', 'import', `Imported ${imported} records from JSON backup (${tableCount} tables)`);
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
-        refreshModal();
-      } catch (e) {
-        Utils.toast('Failed to read JSON: ' + e.message, 'error');
+
+      } catch (err) {
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = `❌ ত্রুটি: ${err.message}`; }
+        Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
+        console.error('[importFromJSON]', err);
       }
     };
     input.click();
