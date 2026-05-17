@@ -15,7 +15,6 @@ yarn-error.log*
 .env
 .env.local
 .env.production
-# js/core/supabase-secrets.js — committed stub; put real keys in Settings → Cloud API
 
 # OS generated files
 .DS_Store
