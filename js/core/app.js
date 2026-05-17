@@ -348,12 +348,21 @@ const App = (() => {
 
     // ── Sub-account login: hashed password compare ────────────────────
     const inputHash = await _hashPw(password);
-    const sub = getSubAccounts().find((s) => {
+    const subAccounts = getSubAccounts();
+    const subIdx = subAccounts.findIndex((s) => {
       if (s.username !== normalizedUsername) return false;
       const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
       return isHashed ? s.password === inputHash : s.password === password;
     });
-    if (sub) {
+    if (subIdx !== -1) {
+      const sub = subAccounts[subIdx];
+      // ✅ Bug #3 Fix: Auto-migrate plaintext sub-account password to hash
+      const isHashed = /^[0-9a-f]{64}$/.test(sub.password) || sub.password?.startsWith('fb_');
+      if (!isHashed) {
+        subAccounts[subIdx] = { ...sub, password: inputHash };
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subAccounts));
+        console.log('%c[Auth] ✅ Sub-account plaintext password auto-migrated to SHA-256 hash.', 'color:#00ff88;font-weight:bold');
+      }
       // ✅ Bug #5: Reset attempt counter and save login timestamp
       localStorage.removeItem('wfa_login_attempts');
       localStorage.removeItem('wfa_login_lockout_until');

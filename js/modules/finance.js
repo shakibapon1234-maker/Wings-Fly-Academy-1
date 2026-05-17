@@ -75,6 +75,7 @@ const Finance = (() => {
           <option value="Loan Receiving" ${filterType==='Loan Receiving'?'selected':''}>Loan Taken</option>
           <option value="Transfer In"    ${filterType==='Transfer In'?'selected':''}>Transfer In</option>
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
+          <option value="Investment Out" ${filterType==='Investment Out'?'selected':''}>Investment Out</option>
         </select>
         <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
@@ -576,7 +577,7 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in' };
+      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in', 'Loan Receiving': 'out', 'Loan Giving': 'in' };
       const reverseDir = dirMap[entry.type];
       if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir, true);
