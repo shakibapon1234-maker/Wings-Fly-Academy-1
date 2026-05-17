@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0D1B3E" />
   <meta name="description" content="Wings Fly Aviation Academy — Management System" />
-  <!-- Bug #19 Fix: Content Security Policy — restricts resource loading to known safe origins -->
-  <!-- BUG-C1: style-src 'unsafe-inline' required for Finance._injectFinanceCSS() and Settings color customizer -->
-  <!-- script-src-attr: modules (Settings, Finance, …) use dynamic onclick/onchange on injected HTML -->
+  <!-- ✅ Fix #11: Finance form CSS moved to css/main.css — _injectFinanceCSS() removed.
+       BUG-C1 PARTIALLY RESOLVED: style-src 'unsafe-inline' still required for Settings
+       color customizer (dynamic CSS variable injection). Finance no longer needs it. -->
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self' https://localhost;
     script-src 'self'
@@ -440,9 +440,6 @@
     <div class="bottom-nav-more-menu" id="bottom-nav-more-menu">
       <button class="more-item" data-section="attendance">
         <i class="fa fa-calendar-check"></i><span>Attendance</span>
-      </button>
-      <button class="more-item" data-section="accounts">
-        <i class="fa fa-wallet"></i><span>Accounts</span>
       </button>
       <button class="more-item" data-section="loans">
         <i class="fa fa-hand-holding-dollar"></i><span>Loans</span>

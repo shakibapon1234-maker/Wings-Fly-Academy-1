@@ -142,7 +142,8 @@ const WFA_IDB = (() => {
   async function _migrateFromLocalStorage() {
     const TABLE_KEYS = [
       'students', 'finance_ledger', 'accounts', 'loans', 'exams',
-      'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings'
+      'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings',
+      'sub_accounts'
     ];
 
     const migrationFlag = 'wfa_idb_migrated_v1';

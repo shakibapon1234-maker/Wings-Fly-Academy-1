@@ -189,6 +189,14 @@ const App = (() => {
   }
 
   function getSubAccounts() {
+    // ✅ Fix #10: Read from IDB/SupabaseSync (cross-device sync) first,
+    // fall back to localStorage for backward-compat on first load.
+    try {
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        const idbRows = SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts');
+        if (idbRows && idbRows.length > 0) return idbRows;
+      }
+    } catch { /* fall through */ }
     try {
       return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
     } catch {
@@ -348,21 +356,12 @@ const App = (() => {
 
     // ── Sub-account login: hashed password compare ────────────────────
     const inputHash = await _hashPw(password);
-    const subAccounts = getSubAccounts();
-    const subIdx = subAccounts.findIndex((s) => {
+    const sub = getSubAccounts().find((s) => {
       if (s.username !== normalizedUsername) return false;
       const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
       return isHashed ? s.password === inputHash : s.password === password;
     });
-    if (subIdx !== -1) {
-      const sub = subAccounts[subIdx];
-      // ✅ Bug #3 Fix: Auto-migrate plaintext sub-account password to hash
-      const isHashed = /^[0-9a-f]{64}$/.test(sub.password) || sub.password?.startsWith('fb_');
-      if (!isHashed) {
-        subAccounts[subIdx] = { ...sub, password: inputHash };
-        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subAccounts));
-        console.log('%c[Auth] ✅ Sub-account plaintext password auto-migrated to SHA-256 hash.', 'color:#00ff88;font-weight:bold');
-      }
+    if (sub) {
       // ✅ Bug #5: Reset attempt counter and save login timestamp
       localStorage.removeItem('wfa_login_attempts');
       localStorage.removeItem('wfa_login_lockout_until');

@@ -75,7 +75,6 @@ const Finance = (() => {
           <option value="Loan Receiving" ${filterType==='Loan Receiving'?'selected':''}>Loan Taken</option>
           <option value="Transfer In"    ${filterType==='Transfer In'?'selected':''}>Transfer In</option>
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
-          <option value="Investment Out" ${filterType==='Investment Out'?'selected':''}>Investment Out</option>
         </select>
         <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
@@ -270,68 +269,8 @@ const Finance = (() => {
     Utils.openModal('<i class="fa fa-pen"></i> Transaction Edit', formHTML(f), 'modal-lg');
   }
 
-  // Inject finance form CSS once into <head> to avoid blocking innerHTML parse
-  (function _injectFinanceCSS() {
-    if (document.getElementById('ff-style')) return;
-    const s = document.createElement('style');
-    s.id = 'ff-style';
-    s.textContent = `
-        .ff-wrap { display:flex; flex-direction:column; gap:16px; }
-        .ff-section-title {
-          font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase;
-          color:var(--brand-primary); margin-bottom:10px; padding-bottom:6px;
-          border-bottom:1px solid rgba(0,212,255,0.15);
-          display:flex; align-items:center; gap:6px;
-        }
-        .ff-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-        .ff-field { display:flex; flex-direction:column; gap:5px; }
-        .ff-label {
-          font-size:0.7rem; font-weight:600; letter-spacing:0.8px; text-transform:uppercase;
-          color:var(--text-muted);
-        }
-        .ff-label .req { color:#ff4d6d; margin-left:2px; }
-        .ff-input, .ff-select {
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(0,212,255,0.2);
-          border-radius:8px; color:var(--text-primary);
-          font-size:0.88rem; padding:10px 13px;
-          transition: border-color 0.2s, box-shadow 0.2s;
-          outline:none; width:100%; box-sizing:border-box;
-        }
-        .ff-input:focus, .ff-select:focus {
-          border-color:rgba(0,212,255,0.6);
-          box-shadow:0 0 0 3px rgba(0,212,255,0.1), 0 0 12px rgba(0,212,255,0.12);
-        }
-        .ff-input::placeholder { color:rgba(255,255,255,0.22); }
-        .ff-select { cursor:pointer; }
-        .ff-amount-wrap { position:relative; }
-        .ff-taka {
-          position:absolute; left:12px; top:50%; transform:translateY(-50%);
-          color:var(--brand-primary); font-weight:700; font-size:0.9rem; pointer-events:none;
-        }
-        .ff-amount-wrap .ff-input { padding-left:28px; }
-        .ff-date-row { display:flex; gap:6px; }
-        .ff-date-row .ff-select:first-child  { flex:0 0 72px; }
-        .ff-date-row .ff-select:nth-child(2) { flex:1; }
-        .ff-date-row .ff-select:last-child   { flex:0 0 94px; }
-        .ff-save-btn {
-          width:100%; padding:13px; border:none; border-radius:10px; cursor:pointer;
-          font-size:0.95rem; font-weight:700; letter-spacing:1px; text-transform:uppercase;
-          background:linear-gradient(90deg,#00d4ff,#7b2ff7); color:#fff;
-          box-shadow:0 0 20px rgba(0,212,255,0.3),0 0 40px rgba(123,47,247,0.2);
-          transition:filter 0.2s,transform 0.1s;
-        }
-        .ff-save-btn:hover { filter:brightness(1.15); transform:translateY(-1px); }
-        .ff-cancel-btn {
-          padding:11px 20px; border:1px solid rgba(255,255,255,0.15); border-radius:10px;
-          background:transparent; color:var(--text-muted); font-size:0.88rem; cursor:pointer;
-        }
-        .ff-cancel-btn:hover { border-color:rgba(255,255,255,0.35); color:var(--text-primary); }
-        .ff-actions { display:flex; gap:10px; align-items:center; }
-        .ff-actions .ff-save-btn { flex:1; }
-    `;
-    document.head.appendChild(s);
-  })();
+  // ✅ Fix #11: Finance form CSS moved to css/main.css (CSP-safe static file).
+  // _injectFinanceCSS() removed — no more dynamic style injection needed.
 
   function formHTML(d={}) {
     const dateStr  = (d.date || Utils.today()).split('T')[0];
@@ -577,7 +516,7 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in', 'Loan Receiving': 'out', 'Loan Giving': 'in' };
+      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in' };
       const reverseDir = dirMap[entry.type];
       if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir, true);

@@ -30,8 +30,12 @@
       document.dispatchEvent(new CustomEvent('wfa:loading', { detail: { active: false } }));
     }
   };
-  // Inject spinner CSS
+  // Inject spinner CSS — guarded for deferred script safety
   var s = document.createElement('style');
   s.textContent = '.wfa-spinner-ring{width:48px;height:48px;border:4px solid rgba(0,217,255,0.15);border-top-color:#00d9ff;border-radius:50%;animation:wfa-spin .8s linear infinite;margin:0 auto 12px}.wfa-spinner-msg{color:#b0c4d8;font-size:.9rem;text-align:center;font-family:inherit}@keyframes wfa-spin{to{transform:rotate(360deg)}}';
-  document.head.appendChild(s);
+  if (document.head) {
+    document.head.appendChild(s);
+  } else {
+    document.addEventListener('DOMContentLoaded', function() { document.head.appendChild(s); });
+  }
 })();
