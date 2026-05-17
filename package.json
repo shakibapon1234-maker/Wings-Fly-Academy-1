@@ -5,7 +5,8 @@
   "main": "service-worker.js",
   "scripts": {
     "test": "vitest run",
-    "build:mobile": "node build-www.js && ./node_modules/.bin/cap sync",
+    "build:mobile": "node build-www.js && npx cap sync",
+    "postinstall": "node fix-gradle.js",
     "watch": "node watch-sync.js"
   },
   "repository": {
