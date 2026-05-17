@@ -389,16 +389,15 @@
       try {
         if (!supabaseClient) throw new Error('no client');
 
-        // settings table has ONE row with a "courses" column (JSON array string)
-        const { data, error } = await supabaseClient
-          .from('settings')
-          .select('courses')
-          .limit(1)
-          .single();
+        // RLS-safe: শুধু courses (settings-এর password ইত্যাদি লিক হয় না)
+        const { data, error } = await supabaseClient.rpc('wfa_get_public_courses');
 
         let courses = [];
-        if (!error && data?.courses) {
-          try { courses = JSON.parse(data.courses); } catch(e) {}
+        if (!error && data) {
+          if (Array.isArray(data)) courses = data;
+          else if (typeof data === 'string') {
+            try { courses = JSON.parse(data); } catch(e) { courses = [data]; }
+          }
         }
         if (!Array.isArray(courses) || !courses.length) courses = fallback;
 

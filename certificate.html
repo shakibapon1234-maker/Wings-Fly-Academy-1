@@ -345,39 +345,26 @@
       showStatus('info', '<i class="fa fa-spinner fa-spin"></i> ডাটাবেস চেক করা হচ্ছে...');
       document.getElementById('verify-btn').disabled = true;
 
-      // Exact ID first; fuzzy name only with sanitized wildcards (avoids PostgREST filter breakage)
-      let students = null;
-      let error = null;
-      ({ data: students, error } = await sbClient.from('students').select('*').eq('student_id', idInput).limit(1));
-      if (!error && (!students || students.length === 0)) {
-        const safeName = idInput.replace(/[%_(),.\\]/g, '');
-        if (safeName) {
-          ({ data: students, error } = await sbClient.from('students').select('*').ilike('name', `%${safeName}%`).limit(5));
-        }
-      }
+      // RLS-safe RPC: আইডি/নাম + ফোন শেষ ৪ ডিজিট যাচাই (সরাসরি students SELECT নয়)
+      const phoneLast4 = phoneInput.replace(/\D/g, '').slice(-4);
+      const { data: students, error } = await sbClient.rpc('wfa_verify_student_certificate', {
+        p_student_id: idInput,
+        p_phone_last4: phoneLast4,
+      });
 
       if (error || !students || students.length === 0) {
-        showStatus('error', '<i class="fa fa-triangle-exclamation"></i> এই স্টুডেন্ট আইডি বা নামটি ডাটাবেসে পাওয়া যায়নি!');
-        document.getElementById('verify-btn').disabled = false;
-        return;
-      }
-
-      const student = students[0];
-      const sPhone = (student.phone || '').replace(/\D/g, '');
-      const iPhone = phoneInput.replace(/\D/g, '');
-
-      // Compare last 4 digits for leniency
-      if (sPhone.length > 0 && sPhone.slice(-4) !== iPhone.slice(-4)) {
         wrongAttempts++;
         const remaining = 5 - wrongAttempts;
         if (remaining <= 0) {
           showStatus('error', '<i class="fa fa-ban"></i> বেশি ভুল হয়েছে। Academy-তে যোগাযোগ করুন।');
         } else {
-          showStatus('error', `<i class="fa fa-triangle-exclamation"></i> মোবাইল নম্বর মিলছে না। আরও ${remaining} বার চেষ্টা করতে পারবেন।`);
+          showStatus('error', `<i class="fa fa-triangle-exclamation"></i> আইডি/নাম বা মোবাইল মিলছে না। আরও ${remaining} বার চেষ্টা করতে পারবেন।`);
         }
         document.getElementById('verify-btn').disabled = false;
         return;
       }
+
+      const student = students[0];
 
       // Success
       studentData = student;
