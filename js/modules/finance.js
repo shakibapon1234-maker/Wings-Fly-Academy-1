@@ -12,6 +12,14 @@ const Finance = (() => {
   let filterTo     = '';
   let searchQuery  = '';
   let editingId    = null;
+
+  // ✅ Module-level helper: balance direction for a transaction type
+  // Returns 'in' (balance বাড়ে) | 'out' (balance কমে) | null (skip)
+  function _balanceDir(t) {
+    if (t === 'Income' || t === 'Transfer In')                        return 'in';
+    if (t === 'Expense' || t === 'Transfer Out' || t === 'Investment Out') return 'out';
+    return null; // Loan types handled by loans.js
+  }
   let currentPage  = 1;
   let pageSize     = 20;
 
@@ -393,13 +401,59 @@ const Finance = (() => {
     const todayStr = new Date().toISOString().split('T')[0];
     if (date > todayStr) { errEl.textContent = 'Date cannot be in the future.'; errEl.classList.remove('hidden'); return; }
 
-    // Prevent negative balance for Expense / Transfer Out
-    if (type === 'Expense' || type === 'Transfer Out') {
-      const available = Utils.getAccountBalance(method);
-      if (amount > available) {
-        errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
-        errEl.classList.remove('hidden');
-        return;
+    // ✅ Balance validation — edit-aware net-effect check
+    // একটাই রুল: কোনো account কখনো negative হবে না
+    const _newDir = _balanceDir(type);
+    if (editingId) {
+      // Edit mode: old entry reverse + new entry apply করার পরে balance simulate করো
+      const _old = SupabaseSync.getById(DB.finance, editingId);
+      if (_old && !_old._isLoan) {
+        const _oldDir = _balanceDir(_old.type);
+        const _sameMethod = (_old.method === method);
+        if (_sameMethod) {
+          // Same account: net effect = reverse old + apply new
+          const _curBal     = Utils.getAccountBalance(method);
+          const _afterRev   = _oldDir === 'in'  ? _curBal - Utils.safeNum(_old.amount)
+                            : _oldDir === 'out' ? _curBal + Utils.safeNum(_old.amount)
+                            : _curBal;
+          const _finalBal   = _newDir === 'in'  ? _afterRev + amount
+                            : _newDir === 'out' ? _afterRev - amount
+                            : _afterRev;
+          if (_finalBal < 0) {
+            errEl.textContent = `❌ Balance insufficient in "${method}": after edit, deficit would be ৳${Utils.formatMoneyPlain(Math.abs(_finalBal))}. Reduce amount or adjust related expenses first.`;
+            errEl.classList.remove('hidden');
+            return;
+          }
+        } else {
+          // Method changed: check old account reversal separately
+          if (_oldDir === 'in') {
+            const _oldBal = Utils.getAccountBalance(_old.method);
+            if (_oldBal - Utils.safeNum(_old.amount) < 0) {
+              errEl.textContent = `❌ Cannot reverse old entry: "${_old.method}" balance ৳${Utils.formatMoneyPlain(_oldBal)} is less than ৳${Utils.formatMoneyPlain(_old.amount)}.`;
+              errEl.classList.remove('hidden');
+              return;
+            }
+          }
+          // Check new account for outgoing
+          if (_newDir === 'out') {
+            const _newBal = Utils.getAccountBalance(method);
+            if (amount > _newBal) {
+              errEl.textContent = `❌ Insufficient funds in "${method}". Only ৳${Utils.formatMoneyPlain(_newBal)} available.`;
+              errEl.classList.remove('hidden');
+              return;
+            }
+          }
+        }
+      }
+    } else {
+      // New entry: simple check for outgoing types
+      if (_newDir === 'out') {
+        const available = Utils.getAccountBalance(method);
+        if (amount > available) {
+          errEl.textContent = `Insufficient funds in ${method}. Only ৳${Utils.formatMoneyPlain(available)} available.`;
+          errEl.classList.remove('hidden');
+          return;
+        }
       }
     }
 
@@ -419,14 +473,7 @@ const Finance = (() => {
        Transfer In / Transfer Out → balance move হয়, কিন্তু income/expense নয়
        Loan Giving / Receiving    → loans.js handle করে — এখানে SKIP
        ─────────────────────────────────────────────────────────────── */
-const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
-
-    // Helper: account balance direction for this type
-    function _balanceDir(t) {
-      if (t === 'Income' || t === 'Transfer In')   return 'in';
-      if (t === 'Expense' || t === 'Transfer Out' || t === 'Investment Out') return 'out';
-      return null; // Loan types: skip
-    }
+    const isLoanType = type === 'Loan Giving' || type === 'Loan Receiving';
 
     if (editingId) {
       const oldEntry = SupabaseSync.getById(DB.finance, editingId);
@@ -434,7 +481,8 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
         const oldDir = _balanceDir(oldEntry.type);
         const reverseDir = oldDir === 'in' ? 'out' : oldDir === 'out' ? 'in' : null;
         if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir, true);
+          // ✅ No force=true — validation above already confirmed this won't go negative
+          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
         }
       }
       SupabaseSync.update(DB.finance, editingId, record);
@@ -516,10 +564,29 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
     if (entry && entry.method && !entry._isLoan) {
-      const dirMap = { 'Income': 'out', 'Expense': 'in', 'Transfer In': 'out', 'Transfer Out': 'in', 'Investment Out': 'in' };
-      const reverseDir = dirMap[entry.type];
+      // Reverse direction: Income→out, Expense→in, etc.
+      const _entryDir = _balanceDir(entry.type);
+      const reverseDir = _entryDir === 'in' ? 'out' : _entryDir === 'out' ? 'in' : null;
+
+      // ✅ একটাই রুল: reversal balance negative করলে DELETE BLOCKED
+      // Income/Transfer-In ডিলিট করলে balance কমে — কমার পরে negative হলে block
+      if (reverseDir === 'out') {
+        const currentBal = Utils.getAccountBalance(entry.method);
+        const afterReversal = currentBal - Utils.safeNum(entry.amount);
+        if (afterReversal < 0) {
+          Utils.toast(
+            `❌ ডিলিট করা যাবে না — "${entry.method}"-এ বর্তমান ব্যালেন্স ৳${Utils.formatMoneyPlain(currentBal)}, ` +
+            `কিন্তু এই ইন্ট্রি মুছলে ৳${Utils.formatMoneyPlain(Math.abs(afterReversal))} ঘাটতি হবে। ` +
+            `আগে সংশ্লিষ্ট Expense/Transfer মুছুন, তারপর এটি ডিলিট করুন।`,
+            'error', 8000
+          );
+          return; // ❌ DELETE BLOCKED
+        }
+      }
+
       if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir, true);
+        // ✅ No force=true — pre-check above guarantees no negative
+        SupabaseSync.updateAccountBalance(entry.method, Utils.safeNum(entry.amount), reverseDir);
       }
 
       // ── Student Fee হলে student-এর paid/due ও reverse করো ──

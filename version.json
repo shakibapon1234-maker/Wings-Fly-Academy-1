@@ -1,7 +1,7 @@
 {
-  "version": "1.2.2",
-  "deploy_id": "20260517-bugfix-4bugs",
-  "changelog": "Bug fixes: loading-state.js order (#1), finance deleteEntry student ID match (#3), face-id poll timeout (#11), _trackDeletion IDB consistency (#14)",
+  "version": "1.2.3",
+  "deploy_id": "20260517-balance-integrity",
+  "changelog": "Critical: enforce strict no-negative-balance rule across all operations (delete, edit, restore). finance.js delete/edit now blocked if balance would go negative. supabase-sync.js restore path: all force=true bypasses removed — expense/loan restores checked and warned if insufficient balance.",
   "size": "~2MB",
   "released": "2026-05-17"
 }

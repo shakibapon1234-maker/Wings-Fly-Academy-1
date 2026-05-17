@@ -918,8 +918,25 @@ const SupabaseSync = (() => {
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            if (isIncome)  updateAccountBalance(method, amount, 'in',  true); // restore: force=true
-            if (isExpense) updateAccountBalance(method, amount, 'out', true); // restore: force=true
+            // ✅ Restore: Income → 'in' সবসময় safe (ব্যালেন্স বাড়ে)
+            // Expense → 'out' নেগেটিভ হলে ব্যালেন্স skip করো (ডেটা ফিরে আসবে, কিন্তু অ্যাকাউন্ট negative হবে না)
+            if (isIncome)  updateAccountBalance(method, amount, 'in');
+            if (isExpense) {
+              const _curBal = (function() {
+                const accs = getAll('accounts');
+                if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+                const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
+              })();
+              if (_curBal - amount >= 0) {
+                updateAccountBalance(method, amount, 'out');
+              } else {
+                // ✅ ডেটা restore হলো, কিন্তু balance deduct হলো না (নেগেটিভ হয়ে যেত)
+                console.warn(`[Restore] Skipped balance deduction for "${method}": balance ৳${_curBal} < amount ৳${amount}`);
+                if (typeof Utils !== 'undefined' && Utils.toast) {
+                  Utils.toast(`⚠️ Expense restore: "${method}"-এ যথেষ্ট ব্যালেন্স নেই (প্রয়োজন ৳${amount.toLocaleString()}, আছে ৳${_curBal.toLocaleString()})। Record ফিরে এসেছে কিন্তু balance ঠিক করতে হবে।`, 'warning', 7000);
+                }
+              }
+            }
 
             if (isIncome && r.category === 'Student Fee' && r.ref_id) {
               const students = getAll('students');
@@ -956,7 +973,26 @@ const SupabaseSync = (() => {
           }
          } else if (table === 'loans') {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
-          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
+          // Loan Giving restore: ব্যালেন্স কমে ('out') — negative হলে warn, skip
+          // Loan Receiving restore: ব্যালেন্স বাড়ে ('in') — সবসময় safe
+          const _loanDir = wasGiven ? 'out' : 'in';
+          if (_loanDir === 'in') {
+            updateAccountBalance(method, amount, 'in');
+          } else {
+            const _loanBal = (function() {
+              const accs = getAll('accounts');
+              if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+              const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
+            })();
+            if (_loanBal - amount >= 0) {
+              updateAccountBalance(method, amount, 'out');
+            } else {
+              console.warn(`[Restore-Loan] Balance insufficient for "${method}": ৳${_loanBal} < ৳${amount}`);
+              if (typeof Utils !== 'undefined' && Utils.toast) {
+                Utils.toast(`⚠️ Loan restore: "${method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে, balance manually ঠিক করুন।`, 'warning', 7000);
+              }
+            }
+          }
 
           // Find linked finance entry by matching fields (same as delete logic)
           const financeEntries = getAll('finance_ledger').filter(f =>
@@ -1137,8 +1173,23 @@ const SupabaseSync = (() => {
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            if (isIncome)  updateAccountBalance(method, amount, 'in',  true); // restore: force=true
-            if (isExpense) updateAccountBalance(method, amount, 'out', true); // restore: force=true
+            // ✅ একটাই রুল: কোনো account কখনো negative হবে না
+            if (isIncome)  updateAccountBalance(method, amount, 'in');
+            if (isExpense) {
+              const _curBal2 = (function() {
+                const accs = getAll('accounts');
+                if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+                const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
+              })();
+              if (_curBal2 - amount >= 0) {
+                updateAccountBalance(method, amount, 'out');
+              } else {
+                console.warn(`[Restore] Skipped balance deduction for "${method}": ৳${_curBal2} < ৳${amount}`);
+                if (typeof Utils !== 'undefined' && Utils.toast) {
+                  Utils.toast(`⚠️ Expense restore: "${method}"-এ যথেষ্ট ব্যালেন্স নেই। Record ফিরে এসেছে, balance manually ঠিক করুন।`, 'warning', 7000);
+                }
+              }
+            }
 
             if (isIncome && r.category === 'Student Fee' && r.ref_id) {
               const students = getAll('students');
@@ -1166,7 +1217,24 @@ const SupabaseSync = (() => {
           }
          } else if (table === 'loans') {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
-          updateAccountBalance(method, amount, wasGiven ? 'out' : 'in', true); // restore: force=true
+          const _loanDir2 = wasGiven ? 'out' : 'in';
+          if (_loanDir2 === 'in') {
+            updateAccountBalance(method, amount, 'in');
+          } else {
+            const _loanBal2 = (function() {
+              const accs = getAll('accounts');
+              if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+              const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
+            })();
+            if (_loanBal2 - amount >= 0) {
+              updateAccountBalance(method, amount, 'out');
+            } else {
+              console.warn(`[Restore-Loan] Balance insufficient for "${method}": ৳${_loanBal2} < ৳${amount}`);
+              if (typeof Utils !== 'undefined' && Utils.toast) {
+                Utils.toast(`⚠️ Loan restore: "${method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে, balance manually ঠিক করুন।`, 'warning', 7000);
+              }
+            }
+          }
 
           // Find linked finance entry by matching fields (same as delete logic)
           const financeEntries = getAll('finance_ledger').filter(f =>
@@ -1238,8 +1306,24 @@ const SupabaseSync = (() => {
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
            if (fr.method && parseFloat(fr.amount) > 0) {
-             const dir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
-             updateAccountBalance(fr.method, parseFloat(fr.amount), dir, true); // restore: force=true
+             const _frDir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
+             if (_frDir === 'in') {
+               updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+             } else {
+               const _frBal = (function() {
+                 const accs = getAll('accounts');
+                 if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+                 const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
+               })();
+               if (_frBal - parseFloat(fr.amount) >= 0) {
+                 updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
+               } else {
+                 console.warn(`[Restore-StudentFin] Balance insufficient for "${fr.method}": ৳${_frBal} < ৳${fr.amount}`);
+                 if (typeof Utils !== 'undefined' && Utils.toast) {
+                   Utils.toast(`⚠️ Student finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
+                 }
+               }
+             }
            }
           const freshBin = getAll('recycle_bin');
           const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
