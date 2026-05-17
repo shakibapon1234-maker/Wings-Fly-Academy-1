@@ -10,6 +10,25 @@ const SettingsModule = (() => {
   let _syncListener = null; // wfa:synced listener reference — closeModal-এ remove করার জন্য
   let _suppressSyncRebuild = false; // ✅ FIX: keep record save করার পরেই wfa:synced fire হয়, তখন modal rebuild রোখার জন্য
   let _suppressSyncTimer = null;   // ✅ FIX: clearTimeout-এর জন্য আলাদা timer variable
+  let _syncRefreshTimer = null;    // ✅ FIX: debounced partial refresh — full modal rebuild UI hang করত
+
+  // CSP-সেইফ: index.html script-src-attr ছাড়া inline onclick ব্লক হয় — delegation দিয়ে tab/close চালু
+  function _onSettingsOverlayClick(e) {
+    const closeBtn = e.target.closest('.settings-close-btn');
+    if (closeBtn) { e.preventDefault(); closeModal(); return; }
+    const hamBtn = e.target.closest('.settings-hamburger-btn');
+    if (hamBtn) { e.preventDefault(); toggleSettingsSidebar(); return; }
+    const tabBtn = e.target.closest('.settings-tab[data-tab]');
+    if (tabBtn) { e.preventDefault(); switchTab(tabBtn.dataset.tab); return; }
+    const saveAllBtn = e.target.closest('.settings-save-all');
+    if (saveAllBtn) { e.preventDefault(); saveAllChanges(); return; }
+  }
+
+  function _bindSettingsOverlayEvents(overlay) {
+    if (!overlay || overlay.dataset.eventsBound === '1') return;
+    overlay.dataset.eventsBound = '1';
+    overlay.addEventListener('click', _onSettingsOverlayClick);
+  }
 
   // ─── MODAL OPEN / CLOSE ───────────────────────────────────────
   function openModal() {
@@ -23,7 +42,8 @@ const SettingsModule = (() => {
     });
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
-    
+    _bindSettingsOverlayEvents(overlay);
+
     // ✅ FIX: Sanitize all date inputs IMMEDIATELY after DOM is created, BEFORE flatpickr init
     setTimeout(() => {
       const dateInputs = overlay.querySelectorAll('input[type="date"]');
@@ -44,28 +64,17 @@ const SettingsModule = (() => {
     if (_syncListener) {
       window.removeEventListener('wfa:synced', _syncListener);
     }
-    _syncListener = (e) => {
+    _syncListener = () => {
       const panel = document.getElementById('settings-overlay');
       if (!panel) return;
 
-      // ✅ FIX: keeprecord tab-এ wfa:synced এলে কোনো rebuild/grid-refresh করা যাবে না।
-      // কারণ:
-      //   1. _saveKeepRecords() → saveConfig() → Supabase push → realtime ফিরে আসে →
-      //      _handleRealtimeEvent() newRow দিয়ে local overwrite করে (keep_records হারিয়ে যায়) →
-      //      wfa:synced fire → grid refresh → getKeepRecords() empty পায় → নোট ভ্যানিশ।
-      //   2. _suppressSyncRebuild flag 800ms পরে false হলে Supabase realtime event তখনো আসতে পারে।
-      // সমাধান: keeprecord tab active থাকলে wfa:synced event সম্পূর্ণ ignore করো।
-      // নোট save/delete/edit-এ _refreshKeepRecordGrid() সরাসরি call হয়, তাই event দরকার নেই।
+      // keeprecord: নোট save/delete-এ _refreshKeepRecordGrid() সরাসরি call হয়
       if (activeTab === 'keeprecord') return;
-
       if (_suppressSyncRebuild) return;
 
-      // অন্য tab: শুধু active tab re-render করো
-      const savedTab = activeTab;
-      panel.innerHTML = buildModalHTML();
-      activeTab = savedTab;
-      switchTab(savedTab);
-      setTimeout(_initSettingsDatePickers, 20);
+      // ✅ FIX: প্রতিটি realtime event-এ পুরো modal rebuild → main thread block → tab/close কাজ করে না
+      clearTimeout(_syncRefreshTimer);
+      _syncRefreshTimer = setTimeout(_refreshSettingsOnSync, 600);
     };
     window.addEventListener('wfa:synced', _syncListener);
   }
@@ -74,6 +83,7 @@ const SettingsModule = (() => {
   function closeModal() {
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
+    clearTimeout(_syncRefreshTimer);
     overlay.classList.add('closing');
     // sync listener সরিয়ে দাও — modal বন্ধ হলে আর দরকার নেই
     if (_syncListener) {
@@ -98,17 +108,17 @@ const SettingsModule = (() => {
       <div class="settings-modal">
         <div class="settings-modal-header">
           <div style="display:flex;align-items:center;gap:10px;">
-            <button class="settings-hamburger-btn" onclick="SettingsModule.toggleSettingsSidebar()">
+            <button type="button" class="settings-hamburger-btn">
               <i class="fa fa-bars"></i>
             </button>
             <h2><i class="fa fa-gear"></i> System Settings</h2>
           </div>
-          <button class="settings-close-btn" onclick="SettingsModule.closeModal()">✕</button>
+          <button type="button" class="settings-close-btn" aria-label="Close settings">✕</button>
         </div>
         <div class="settings-modal-body">
           <div class="settings-sidebar" id="settings-sidebar-drawer">
             ${buildSidebarTabs()}
-            <button class="settings-save-all" onclick="SettingsModule.saveAllChanges()">
+            <button type="button" class="settings-save-all">
               <i class="fa fa-floppy-disk"></i> SAVE ALL CHANGES
             </button>
           </div>
@@ -144,9 +154,8 @@ const SettingsModule = (() => {
       { id: 'ai-assistant',  icon: 'fa-robot',               label: 'AI Assistant' },
     ];
     return tabs.map(t => `
-      <button class="settings-tab ${activeTab === t.id ? 'active' : ''}"
-              data-tab="${t.id}"
-              onclick="SettingsModule.switchTab('${t.id}')">
+      <button type="button" class="settings-tab ${activeTab === t.id ? 'active' : ''}"
+              data-tab="${t.id}">
         <i class="fa ${t.icon}"></i> ${t.label}
       </button>
     `).join('');
@@ -175,12 +184,14 @@ const SettingsModule = (() => {
   // ─── TAB SWITCH ───────────────────────────────────────────────
   function switchTab(tab) {
     activeTab = tab;
-    // Update sidebar
-    document.querySelectorAll('.settings-tab').forEach(btn => {
+    const overlay = document.getElementById('settings-overlay');
+    const scope = overlay || document;
+    // Update sidebar (scope to settings modal — অন্য .settings-tab থাকলে clash এড়ায়)
+    scope.querySelectorAll('.settings-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tab);
     });
     // Update panels
-    document.querySelectorAll('.settings-panel').forEach(p => {
+    scope.querySelectorAll('.settings-panel').forEach(p => {
       p.classList.toggle('active', p.dataset.panel === tab);
     });
     // Auto-close sidebar on mobile after tab switch
@@ -190,8 +201,38 @@ const SettingsModule = (() => {
     if (tab === 'syncguard' && typeof SyncGuard !== 'undefined') {
       setTimeout(() => SyncGuard.renderPanel('syncguard-panel'), 50);
     }
+    if (tab === 'categories') _silentAutoDetect();
+    if (tab === 'activity' && typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
+      SupabaseSync.pullActivityLog()
+        .then(() => refreshActivityPanel())
+        .catch(() => refreshActivityPanel());
+    }
     // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
+  }
+
+  // ✅ FIX: sync-এ শুধু active tab-এর ডেটা আপডেট — পুরো modal rebuild নয়
+  function _refreshSettingsOnSync() {
+    if (!document.getElementById('settings-overlay')) return;
+    switch (activeTab) {
+      case 'activity':
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
+          SupabaseSync.pullActivityLog()
+            .then(() => refreshActivityPanel())
+            .catch(() => refreshActivityPanel());
+        } else {
+          refreshActivityPanel();
+        }
+        break;
+      case 'recycle':
+      case 'monitor':
+      case 'sync':
+      case 'syncguard':
+        refreshModal();
+        break;
+      default:
+        break;
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -846,16 +887,15 @@ const SettingsModule = (() => {
     window.addEventListener('wfa:synced', (e) => {
       if (e.detail?.direction === 'pull' || e.detail?.direction === 'realtime') {
         _silentAutoDetect();
-        // Merge remote keep_records into local if settings table was updated
+        // Settings modal খোলা থাকলে merge skip — saveConfig/rebuild loop ও UI hang এড়ায়
+        if (document.getElementById('settings-overlay')) return;
         _mergeRemoteKeepRecords();
-        // Merge remote recycle bin into local IDB
         _mergeRemoteRecycleBin();
       }
     });
   })();
 
   function panelCategories() {
-    _silentAutoDetect(); // ✅ Always auto-detect on panel open — no manual click needed
     const cfg = getConfig();
     const incomeCats = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
     const expenseCats = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
@@ -1475,13 +1515,6 @@ const SettingsModule = (() => {
     const addCount    = logs.filter(l => l.action === 'add').length;
     const editCount   = logs.filter(l => l.action === 'edit').length;
     const deleteCount = logs.filter(l => l.action === 'delete').length;
-
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
-      SupabaseSync.pullActivityLog().then(() => {
-        const panel = document.querySelector('[data-panel="activity"]');
-        if (panel && panel.classList.contains('active')) refreshActivityPanel();
-      }).catch(() => {});
-    }
 
     return `
     <div class="settings-panel ${activeTab === 'activity' ? 'active' : ''}" data-panel="activity">
@@ -3317,6 +3350,12 @@ ${expenseEntries.length > 0 ? `
 
   function getKeepRecords() {
     return typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.keep_records || 'keep_records') : [];
+  }
+
+  function _saveKeepRecords(notes) {
+    if (typeof SupabaseSync === 'undefined' || !SupabaseSync.setAll) return;
+    const table = DB.keep_records || 'keep_records';
+    SupabaseSync.setAll(table, Array.isArray(notes) ? notes : []);
   }
 
   // ✅ Migration: পুরনো data localStorage থেকে Supabase-এ সিঙ্ক করো

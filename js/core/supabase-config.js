@@ -103,12 +103,16 @@ if (!navigator.onLine) {
 _reinitSupabaseClient();
 const supabaseClient = window.supabaseClient || null;
 
-document.addEventListener('DOMContentLoaded', () => {
-  _hydrateSupabaseCredsFromStorage();
+document.addEventListener('DOMContentLoaded', async () => {
+  await _hydrateSupabaseCredsFromStorage();
+  _warnIfStillUnconfigured();
 });
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  console.warn('[Config] Supabase URL/anon key not configured. Set js/core/supabase-secrets.js or Settings → Cloud API.');
+async function _warnIfStillUnconfigured() {
+  const { url, anonKey } = _resolveSupabaseCreds();
+  if (!url || !anonKey) {
+    console.info('[Config] Supabase not configured yet — use Settings → Cloud API when ready.');
+  }
 }
 
 window.supabaseClient = supabaseClient;
@@ -135,16 +139,20 @@ const DB = {
   sub_accounts:     'sub_accounts',
 };
 
-const RLS_WARNING = `
-⚠️  CRITICAL SECURITY CHECK:
-   Row Level Security (RLS) MUST be enabled on all Supabase tables.
-   If RLS is NOT enabled, the public anon key exposes ALL data!
-`;
-
+// Static reminder only — app cannot read Supabase RLS status from the browser.
+// Skip when Supabase Auth session is active (Settings → Cloud API sign-in).
 window.addEventListener('load', () => {
-  if (supabaseClient && typeof supabaseClient.auth !== 'undefined') {
-    console.warn(RLS_WARNING);
-  }
+  if (!supabaseClient || typeof supabaseClient.auth === 'undefined') return;
+  if (sessionStorage.getItem('wfa_rls_reminder_shown') === '1') return;
+  const hasAuthSession = Object.keys(localStorage).some(
+    (k) => k.includes('supabase.auth.token') || (k.startsWith('sb-') && k.includes('auth-token'))
+  );
+  if (hasAuthSession) return;
+  sessionStorage.setItem('wfa_rls_reminder_shown', '1');
+  console.info(
+    '[Config] Supabase RLS checklist (one-time): Dashboard → Table Editor → each table → RLS ON + policies for "authenticated". ' +
+    'This message does not mean RLS is off — verify in Supabase if unsure.'
+  );
 });
 
 const SupabaseAuth = {

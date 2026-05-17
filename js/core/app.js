@@ -1136,7 +1136,8 @@ const App = (() => {
     // ✅ Fix: modal খোলা থাকলে re-render skip — transaction add করার সময় freeze এড়াতে
     window.addEventListener('wfa:synced', () => {
       const modalOpen = document.querySelector('.modal-backdrop.open');
-      if (!modalOpen) {
+      const settingsOpen = document.getElementById('settings-overlay');
+      if (!modalOpen && !settingsOpen) {
         renderModule(currentSection);
       }
       updateNotifCount();
