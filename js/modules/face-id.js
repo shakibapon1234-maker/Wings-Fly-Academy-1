@@ -23,8 +23,16 @@ const FaceIDModule = (() => {
       if (typeof faceapi !== 'undefined') { resolve(); return; }
       if (isLibraryLoading) {
         // already loading — poll until ready
+        // ✅ Bug #11 Fix: added 15s timeout to prevent infinite poll if script load fails
+        let pollCount = 0;
+        const MAX_POLLS = 75; // 75 × 200ms = 15 seconds
         const poll = setInterval(() => {
-          if (typeof faceapi !== 'undefined') { clearInterval(poll); resolve(); }
+          if (typeof faceapi !== 'undefined') { clearInterval(poll); resolve(); return; }
+          if (++pollCount >= MAX_POLLS) {
+            clearInterval(poll);
+            isLibraryLoading = false;
+            reject(new Error('face-api load timeout (15s)'));
+          }
         }, 200);
         return;
       }

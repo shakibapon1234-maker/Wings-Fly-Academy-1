@@ -1,7 +1,7 @@
 {
-  "version": "1.2.1",
-  "deploy_id": "20260516-payment-audit-fix",
-  "changelog": "Payment audit fix — finance color bug, XSS escape, negative amount guard, CSP on all pages",
+  "version": "1.2.2",
+  "deploy_id": "20260517-bugfix-4bugs",
+  "changelog": "Bug fixes: loading-state.js order (#1), finance deleteEntry student ID match (#3), face-id poll timeout (#11), _trackDeletion IDB consistency (#14)",
   "size": "~2MB",
-  "released": "2026-05-16"
+  "released": "2026-05-17"
 }

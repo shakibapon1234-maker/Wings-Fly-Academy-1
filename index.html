@@ -513,6 +513,8 @@
   <!-- Core (defer: page render block হয় না, order preserved) -->
   <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
   <script src="js/core/utils.js" defer></script>
+  <!-- ✅ Bug #1 Fix: loading-state.js must load before app.js/modules so WFA_Loading is available -->
+  <script src="js/core/loading-state.js" defer></script>
   <!-- ✅ Bug #6/#21/#22 Fix: Secure storage with encryption + private browsing fallback -->
   <script src="js/core/secure-storage.js" defer></script>
   <!-- Optional local Supabase credentials (empty stub; fill via Settings → Cloud API) -->
@@ -535,6 +537,10 @@
   <script src="js/ui/login.js" defer></script>
   <script src="js/ui/dashboard.js" defer></script>
   <script src="js/ui/settings.js" defer></script>
+
+  <!-- Admin Panel (CSP-compliant version) -->
+  <!-- ✅ Bug #2 Fix: admin-panel.js extracted from admin.html for CSP compliance -->
+  <script src="js/core/admin-panel.js" defer></script>
 
   <!-- Modules -->
   <script src="js/modules/students.js" defer></script>
@@ -567,8 +573,6 @@
   <script src="js/modules/ai-assistant.js" defer></script>
 
 
-  <!-- ✅ Fix M-04: Added defer — prevents DOM block & race condition with deferred dependencies -->
-  <script src="js/core/loading-state.js" defer></script>
 
 </body>
 </html>

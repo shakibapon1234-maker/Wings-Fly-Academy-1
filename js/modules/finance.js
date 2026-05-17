@@ -527,7 +527,8 @@ const isLoanType    = type === 'Loan Giving' || type === 'Loan Receiving';
       // Prevents drift if installments deleted out of order or data manually edited
       if (entry.type === 'Income' && entry.category === 'Student Fee' && entry.ref_id) {
         const students = SupabaseSync.getAll(DB.students);
-        const sIdx = students.findIndex(s => s.id === entry.ref_id);
+        // ✅ Bug #3 Fix: ref_id can match either s.id (IDB key) or s.student_id (UUID)
+        const sIdx = students.findIndex(s => s.id === entry.ref_id || s.student_id === entry.ref_id);
         if (sIdx !== -1) {
           const s = students[sIdx];
           // Get ALL remaining student fee payments (excluding this one being deleted)

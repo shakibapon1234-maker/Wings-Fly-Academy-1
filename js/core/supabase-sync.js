@@ -712,13 +712,14 @@ const SupabaseSync = (() => {
   }
 
   function _trackDeletion(table, id) {
+    // ✅ Bug #14 Fix: write to IDB (deleted_items) so reads in getDeletedIds/
+    //    clearDeletedIds/untrackDeletion stay consistent (they all read from IDB).
     try {
-      const key = 'wfa_deletedItems';
-      let deleted = (() => { try { return JSON.parse(localStorage.getItem(key)) || {}; } catch { return {}; } })();
+      let deleted = ((getAll('deleted_items') || [])[0] || {});
       if (Array.isArray(deleted) || typeof deleted !== 'object') deleted = {};
       if (!deleted[table]) deleted[table] = [];
       if (!deleted[table].includes(id)) deleted[table].push(id);
-      localStorage.setItem(key, JSON.stringify(deleted));
+      setAll('deleted_items', [deleted]);
     } catch { /* ignore */ }
   }
 
