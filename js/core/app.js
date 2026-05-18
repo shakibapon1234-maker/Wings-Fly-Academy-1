@@ -339,7 +339,7 @@ const App = (() => {
 
       if (adminOk) {
         // ✅ Bug #5 + Fix C-01: Reset attempt counter in both storages
-        localStorage.removeItem('wfa_login_attempts');
+        localStorage.removeItem(attemptKey);
         localStorage.removeItem('wfa_login_lockout_until');
         sessionStorage.removeItem('wfa_login_lockout_until');
         localStorage.setItem('wfa_logged_in', 'true');
@@ -363,7 +363,7 @@ const App = (() => {
     });
     if (sub) {
       // ✅ Bug #5: Reset attempt counter and save login timestamp
-      localStorage.removeItem('wfa_login_attempts');
+      localStorage.removeItem(attemptKey);
       localStorage.removeItem('wfa_login_lockout_until');
       localStorage.setItem('wfa_logged_in', 'true');
       localStorage.setItem('wfa_login_time', String(Date.now()));
@@ -1186,6 +1186,7 @@ const App = (() => {
     // cache is loaded, SupabaseSync.getAll() returns [] and password
     // checks fail silently. onReady() guarantees the in-memory cache
     // is populated before any auth logic runs.
+    if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
     WFA_IDB.onReady(() => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
       cleanupDuplicateSettings();
@@ -1203,6 +1204,12 @@ const App = (() => {
       }
       updateNotifCount();
     });
+    } else {
+      // WFA_IDB not available — run auth check directly (offline/fallback mode)
+      cleanupDuplicateSettings();
+      if (isLoggedIn()) { showApp(false); } else { showLogin(); }
+      updateNotifCount();
+    }
   }
 
   return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };

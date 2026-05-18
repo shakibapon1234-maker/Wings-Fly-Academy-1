@@ -1783,7 +1783,7 @@ const SyncEngine = (() => {
         // Local এ আছে কিন্তু cloud এ নেই — শুধু রাখো যদি
         // এটা cloud এর latest record এর চেয়ে নতুন হয় (অর্থাৎ সত্যিই নতুন entry)
         const localTime = new Date(row.updated_at || 0).getTime();
-        if (latestCloudTime > 0 && localTime < latestCloudTime - 300_000) {
+        if (latestCloudTime > 0 && localTime < latestCloudTime - 300000) {
           // Cloud এ ৫ মিনিটের বেশি আগের record এর চেয়েও পুরনো local row — skip (stale data)
           return;
         }
@@ -1793,7 +1793,7 @@ const SyncEngine = (() => {
         const cloudTime = new Date(existing.updated_at || 0).getTime();
         const diff = Math.abs(localTime - cloudTime);
 
-        if (diff < 10_000 && row._device && existing._device && row._device !== existing._device) {
+        if (diff < 10000 && row._device && existing._device && row._device !== existing._device) {
           // ✅ Field-level merge: combine non-conflicting changes from both devices
           const resolvedRecord = _fieldLevelMerge(existing, row, localTime, cloudTime);
           merged.set(row.id, resolvedRecord);
@@ -2041,13 +2041,13 @@ const SyncEngine = (() => {
           console.error('[Sync] Silent pull interval error:', e);
         });
       } else {
-        if (Date.now() - _lastSyncTime > 60_000) {
+        if (Date.now() - _lastSyncTime > 60000) {
           pull({ silent: true }).catch(e => {
             console.error('[Sync] Silent pull interval error (with realtime):', e);
           });
         }
       }
-    }, 30_000);
+    }, 30000);
 
     // ✅ Fix: Add error handler to initial pull
     pull({ silent: true }).then(() => {

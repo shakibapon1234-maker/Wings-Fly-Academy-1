@@ -9,7 +9,6 @@ const SettingsModule = (() => {
   let isOpen = false;
   let _syncListener = null; // wfa:synced listener reference — closeModal-এ remove করার জন্য
   let _suppressSyncRebuild = false; // ✅ FIX: keep record save করার পরেই wfa:synced fire হয়, তখন modal rebuild রোখার জন্য
-  let _suppressSyncTimer = null;   // ✅ FIX: clearTimeout-এর জন্য আলাদা timer variable
   let _syncRefreshTimer = null;    // ✅ FIX: debounced partial refresh — full modal rebuild UI hang করত
 
   // CSP-সেইফ: index.html script-src-attr ছাড়া inline onclick ব্লক হয় — delegation দিয়ে tab/close চালু
@@ -2040,15 +2039,6 @@ const SettingsModule = (() => {
     const studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
 
     // ── Income: from student fees (finance entries for these students) ──
-    const incomeEntries = finance.filter(f => {
-      if (f.type !== 'Income' || f.category !== 'Student Fee') return false;
-      // Match by ref_id (student DB id) or ref_id = student_id
-      const matchById = studentIds.has(f.ref_id);
-      const matchByStuId = batchStudents.some(s => s.student_id === f.ref_id);
-      const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
-      return (matchById || matchByStuId) && inRange;
-    });
-
     // Also count direct paid from student records
     const totalStudentFee  = batchStudents.reduce((s, st) => s + (parseFloat(st.total_fee) || 0), 0);
     const totalCollected   = batchStudents.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
@@ -2589,7 +2579,6 @@ ${expenseEntries.length > 0 ? `
   // TAB 10: ACCOUNTS MANAGEMENT
   // ════════════════════════════════════════════════════════════════
   function panelAccountsMgmt() {
-    const accounts = SupabaseSync.getAll(DB.accounts);
     return `
     <div class="settings-panel ${activeTab === 'accounts-mgmt' ? 'active' : ''}" data-panel="accounts-mgmt">
       <div class="settings-card glow-cyan">
@@ -3417,7 +3406,6 @@ ${expenseEntries.length > 0 ? `
   //   2. প্রতি ৩০ সেকেন্ডে auto-pull settings overwrite → নোট ভ্যানিশ
   //   3. realtime event-এ settings row overwrite → keep_records হারায়
   // সমাধান: localStorage-এ 'wfa_keep_records_v2' key-এ সরাসরি save।
-  const _KR_KEY = 'wfa_keep_records_v2';
 
   function getKeepRecords() {
     return typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.keep_records || 'keep_records') : [];
@@ -3487,8 +3475,7 @@ ${expenseEntries.length > 0 ? `
       // 2. Add remote notes that don't exist locally
       const toAdd = remote.filter(n => !localIds.has(_getNoteId(n)));
       
-      // 3. For notes that exist in both: use newer timestamp
-      const shared = local.filter(n => remoteIds.has(_getNoteId(n)));
+      // 3. Merge: local is authoritative, remote adds missing notes
       const merged = [...pinnedLocal]; // start with pinned
       
       for (const note of toAdd) {
@@ -3881,7 +3868,7 @@ ${expenseEntries.length > 0 ? `
     const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
     if (!advances[idx]) return;
     const victim = advances[idx];
-    if (!confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+    if (!window.confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
 
     // Recycle Bin-এ পাঠাও
     if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -4114,7 +4101,7 @@ ${expenseEntries.length > 0 ? `
     const investments = SupabaseSync.getAll(DB.investments || 'investments');
     if (!investments[idx]) return;
     const victim = investments[idx];
-    if (!confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
+    if (!window.confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
 
     // Recycle Bin-এ পাঠাও
     if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -4939,9 +4926,9 @@ ${expenseEntries.length > 0 ? `
         if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Backup বিশ্লেষণ করা হচ্ছে...'; }
 
         // Detect legacy format
-        const isLegacy = data.hasOwnProperty('employees') ||
-                         data.hasOwnProperty('cashBalance') ||
-                         data.hasOwnProperty('incomeCategories') ||
+        const isLegacy = Object.prototype.hasOwnProperty.call(data, 'employees') ||
+                         Object.prototype.hasOwnProperty.call(data, 'cashBalance') ||
+                         Object.prototype.hasOwnProperty.call(data, 'incomeCategories') ||
                          (data.students && data.students[0] && data.students[0].studentId);
 
         if (isLegacy) {
@@ -5223,9 +5210,9 @@ ${expenseEntries.length > 0 ? `
     try {
       const { client } = window.SUPABASE_CONFIG;
       for (const tableName of Object.values(DB)) {
-        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch {}
+        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch (e) { console.warn('[FactoryReset] Table delete failed:', tableName, e?.message); }
       }
-    } catch {}
+    } catch (e) { console.warn('[FactoryReset] Cloud delete skipped (offline or no client):', e?.message); }
 
     // Delete all local data
     Object.values(DB).forEach(t => localStorage.removeItem(`wfa_${t}`));
@@ -5249,7 +5236,7 @@ ${expenseEntries.length > 0 ? `
     try {
       const { client } = window.SUPABASE_CONFIG;
       for (const tableName of Object.values(DB)) {
-        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch {}
+        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch (e) { console.warn('[ClearCloud] Table delete failed:', tableName, e?.message); }
       }
       Utils.toast('Cloud data deleted', 'info');
     } catch (e) {
@@ -5268,7 +5255,7 @@ ${expenseEntries.length > 0 ? `
       if (typeof WFA_IDB !== 'undefined') {
         return WFA_IDB.getTable(SNAPSHOT_IDB_KEY) || [];
       }
-    } catch {}
+    } catch (e) { console.warn('[Snapshot] IDB read failed, falling back to localStorage:', e?.message); }
     // Fallback: try reading from localStorage for backwards-compat
     return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
@@ -5279,7 +5266,7 @@ ${expenseEntries.length > 0 ? `
       if (typeof WFA_IDB !== 'undefined') {
         WFA_IDB.setTable(SNAPSHOT_IDB_KEY, snapshots);
         // Also clear old localStorage snapshots to free space
-        try { localStorage.removeItem('wfa_auto_snapshots'); } catch {}
+        try { localStorage.removeItem('wfa_auto_snapshots'); } catch (e) { console.warn('[Snapshot] Could not clear old localStorage snapshot:', e?.message); }
         return true;
       }
     } catch (e) {
@@ -6162,6 +6149,7 @@ ${expenseEntries.length > 0 ? `
     runAutoHeal, runSyncCheck, runAutoFix,
     rebuildMonitorData,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
+    saveAIApiKey,
   };
 })();
 

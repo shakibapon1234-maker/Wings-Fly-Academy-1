@@ -145,13 +145,9 @@ const Loans = (() => {
     //   (যাদেরকে আগে দিয়েছিলাম, এখন তারা ফেরত দিতে পারে / নতুন নিতে পারি)
     // কিন্তু edit mode-এ current name সহ সব নাম দেখাও
     // Default: সব নাম দেখাও (dropdown সবসময় সব লোন পার্সনের নাম রাখবে)
-    const currentType = d.type || d.direction || 'Loan Giving';
     const givenPersons    = [...new Set(allLoans.filter(l=>l.type==='Loan Giving'   ||l.direction==='given'   ).map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
     const receivedPersons = [...new Set(allLoans.filter(l=>l.type==='Loan Receiving'||l.direction==='received').map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
     const allPersons      = [...new Set(allLoans.map(l=>l.person_name||l.person||'').filter(Boolean))].sort();
-
-    // Editing হলে সব নাম দেখাও, নতুন add-এ type-wise
-    const existingPersons = d.id ? allPersons : allPersons; // always all, JS will filter dynamically
 
     // Date parts
     const dateStr = (d.date || Utils.today()).split('T')[0];

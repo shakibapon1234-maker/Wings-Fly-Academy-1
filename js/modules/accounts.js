@@ -6,8 +6,6 @@
 
 const Accounts = (() => {
 
-  const CATEGORIES = ['Cash', 'Bank', 'Mobile Banking'];
-
   // ── Opening Balance Helper ──────────────────────────────────────────────
   // Account-এ balance set করলে Finance-এ একটা Income entry তৈরি/আপডেট করে
   // যাতে SyncGuard-এর balance audit মিলে যায়।
@@ -924,7 +922,6 @@ const Accounts = (() => {
 
   function exportSearchExcel() {
     const finance  = SupabaseSync.getAll(DB.finance);
-    const accounts = normalizeAccounts(SupabaseSync.getAll(DB.accounts));
     const isAll = (searchResMethod === '__all__' || !searchResMethod);
     let filtered = finance;
     if (searchResFrom) filtered = filtered.filter(f => f.date >= searchResFrom);

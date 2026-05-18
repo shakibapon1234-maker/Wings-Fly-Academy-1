@@ -18,10 +18,8 @@ const CertificatesModule = (() => {
 
   // ── Build Certificate HTML ────────────────────────────────
   function buildCertHTML(data) {
-    const settings = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') ? (SupabaseSync.getAll(DB.settings)[0] || {}) : {};
     const sigShakib = 'assets/shakib_sign.png';
     const sigChairman = 'assets/ferdous_sign.png';
-    const issueDate = data.issueDate || (typeof Utils !== 'undefined' ? Utils.today() : new Date().toLocaleDateString('en-GB'));
     const certNumber = data.certNumber || 'WFA-' + new Date().getFullYear();
     const studentId = typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A');
     const courseName = (data.courseName || 'N/A').toUpperCase();

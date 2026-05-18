@@ -1809,7 +1809,6 @@ const Students = (() => {
       const totalFee   = Utils.safeNum(s.total_fee);
       const storedPaid = Utils.safeNum(s.paid);
       const storedDue  = Utils.safeNum(s.due);
-      const correctDue = Math.max(0, totalFee - storedPaid); // keep s.paid as-is (may include unrecorded initial)
 
       // Only fix if the stored DUE doesn't match total_fee - paid
       // OR if ledger is GREATER than s.paid (ledger is always authoritative upward)

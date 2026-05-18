@@ -42,13 +42,10 @@ const Finance = (() => {
   function _doRender(container) {
     const all      = SupabaseSync.getAll(DB.finance);
     const filtered = applyFilters(all);
-    const sorted   = Utils.sortBy(filtered, 'date', 'desc');
-
     /* Totals */
     const income   = filtered.filter(f=>f.type==='Income').reduce((s,f)=>s+Utils.safeNum(f.amount),0);
     const expense  = filtered.filter(f=>f.type==='Expense').reduce((s,f)=>s+Utils.safeNum(f.amount),0);
     const loanGiv  = filtered.filter(f=>f.type==='Loan Giving').reduce((s,f)=>s+Utils.safeNum(f.amount),0);
-    const loanRec  = filtered.filter(f=>f.type==='Loan Receiving').reduce((s,f)=>s+Utils.safeNum(f.amount),0);
     const net      = income - expense;
 
     /* Running balance */

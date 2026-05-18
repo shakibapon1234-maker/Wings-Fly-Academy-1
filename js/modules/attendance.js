@@ -637,7 +637,7 @@ const Attendance = (() => {
     });
   }
 
-  function setStatus(btn, status) {
+  function setStatus(btn, _status) {
     const row = btn.closest('tr');
     row.querySelectorAll('.att-status-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
@@ -744,7 +744,7 @@ const Attendance = (() => {
           <th style="color:#00d4ff">LEAVE</th>
           <th>TOTAL</th><th>%</th>
         </tr></thead>
-        <tbody>${Object.entries(entityMap).map(([id, e], i) => {
+        <tbody>${Object.entries(entityMap).map(([_id, e], i) => {
           const total = e.Present + e.Absent + e.Late + e.Leave;
           const pct = total ? Math.round(((e.Present + e.Late) / total) * 100) : 0;
           return `<tr>
@@ -847,7 +847,7 @@ const Attendance = (() => {
     wrapper.innerHTML = `
       <table class="att-sheet-table">
         <thead><tr><th>#</th><th>NAME</th><th style="color:#00ff88">P</th><th style="color:#ff4757">A</th><th style="color:#ffd700">L</th><th>TOTAL</th><th>%</th></tr></thead>
-        <tbody>${Object.entries(entityMap).map(([id, e], i) => {
+        <tbody>${Object.entries(entityMap).map(([_id, e], i) => {
           const total = e.Present + e.Absent + e.Late + e.Leave;
           const pct = total ? Math.round(((e.Present + e.Late) / total) * 100) : 0;
           return `<tr>
@@ -1522,7 +1522,7 @@ const Attendance = (() => {
     loadMonthlyReport, loadYearlyReport,
     loadCourseReport, generateBlankSheet, printBlankSheet,
     smartPrint, printMarkedSheet, printReport,
-    exportCSV, getMonthSummary,
+    exportCSV, getMonthSummary, setLogFilter,
   };
 
 })();
