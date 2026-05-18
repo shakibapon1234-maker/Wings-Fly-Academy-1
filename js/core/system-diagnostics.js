@@ -150,16 +150,46 @@ const SystemDiagnostics = (() => {
       }
       _log('Rollback verified. paid=0, due=10000. ✔ Correct!', 'success');
 
-      // ── PHASE 6: DELETE STUDENT ──────────────────────────────
+      // ── PHASE 6: STUDENT DELETE (To Recycle Bin) ──────────────
       await _wait(500);
-      _log('PHASE 6 — Student DELETE & Cleanup', 'header');
+      _log('PHASE 6 — Student DELETE (To Recycle Bin)', 'header');
 
+      SupabaseSync.remove(DB.students, studentUuid);
+
+      const afterDelete = SupabaseSync.getById(DB.students, studentUuid);
+      if (afterDelete) throw new Error('DELETE failed — student still in active database.');
+      
+      let bin = SupabaseSync.getAll('recycle_bin');
+      let binIndex = bin.findIndex(b => b.table === DB.students && b.data.id === studentUuid);
+      if (binIndex === -1) throw new Error('DELETE failed — student not found in Recycle Bin.');
+      _log('Student deleted and moved to Recycle Bin.', 'success');
+
+      // ── PHASE 7: RESTORE FROM RECYCLE BIN ────────────────────
+      await _wait(500);
+      _log('PHASE 7 — Student RESTORE', 'header');
+
+      await SupabaseSync.restoreRecycleBinItem(binIndex);
+
+      const afterRestore = SupabaseSync.getById(DB.students, studentUuid);
+      if (!afterRestore) throw new Error('RESTORE failed — student not returned to active database.');
+      _log('Student successfully restored from Recycle Bin!', 'success');
+
+      // ── PHASE 8: PERMANENT CLEANUP ───────────────────────────
+      await _wait(500);
+      _log('PHASE 8 — Permanent Cleanup', 'header');
+
+      // Delete again to move back to recycle bin
       SupabaseSync.remove(DB.students, studentUuid);
       studentUuid = null; // consumed
 
-      const shouldBeGone = SupabaseSync.getById(DB.students, studentUuid || '___');
-      if (shouldBeGone) throw new Error('DELETE failed — student still in database.');
-      _log('Student deleted. No orphan records.', 'success');
+      bin = SupabaseSync.getAll('recycle_bin');
+      binIndex = bin.findIndex(b => b.table === DB.students && b.data.name === 'System Test Student [UPDATED]');
+      if (binIndex !== -1) {
+        SupabaseSync.permanentDeleteRecycleBinItem(binIndex);
+        _log('Dummy record permanently wiped from system.', 'success');
+      } else {
+        _log('Warning: Record not found in Recycle Bin for permanent deletion.', 'warn');
+      }
 
     } catch (err) {
       allPassed = false;
@@ -180,7 +210,7 @@ const SystemDiagnostics = (() => {
     await _wait(400);
     _log('-------------------------------------------', 'info');
     if (allPassed) {
-      _log('ALL 6 PHASES PASSED — System integrity is solid!', 'success');
+      _log('ALL 8 PHASES PASSED — System integrity & Restore is solid!', 'success');
     } else {
       _log('Some tests FAILED — review errors above.', 'error');
     }
