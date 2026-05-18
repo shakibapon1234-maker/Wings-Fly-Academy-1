@@ -57,7 +57,7 @@ const IDCardsModule = (() => {
     <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A6 portrait;margin:0;}}</style>
-    </head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<\/script></body></html>`);
+    </head><body>${html}<script>window.onload=function(){setTimeout(function(){window.print();},400);}<` + `/script></body></html>`);
     win.document.close();
   }
 
@@ -69,7 +69,7 @@ const IDCardsModule = (() => {
     <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;padding:20px;background:#eee;display:flex;flex-wrap:wrap;gap:20px;justify-content:center;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4;margin:10mm;}}</style>
-    </head><body>${cards}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
+    </head><body>${cards}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<` + `/script></body></html>`);
     win.document.close();
   }
 

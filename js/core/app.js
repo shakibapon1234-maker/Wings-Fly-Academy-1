@@ -277,7 +277,7 @@ const App = (() => {
     // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
       const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
-      let adminOk = false;
+      let adminOk;
 
       if (!storedPw) {
         // ✅ Fix #1 (enhanced): Only allow first-time setup if there is truly NO data yet.

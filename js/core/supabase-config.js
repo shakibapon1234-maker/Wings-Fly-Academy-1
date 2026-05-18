@@ -21,8 +21,8 @@ async function _hydrateSupabaseCredsFromStorage() {
     const key = await SecureStorage.getItem('wfa_supabase_anon_key');
     if (url && key) {
       window.__WFA_SUPABASE_CREDS = { url, anonKey: key };
-      SUPABASE_URL = url;
-      SUPABASE_ANON_KEY = key;
+      window.SUPABASE_URL = url;
+      window.SUPABASE_ANON_KEY = key;
       _reinitSupabaseClient();
     }
   } catch (e) {
@@ -202,8 +202,8 @@ window.SUPABASE_CONFIG = {
     await SecureStorage.setItem('wfa_supabase_url', url.trim());
     await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
     window.__WFA_SUPABASE_CREDS = { url: url.trim(), anonKey: anonKey.trim() };
-    SUPABASE_URL = url.trim();
-    SUPABASE_ANON_KEY = anonKey.trim();
+    window.SUPABASE_URL = url.trim();
+    window.SUPABASE_ANON_KEY = anonKey.trim();
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
     return window.supabaseClient;

@@ -180,7 +180,7 @@ const VisitorsModule = (() => {
             </thead>
             <tbody>
               ${visitors.map(v => {
-                let statusBadge = '';
+                let statusBadge;
                 if(v.status === 'Enrolled') statusBadge = '<span class="badge badge-success"><i class="fa fa-check"></i> Enrolled</span>';
                 else if(v.status === 'Interested') statusBadge = '<span class="badge badge-warning"><i class="fa fa-star"></i> Interested</span>';
                 else if(v.status === 'Follow-up') statusBadge = '<span class="badge badge-error"><i class="fa fa-phone"></i> Follow-up</span>';

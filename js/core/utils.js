@@ -108,7 +108,7 @@ const Utils = (() => {
     // Already ISO YYYY-MM-DD
     if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.split('T')[0];
     // DD/MM/YYYY or DD-MM-YYYY
-    const dmyMatch = s.match(/^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/);
+    const dmyMatch = s.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
     if (dmyMatch) {
       const [, dd, mm, yyyy] = dmyMatch;
       return `${yyyy}-${mm.padStart(2,'0')}-${dd.padStart(2,'0')}`;
@@ -323,7 +323,7 @@ const Utils = (() => {
       box.classList.remove('anim-slide-left', 'anim-slide-right', 'anim-drop-spin', 'anim-zoom-in', 'anim-fade-up', 'anim-slide-down');
       
       const t = (title || '').toLowerCase();
-      let animClass = 'anim-fade-up';
+      let animClass;
       if (t.includes('student')) animClass = 'anim-slide-left';
       else if (t.includes('transaction') || t.includes('finance')) animClass = 'anim-slide-right';
       else if (t.includes('visitor')) animClass = 'anim-drop-spin';
@@ -775,7 +775,7 @@ const Utils = (() => {
         
         // Type-specific validation
         if (id.includes('phone')) {
-          if (!/^[0-9\-\+\s()]{6,20}$/.test(value)) {
+          if (!/^[0-9\-+\s()]{6,20}$/.test(value)) {
             errors.push(`${label} must be a valid phone number`);
           }
         }

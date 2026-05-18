@@ -25,7 +25,7 @@ async function doLogin() {
   if (!val) { document.getElementById('loginError').style.display = 'block'; return; }
 
   const stored = localStorage.getItem('wfa_admin_pass');
-  let match = false;
+  let match;
 
   if (!stored) {
     const defaultHash = await _adminHashPw('wfa2024');

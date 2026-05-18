@@ -744,7 +744,7 @@ const IntegrityGuard = (() => {
     }
 
     // Build items list based on tab
-    let items = [];
+    let items;
     const allItems = [
       ...results.globals.map(r => ({ ...r, category: 'GLOBAL' })),
       ...results.modules.map(r => ({ ...r, category: 'MODULE' })),

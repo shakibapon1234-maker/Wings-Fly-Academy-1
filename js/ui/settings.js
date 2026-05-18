@@ -1057,7 +1057,7 @@ const SettingsModule = (() => {
       style="flex:1;padding:3px 8px;font-size:0.85rem;border-radius:6px;"
     />`;
     actions.innerHTML = `
-      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\'")}')">✔</button>
+      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✔</button>
       <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory()">✕</button>
     `;
 
@@ -1222,28 +1222,28 @@ const SettingsModule = (() => {
           <button id="btn-full-sync" class="settings-btn-lg btn-sync-cloud" style="flex:1" onclick="
             const b=document.getElementById('btn-full-sync');
             const r=document.getElementById('dm-sync-result');
-            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Syncing...';
+            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Syncing...';
             r.style.display='none';
             SyncEngine.syncAll({ forcePush:true, forceFull:true, silent:true }).then(res=>{
-              b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-down\'></i> FULL SYNC (সব data)';
+              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)';
               r.style.display='block';
               if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Full Sync সফল! সব ডেটা Cloud থেকে নামানো হয়েছে।'; Utils.toast('Full Sync সফল ✅','success'); }
               else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ Sync আংশিক সম্পন্ন। Supabase credentials চেক করুন।'; Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-down\'></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
           ">
             <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (সব data)
           </button>
           <button id="btn-push-cloud-dm" class="settings-btn-lg btn-sync-cloud" style="flex:1;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.3);color:#00ff88" onclick="
             const b=document.getElementById('btn-push-cloud-dm');
             const r=document.getElementById('dm-sync-result');
-            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Pushing...';
+            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
             r.style.display='none';
             SyncEngine.push({ silent:true }).then(res=>{
-              b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-up\'></i> PUSH → CLOUD';
+              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD';
               const sc=res?.successCount||0; const errs=res?.errors||[];
               if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Push সফল! '+sc+' টেবিল Supabase-এ আপলোড হয়েছে।'; Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড','success'); }
               else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ আংশিক Push: '+sc+' সফল, '+errs.length+' সমস্যা। Security & Access-এ credentials চেক করুন।'; Utils.toast('Push — কিছু সমস্যা','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=\'fa fa-cloud-arrow-up\'></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
           ">
             <i class="fa fa-cloud-arrow-up"></i> PUSH → CLOUD
           </button>
@@ -1546,7 +1546,7 @@ const SettingsModule = (() => {
         <div style="display:flex;gap:8px;align-items:center">
           <button class="settings-top-action"
             style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
-            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=\'fa fa-rotate fa-spin\'></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{SettingsModule.refreshActivityPanel();me.innerHTML='<i class=\'fa fa-rotate\'></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=\'fa fa-rotate\'></i> SYNC';})}">
+            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{SettingsModule.refreshActivityPanel();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
             <i class="fa fa-rotate"></i> SYNC
           </button>
           <button class="settings-top-action" onclick="SettingsModule.clearActivityLog()">
@@ -1712,7 +1712,7 @@ const SettingsModule = (() => {
           <button id="btn-sync-pull" class="btn btn-primary btn-sm" onclick="
             const b=document.getElementById('btn-sync-pull');
             const r=document.getElementById('sync-diag-result');
-            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Syncing...';
+            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Syncing...';
             r.style.display='none';
             SyncEngine.syncAll({ silent: true }).then(res=>{
               b.disabled=false; b.innerHTML='⬇ Sync (retry + pull)';
@@ -1736,7 +1736,7 @@ const SettingsModule = (() => {
           <button id="btn-push-cloud" class="btn btn-accent btn-sm" onclick="
             const b=document.getElementById('btn-push-cloud');
             const r=document.getElementById('sync-diag-result');
-            b.disabled=true; b.innerHTML='<i class=\'fa fa-spinner fa-spin\'></i> Pushing...';
+            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
             r.style.display='none';
             SyncEngine.push({ silent: true }).then(res=>{
               b.disabled=false; b.innerHTML='⬆ Push to Cloud';
@@ -4768,7 +4768,7 @@ ${expenseEntries.length > 0 ? `
     };
 
     // Verify old password
-    let oldOk = false;
+    let oldOk;
     if (_isHashed(current)) {
       oldOk = (await _hashPw(oldPw)) === current;
     } else {

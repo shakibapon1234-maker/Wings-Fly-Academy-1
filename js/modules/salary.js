@@ -193,7 +193,7 @@ const Salary = (() => {
     });
     var totalDue = Math.max(0, totalBudget - totalPaid);
 
-    var cardsHTML = '';
+    var cardsHTML;
     if (thisMonth.length === 0) {
       cardsHTML = '<div style="grid-column:1/-1; text-align:center; padding:60px 20px; background:rgba(0,0,0,0.2); border:1px dashed rgba(255,255,255,0.1); border-radius:12px;">' +
         '<i class="fa fa-folder-open" style="font-size:3.5rem; margin-bottom:16px; opacity:.3; display:block; color:var(--brand-primary);"></i>' +
@@ -717,7 +717,7 @@ const Salary = (() => {
   function openHistoryModal() {
     var records = getRecords();
 
-    var rows = '';
+    var rows;
     if (records.length) {
       rows = records.map(function(r) {
         var net       = calcNet(r);

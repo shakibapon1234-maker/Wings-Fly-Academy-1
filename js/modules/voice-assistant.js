@@ -957,7 +957,7 @@ const VoiceAssistant = (() => {
     'পরীক্ষা': 'exam',
     'ফলাফল': 'exam',
     'বেতন': 'salary',
-    'পেমেন্ট': 'salary',
+    'পেমেন্ট': 'payment',
     'উপস্থিতি': 'attendance',
     'হাজিরা': 'attendance',
     'আইডি': 'id-card',
@@ -985,7 +985,7 @@ const VoiceAssistant = (() => {
     'সন্ধ্যা': 'evening',
     'শুভ': 'good',
     'রাত': 'night',
-    'বন্ধ': 'stop',
+    'বন্ধ': 'close',
     'চুপ': 'quiet',
     'থামো': 'stop',
     'থামুন': 'stop',
@@ -996,7 +996,7 @@ const VoiceAssistant = (() => {
     'এখন': 'now',
     'কত': 'how many',
     'তারিখ': 'date',
-    'দিন': 'day',
+    'দিন': 'date',
     'মজা': 'joke',
     'হাসি': 'laugh',
     'জোক': 'joke',
@@ -1025,7 +1025,6 @@ const VoiceAssistant = (() => {
     'আয়': 'income',
     'রাজস্ব': 'revenue',
     'সংগ্রহ': 'collection',
-    'পেমেন্ট': 'payment',
     'প্রাপ্ত': 'received',
     'মাসিক': 'monthly',
     'বার্ষিক': 'yearly',
@@ -1041,7 +1040,6 @@ const VoiceAssistant = (() => {
     'ছাড়': 'discount',
     'ফেরত': 'refund',
     'দিনের': 'day',
-    'দিন': 'day',
     'দাও': 'give',
     'দেন': 'give',
     'কাজের': 'work',
@@ -1059,11 +1057,8 @@ const VoiceAssistant = (() => {
     'উধাও': 'disappear',
     'সরো': 'move',
     'সরুন': 'move',
-    'বন্ধ': 'close',
     'গান': 'sing',
-    'গাও': 'sing',
-    'কাজ': 'task',
-    'আজকের': 'today'
+    'গাও': 'sing'
   };
 
   // ★ NEW: Translate Bengali command to English

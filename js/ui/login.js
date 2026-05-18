@@ -361,7 +361,7 @@ const LoginUI = (() => {
 
     // ✅ Support both plaintext and SHA-256 hashed passwords
     const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
-    let match = false;
+    let match;
     if (_isHashed(masterPin)) {
       try {
         const enc = new TextEncoder();

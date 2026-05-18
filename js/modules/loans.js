@@ -338,8 +338,8 @@ const Loans = (() => {
     if (!typeEl || !sel) return;
 
     const type = typeEl.value; // 'Loan Giving' বা 'Loan Receiving'
-    let persons = [];
-    let hintMsg = '';
+    let persons;
+    let hintMsg;
 
     try {
       const givenPersons    = JSON.parse(sel.dataset.given    || '[]');

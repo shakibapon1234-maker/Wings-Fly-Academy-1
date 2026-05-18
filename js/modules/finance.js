@@ -208,7 +208,7 @@ const Finance = (() => {
   ══════════════════════════════════════════ */
   function getCategories(type) {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    let arr = [];
+    let arr;
     if (type === 'Income' || type === 'Transfer In' || type === 'Loan Receiving') {
       arr = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
     } else {

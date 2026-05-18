@@ -390,7 +390,7 @@ const NoticeBoardModule = (() => {
     if (!text) return Utils.toast('নোটিশের টেক্সট আবশ্যক!', 'error');
     const type = document.getElementById('noticeTypeSelect')?.value || 'warning';
     const durSel = document.getElementById('noticeDurationSelect');
-    let durationMinutes = 720;
+    let durationMinutes;
     if (durSel?.value === 'custom') {
       const d = parseInt(document.getElementById('customDays')?.value) || 0;
       const h = parseInt(document.getElementById('customHours')?.value) || 0;

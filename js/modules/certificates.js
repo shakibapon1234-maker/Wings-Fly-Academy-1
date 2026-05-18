@@ -104,7 +104,7 @@ const CertificatesModule = (() => {
     <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
-    </head><body><div style="zoom:0.85;">${html}</div><script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
+    </head><body><div style="zoom:0.85;">${html}</div><script>window.onload=function(){setTimeout(function(){window.print();},600);}<` + `/script></body></html>`);
     win.document.close();
   }
 
@@ -231,7 +231,7 @@ const CertificatesModule = (() => {
     <div style="font-size:11px;color:#64748b;">${studentId} · ${course}</div>
     <div style="font-size:10px;color:#94a3b8;margin-top:8px;font-style:italic;">📱 QR স্ক্যান করুন → Phone দিন → Download</div>
     </div></div>
-    <script>window.onload=function(){setTimeout(function(){window.print();},800);}<\/script></body></html>`);
+    <script>window.onload=function(){setTimeout(function(){window.print();},800);}<` + `/script></body></html>`);
     win.document.close();
   }
 
@@ -267,7 +267,7 @@ const CertificatesModule = (() => {
     </head><body>
     <h2 style="font-family:Arial;color:#1a3a6b;text-align:center;margin-bottom:16px;">Wings Fly Aviation Academy — Certificate QR Cards</h2>
     <div style="text-align:center;">${cardHTML}</div>
-    <script>window.onload=function(){setTimeout(function(){window.print();},1800);}<\/script></body></html>`);
+    <script>window.onload=function(){setTimeout(function(){window.print();},1800);}<` + `/script></body></html>`);
     win.document.close();
   }
 
@@ -409,7 +409,7 @@ const CertificatesModule = (() => {
     <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;background:#fff;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
-    </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<\/script></body></html>`);
+    </head><body>${allHTML}<script>window.onload=function(){setTimeout(function(){window.print();},600);}<` + `/script></body></html>`);
     win.document.close();
     // Activity log
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
