@@ -55,3 +55,7 @@ local.properties
 # Large backup files
 *.json.bak
 WingsFly_Full_Backup_*.json
+
+# Local Git installation files (do not commit system binaries)
+/Git/
+
