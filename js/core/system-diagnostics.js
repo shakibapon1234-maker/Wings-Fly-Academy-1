@@ -85,8 +85,8 @@ const SystemDiagnostics = (() => {
         created_at:     new Date().toISOString(),
       };
 
-      const created = SupabaseSync.add(DB.students, dummy);
-      if (!created || !created.id) throw new Error('CREATE failed — SupabaseSync.add() returned nothing.');
+      const created = SupabaseSync.insert(DB.students, dummy);
+      if (!created || !created.id) throw new Error('CREATE failed — SupabaseSync.insert() returned nothing.');
       studentUuid = created.id;
       _log(`Student created. UUID: ${studentUuid}`, 'success');
 
@@ -113,7 +113,7 @@ const SystemDiagnostics = (() => {
         note:       'Auto-generated diagnostic payment',
         created_at: new Date().toISOString(),
       };
-      const addedFin = SupabaseSync.add(DB.finance, payment);
+      const addedFin = SupabaseSync.insert(DB.finance, payment);
       if (!addedFin || !addedFin.id) throw new Error('FINANCE INSERT failed.');
       financeUuid = addedFin.id;
 
@@ -139,7 +139,7 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 5 — Finance Rollback (DELETE payment)', 'header');
 
-      SupabaseSync.delete(DB.finance, financeUuid);
+      SupabaseSync.remove(DB.finance, financeUuid);
       financeUuid = null; // consumed
 
       // Reverse balance as app rollback logic does
@@ -154,7 +154,7 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 6 — Student DELETE & Cleanup', 'header');
 
-      SupabaseSync.delete(DB.students, studentUuid);
+      SupabaseSync.remove(DB.students, studentUuid);
       studentUuid = null; // consumed
 
       const shouldBeGone = SupabaseSync.getById(DB.students, studentUuid || '___');
@@ -169,8 +169,8 @@ const SystemDiagnostics = (() => {
 
       // Cleanup on failure
       try {
-        if (financeUuid) SupabaseSync.delete(DB.finance, financeUuid);
-        if (studentUuid) SupabaseSync.delete(DB.students, studentUuid);
+        if (financeUuid) SupabaseSync.remove(DB.finance, financeUuid);
+        if (studentUuid) SupabaseSync.remove(DB.students, studentUuid);
         _log('Emergency cleanup complete.', 'warn');
       } catch (ce) {
         _log('Cleanup error: ' + ce.message, 'error');
