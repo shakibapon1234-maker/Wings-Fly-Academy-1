@@ -32,6 +32,12 @@ async function _hydrateSupabaseCredsFromStorage() {
 
 function _reinitSupabaseClient() {
   if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+  
+  // ✅ Prevent Multiple GoTrueClient instances warning
+  if (window.supabaseClient && window.__WFA_SUPABASE_CREDS && window.supabaseClient.supabaseUrl === SUPABASE_URL) {
+    return; // Already initialized with same credentials
+  }
+
   const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       persistSession: true,

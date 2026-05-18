@@ -200,8 +200,13 @@ const VoiceAssistant = (() => {
           'service-not-allowed': currentLang === 'bn-IN' ? '🔒 মাইক পরিষেবা অক্ষম।' : '🔒 Mic service not allowed.',
         };
         const msg = errorMap[e.error] || ('Mic error: ' + e.error);
-        console.warn('[Voice] Error:', e.error);
-
+        
+        // Hide no-speech from console warning as it's very common
+        if (e.error === 'no-speech') {
+          console.debug('[Voice] Debug:', e.error);
+        } else {
+          console.warn('[Voice] Error:', e.error);
+        }
         // ✅ Desktop FIX: permission errors → hard-stop continuous mode
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
           _hardStop = true;
