@@ -50,10 +50,21 @@ const Students = (() => {
     if (!container) return;
 
     const all      = SupabaseSync.getAll(DB.students);
-    const batches  = [...new Set(all.map(s => s.batch).filter(Boolean))].sort();
-    const courses  = [...new Set(all.map(s => s.course).filter(Boolean))].sort();
-    // admission_date desc — user-দেওয়া তারিখ অনুযায়ী সর্বশেষ সবার উপরে
-    const sorted   = Utils.sortBy(all, 'admission_date', 'desc');
+    // ✅ FIX: batch/course normalize করা হয়েছে যাতে '20' ও 20 (number) একই option হয়
+    const batches  = [...new Set(all.map(s => String(s.batch  || '').trim()).filter(Boolean))].sort();
+    const courses  = [...new Set(all.map(s => String(s.course || '').trim()).filter(Boolean))].sort();
+    // ✅ FIX: সর্বশেষ এড করা ডাটা সবার উপরে — created_at (insert time) দিয়ে primary sort,
+    // admission_date দিয়ে secondary sort (একই insert time হলে)
+    const sorted = [...all].sort((a, b) => {
+      const ca = a.created_at || a.admission_date || '';
+      const cb = b.created_at || b.admission_date || '';
+      if (cb > ca) return 1;
+      if (cb < ca) return -1;
+      // Tiebreak: admission_date desc
+      const da = a.admission_date || '';
+      const db = b.admission_date || '';
+      return db > da ? 1 : db < da ? -1 : 0;
+    });
     const filtered = applyFilters(sorted);
 
     /* Summary row */
@@ -195,8 +206,10 @@ const Students = (() => {
   function applyFilters(rows) {
     let r = rows;
     if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['name','student_id','phone','email','batch']);
-    if (filterBatch)  r = r.filter(s => s.batch  === filterBatch);
-    if (filterCourse) r = r.filter(s => s.course === filterCourse);
+    // ✅ FIX: trim + string comparison — strict equality miss করত যদি batch
+    // number হিসেবে store হয় (20 vs '20') বা whitespace থাকে (' 20')
+    if (filterBatch)  r = r.filter(s => String(s.batch  || '').trim() === String(filterBatch).trim());
+    if (filterCourse) r = r.filter(s => String(s.course || '').trim() === String(filterCourse).trim());
     if (filterStatus) r = r.filter(s => (s.status||'Active') === filterStatus);
     return r;
   }
