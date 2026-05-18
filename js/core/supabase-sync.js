@@ -1078,6 +1078,62 @@ const SupabaseSync = (() => {
       console.warn('[DataMonitor] restore log failed:', e);
     }
 
+    // ✅ Students restore: linked finance entries (installments) রিসাইকেল বিন থেকে restore করো
+    if (table === 'students') {
+      try {
+        const currentBin = getAll('recycle_bin');
+        const linkedFinance = currentBin
+          .map((b, i) => ({ b, i }))
+          .filter(({ b }) => b?.table === 'finance_ledger' && b?.data?.ref_id === record.id && b?.data?.category === 'Student Fee')
+          .reverse();
+
+        for (const { b } of linkedFinance) {
+          const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
+          const finRows = getAll('finance_ledger');
+          const fIdx = finRows.findIndex(r => r.id === fr.id);
+          if (fIdx >= 0) finRows[fIdx] = fr;
+          else finRows.unshift(fr);
+          setAll('finance_ledger', finRows);
+          untrackDeletion('finance_ledger', fr.id);
+          await _pushRecord('finance_ledger', fr);
+          if (fr.method && parseFloat(fr.amount) > 0) {
+            const _frDir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
+            if (_frDir === 'in') {
+              updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+            } else {
+              const _frBal = (function() {
+                const accs = getAll('accounts');
+                if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+                const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
+              })();
+              if (_frBal - parseFloat(fr.amount) >= 0) {
+                updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
+              } else {
+                console.warn(`[Restore-StudentFin] Balance insufficient for "${fr.method}": ৳${_frBal} < ৳${fr.amount}`);
+                if (typeof Utils !== 'undefined' && Utils.toast) {
+                  Utils.toast(`⚠️ Student finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
+                }
+              }
+            }
+          }
+          const freshBin = getAll('recycle_bin');
+          const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
+          if (realIdx !== -1) freshBin.splice(realIdx, 1);
+          setAll('recycle_bin', freshBin);
+        }
+      } catch (e) {
+        console.warn('[Restore] Student linked finance restore failed:', e);
+      }
+    }
+
+    // Final cleanup: remove from recycle bin by id+table (handles index shift edge cases)
+    const freshBinFinal = getAll('recycle_bin');
+    const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
+    if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
+    setAll('recycle_bin', freshBinFinal);
+    _syncRecycleBinToSettings();
+
+    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
     return true;
   }
 
@@ -1139,212 +1195,6 @@ const SupabaseSync = (() => {
         console.warn('[Sync] recycle bin sync failed:', e);
       }
     }
-  }
-
-  async function restoreRecycleBinItem(index) {
-    const bin = getAll('recycle_bin');
-    if (!Array.isArray(bin)) return false;
-    const item = bin[index];
-    if (!item?.table || !item?.data?.id) return false;
-
-    const table = item.table;
-    const record = {
-      ...item.data,
-      updated_at: new Date().toISOString(),
-      _device: _deviceId(),
-    };
-
-    const rows = getAll(table);
-    const idx = rows.findIndex((r) => r.id === record.id);
-    if (idx >= 0) rows[idx] = record;
-    else rows.unshift(record);
-    setAll(table, rows);
-
-    untrackDeletion(table, record.id);
-    await _pushRecord(table, record);
-
-    try {
-      const r = record;
-      const amount = parseFloat(r.amount) || 0;
-      const method = r.method || '';
-
-      if (method && amount > 0) {
-        if (table === 'finance_ledger') {
-          if (!r._isLoan) {
-            const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
-            const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            // ✅ একটাই রুল: কোনো account কখনো negative হবে না
-            if (isIncome)  updateAccountBalance(method, amount, 'in');
-            if (isExpense) {
-              const _curBal2 = (function() {
-                const accs = getAll('accounts');
-                if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
-                const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
-              })();
-              if (_curBal2 - amount >= 0) {
-                updateAccountBalance(method, amount, 'out');
-              } else {
-                console.warn(`[Restore] Skipped balance deduction for "${method}": ৳${_curBal2} < ৳${amount}`);
-                if (typeof Utils !== 'undefined' && Utils.toast) {
-                  Utils.toast(`⚠️ Expense restore: "${method}"-এ যথেষ্ট ব্যালেন্স নেই। Record ফিরে এসেছে, balance manually ঠিক করুন।`, 'warning', 7000);
-                }
-              }
-            }
-
-            if (isIncome && r.category === 'Student Fee' && r.ref_id) {
-              const students = getAll('students');
-              const sIdx = students.findIndex(s => s.id === r.ref_id);
-              if (sIdx !== -1) {
-                // RECALCULATE from ALL finance entries for this student to ensure accuracy
-                const allFinance = getAll('finance_ledger');
-                const studentPayments = allFinance.filter(f => 
-                  f.ref_id === r.ref_id && 
-                  f.category === 'Student Fee' &&
-                  !f._isLoan
-                );
-                const totalPaid = studentPayments.reduce((s, f) => s + Utils.safeNum(f.amount), 0);
-                const totalFee = parseFloat(students[sIdx].total_fee) || 0;
-                students[sIdx] = { 
-                  ...students[sIdx], 
-                  paid: totalPaid, 
-                  due: Math.max(0, totalFee - totalPaid), 
-                  updated_at: new Date().toISOString() 
-                };
-                setAll('students', students);
-                await _pushRecord('students', students[sIdx]);
-              }
-            }
-          }
-         } else if (table === 'loans') {
-          const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
-          const _loanDir2 = wasGiven ? 'out' : 'in';
-          if (_loanDir2 === 'in') {
-            updateAccountBalance(method, amount, 'in');
-          } else {
-            const _loanBal2 = (function() {
-              const accs = getAll('accounts');
-              if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
-              const a = accs.find(x => x.name === method); return a ? parseFloat(a.balance) || 0 : 0;
-            })();
-            if (_loanBal2 - amount >= 0) {
-              updateAccountBalance(method, amount, 'out');
-            } else {
-              console.warn(`[Restore-Loan] Balance insufficient for "${method}": ৳${_loanBal2} < ৳${amount}`);
-              if (typeof Utils !== 'undefined' && Utils.toast) {
-                Utils.toast(`⚠️ Loan restore: "${method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে, balance manually ঠিক করুন।`, 'warning', 7000);
-              }
-            }
-          }
-
-          // Find linked finance entry by matching fields (same as delete logic)
-          const financeEntries = getAll('finance_ledger').filter(f =>
-            f._isLoan === true &&
-            (f.person_name === (r.person_name || r.person)) &&
-            f.type === r.type &&
-            f.amount == r.amount &&
-            f.date === r.date
-          );
-          const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
-          
-          if (linkedFinanceId) {
-            // Already exists in finance ledger, nothing to do
-          } else {
-            // Check recycle bin for the linked finance entry
-            const allBin = getAll('recycle_bin');
-            const linkedInBin = allBin.find(b => 
-              b?.table === 'finance_ledger' &&
-              b?.data?._isLoan === true &&
-              (b.data.person_name === r.person_name || b.data.person_name === r.person) &&
-              b.data.type === r.type &&
-              b.data.amount == r.amount &&
-              b.data.date === r.date
-            );
-            
-            if (linkedInBin) {
-              // Restore the linked finance entry
-              const linkedRecord = {
-                ...linkedInBin.data,
-                updated_at: new Date().toISOString(),
-                _device: _deviceId(),
-              };
-              const finRows = getAll('finance_ledger');
-              const fIdx = finRows.findIndex(f => f.id === linkedRecord.id);
-              if (fIdx >= 0) finRows[fIdx] = linkedRecord;
-              else finRows.unshift(linkedRecord);
-              setAll('finance_ledger', finRows);
-              untrackDeletion('finance_ledger', linkedRecord.id);
-              await _pushRecord('finance_ledger', linkedRecord);
-              
-              // Remove from recycle bin
-              const freshBin = getAll('recycle_bin');
-              const realIdx = freshBin.findIndex(x => x?.data?.id === linkedRecord.id);
-              if (realIdx !== -1) freshBin.splice(realIdx, 1);
-              setAll('recycle_bin', freshBin);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[Restore] Balance update failed:', e);
-    }
-
-    if (table === 'students') {
-      try {
-        const currentBin = getAll('recycle_bin');
-        const linkedFinance = currentBin
-          .map((b, i) => ({ b, i }))
-          .filter(({ b }) => b?.table === 'finance_ledger' && b?.data?.ref_id === record.id && b?.data?.category === 'Student Fee')
-          .reverse();
-
-        for (const { b, i } of linkedFinance) {
-          const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
-          const finRows = getAll('finance_ledger');
-          const fIdx = finRows.findIndex(r => r.id === fr.id);
-          if (fIdx >= 0) finRows[fIdx] = fr;
-          else finRows.unshift(fr);
-          setAll('finance_ledger', finRows);
-          untrackDeletion('finance_ledger', fr.id);
-          await _pushRecord('finance_ledger', fr);
-           if (fr.method && parseFloat(fr.amount) > 0) {
-             const _frDir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
-             if (_frDir === 'in') {
-               updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
-             } else {
-               const _frBal = (function() {
-                 const accs = getAll('accounts');
-                 if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
-                 const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
-               })();
-               if (_frBal - parseFloat(fr.amount) >= 0) {
-                 updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
-               } else {
-                 console.warn(`[Restore-StudentFin] Balance insufficient for "${fr.method}": ৳${_frBal} < ৳${fr.amount}`);
-                 if (typeof Utils !== 'undefined' && Utils.toast) {
-                   Utils.toast(`⚠️ Student finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
-                 }
-               }
-             }
-           }
-          const freshBin = getAll('recycle_bin');
-          const realIdx = freshBin.findIndex(x => x?.data?.id === fr.id);
-          if (realIdx !== -1) freshBin.splice(realIdx, 1);
-          setAll('recycle_bin', freshBin);
-        }
-      } catch (e) {
-        console.warn('[Restore] Student linked finance restore failed:', e);
-      }
-    }
-
-    const freshBinFinal = getAll('recycle_bin');
-    const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
-    if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
-    setAll('recycle_bin', freshBinFinal);
-    _syncRecycleBinToSettings();
-
-    _logRecentChange(table, 'insert', record);
-    _logActivity('add', table, _humanReadableLog('restore', table, record));
-    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
-    return true;
   }
 
   function permanentDeleteRecycleBinItem(index) {

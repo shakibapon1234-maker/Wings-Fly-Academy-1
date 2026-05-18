@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260517-bugfix-secrets-cache';
+const DEPLOY_ID = '20260517-balance-integrity';
 const CACHE_NAME = `wfa-v8-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -46,6 +46,7 @@ const STATIC_ASSETS = [
   './js/modules/certificates.js',
   './js/modules/notice-board.js',
   './js/core/backup-restore.js',
+  './js/core/admin-panel.js',
   // ✅ Bug Fix: Missing critical files added to SW cache
   './js/core/secure-storage.js',
   './js/core/auto-update.js',
