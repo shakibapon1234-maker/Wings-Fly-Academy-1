@@ -1288,6 +1288,20 @@ const SettingsModule = (() => {
           <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">📄 Import from JSON</button>
         </div>
       </div>
+      <!-- REQ 1: Date-Based Import Option -->
+      <div class="settings-card glow-cyan" style="margin-top:12px">
+        <div class="settings-card-title"><i class="fa fa-calendar"></i> Import with Custom Date</div>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
+          Optional: Set the date when imported data was created. Leave blank to keep original dates.
+        </p>
+        <div style="margin-bottom:12px">
+          <label style="font-size:.78rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:8px">Import Date</label>
+          ${Utils.dateSelectHTML('imp-date', Utils.today(), 'form-control')}
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-primary btn-sm" onclick="SettingsModule.importFromJSONWithDate()">📅 Import with Date</button>
+        </div>
+      </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
@@ -5025,9 +5039,75 @@ ${expenseEntries.length > 0 ? `
     input.click();
   }
 
+  // ✅ REQ 1: Import from JSON with custom date
+  function importFromJSONWithDate() {
+    const customDateInput = document.getElementById('imp-date');
+    const customDate = customDateInput ? customDateInput.value : '';
+    
+    if (!customDate) {
+      Utils.toast('Please select an import date', 'error');
+      return;
+    }
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const statusEl = document.getElementById('mig-status');
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        let imported = 0;
+        let tableCount = 0;
+
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Backup বিশ্লেষণ করা হচ্ছে...'; }
+
+        // Detect legacy format
+        const isLegacy = Object.prototype.hasOwnProperty.call(data, 'employees') ||
+                         Object.prototype.hasOwnProperty.call(data, 'cashBalance') ||
+                         Object.prototype.hasOwnProperty.call(data, 'incomeCategories') ||
+                         (data.students && data.students[0] && data.students[0].studentId);
+
+        if (isLegacy) {
+          // Pass custom date to legacy import
+          imported = await importLegacyData(data, statusEl, customDate);
+        } else {
+          // For modern format, also pass custom date
+          imported = await importModernData(data, statusEl, customDate, tableCount);
+        }
+
+        if (statusEl) {
+          statusEl.innerHTML += `<br/>✅ আমদানি সম্পন্ন! ${imported} রেকর্ড যুক্ত করা হয়েছে।<br/>
+              <div style="font-size:.82rem;color:var(--text-muted);margin-top:8px">
+                ড্যাশবোর্ডে সব ডেটা দেখতে পেজটি রিলোড করুন।
+              </div>
+              <button onclick="location.reload()"
+                style="background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:800;font-size:.95rem;cursor:pointer;margin-top:8px">
+                🔄 এখনই রিলোড করুন
+              </button>`;
+        }
+
+        logActivity('add', 'import', `Imported ${imported} records from JSON with date: ${customDate}`);
+        window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
+
+      } catch (err) {
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = `❌ ত্রুটি: ${err.message}`; }
+        Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
+        console.error('[importFromJSONWithDate]', err);
+      }
+    };
+    input.click();
+  }
+
   // ── Legacy Data Transformer ───────────────────────────────────
-  async function importLegacyData(data, statusEl) {
+  // ✅ REQ 1: Support custom import date
+  async function importLegacyData(data, statusEl, customDate) {
     let total = 0;
+    
+    // ✅ REQ 1: If custom date provided, convert to ISO format
+    const importDateISO = customDate && customDate.length === 10 ? customDate : null;
 
     if (data.students && data.students.length) {
       const log = (m) => { if (statusEl) statusEl.innerHTML = m; };
@@ -5040,12 +5120,12 @@ ${expenseEntries.length > 0 ? `
         total_fee: s.totalPayment || s.total_fee || 0,
         paid: s.paid || 0, due: s.due || (s.totalPayment || 0) - (s.paid || 0),
         method: s.method || 'Cash',
-        admission_date: s.enrollDate || s.admission_date || '',
+        admission_date: importDateISO || s.enrollDate || s.admission_date || '',
         father_name: s.fatherName || s.father_name || '',
         mother_name: s.motherName || s.mother_name || '',
         blood_group: s.bloodGroup || s.blood_group || '',
         photo: s.photo || '', remarks: s.remarks || '', status: s.status || 'Active',
-        created_at: s.createdAt || s.created_at || new Date().toISOString(),
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (s.createdAt || s.created_at || new Date().toISOString()),
         updated_at: new Date().toISOString(),
       }));
       const existing = SupabaseSync.getAll(DB.students);
@@ -5061,7 +5141,7 @@ ${expenseEntries.length > 0 ? `
         staffId: emp.id || emp.staffId || '', name: emp.name || '', role: emp.role || 'Staff',
         phone: emp.phone || '', email: emp.email || '', salary: emp.salary || 0,
         status: emp.status || 'Active', joiningDate: emp.joiningDate || '', resignDate: emp.resignDate || '',
-        created_at: emp.lastUpdated || emp.createdAt || new Date().toISOString(),
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (emp.lastUpdated || emp.createdAt || new Date().toISOString()),
         updated_at: new Date().toISOString(),
       }));
       const existing = SupabaseSync.getAll(DB.staff);
@@ -5075,10 +5155,11 @@ ${expenseEntries.length > 0 ? `
       const mapped = data.finance.map(f => ({
         id: String(f.id || SupabaseSync.generateId()),
         type: f.type || 'Expense', method: f.method || 'Cash', category: f.category || '',
-        description: f.description || '', amount: f.amount || 0, date: f.date || '',
+        description: f.description || '', amount: f.amount || 0, 
+        date: importDateISO || f.date || '',
         note: f.note || f.person || '',
         person_name: f.person_name || f.person || '',
-        created_at: f.createdAt || f.timestamp || new Date().toISOString(),
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (f.createdAt || f.timestamp || new Date().toISOString()),
         updated_at: f.updatedAt || new Date().toISOString(),
       }));
       const existing = SupabaseSync.getAll(DB.finance);
@@ -5091,7 +5172,7 @@ ${expenseEntries.length > 0 ? `
     const accountEntries = [];
     if (data.cashBalance) {
       const bal = typeof data.cashBalance === 'object' ? (data.cashBalance.amount || data.cashBalance.balance || 0) : data.cashBalance;
-      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
       data.bankAccounts.forEach(b => {
@@ -5101,7 +5182,7 @@ ${expenseEntries.length > 0 ? `
           type: 'Bank_Detail',
           name: nm,
           balance: b.balance || b.amount || 0,
-          created_at: new Date().toISOString(),
+          created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(),
           updated_at: new Date().toISOString(),
         });
       });
@@ -5109,7 +5190,7 @@ ${expenseEntries.length > 0 ? `
     if (data.mobileBanking) {
       const bal = typeof data.mobileBanking === 'object' ? (data.mobileBanking.balance || data.mobileBanking.amount || 0) : data.mobileBanking;
       const mbName = (typeof data.mobileBanking === 'object' && data.mobileBanking.name) ? data.mobileBanking.name : 'Mobile Banking';
-      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile_Detail', name: mbName, balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile_Detail', name: mbName, balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (accountEntries.length) {
       const existing = SupabaseSync.getAll(DB.accounts);
@@ -5122,8 +5203,9 @@ ${expenseEntries.length > 0 ? `
       const mapped = data.visitors.map(v => ({
         id: v.id || SupabaseSync.generateId(), name: v.name || '', phone: v.phone || '',
         course: v.interestedCourse || v.course || '', remarks: v.remarks || '',
-        date: v.date || v.visitDate || '',
-        created_at: v.createdAt || new Date().toISOString(), updated_at: new Date().toISOString(),
+        visit_date: importDateISO || v.date || v.visitDate || '',
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (v.createdAt || new Date().toISOString()), 
+        updated_at: new Date().toISOString(),
       }));
       const existing = SupabaseSync.getAll(DB.visitors);
       SupabaseSync.setAll(DB.visitors, [...mapped, ...existing]);
@@ -5132,9 +5214,14 @@ ${expenseEntries.length > 0 ? `
 
     if (data.notices && data.notices.length) {
       if (statusEl) statusEl.innerHTML = '🔄 Importing notices...';
+      const mapped = data.notices.map(n => ({
+        ...n,
+        date: importDateISO || n.date || '',
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (n.created_at || new Date().toISOString()),
+      }));
       const existing = SupabaseSync.getAll(DB.notices);
-      SupabaseSync.setAll(DB.notices, [...data.notices, ...existing]);
-      total += data.notices.length;
+      SupabaseSync.setAll(DB.notices, [...mapped, ...existing]);
+      total += mapped.length;
     }
 
     if (data.settings) {
@@ -5170,10 +5257,11 @@ ${expenseEntries.length > 0 ? `
         id: e.id || SupabaseSync.generateId(),
         reg_id: e.regId || e.reg_id || '', student_id: e.studentId || e.student_id || '',
         student_name: e.studentName || e.student_name || '', batch: e.batch || '',
-        subject: e.subject || '', exam_date: e.examDate || e.exam_date || '',
+        subject: e.subject || '', exam_date: importDateISO || e.examDate || e.exam_date || '',
         exam_fee: e.examFee || e.exam_fee || 0, grade: e.grade || '',
         marks: e.marks || null, status: e.status || 'Registered',
-        created_at: e.createdAt || new Date().toISOString(), updated_at: new Date().toISOString(),
+        created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : (e.createdAt || new Date().toISOString()), 
+        updated_at: new Date().toISOString(),
       }));
       const existing = SupabaseSync.getAll(DB.exams);
       SupabaseSync.setAll(DB.exams, [...mapped, ...existing]);

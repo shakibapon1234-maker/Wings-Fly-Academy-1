@@ -795,9 +795,52 @@ const Utils = (() => {
       return errors; // Empty array = valid
     }
 
+    // ✅ REQ 1: Global Date Select HTML — DD/MM/YYYY format
+    // Used for: Payments, Transactions, Import dates, etc.
+    // Returns HTML with three dropdowns (DD/MM/YYYY) + hidden ISO input
+    function dateSelectHTML(prefix, dateStr, cls) {
+      cls = cls || 'form-control';
+      const parts = (dateStr || '').split('-');
+      const yyyy  = parts[0] || '';
+      const mm    = parts[1] || '';
+      const dd    = parts[2] || '';
+      const months = [
+        ['01','January'],['02','February'],['03','March'],['04','April'],
+        ['05','May'],['06','June'],['07','July'],['08','August'],
+        ['09','September'],['10','October'],['11','November'],['12','December']
+      ];
+      const curYear = new Date().getFullYear();
+      const years = Array.from({length:10}, (_,i) => curYear - 5 + i);
+      return `<div style="display:flex;gap:6px;">
+        <select id="${prefix}-dd" class="${cls}" style="flex:0 0 70px;" onchange="Utils.syncDateSelect('${prefix}')">
+          <option value="">DD</option>
+          ${Array.from({length:31},(_,i)=>{const v=String(i+1).padStart(2,'0');return`<option value="${v}"${dd===v?' selected':''}>${v}</option>`;}).join('')}
+        </select>
+        <select id="${prefix}-mm" class="${cls}" style="flex:1;" onchange="Utils.syncDateSelect('${prefix}')">
+          <option value="">Month</option>
+          ${months.map(([v,n])=>`<option value="${v}"${mm===v?' selected':''}>${n}</option>`).join('')}
+        </select>
+        <select id="${prefix}-yyyy" class="${cls}" style="flex:0 0 90px;" onchange="Utils.syncDateSelect('${prefix}')">
+          <option value="">Year</option>
+          ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
+        </select>
+      </div>
+      <input type="hidden" id="${prefix}" value="${dateStr || ''}" />`;
+    }
+
+    // Sync date select dropdowns to hidden ISO input
+    function syncDateSelect(prefix) {
+      const dd   = document.getElementById(prefix + '-dd')?.value   || '';
+      const mm   = document.getElementById(prefix + '-mm')?.value   || '';
+      const yyyy = document.getElementById(prefix + '-yyyy')?.value || '';
+      const h    = document.getElementById(prefix);
+      if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
+    }
+
     return {
       // Date
       today, todayISO, nowISO, formatDate, formatDateEN, formatDateDMY,
+      dateSelectHTML, syncDateSelect,
       // Number
       safeNum, takaEn, formatMoney, formatMoneyPlain,
       // String
