@@ -14,6 +14,7 @@ const itemsToCopy = [
   'certificate.html',
   'exam.html',
   'index.html',
+  'idb-cleaner.html',
   'migrate.html',
   'visitor-form.html',
   'manifest.json',
@@ -57,6 +58,24 @@ try {
 } catch (e) {
   console.error(`❌ Failed to prepare www/ directory: ${e.message}`);
   process.exit(1);
+}
+
+// Auto-sync DEPLOY_ID from version.json to service-worker.js
+try {
+  const versionPath = path.join(srcDir, 'version.json');
+  const swPath = path.join(srcDir, 'service-worker.js');
+  if (fs.existsSync(versionPath) && fs.existsSync(swPath)) {
+    const vData = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
+    let swContent = fs.readFileSync(swPath, 'utf8');
+    const newDeployId = vData.deploy_id;
+    if (newDeployId) {
+      swContent = swContent.replace(/const DEPLOY_ID = '.*';/, `const DEPLOY_ID = '${newDeployId}';`);
+      fs.writeFileSync(swPath, swContent, 'utf8');
+      console.log(`🔄 Auto-synced SW DEPLOY_ID to: ${newDeployId}`);
+    }
+  }
+} catch (e) {
+  console.warn(`⚠️  Auto-sync SW version failed: ${e.message}`);
 }
 
 // Copy items

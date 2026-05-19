@@ -52,7 +52,7 @@ const Finance = (() => {
      let running = 0;
      const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
        const amt = Utils.safeNum(f.amount);
-       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In') running+=amt;
+       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment In') running+=amt;
        else running-=amt;
        return {...f, _running: running};
      }).reverse();
@@ -157,7 +157,7 @@ const Finance = (() => {
   function renderRows(rows, startIndex = 0) {
     if (!rows.length) return Utils.noDataRow(9, 'No records found');
     return rows.map((f, i) => {
-      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In';
+      const isPos = f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment In';
       return `<tr>
         <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
         <td style="font-size:0.82rem;white-space:nowrap">${Utils.formatDateDMY(f.date)}</td>
