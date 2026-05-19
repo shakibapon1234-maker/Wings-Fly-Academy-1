@@ -230,8 +230,12 @@ const SyncGuard = (() => {
           return;
         }
 
-        if (f.type === 'Income' || f.type === 'Transfer In')   _add(f.method, amt, 'in');
-        if (f.type === 'Expense' || f.type === 'Transfer Out') _add(f.method, amt, 'out');
+        // ✅ Bug Fix: Investment In/Out যোগ করা হয়েছে — এগুলো account balance
+        // পরিবর্তন করে কিন্তু আগে audit calculation থেকে বাদ ছিল।
+        // এই কারণেই Cash stored vs calculated বড় gap দেখাচ্ছিল।
+        const fType = String(f.type || '').toLowerCase();
+        if (['income', 'transfer in', 'investment in'].includes(fType))    _add(f.method, amt, 'in');
+        if (['expense', 'transfer out', 'investment out'].includes(fType)) _add(f.method, amt, 'out');
       });
 
       loans.forEach(l => {
@@ -393,45 +397,105 @@ const SyncGuard = (() => {
   }
 
   // ── Auto Fix logic ───────────────────────────────────────
+  // Design principle:
+  //   accounts.balance (stored) = source of truth (built from live ops)
+  //   finance_ledger sum (calculated) = should equal stored
+  //   If stored > calculated → create Opening Balance entry for the diff
+  //   If calculated > stored → update stored to calculated (only if calc > 0)
+  //   NEVER set stored to a negative value.
   async function autoFix() {
-    // ✅ Bug #4 Fix: Use Utils.confirm() instead of window.confirm() — PWA-safe custom modal
-    const ok = await Utils.confirm('Auto-Fix will recalculate negative/discrepant balances based on actual ledger entries. Continue?', 'Auto-Fix Balances');
+    const ok = await Utils.confirm(
+      'Auto-Fix will reconcile account balances with the finance ledger. Continue?',
+      'Auto-Fix Balances'
+    );
     if (!ok) return;
 
-    // Bug #1 fix: guard against SupabaseSync not being available
-    // CRITICAL FIX #1: Implement optimistic locking to prevent race conditions
-    // Multiple simultaneous balance updates can corrupt data without version control
     if (!window.SupabaseSync) {
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('SupabaseSync not ready. Please try again.', 'error');
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast('SupabaseSync not ready. Please try again.', 'error');
       return;
     }
-    
-    let fixed = 0;
+
     const b = auditBalances();
-    
-    if (b.discrepancies.length > 0) {
-      const accounts = window.SupabaseSync.getAll('accounts');
-      b.discrepancies.forEach(d => {
-        const acc = accounts.find(a => (a.type === 'Cash' ? 'Cash' : a.name) === d.account);
-        if (acc) {
-          console.log(`[SyncGuard] Auto-fixing balance for ${d.account}: ${d.stored} -> ${d.calculated}`);
-          window.SupabaseSync.update('accounts', acc.id, { balance: d.calculated });
-          fixed++;
-        }
-      });
+    if (b.discrepancies.length === 0) {
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast('✅ No discrepancies found — balances are correct.', 'success');
+      return;
     }
 
+    let fixed = 0;
+    let skipped = 0;
+    const today = (typeof Utils !== 'undefined' && Utils.today)
+      ? Utils.today()
+      : new Date().toISOString().split('T')[0];
+    const accounts = window.SupabaseSync.getAll('accounts');
+
+    b.discrepancies.forEach(d => {
+      if (d.error) { skipped++; return; }
+
+      // diff = stored - calculated
+      // Positive → ledger missing some income (stored has unexplained money)
+      // Negative → stored balance is too low vs ledger
+      const diff = Math.round(d.stored - d.calculated);
+
+      if (diff > 0) {
+        // ✅ Case 1: stored > calculated
+        // Fix: add a reconciling Opening Balance entry to the ledger.
+        // This explains the "unexplained" money (initial/opening balance
+        // that was set directly on the account without a ledger entry).
+        // Stored balance is NOT changed — it is correct.
+        window.SupabaseSync.insert('finance_ledger', {
+          type:            'Income',
+          category:        'Opening Balance',
+          method:          d.account,
+          description:     `Opening Balance (Reconciliation — SyncGuard Auto-Fix)`,
+          amount:          diff,
+          date:            today,
+          _reconciliation: true,
+        });
+        console.log(`[SyncGuard] Reconciliation Opening Balance created for "${d.account}": ৳${diff}`);
+        fixed++;
+
+      } else if (diff < 0 && d.calculated > 0) {
+        // ✅ Case 2: calculated > stored (unusual — possible double-entry)
+        // Fix: update stored balance to match ledger (only if calc is positive).
+        const acc = accounts.find(a => (a.type === 'Cash' ? 'Cash' : a.name) === d.account);
+        if (acc) {
+          console.log(`[SyncGuard] Correcting stored balance for "${d.account}": ৳${d.stored} → ৳${d.calculated}`);
+          window.SupabaseSync.update('accounts', acc.id, { balance: Math.round(d.calculated) });
+          fixed++;
+        } else {
+          skipped++;
+        }
+
+      } else {
+        // calculated is negative AND stored is 0 or negative — skip
+        console.warn(`[SyncGuard] Cannot auto-fix "${d.account}": both stored (৳${d.stored}) and calculated (৳${d.calculated}) are inconsistent.`);
+        skipped++;
+      }
+    });
+
     if (fixed > 0) {
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`✅ Successfully auto-fixed ${fixed} issue(s)`, 'success');
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast(
+          `✅ ${fixed}টি discrepancy fix হয়েছে।${skipped > 0 ? ` (${skipped}টি manual review দরকার)` : ''} Re-Audit করুন।`,
+          'success', 6000
+        );
       setTimeout(() => {
         runFullAudit();
-        const settingsContainer = document.getElementById('settings-content');
-        if (settingsContainer && typeof SettingsModule !== 'undefined') SettingsModule.render(); 
-      }, 500);
+        const c = document.getElementById('settings-content');
+        if (c && typeof SettingsModule !== 'undefined') SettingsModule.render();
+      }, 600);
+    } else if (skipped > 0) {
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast(`⚠️ ${skipped}টি account auto-fix করা সম্ভব হয়নি। Finance → Income → Opening Balance এ manually entry দিন।`, 'warning', 10000);
     } else {
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('No auto-fixable issues found.', 'info');
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast('No auto-fixable issues found.', 'info');
     }
   }
+
+
 
   // ── Init ─────────────────────────────────────────────────
   function init() {

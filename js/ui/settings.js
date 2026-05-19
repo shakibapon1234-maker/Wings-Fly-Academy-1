@@ -2840,9 +2840,9 @@ ${expenseEntries.length > 0 ? `
               ${transactions.length === 0 ?
                 `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
                 transactions.map((c, i) => {
-                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : '➕ New';
-                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : '#00ff88';
-                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : 'rgba(0,255,136,0.10)';
+                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
+                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
+                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
                   return `
                   <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
                     <td>${i + 1}</td>
@@ -3357,7 +3357,8 @@ ${expenseEntries.length > 0 ? `
         const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
         const exists = advances.some(a => a.id && a.id === data.id);
         if (!exists) advances.unshift(data);
-        localStorage.setItem('wfa_advance_payments', JSON.stringify(advances));
+        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
+        SupabaseSync.setAll(DB.advance_payments || 'advance_payments', advances);
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
@@ -3375,7 +3376,8 @@ ${expenseEntries.length > 0 ? `
         const investments = SupabaseSync.getAll(DB.investments || 'investments');
         const exists = investments.some(i => i.id && i.id === data.id);
         if (!exists) investments.unshift(data);
-        localStorage.setItem('wfa_investments', JSON.stringify(investments));
+        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
+        SupabaseSync.setAll(DB.investments || 'investments', investments);
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);

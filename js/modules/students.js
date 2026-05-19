@@ -1164,8 +1164,20 @@ const Students = (() => {
     }
 
     SupabaseSync.remove(DB.finance, paymentId);
+
+    // ✅ Bug Fix: Explicit activity log with student name + amount detail
+    if (typeof SupabaseSync.logActivity === 'function') {
+      const _s = SupabaseSync.getById(DB.students, studentId);
+      const _sLabel = _s ? `${_s.name} (${_s.student_id})` : studentId;
+      SupabaseSync.logActivity('delete', 'students',
+        `Payment deleted: ${_sLabel} — ${Utils.takaEn(payment.amount)} via ${payment.method || 'N/A'}`);
+    }
+
     Utils.toast('Payment deleted ✓', 'info');
     Students.openPayModal(studentId);
+    // ✅ Bug Fix: refresh student list so due/paid totals update immediately
+    render();
+    App.updateNotifCount();
   }
 
   /* ══════════════════════════════════════════
