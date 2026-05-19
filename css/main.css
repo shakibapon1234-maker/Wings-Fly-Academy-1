@@ -3867,9 +3867,14 @@ textarea:focus {
 }
 
 /* ── Confirm Dialog Enhancement ──────────────────────────────── */
+/* z-index: 10000 — above settings-overlay (600) and all other modals (500) */
+#confirm-backdrop {
+  z-index: 10000 !important;
+}
 #confirm-backdrop .modal-box {
   border-color: rgba(255, 71, 87, 0.2) !important;
 }
+
 
 /* ── Scrollbar Neon ──────────────────────────────────────────── */
 ::-webkit-scrollbar-thumb {
