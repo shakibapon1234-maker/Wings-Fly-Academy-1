@@ -169,35 +169,93 @@ const DashboardModule = (() => {
   }
 
   function renderLastFive(finance) {
-    // ✅ FIX: Activity Log-এর মতো actual insertion time (updated_at) দিয়ে sort করো।
-    // user-selected date field দিয়ে sort করলে পুরনো তারিখের entry শেষে ঢোকালেও
-    // সেই পুরনো তারিখের কারণে তালিকায় উপরে দেখাত — এখন সেটা ঠিক হয়ে গেছে।
+    // ✅ Activity Log-এর মতো real insertion time (_inserted_at) দিয়ে sort করো।
+    // _inserted_at = immutable ফিল্ড, insert-এর সময় সেট, update-এ কখনো বদলায় না।
+    // ফলে পুরনো transaction edit করলেও এটি উপরে আসবে না — finance module-এ date দিয়ে sort আলাদা।
     const sorted = [...finance].sort((a, b) => {
-      const tA = a.updated_at
-        ? new Date(a.updated_at).getTime()
-        : (a.date ? new Date(a.date).getTime() : 0);
-      const tB = b.updated_at
-        ? new Date(b.updated_at).getTime()
-        : (b.date ? new Date(b.date).getTime() : 0);
+      const tA = a._inserted_at
+        ? new Date(a._inserted_at).getTime()
+        : (a.updated_at ? new Date(a.updated_at).getTime()
+          : (a.date ? new Date(a.date).getTime() : 0));
+      const tB = b._inserted_at
+        ? new Date(b._inserted_at).getTime()
+        : (b.updated_at ? new Date(b.updated_at).getTime()
+          : (b.date ? new Date(b.date).getTime() : 0));
       return tB - tA;
     });
     const rows = sorted.slice(0, 5);
     if (!rows.length) return `<p class="text-muted" style="padding:16px">No transactions found</p>`;
+
+    // ✅ Student lookup map — ref_id দিয়ে student নাম পাওয়ার জন্য।
+    // ❗ DB.students ব্যবহার না — DB window global না হলে undefined হবে ।
+    // 'students' literal string দিয়ে সরাসরি IDB থেকে রিড করো।
+    const _stAll = typeof SupabaseSync !== 'undefined'
+      ? SupabaseSync.getAll('students') : [];
+    const _stMap = {};
+    _stAll.forEach(s => {
+      if (s.id)         _stMap[s.id]         = s;
+      if (s.student_id) _stMap[s.student_id] = s;
+    });
+
     return `<div class="table-wrapper"><table><thead><tr>
       <th>Date</th><th>Description</th><th>Type</th><th>Method</th><th class="text-right">Amount</th>
     </tr></thead><tbody>
-    ${rows.map(r => `<tr>
+    ${rows.map(r => {
+      // ✅ Description priority:
+      // 1. Meaningful description (student name, salary entry etc.) — সেটাই দেখাবে
+      // 2. Student name via ref_id — যদি:
+      //    a) description ফাঁকা (empty/null) অথবা
+      //    b) description শুধু category text 'Student Fee' (generic — helpful না)
+      // 3. category (অন্য সব entry-র জন্য)
+      // 4. '—' (শেষ fallback)
+      let displayDesc = r.description;
+      const _isGenericStudentFeeDesc = !displayDesc || displayDesc.trim() === 'Student Fee';
+      if (_isGenericStudentFeeDesc && r.category === 'Student Fee') {
+        // Priority 1: ref_id দিয়ে exact match
+        let st = r.ref_id ? _stMap[r.ref_id] : null;
+        
+        // Priority 2: ref_id match না হলে admission_date দিয়ে fallback
+        if (!st && r.date) {
+          const candidates = _stAll.filter(s =>
+            (s.admission_date || '').startsWith(r.date.slice(0, 10))
+          );
+          if (candidates.length === 1) st = candidates[0];
+        }
+        
+        if (st) {
+          displayDesc = st.name + ' (' + st.student_id + ')';
+        } else if (r.ref_id) {
+          // ⚠️ Student ডাটাবেসে নেই (ডিলিট করা হয়েছে)
+          displayDesc = 'Student Fee (Deleted Student)';
+        }
+      }
+      if (!displayDesc) displayDesc = r.category || '—';
+      return `<tr>
       <td style="font-size:.82rem">${Utils.formatDateDMY(r.date)}</td>
-      <td>${Utils.truncate(r.description||'—',28)}</td>
+      <td>${Utils.truncate(displayDesc, 28)}</td>
       <td>${r.type==='Income' ? Utils.badge('Income','success') : Utils.badge('Expense','danger')}</td>
       <td>${Utils.methodBadge(r.method||'Cash')}</td>
       <td class="text-right font-bold ${r.type==='Income'?'text-success':'text-error'}" style="font-family:var(--font-ui)">${Utils.takaEn(r.amount)}</td>
-    </tr>`).join('')}
+    </tr>`;
+    }).join('')}
     </tbody></table></div>`;
   }
 
   function renderRecentAdmissions(students) {
-    const rows = Utils.sortBy(students, 'admission_date', 'desc').slice(0, 5);
+    // ✅ Sort by _inserted_at (real insertion time, like activity log)
+    // — admission_date user-selected, তাই batch 20-এর স্টুডেন্ট পুরনো admission date দিয়ে যোগ দিলে
+    // তারা batch 19-এর নীচে চলে যেত — _inserted_at দিয়ে সেটা বাতিল।
+    const rows = [...students].sort((a, b) => {
+      const tA = a._inserted_at
+        ? new Date(a._inserted_at).getTime()
+        : (a.updated_at ? new Date(a.updated_at).getTime()
+          : (a.admission_date ? new Date(a.admission_date).getTime() : 0));
+      const tB = b._inserted_at
+        ? new Date(b._inserted_at).getTime()
+        : (b.updated_at ? new Date(b.updated_at).getTime()
+          : (b.admission_date ? new Date(b.admission_date).getTime() : 0));
+      return tB - tA;
+    }).slice(0, 5);
     if (!rows.length) return `<p class="text-muted" style="padding:16px">No students found</p>`;
     return `<div class="table-wrapper"><table><thead><tr>
       <th>ID</th><th>Name</th><th>Course</th><th>Batch</th><th class="text-right">Due</th>

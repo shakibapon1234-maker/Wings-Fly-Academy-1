@@ -384,6 +384,12 @@ const SupabaseSync = (() => {
         : new Date().toISOString();
     }
     record.updated_at = new Date().toISOString();
+    // ✅ _inserted_at: Real insertion timestamp — immutable, never touched by update().
+    // Used by dashboard "Last 5 Transactions" & "Recent Admissions" to sort by
+    // actual entry time (activity-log style), not by the user-selected date field.
+    if (!record._inserted_at) {
+      record._inserted_at = new Date().toISOString();
+    }
     record._device = _deviceId();
     const rows = getAll(table);
     rows.unshift(record);
