@@ -184,7 +184,7 @@
       // Push a base state on load
       window.history.pushState({ wfa: true, section: 'dashboard' }, '', window.location.href);
 
-      window.addEventListener('popstate', function (e) {
+      window.addEventListener('popstate', function (_e) {
         // Close more menu first
         if (moreMenu && moreMenu.classList.contains('open')) {
           moreMenu.classList.remove('open');

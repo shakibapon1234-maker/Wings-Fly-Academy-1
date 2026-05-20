@@ -23,7 +23,7 @@ const LoginUI = (() => {
         const row = _bestRow(sync.getAll(db.settings));
         if (row) return row;
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     // Direct: try the known localStorage key 'wfa_settings' first (fastest after reload)
     try {
@@ -32,7 +32,7 @@ const LoginUI = (() => {
         const row = _bestRow(JSON.parse(raw));
         if (row) return row;
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     // Fallback: scan all localStorage keys containing 'setting'
     try {
@@ -45,7 +45,7 @@ const LoginUI = (() => {
             if (!raw) continue;
             const row = _bestRow(JSON.parse(raw));
             if (row && (row.security_question || row.admin_password)) return row;
-          } catch(e2) { /* skip */ }
+          } catch { /* skip */ }
         }
       }
       // Broader scan: any wfa_ key that has security_question anywhere in its rows
@@ -57,9 +57,9 @@ const LoginUI = (() => {
           if (!raw) continue;
           const row = _bestRow(JSON.parse(raw));
           if (row && row.security_question) return row;
-        } catch(e2) { /* skip */ }
+        } catch { /* skip */ }
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     return {};
   }
@@ -200,7 +200,7 @@ const LoginUI = (() => {
       const enc = new TextEncoder();
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    } catch (e) {
+    } catch {
       let hash = 0;
       for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
       return 'fb_' + Math.abs(hash).toString(16);
@@ -368,7 +368,7 @@ const LoginUI = (() => {
         const buf = await crypto.subtle.digest('SHA-256', enc.encode(given));
         const inputHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
         match = inputHash === masterPin;
-      } catch (e) {
+      } catch {
         // Fallback non-crypto hash (same as app.js _hashPw)
         let hash = 0;
         for (let i = 0; i < given.length; i++) { hash = ((hash << 5) - hash) + given.charCodeAt(i); hash |= 0; }

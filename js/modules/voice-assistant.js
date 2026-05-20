@@ -53,7 +53,6 @@ const VoiceAssistant = (() => {
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
-  let targetRect    = null;   // DOMRect of target section
 
   /* ════════════════════════════════════════════════
      INIT
@@ -133,7 +132,7 @@ const VoiceAssistant = (() => {
           }
         },
         stop: async () => {
-          try { await CapSpeech.stop(); } catch(e){}
+          try { await CapSpeech.stop(); } catch { /* ignore */ }
           stopUI();
         }
       };
@@ -298,7 +297,7 @@ const VoiceAssistant = (() => {
         isActive = false;
         isListening = false;
         _isRestarting = false;
-        try { recognition && recognition.abort(); } catch(ex) {} // abort() > stop() on desktop
+        try { recognition && recognition.abort(); } catch { /* ignore */ } // abort() > stop() on desktop
         stopUI();
         const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
         showBubble(msg, false);
@@ -741,7 +740,7 @@ const VoiceAssistant = (() => {
         if (btn) btn.classList.add('talking');
         // Prevent mic from picking up the synthesized voice
         if (recognition && isListening) {
-          try { recognition.stop(); } catch(e){}
+          try { recognition.stop(); } catch { /* ignore */ }
         }
       };
       u.onend = () => {
@@ -755,7 +754,7 @@ const VoiceAssistant = (() => {
                 _isAutoRestarting = true;
                 recognition.start(); 
                 isListening = true;
-              } catch(e){}
+              } catch { /* ignore */ }
             }
           }, 300);
         }
@@ -1102,7 +1101,7 @@ const VoiceAssistant = (() => {
 
   function dbAll(key) {
     try { return (typeof SupabaseSync!=='undefined') ? SupabaseSync.getAll((typeof DB!=='undefined'?DB[key]:null)||key) : []; }
-    catch(e) { return []; }
+    catch { return []; }
   }
 
   /* ════════════════════════════════════════════════
@@ -1279,7 +1278,7 @@ const VoiceAssistant = (() => {
   // 🔧 System status
   function reportSystemStatus() {
     const connected = typeof SupabaseSync !== 'undefined';
-    const dbSize = connected ? Object.keys(typeof DB !== 'undefined' ? DB : {}).length : 0;
+    const _dbSize = connected ? Object.keys(typeof DB !== 'undefined' ? DB : {}).length : 0;
     speak(`System is ${connected ? 'online and connected to the database' : 'running in offline mode'}.`);
     showReport('System Status', 'fa-server', [
       ['Status',     connected ? '✅ Online' : '⚠️ Offline',  connected?'#00ff88':'#ff4757'],
@@ -1382,7 +1381,7 @@ const VoiceAssistant = (() => {
     
     // 3. Edits/Deletes from Activity Log
     let activityLogs = [];
-    try { activityLogs = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); } catch(e) {}
+    try { activityLogs = JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); } catch { /* ignore */ }
     const todayLogs = activityLogs.filter(l => l.created_at && l.created_at.startsWith(todayISO));
     const edits = todayLogs.filter(l => l.action === 'edit' || l.action === 'update').length;
     const deletes = todayLogs.filter(l => l.action === 'delete' || l.action === 'remove').length;
@@ -1627,15 +1626,6 @@ const VoiceAssistant = (() => {
   }
 
   function reportHelp() {
-    const helpText = `
-🎙️ CONTINUOUS LISTENING MODE (v4.1):
-• Click once to START - Assistant keeps listening
-• Press ESCAPE to STOP listening
-• Supports both ENGLISH & BENGALI commands
-
-📝 Say these commands:
-`;
-    
     speak('I now support English and Bengali commands. Click to start continuous listening, press Escape to stop. ' +
           'Try saying: open settings, how many students, what time is it, or tell me a joke.');
     
@@ -1961,7 +1951,7 @@ const VoiceAssistant = (() => {
     if (!handled) {
       const navTriggers = ['open','go to','fly to','walk to','navigate to','take me to','show me','switch to','jump to'];
       const hasNavTrigger = navTriggers.some(t => cmd.includes(t));
-      const justNamed = !hasNavTrigger; // also allow bare "students", "settings" etc.
+      const _justNamed = !hasNavTrigger; // also allow bare "students", "settings" etc.
 
       const navigations = [
         { t:['dashboard','home','main screen','go home','show dashboard'], tab:'dashboard',    l:'Dashboard' },
@@ -2016,7 +2006,7 @@ const VoiceAssistant = (() => {
           const cleanSpeech = reply.replace(/\*/g, '').replace(/_/g, '').trim();
           speak(cleanSpeech);
           showBubble(cleanSpeech, true);
-        }).catch(err => {
+        }).catch(_err => {
           const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আমি উত্তরটি খুঁজে পাইনি।' : 'Sorry Sir, I could not process that.';
           speak(msg);
           showBubble(msg, false);

@@ -46,7 +46,7 @@ const NoticeBoardModule = (() => {
       try {
         const dismissed = sessionStorage.getItem('noticeDismissed');
         if (dismissed && dismissed === String(activeNotice.id || '1')) return;
-      } catch(e) {}
+      } catch { /* ignore */ }
       showBanner(activeNotice);
     }
     updateNoticeDot(); // ✅ Bug #3 fix: keep sidebar dot in sync
@@ -460,7 +460,7 @@ const NoticeBoardModule = (() => {
 
   function dismissBanner() {
     hideBanner();
-    try { localStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch(e) {}
+    try { localStorage.setItem('noticeDismissed', activeNotice ? (activeNotice.id || '1') : '1'); } catch { /* ignore */ }
   }
 
   return { init, render, updateNoticeDot, toggleCustom, previewNotice, publish, deleteActive, deleteNoticeById, openAddModal, dismissBanner };

@@ -216,7 +216,7 @@ const PushNotificationModule = (() => {
   // ── Manual notification send (for testing) ──
   async function sendTestNotification() {
     try {
-      const response = await fetch('https://your-api.example.com/send-notification', {
+      const _response = await fetch('https://your-api.example.com/send-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

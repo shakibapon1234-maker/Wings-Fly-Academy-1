@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Wings Fly Aviation Academy â€” Supabase Sync Engine + CRUD
 // Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
@@ -1885,7 +1885,7 @@ const SyncEngine = (() => {
           result[key] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
           arrayMerged = true;
         }
-      } catch(e) { /* Not a JSON array — skip array merge for this field */ }
+      } catch { /* Not a JSON array — skip array merge for this field */ }
 
       if (arrayMerged) continue;
 
@@ -1947,7 +1947,7 @@ const SyncEngine = (() => {
                   if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
                     merged[f] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
                   }
-                } catch(e) { /* Not a JSON array — skip smart merge for this field */ }
+                } catch { /* Not a JSON array — skip smart merge for this field */ }
               }
             }
             localMap.set(cloudRow.id, merged);

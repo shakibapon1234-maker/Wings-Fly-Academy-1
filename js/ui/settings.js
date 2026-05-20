@@ -878,7 +878,7 @@ const SettingsModule = (() => {
         saveConfig(cfg);
         console.info('[Settings] Silent auto-detect: added courses:', toAdd);
       }
-    } catch(e) { /* silent */ }
+    } catch { /* silent */ }
   }
 
   // ── Listen for Supabase pull events → re-run auto-detect silently ──
@@ -1947,7 +1947,7 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   function panelBatchProfit() {
     const students = SupabaseSync.getAll(DB.students);
-    const finance  = SupabaseSync.getAll(DB.finance);
+    const _finance  = SupabaseSync.getAll(DB.finance);
     const batches  = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
 
     // Default date range: last 30 days
@@ -2050,7 +2050,7 @@ const SettingsModule = (() => {
       : students;
 
     // Get student IDs for finance lookup
-    const studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
+    const _studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
 
     // ── Income: from student fees (finance entries for these students) ──
     // Also count direct paid from student records
@@ -2866,7 +2866,7 @@ ${expenseEntries.length > 0 ? `
             <table>
               <thead><tr><th>Table</th><th class="text-right">Local Records</th><th>Last Updated</th><th>Action</th></tr></thead>
               <tbody>
-                ${Object.entries(monitor).map(([key, v]) => `
+                ${Object.entries(monitor).map(([_key, v]) => `
                   <tr>
                     <td style="font-weight:600">${v.table}</td>
                     <td class="text-right" style="font-family:var(--font-ui)">${v.localCount}</td>
@@ -3486,7 +3486,7 @@ ${expenseEntries.length > 0 ? `
       
       // Merge strategy: preserve local pinned notes + merge by ID
       const localIds = new Set(local.map(n => _getNoteId(n)));
-      const remoteIds = new Set(remote.map(n => _getNoteId(n)));
+      const _remoteIds = new Set(remote.map(n => _getNoteId(n)));
       
       // 1. Keep local pinned notes (they're most recently edited)
       const pinnedLocal = local.filter(n => n.pinned);
@@ -3608,7 +3608,7 @@ ${expenseEntries.length > 0 ? `
     const pinned  = document.getElementById('note-pin')?.checked || false;
     if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
     const tags = tagsRaw.split(',').map(t=>t.trim()).filter(Boolean);
-    const notes = getKeepRecords();
+    const _notes = getKeepRecords();
     // ✅ FIX: Add unique ID and timestamp for proper sync
     const entry = { 
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), // unique ID
@@ -3869,7 +3869,7 @@ ${expenseEntries.length > 0 ? `
     }
     const newAdv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), person, amount, method, date, note, returns: [] };
     SupabaseSync.insert(DB.advance_payments || 'advance_payments', newAdv);
-    const finEntry = SupabaseSync.insert(DB.finance, {
+    const _finEntry = SupabaseSync.insert(DB.finance, {
       type: 'Expense', method, category: 'Advance Payment',
       description: `Advance to ${person}`, amount, date, note,
       _advId: newAdv.id  // link করার জন্য
@@ -4843,7 +4843,7 @@ ${expenseEntries.length > 0 ? `
   // ── Export All Data ───────────────────────────────────────────
   function exportAllData() {
     const allData = {};
-    for (const [key, tableName] of Object.entries(DB)) {
+    for (const [_key, tableName] of Object.entries(DB)) {
       let rows = SupabaseSync.getAll(tableName);
       // Security: admin_password, security_answer — backup থেকে বাদ দাও
       if (tableName === 'settings') {
@@ -4888,7 +4888,7 @@ ${expenseEntries.length > 0 ? `
       let imported = 0;
       let errors = 0;
 
-      for (const [key, tableName] of Object.entries(DB)) {
+      for (const [_key, tableName] of Object.entries(DB)) {
         if (statusEl) statusEl.innerHTML = `🔄 Fetching data from ${tableName}...`;
 
         try {
@@ -4913,7 +4913,7 @@ ${expenseEntries.length > 0 ? `
             }
             if (statusEl) statusEl.innerHTML = `✅ ${tableName}: ${data.length} records (${newRows.length} New)`;
           }
-        } catch (e) { errors++; }
+        } catch { errors++; }
       }
 
       if (statusEl) statusEl.innerHTML = `✅ Migration complete! ${imported} new records imported. ${errors > 0 ? `⚠️ ${errors} tables skipped.` : ''}`;
@@ -5012,7 +5012,7 @@ ${expenseEntries.length > 0 ? `
           } else {
             if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি (Supabase কানেক্ট না থাকলে এটা স্বাভাবিক — লোকালি সেভ হয়েছে)।';
           }
-        } catch (_) {
+        } catch {
           if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি — লোকাল স্টোরে ডেটা আছে।';
         }
 
@@ -5544,7 +5544,7 @@ ${expenseEntries.length > 0 ? `
 
       // exportAllData এর মতো করে data নাও
       const allData = {};
-      for (const [key, tableName] of Object.entries(DB)) {
+      for (const [_key, tableName] of Object.entries(DB)) {
         let rows = SupabaseSync.getAll(tableName);
         if (tableName === 'settings') {
           rows = rows.map(r => { const s = {...r}; delete s.admin_password; delete s.security_answer; return s; });
@@ -5774,7 +5774,7 @@ ${expenseEntries.length > 0 ? `
       const enc = new TextEncoder();
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    } catch (e) {
+    } catch {
       // Fallback: simple obfuscation যদি Web Crypto না থাকে
       console.warn('Web Crypto unavailable, using fallback');
       let hash = 0;
@@ -6264,7 +6264,7 @@ ${expenseEntries.length > 0 ? `
     if (!key) {
       localStorage.removeItem('wfa_gemini_key');
       if (typeof SecureStorage !== 'undefined') {
-        try { await SecureStorage.removeItem('wfa_gemini_key'); } catch(e){}
+        try { await SecureStorage.removeItem('wfa_gemini_key'); } catch { /* ignore */ }
       }
       if(typeof Utils !== 'undefined') Utils.toast('API Key removed.', 'info');
       refreshModal();
@@ -6273,7 +6273,7 @@ ${expenseEntries.length > 0 ? `
     
     localStorage.setItem('wfa_gemini_key', key);
     if (typeof SecureStorage !== 'undefined') {
-      try { await SecureStorage.setItem('wfa_gemini_key', key); } catch(e){}
+      try { await SecureStorage.setItem('wfa_gemini_key', key); } catch { /* ignore */ }
     }
     
     if(typeof Utils !== 'undefined') Utils.toast('✅ AI API Key Saved Successfully! AI is now active.', 'success');

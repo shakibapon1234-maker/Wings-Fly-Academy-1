@@ -124,7 +124,7 @@ const DashboardModule = (() => {
     const loanIn   = loans.filter(l => l.type === 'Loan Receiving' || l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
     // Advance payments — all records with calculated fields
-    const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch(e) { return []; } })();
+    const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch { return []; } })();
     const advancesAll = advancesRaw.map(a => {
       const returned = (a.returns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
       return { ...a, _returned: returned, _remaining: Math.max(0, (parseFloat(a.amount) || 0) - returned) };
@@ -382,9 +382,9 @@ const DashboardModule = (() => {
     if (!container) return;
 
     const { totalStudents, totalIncome, totalExpense, netProfit,
-            totalBalance, totalDue, loanOut, loanIn,
+            totalBalance, totalDue: _totalDue, loanOut: _loanOut, loanIn: _loanIn,
             rTotalStudents, rTotalIncome, rTotalExpense, rNetProfit,
-            students, finance, balances, notices, loans, settings, advances,
+            students, finance, balances: _balances, notices, loans, settings, advances,
             advancesAll, advanceTotalGiven, advanceTotalReturned, advanceTotalPending } = getStats();
 
     const { runningBatch, expenseMonth } = settings;
@@ -718,13 +718,7 @@ const DashboardModule = (() => {
       const style = getComputedStyle(document.body);
       const colorIncome = style.getPropertyValue('--brand-primary').trim() || '#00d4ff';
       const colorExpense = style.getPropertyValue('--error').trim() || '#ff4757';
-      const colorDoughnut = [
-        style.getPropertyValue('--brand-primary').trim() || '#00d4ff',
-        style.getPropertyValue('--brand-accent').trim() || '#ffeb3b',
-        style.getPropertyValue('--brand-gold').trim() || '#F9A825',
-        style.getPropertyValue('--brand-neon').trim() || '#00ff88',
-        style.getPropertyValue('--error').trim() || '#ff4757'
-      ];
+
 
       window.dashRevChart = new Chart(revCanvas, {
         type: 'bar',

@@ -360,7 +360,7 @@ const Loans = (() => {
           ? `⬆ উপরের ${givenPersons.length} জনকে আগে লোন দেওয়া হয়েছে`
           : 'Enter a new name or select from dropdown';
       }
-    } catch(e) {
+    } catch {
       persons = [];
       hintMsg = 'Enter a new name';
     }

@@ -147,7 +147,7 @@ const SecureStorage = (() => {
     try {
       const req = indexedDB.open('__wfa_test__', 1);
       req.onupgradeneeded = () => {
-        try { req.result.close(); indexedDB.deleteDatabase('__wfa_test__'); } catch {}
+        try { req.result.close(); indexedDB.deleteDatabase('__wfa_test__'); } catch { /* ignore */ }
       };
       return true;
     } catch {
@@ -197,8 +197,8 @@ const SecureStorage = (() => {
   }
 
   function safeGet(key)        { try { return _storageBackend.getItem(key); }    catch { return null; } }
-  function safeSet(key, value) { try { _storageBackend.setItem(key, value); }    catch {} }
-  function safeRemove(key)     { try { _storageBackend.removeItem(key); }        catch {} }
+  function safeSet(key, value) { try { _storageBackend.setItem(key, value); }    catch { /* ignore */ } }
+  function safeRemove(key)     { try { _storageBackend.removeItem(key); }        catch { /* ignore */ } }
 
   // ── Init ──────────────────────────────────────────────────
   initStorage();

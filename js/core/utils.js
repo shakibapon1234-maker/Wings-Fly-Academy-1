@@ -718,8 +718,8 @@ const Utils = (() => {
      function getAccountBalance(methodName) {
       if (!window.SupabaseSync || !methodName) return 0;
       const accounts = window.SupabaseSync.getAll(window.DB.accounts);
-      const finance = window.SupabaseSync.getAll(window.DB.finance);
       const settle = getSettlementKey(methodName);
+
 
       let balance = 0;
       if (settle === 'Cash') {

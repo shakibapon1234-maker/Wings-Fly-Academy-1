@@ -140,7 +140,7 @@ const App = (() => {
       const enc = new TextEncoder();
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-    } catch (e) {
+    } catch {
       let hash = 0;
       for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
       return 'fb_' + Math.abs(hash).toString(16);
@@ -840,7 +840,7 @@ const App = (() => {
         countEl.textContent = dueCount;
         countEl.style.display = dueCount > 0 ? 'inline-flex' : 'none';
       }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
   }
 
   // ── Sidebar Toggle ────────────────────────────────────────

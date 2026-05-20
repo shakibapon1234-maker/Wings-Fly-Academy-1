@@ -43,7 +43,7 @@ const AutoUpdateModule = (() => {
           signal: controller.signal
         });
         clearTimeout(timeoutId);
-      } catch (fetchErr) {
+      } catch {
         // CSP block, network error, or timeout — silently skip
         return { available: false, reason: 'fetch-blocked' };
       }
@@ -65,7 +65,7 @@ const AutoUpdateModule = (() => {
       }
       return { available: false, reason: 'up-to-date' };
 
-    } catch (error) {
+    } catch {
       return { available: false, reason: 'error' };
     }
   }

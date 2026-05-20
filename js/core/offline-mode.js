@@ -350,7 +350,7 @@ const OfflineModeModule = (() => {
       const transaction = db.transaction(['api-cache'], 'readonly');
       const store = transaction.objectStore('api-cache');
 
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve, _reject) => {
         const request = store.get(url);
         request.onsuccess = () => {
           const cached = request.result;

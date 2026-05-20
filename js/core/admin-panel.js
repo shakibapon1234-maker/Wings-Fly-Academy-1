@@ -9,7 +9,7 @@ async function _adminHashPw(pw) {
     const enc = new TextEncoder();
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  } catch (e) {
+  } catch {
     let hash = 0;
     for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
     return 'fb_' + Math.abs(hash).toString(16);
@@ -65,7 +65,7 @@ function logout() {
 
 // TABS
 function switchTab(name) {
-  document.querySelectorAll('.nav-tab').forEach((t,i) => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach((t, _i) => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   const tabs = ['questions','add','results','settings'];
@@ -80,7 +80,7 @@ function getQuestions() {
     const stored = cfg.exam_questions || localStorage.getItem('wfa_questions');
     if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return [];
-  } catch(e) { return []; }
+  } catch { return []; }
 }
 
 function saveQuestions(qs) {
@@ -292,7 +292,7 @@ function getSettings() {
     const stored = cfg.exam_settings || localStorage.getItem('wfa_settings');
     if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' };
-  } catch(e) { return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' }; }
+  } catch { return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' }; }
 }
 
 function saveSettings() {
@@ -365,7 +365,7 @@ function importQuestions(event) {
       saveQuestions(data);
       renderQuestionList();
       alert('✅ ' + data.length + 'টি প্রশ্ন সফলভাবে আমদানি হয়েছে!');
-    } catch(err) {
+    } catch {
       alert('❌ ফাইল সঠিক নয়। JSON ফরম্যাট হতে হবে।');
     }
   };
