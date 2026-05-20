@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Wings Fly Aviation Academy â€” Supabase Sync Engine + CRUD
 // Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
@@ -254,8 +254,8 @@ const WFA_IDB = (() => {
     let total = 0;
     for (const [key, rows] of Object.entries(_cache)) {
       try {
-        total += JSON.stringify(rows).length * 2;
-        total += key.length * 2;
+        total += JSON.stringify(rows).length;
+        total += key.length;
       } catch { /* ignore */ }
     }
     return Math.round(total / 1024);
@@ -264,7 +264,7 @@ const WFA_IDB = (() => {
   function getTableSizeKB(tableName) {
     try {
       const rows = _cache[tableName] || [];
-      return Math.round(JSON.stringify(rows).length * 2 / 1024);
+      return Math.round(JSON.stringify(rows).length / 1024);
     } catch { return 0; }
   }
 
@@ -1552,7 +1552,10 @@ window.SupabaseSync = SupabaseSync;
 // SyncEngine â€” Pull / Push / Real-time / Multi-user
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const SyncEngine = (() => {
-  const { client, TABLES } = window.SUPABASE_CONFIG;
+  // ✅ BUG FIX: Do NOT destructure `client` at init time — it may be null during async hydration.
+  // Always read window.SUPABASE_CONFIG.client fresh on each operation.
+  const { TABLES } = window.SUPABASE_CONFIG;
+  function _client() { return window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client; }
   let syncInterval = null;
   let realtimeChannels = [];
   let _lastSyncTime = 0;
@@ -1632,6 +1635,14 @@ const SyncEngine = (() => {
     const pullStartedAt = new Date().toISOString();
 
     try {
+      // ✅ BUG FIX: Read client fresh — it may have been set async after init.
+      const client = _client();
+      if (!client) {
+        console.warn('[Sync] Pull skipped — Supabase client not ready (offline or unconfigured).');
+        setStatus('offline');
+        return;
+      }
+
       let hasChanges = false;
 
       for (const key of Object.values(TABLES)) {
@@ -1954,7 +1965,13 @@ const SyncEngine = (() => {
     const silent = opts.silent !== false ? true : false;
     setStatus('syncing');
     try {
-      const { client } = window.SUPABASE_CONFIG;
+      // ✅ BUG FIX: Read client fresh on each push call.
+      const client = _client();
+      if (!client) {
+        console.warn('[Sync] Push skipped — Supabase client not ready (offline or unconfigured).');
+        setStatus('offline');
+        return;
+      }
 
       // ── Safety check: fresh device এ blindly push করবে না ──
       // _lastPullTimestamp না থাকলে মানে এই device এ full pull হয়নি।
@@ -1987,6 +2004,8 @@ const SyncEngine = (() => {
   }
 
   function startRealtime() {
+    // ✅ BUG FIX: Read client fresh.
+    const client = _client();
     if (!client?.channel) return;
     stopRealtime();
 
@@ -2006,8 +2025,10 @@ const SyncEngine = (() => {
   }
 
   function stopRealtime() {
+    // ✅ BUG FIX: Read client fresh — avoid using stale null reference from closure.
+    const client = _client();
     realtimeChannels.forEach(ch => {
-      try { client.removeChannel(ch); } catch { /* ignore */ }
+      try { if (client) client.removeChannel(ch); } catch { /* ignore */ }
     });
     realtimeChannels = [];
   }

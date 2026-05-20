@@ -522,7 +522,8 @@
   <!-- ✅ Bug #6/#21/#22 Fix: Secure storage with encryption + private browsing fallback -->
   <script src="js/core/secure-storage.js" defer></script>
   <!-- Optional local Supabase credentials (empty stub; fill via Settings → Cloud API) -->
-  <script src="js/core/supabase-secrets.js" defer></script>
+  <!-- onerror: silently ignored if file missing on GitHub Pages — credentials loaded from Settings instead -->
+  <script src="js/core/supabase-secrets.js" defer onerror="console.info('[Config] supabase-secrets.js not found — using Settings credentials.')"></script>
   <!-- ✅ Bug #25 Fix: i18n — bilingual (Bengali/English) error message localization -->
   <script src="js/core/i18n.js" defer></script>
   <script src="js/core/supabase-config.js" defer></script>
