@@ -1691,6 +1691,20 @@ const SyncEngine = (() => {
           merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
         }
 
+        // BUG-05 Fix: finance_ledger pull — _isLoan flag Supabase-এ নেই (cloud-only field নয়)
+        // কিন্তু Finance UI এই flag দিয়ে loan entries লুকায়।
+        // Cloud pull-এ এই flag হারিয়ে গেলে loan entries Finance tab-এ দেখা যায়।
+        // Fix: pull-এর পর category==='Loan' ও type loan rows-এ _isLoan:true restore করো।
+        if (key === 'finance_ledger' && merged.length > 0) {
+          merged = merged.map(function(f) {
+            if (!f._isLoan && f.category === 'Loan' &&
+                (f.type === 'Loan Giving' || f.type === 'Loan Receiving')) {
+              return Object.assign({}, f, { _isLoan: true });
+            }
+            return f;
+          });
+        }
+
         // SECURITY: settings table — admin_password কখনো cloud এর plaintext দিয়ে overwrite হবে না
         if (key === 'settings' && merged.length > 0 && localRows.length > 0) {
           const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');

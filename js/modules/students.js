@@ -578,7 +578,7 @@ const Students = (() => {
       </div>
       <div class="form-group">
         <label>Notes</label>
-        <textarea id="sf-note" class="form-control" rows="2">${s.note||''}</textarea>
+        <textarea id="sf-note" class="form-control" rows="2">${Utils.esc(s.note||'')}</textarea>
       </div>
       <div id="sf-error" class="form-error hidden"></div>
       <div class="form-actions">
@@ -936,15 +936,16 @@ const Students = (() => {
 
       if (duplicate) {
         // Warning দেখাও — user চাইলে তবুও save করতে পারবে
-        const dupPhone = duplicate.phone || 'N/A';
-        const dupId    = duplicate.student_id || '';
+        const dupPhone = Utils.esc(duplicate.phone || 'N/A');
+        const dupId    = Utils.esc(duplicate.student_id || '');
+        const dupName  = Utils.esc(duplicate.name || '');
         errEl.innerHTML = `
           <div style="display:flex; flex-direction:column; gap:10px;">
             <div style="display:flex; align-items:flex-start; gap:8px;">
               <i class="fa fa-triangle-exclamation" style="color:#f7a800; font-size:1.1rem; margin-top:2px; flex-shrink:0;"></i>
               <div>
                 <strong style="color:#f7a800;">Possible Duplicate Entry!</strong><br/>
-                <span style="font-size:0.88rem;">Similar student found: <strong>${duplicate.name}</strong> (ID: ${dupId}, Phone: ${dupPhone})</span>
+                <span style="font-size:0.88rem;">Similar student found: <strong>${dupName}</strong> (ID: ${dupId}, Phone: ${dupPhone})</span>
               </div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">

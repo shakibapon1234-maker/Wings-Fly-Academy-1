@@ -225,6 +225,8 @@ const Attendance = (() => {
     // Re-render just tab content (not full modal) to preserve filter state
     const content = document.getElementById('att-tab-content');
     if (content) content.innerHTML = renderTabContent();
+    // BUG-10 Fix: tab switch-এর পরে নতুন date inputs-এ flatpickr apply করো
+    _applyAttFlatpickr();
   }
 
   /* ═══════════════════════════════════════════
@@ -332,6 +334,8 @@ const Attendance = (() => {
   function refreshLog() {
     const content = document.getElementById('att-tab-content');
     if (content) content.innerHTML = renderLogTab();
+    // BUG-10 Fix: re-render-এর পরে date inputs-এ flatpickr re-apply করো
+    _applyAttFlatpickr();
   }
 
   async function deleteRecord(id) {
@@ -621,9 +625,11 @@ const Attendance = (() => {
 
   // ✅ লজিক ৪: Attendance modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY)
   // att-date-sel (Mark tab), att-course-from/to (Course tab), att-blank-startdate (Blank tab)
+  // att-log-from/to (Log tab) — BUG-10 Fix: Log tab date inputs-ও include করা হয়েছে
   function _applyAttFlatpickr() {
     if (typeof flatpickr === 'undefined') return;
-    const ids = ['att-date-sel', 'att-course-from', 'att-course-to', 'att-blank-startdate'];
+    const ids = ['att-date-sel', 'att-course-from', 'att-course-to', 'att-blank-startdate',
+                 'att-log-from', 'att-log-to'];  // BUG-10 Fix: Log tab date filters যোগ করা হয়েছে
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (!el || el._flatpickr) return; // already initialized

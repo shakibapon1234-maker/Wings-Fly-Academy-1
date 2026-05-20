@@ -600,16 +600,23 @@ const Salary = (() => {
 
     var autoFullyPaid = (payAmount >= net && net > 0);
 
+    var _entryMonth = (document.getElementById('sal-month') || {}).value || getSelectedMonth();
+    // BUG-01 Fix: extract year from "YYYY-MM" month value so the 'year' column syncs correctly
+    var _entryYear  = _entryMonth ? parseInt(_entryMonth.split('-')[0], 10) || new Date().getFullYear() : new Date().getFullYear();
+
     var entry = {
       staffId:    staffId,    staff_id:   staffId,
       staffName:  (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
       staff_name: (staffOpt && staffOpt.dataset.name)  || (existingRecord && existingRecord.staffName) || '',
       role:       (staffOpt && staffOpt.dataset.role)  || (existingRecord && existingRecord.role)       || '',
       phone:      (staffOpt && staffOpt.dataset.phone) || (existingRecord && existingRecord.phone)      || '',
-      month:      (document.getElementById('sal-month') || {}).value || getSelectedMonth(),
+      month:      _entryMonth,
+      year:       _entryYear,
       baseSalary: base,  base_salary: base,
       bonus:      bonus,
       deduction:  deduction,
+      // BUG-01 Fix: net_salary ও amount — supabase-sync whitelist-এ দুটোই আছে
+      net_salary: net,   amount: net,
       paidAmount: payAmount, paid_amount: payAmount,
       method:     method,
       paid:       isPaid || autoFullyPaid,

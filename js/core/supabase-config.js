@@ -106,7 +106,25 @@ if (!navigator.onLine) {
   document.addEventListener('DOMContentLoaded', _showOfflineBanner, { once: true });
 }
 
-_reinitSupabaseClient();
+// BUG-11 Fix: _reinitSupabaseClient() call করার আগে window.supabase load হয়েছে কিনা check করো।
+// যদি না হয়, supabase.min.js defer/async load শেষ হলে retry করো।
+(function _initOrRetrySupabaseClient() {
+  if (window.supabase) {
+    _reinitSupabaseClient();
+  } else {
+    // supabase lib এখনো ready নয় — script load হলে retry করো
+    const waitForLib = setInterval(function() {
+      if (window.supabase) {
+        clearInterval(waitForLib);
+        _reinitSupabaseClient();
+        // const update করা যাবে না, তাই window থেকে নাও
+        window.supabaseClient = window.supabaseClient || null;
+      }
+    }, 50);
+    // 10 সেকেন্ড পরে give up
+    setTimeout(function() { clearInterval(waitForLib); }, 10000);
+  }
+})();
 const supabaseClient = window.supabaseClient || null;
 
 document.addEventListener('DOMContentLoaded', async () => {

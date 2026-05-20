@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260517-balance-integrity';
+const DEPLOY_ID = '20260519-bugfix-batch1';
 const CACHE_NAME = `wfa-v8-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -80,13 +80,11 @@ const STATIC_ASSETS = [
   './css/webfonts/fa-solid-900.woff2',
   './css/webfonts/fa-regular-400.woff2',
   './css/webfonts/fa-brands-400.woff2',
-  './js/lib/face-api.min.js',
-  './assets/face-api-models/ssd_mobilenetv1_model-weights_manifest.json',
-  './assets/face-api-models/ssd_mobilenetv1_model.bin',
-  './assets/face-api-models/face_landmark_68_model-weights_manifest.json',
-  './assets/face-api-models/face_landmark_68_model.bin',
-  './assets/face-api-models/face_recognition_model-weights_manifest.json',
-  './assets/face-api-models/face_recognition_model.bin',
+  // BUG-07 Fix: face-api.min.js (~1.3MB) ও face-api model files (~12MB) precache-এ রাখা হচ্ছে না।
+  // কারণ: SW install-এ এত বড় file fetch করলে slow network-এ install fail হয়,
+  // ফলে পুরো PWA offline কাজ করে না।
+  // Solution: এই files fetch handler-এ lazy cache হবে — প্রথমবার Face ID use করলে
+  // automatically cache হয়ে যাবে। Offline mode-এ Face ID ছাড়া বাকি সব কাজ করবে।
 ];
 
 // ── Install: Pre-cache static assets ──
