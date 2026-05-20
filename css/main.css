@@ -1224,7 +1224,7 @@ tbody td { padding: 11px 14px; color: var(--text-primary); }
   inset: 0;
   background: rgba(0,5,20,0.75);
   backdrop-filter: blur(6px);
-  z-index: 500;
+  z-index: 700; /* above settings-overlay (600) so modals from settings are visible */
   justify-content: center;
   align-items: flex-start;
   padding: 24px 16px;

@@ -1285,6 +1285,10 @@ const SupabaseSync = (() => {
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
+      if (!client) {
+        // Supabase not configured/offline — skip silently, local data already saved
+        return;
+      }
       let clean = _sanitizeRecord(record, table);
       if (_badCols && _badCols[table]) {
         clean = { ...clean };
@@ -1316,6 +1320,10 @@ const SupabaseSync = (() => {
   async function _deleteFromCloud(table, id) {
     try {
       const { client } = window.SUPABASE_CONFIG;
+      if (!client) {
+        // Supabase not configured/offline — skip silently, local delete already done
+        return;
+      }
       const { error } = await client.from(table).delete().eq('id', id);
       if (error) throw error;
     } catch (e) {
@@ -1384,6 +1392,7 @@ const SupabaseSync = (() => {
       if (!queue.length) return;
       
       const { client } = window.SUPABASE_CONFIG;
+      if (!client) return; // Supabase not ready — retry later
       const remaining = [];
       let successCount = 0;
       let droppedCount = 0;
