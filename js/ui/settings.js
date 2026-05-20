@@ -3006,6 +3006,9 @@ ${expenseEntries.length > 0 ? `
           <button type="button" class="btn btn-outline btn-sm" onclick="SyncGuard.runFullAudit();setTimeout(()=>SyncGuard.renderPanel('syncguard-panel'),200)">
             <i class="fa fa-rotate"></i> Re-Audit
           </button>
+          <button type="button" class="btn btn-outline btn-sm" style="color:#a78bfa;border-color:rgba(167,139,250,0.4);background:rgba(167,139,250,0.06)" onclick="SystemDiagnostics && SystemDiagnostics.runAllTests()" title="Run System Diagnostics">
+            <i class="fa fa-stethoscope"></i> Run Diagnostics
+          </button>
         </div>
         <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">
           Finance ledger, Loan, Transfer এবং Account Balance স্বয়ংক্রিয়ভাবে পরীক্ষা করে।
