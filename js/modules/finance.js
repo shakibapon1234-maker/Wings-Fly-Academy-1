@@ -80,6 +80,8 @@ const Finance = (() => {
           <option value="Loan Receiving" ${filterType==='Loan Receiving'?'selected':''}>Loan Taken</option>
           <option value="Transfer In"    ${filterType==='Transfer In'?'selected':''}>Transfer In</option>
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
+          <option value="Investment In"  ${filterType==='Investment In'?'selected':''}>Investment In</option>
+          <option value="Investment Out" ${filterType==='Investment Out'?'selected':''}>Investment Out</option>
         </select>
         <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>

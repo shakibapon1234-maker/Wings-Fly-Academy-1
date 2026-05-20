@@ -124,7 +124,17 @@ const DashboardModule = (() => {
     const loanIn   = loans.filter(l => l.type === 'Loan Receiving' || l.direction === 'received').reduce((s, l) => s + Utils.safeNum(l.amount), 0);
 
     // Advance payments — all records with calculated fields
-    const advancesRaw = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch { return []; } })();
+    // ✅ Bug #2 Fix: Read from SupabaseSync/IDB (cross-device) instead of localStorage-only
+    const advancesRaw = (() => {
+      try {
+        if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+          const rows = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+          if (rows && rows.length > 0) return rows;
+        }
+        // Fallback: legacy localStorage (backward compat on first load before migration)
+        return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+      } catch { return []; }
+    })();
     const advancesAll = advancesRaw.map(a => {
       const returned = (a.returns || []).reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
       return { ...a, _returned: returned, _remaining: Math.max(0, (parseFloat(a.amount) || 0) - returned) };
@@ -179,10 +189,9 @@ const DashboardModule = (() => {
     if (!rows.length) return `<p class="text-muted" style="padding:16px">No transactions found</p>`;
 
     // ✅ Student lookup map — ref_id দিয়ে student নাম পাওয়ার জন্য।
-    // ❗ DB.students ব্যবহার না — DB window global না হলে undefined হবে ।
-    // 'students' literal string দিয়ে সরাসরি IDB থেকে রিড করো।
-    const _stAll = typeof SupabaseSync !== 'undefined'
-      ? SupabaseSync.getAll('students') : [];
+    // ✅ Bug #8 Fix: DB.students ব্যবহার করো — DB সর্বদা defined (app.js আগে load হয়)।
+    const _stAll = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined')
+      ? SupabaseSync.getAll(DB.students) : [];
     const _stMap = {};
     _stAll.forEach(s => {
       if (s.id)         _stMap[s.id]         = s;
