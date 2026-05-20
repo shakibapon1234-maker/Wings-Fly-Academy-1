@@ -4,8 +4,6 @@
 // ============================================================
 
 const OfflineModeModule = (() => {
-  const OFFLINE_QUEUE_KEY = 'wfa_offline_queue';
-  const OFFLINE_DATA_KEY = 'wfa_offline_data';
   const DB_NAME = 'WingsFlyCacheDB';
   const DB_VERSION = 1;
   

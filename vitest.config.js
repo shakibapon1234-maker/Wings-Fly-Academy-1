@@ -14,5 +14,10 @@ export default defineConfig({
 
     // Reporter: terminal-এ সুন্দর output দেখাবে
     reporter: 'verbose',
+
+    // ✅ FIX: Use 'forks' pool to avoid @rollup/rollup-linux-x64-gnu native
+    //         binary dependency that crashes on Windows. Forks run tests in
+    //         separate Node.js processes instead of worker threads.
+    pool: 'forks',
   },
 });

@@ -758,7 +758,6 @@ const SupabaseSync = (() => {
     } catch { /* ignore */ }
   }
 
-  const RECYCLE_BIN_KEY = 'wfa_recycle_bin';
   const RECYCLE_MAX = 500;
 
   function _recycleTypeLabel(table) {
@@ -1875,7 +1874,7 @@ const SyncEngine = (() => {
           result[key] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
           arrayMerged = true;
         }
-      } catch(e) {}
+      } catch(e) { /* Not a JSON array — skip array merge for this field */ }
 
       if (arrayMerged) continue;
 
@@ -1937,7 +1936,7 @@ const SyncEngine = (() => {
                   if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
                     merged[f] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
                   }
-                } catch(e) {}
+                } catch(e) { /* Not a JSON array — skip smart merge for this field */ }
               }
             }
             localMap.set(cloudRow.id, merged);

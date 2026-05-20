@@ -468,7 +468,7 @@
     function printCert() {
       const win = window.open('', '_blank');
       win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate</title>
-      <link rel="stylesheet" href="${window.location.origin}${window.location.pathname.replace('certificate.html','')}css/cert-v2.css" />
+      <link rel="stylesheet" href="css/cert-v2.css" />
       <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}
       @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
       </head><body>${document.getElementById('cert-render-area').innerHTML}<script>window.onload=function(){setTimeout(function(){window.print();},800);}<\/script></body></html>`);

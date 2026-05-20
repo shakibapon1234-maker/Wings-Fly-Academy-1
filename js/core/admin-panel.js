@@ -93,7 +93,7 @@ function saveQuestions(qs) {
     } else {
       SupabaseSync.insert(DB.settings, cfg);
     }
-  } catch(e) {}
+  } catch(e) { console.warn('[AdminPanel] saveQuestions failed:', e?.message); }
 }
 
 function renderQuestionList() {
@@ -379,3 +379,21 @@ function loadAll() {
     loadSettings();
   });
 }
+
+// ── Expose to global scope (called from HTML onclick attributes) ──
+// ESLint reports these as "unused" because it cannot see HTML onclick usage.
+window.doLogin            = doLogin;
+window.logout             = logout;
+window.switchTab          = switchTab;
+window.saveQuestion       = saveQuestion;
+window.editQuestion       = editQuestion;
+window.deleteQuestion     = deleteQuestion;
+window.clearAllQuestions  = clearAllQuestions;
+window.exportQuestions    = exportQuestions;
+window.importQuestions    = importQuestions;
+window.clearResults       = clearResults;
+window.exportResults      = exportResults;
+window.toggleExamActive   = toggleExamActive;
+window.saveSettings       = saveSettings;
+window.changePassword     = changePassword;
+window.loadAll            = loadAll;

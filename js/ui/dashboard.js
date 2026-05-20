@@ -37,14 +37,6 @@ const DashboardModule = (() => {
     return normalized;
   }
 
-  function getPrimaryCashAccount(accounts) {
-    const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
-    if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
-    return cashAccounts.reduce((best, a) => {
-      return Math.abs(Utils.safeNum(a.balance)) < Math.abs(Utils.safeNum(best.balance)) ? a : best;
-    });
-  }
-
   function getStats() {
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') {
       return { totalStudents:0,totalIncome:0,totalExpense:0,netProfit:0,totalBalance:0,totalDue:0,loanOut:0,loanIn:0,rTotalStudents:0,rTotalIncome:0,rTotalExpense:0,rNetProfit:0,students:[],finance:[],balances:{},notices:[],loans:[],settings:getSettings(),advances:[],advancesAll:[],advanceTotalGiven:0,advanceTotalReturned:0,advanceTotalPending:0 };
@@ -285,27 +277,6 @@ const DashboardModule = (() => {
         <p style="margin-top:6px;font-size:.9rem">${n.text||''}</p>
         ${n.expires_at ? `<small class="text-muted">Expires: ${Utils.formatDateDMY(n.expires_at)}</small>` : ''}
       </div>`).join('');
-  }
-
-  function renderBarChart(months) {
-    const entries = Object.entries(months);
-    const maxVal = Math.max(...entries.map(([,v]) => Math.max(v.income, v.expense)), 1);
-    const w = 100 / entries.length;
-    const bars = entries.map(([key, val]) => {
-      const ih = (val.income  / maxVal) * 120;
-      const eh = (val.expense / maxVal) * 120;
-      const label = key.slice(5);
-      return `<div class="chart-col" style="width:${w}%">
-        <div class="chart-bars">
-          <div class="bar bar-income" style="height:${ih}px" title="Income: ${Utils.takaEn(val.income)}"></div>
-          <div class="bar bar-expense" style="height:${eh}px" title="Expense: ${Utils.takaEn(val.expense)}"></div>
-        </div>
-        <div class="chart-label">${label}</div>
-      </div>`;
-    }).join('');
-    return `<div class="chart-legend"><span><span class="legend-dot" style="background:var(--success)"></span>Income</span>
-      <span><span class="legend-dot" style="background:var(--error)"></span>Expense</span></div>
-      <div class="bar-chart">${bars}</div>`;
   }
 
   function renderReminders(students) {

@@ -5273,6 +5273,77 @@ ${expenseEntries.length > 0 ? `
     return total;
   }
 
+  // ── Modern Data Importer (with custom date support) ───────────
+  // ✅ FIX: This function was called on line 5080 but was never defined.
+  //         Extracted from importFromJSON() modern-format logic + custom date support.
+  async function importModernData(data, statusEl, customDate, tableCount) {
+    let imported = 0;
+    tableCount = tableCount || 0;
+    const tableDetails = [];
+
+    // ✅ If custom date provided, use it for date fields
+    const importDateISO = customDate && customDate.length === 10 ? customDate : null;
+
+    // Meta/non-table keys to skip
+    const SKIP_KEYS = new Set(['meta', 'version', 'exportedAt', '_exportedAt', '_version', '_meta']);
+
+    // Table name aliases (export uses DB table names directly)
+    const tableAliases = {
+      finance: DB.finance,
+      financeLedger: DB.finance,
+      finance_ledger: DB.finance,
+      ledger: DB.finance,
+      staff: DB.staff,
+      employees: DB.staff,
+    };
+
+    for (const [key, rows] of Object.entries(data)) {
+      // Skip non-table metadata keys
+      if (SKIP_KEYS.has(key) || key.startsWith('_')) continue;
+      // Must be a non-empty array
+      if (!Array.isArray(rows) || rows.length === 0) continue;
+
+      const targetTable = tableAliases[key] || key;
+
+      if (statusEl) statusEl.innerHTML = `🔄 Importing ${targetTable}...`;
+
+      // Get existing records in this table
+      const existing = SupabaseSync.getAll(targetTable);
+      const existingIds = new Set(existing.map(r => r.id));
+
+      // Apply custom date if provided, then dedup by id
+      const processedRows = importDateISO
+        ? rows.map(r => ({
+            ...r,
+            created_at: importDateISO + 'T00:00:00.000Z',
+            // Override date fields relevant to each table
+            ...(r.date !== undefined           ? { date: importDateISO }       : {}),
+            ...(r.admission_date !== undefined  ? { admission_date: importDateISO } : {}),
+            ...(r.visit_date !== undefined      ? { visit_date: importDateISO }    : {}),
+            ...(r.exam_date !== undefined       ? { exam_date: importDateISO }     : {}),
+          }))
+        : rows;
+
+      // Only import rows that don't already exist (dedup by id)
+      const newRows = processedRows.filter(r => r && r.id && !existingIds.has(r.id));
+
+      if (newRows.length > 0) {
+        // Merge: new rows first so they show at top
+        SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
+        imported += newRows.length;
+        tableCount++;
+        tableDetails.push(`${targetTable}: ${newRows.length}টি`);
+      }
+    }
+
+    if (statusEl && tableDetails.length > 0) {
+      const detailsStr = `<br><small style="color:var(--text-muted)">${tableDetails.join(' | ')}</small>`;
+      statusEl.innerHTML = `✅ সফলভাবে <strong>${imported}টি রেকর্ড</strong> ${tableCount}টি টেবিলে ইম্পোর্ট হয়েছে!${detailsStr}`;
+    }
+
+    return imported;
+  }
+
   // ── Clear Local Data ──────────────────────────────────────────
   async function clearLocalData() {
     const ok = await Utils.confirm('Delete all local data? Cloud data will remain. Settings will be kept.', 'Reset Data');
@@ -6220,7 +6291,7 @@ ${expenseEntries.length > 0 ? `
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
     applyCardPreset,
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
-    startMigration, importFromJSON,
+    startMigration, importFromJSON, importFromJSONWithDate,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel, filterActivityLog, clearActivityFilters,
