@@ -16,8 +16,8 @@ yarn-error.log*
 .env.local
 .env.production
 
-# Supabase credentials — anon key is public by design; safe to commit.
-# js/core/supabase-secrets.js
+# Supabase credentials — NEVER commit live keys
+js/core/supabase-secrets.js
 
 # OS generated files
 .DS_Store
