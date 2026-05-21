@@ -48,11 +48,25 @@ const Finance = (() => {
     const loanGiv  = filtered.filter(f=>f.type==='Loan Giving').reduce((s,f)=>s+Utils.safeNum(f.amount),0);
     const net      = income - expense;
 
-    /* Running balance */
-     let running = 0;
+    /* Running balance — start from implied initial balance so values don't go negative.
+     * initialBalance = sum of all stored account balances − net of all ledger entries.
+     * This represents funds the academy had before the first logged transaction.
+     * When filters are active the view is partial, so we start from 0 instead. */
+    const _accts = SupabaseSync.getAll(DB.accounts || 'accounts');
+    const _totalStored = _accts.reduce((s, a) => s + Utils.safeNum(a.balance), 0);
+    const _IN_TYPES = new Set(['Income','Loan Receiving','Transfer In','Investment In']);
+    let _allNet = 0;
+    all.forEach(f => {
+      const amt = Utils.safeNum(f.amount);
+      _allNet += _IN_TYPES.has(f.type) ? amt : -amt;
+    });
+    const _noFilters = !searchQuery && !filterType && !filterMethod && !filterFrom && !filterTo;
+    const _initialBal = _noFilters ? (_totalStored - _allNet) : 0;
+
+     let running = _initialBal;
      const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
        const amt = Utils.safeNum(f.amount);
-       if (f.type==='Income'||f.type==='Loan Receiving'||f.type==='Transfer In'||f.type==='Investment In') running+=amt;
+       if (_IN_TYPES.has(f.type)) running+=amt;
        else running-=amt;
        return {...f, _running: running};
      }).reverse();
@@ -170,7 +184,7 @@ const Finance = (() => {
         <td class="${isPos?'ledger-income':'ledger-expense'}" style="font-family:var(--font-en);font-weight:600">
           ${isPos?'+':'-'}${Utils.takaEn(f.amount)}
         </td>
-        <td class="ledger-balance" style="font-family:var(--font-en)">${Utils.takaEn(f._running||0)}</td>
+        <td class="ledger-balance" style="font-family:var(--font-en);color:${(f._running||0)>=0?'#00e5ff':'#ff4757'}">${(f._running||0)<0?'-':''}${Utils.takaEn(Math.abs(f._running||0))}</td>
         <td class="no-print">
           <div class="table-actions">
             <button class="btn-outline btn-xs" onclick="Finance.openEditModal('${f.id}')"><i class="fa fa-pen"></i></button>
