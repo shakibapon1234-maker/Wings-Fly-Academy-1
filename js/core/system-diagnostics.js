@@ -272,6 +272,86 @@ const SystemDiagnostics = (() => {
     }
   }
 
-  return { runAllTests, _execute };
+  function cleanupLeftovers() {
+    try {
+      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return 0;
+
+      const studentsTable = DB.students;
+      const financeTable = DB.finance;
+      if (!studentsTable || !financeTable) return 0;
+
+      // 1. Find all diagnostic students in active database
+      const activeStudents = SupabaseSync.getAll(studentsTable) || [];
+      const leftoverStudents = activeStudents.filter(s => 
+        (s.student_id && String(s.student_id).startsWith('DIAG-TEST-')) ||
+        (s.name && String(s.name).includes('System Test Student')) ||
+        (s.batch === 'Batch-DIAG') ||
+        (s.course === 'Diagnostics Course')
+      );
+
+      const leftoverStudentUuids = leftoverStudents.map(s => s.id).filter(Boolean);
+
+      // 2. Find all diagnostic finance entries in active database
+      const activeFinance = SupabaseSync.getAll(financeTable) || [];
+      const leftoverFinance = activeFinance.filter(f => 
+        f.note === 'Auto-generated diagnostic payment' ||
+        (f.ref_id && String(f.ref_id).startsWith('DIAG-TEST-')) ||
+        leftoverStudentUuids.includes(f.ref_id)
+      );
+
+      let removedCount = 0;
+
+      // Delete active leftover finance records directly
+      for (const p of leftoverFinance) {
+        SupabaseSync.remove(financeTable, p.id, { bypassLog: true });
+        removedCount++;
+      }
+
+      // Delete active leftover student records directly
+      for (const s of leftoverStudents) {
+        SupabaseSync.remove(studentsTable, s.id, { bypassLog: true });
+        removedCount++;
+      }
+
+      // 3. Purge all diagnostic items (active/recycled) from the Recycle Bin
+      const purgeBinItems = () => {
+        const bin = SupabaseSync.getAll('recycle_bin') || [];
+        const idx = bin.findIndex(b => {
+          if (b.table === studentsTable) {
+            const data = b.data || {};
+            return (data.student_id && String(data.student_id).startsWith('DIAG-TEST-')) ||
+                   (data.name && String(data.name).includes('System Test Student')) ||
+                   (data.batch === 'Batch-DIAG') ||
+                   (data.course === 'Diagnostics Course') ||
+                   leftoverStudentUuids.includes(data.id);
+          }
+          if (b.table === financeTable) {
+            const data = b.data || {};
+            return data.note === 'Auto-generated diagnostic payment' ||
+                   (data.ref_id && String(data.ref_id).startsWith('DIAG-TEST-')) ||
+                   leftoverStudentUuids.includes(data.ref_id);
+          }
+          return false;
+        });
+
+        if (idx !== -1) {
+          SupabaseSync.permanentDeleteRecycleBinItem(idx);
+          removedCount++;
+          purgeBinItems(); // Recursive purge
+        }
+      };
+      purgeBinItems();
+
+      if (removedCount > 0) {
+        console.log(`%c[Diagnostics] Cleaned up ${removedCount} orphaned diagnostic records from active DB/Recycle Bin.`, 'color: #a78bfa; font-weight: bold');
+      }
+      return removedCount;
+    } catch (e) {
+      console.error('[Diagnostics] Failed during auto-cleanup of leftovers:', e);
+      return 0;
+    }
+  }
+
+  return { runAllTests, _execute, cleanupLeftovers };
 })();
 window.SystemDiagnostics = SystemDiagnostics;

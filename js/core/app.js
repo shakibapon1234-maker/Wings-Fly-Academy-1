@@ -1190,6 +1190,10 @@ const App = (() => {
     WFA_IDB.onReady(() => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
       cleanupDuplicateSettings();
+      // ডায়াগনস্টিক টেস্টের ডামি/লেফটওভার রেকর্ডগুলো অটোমেটিক ক্লিনআপ করো
+      if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {
+        SystemDiagnostics.cleanupLeftovers();
+      }
       if (isLoggedIn()) {
         // ✅ Fix: যদি role না থাকে (refresh/session restore) তাহলে admin default করো
         // কারণ sub-account logout করলে wfa_logged_in cleared হয়, কিন্তু
@@ -1207,6 +1211,9 @@ const App = (() => {
     } else {
       // WFA_IDB not available — run auth check directly (offline/fallback mode)
       cleanupDuplicateSettings();
+      if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {
+        SystemDiagnostics.cleanupLeftovers();
+      }
       if (isLoggedIn()) { showApp(false); } else { showLogin(); }
       updateNotifCount();
     }
