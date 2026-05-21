@@ -452,10 +452,14 @@ const IntegrityGuard = (() => {
     // console এ সুন্দর report
     _printConsoleReport(results);
 
-    // Critical failures হলে visual alert দেখাও
+    // Critical failures হলে visual alert দেখাও, না থাকলে পুরনো badge সরাও
     const criticalFails = results.summary.critical_failures;
     if (criticalFails.length > 0) {
       _showCriticalAlert(criticalFails);
+    } else {
+      // ✅ Fix: No critical failures → remove stale alert badge if it exists
+      const oldBadge = document.getElementById('wfa-ig-alert-badge');
+      if (oldBadge) oldBadge.remove();
     }
 
     // Panel open থাকলে refresh করো
@@ -976,12 +980,35 @@ const IntegrityGuard = (() => {
     _setupMutationWatcher();
     _setupKeyboardShortcut();
 
-    // App load এর পরে 8 সেকেন্ড wait করে first run
-    setTimeout(() => {
-      run();
-      // Watch mode: 2 মিনিট পরপর check
-      _watchTimer = setInterval(() => run(), 2 * 60 * 1000);
-    }, 8000);
+    // ✅ Fix: Poll for critical modules instead of fixed 8s delay.
+    // On slow devices or large scripts (settings.js = 394KB), 8s may not be enough.
+    // Poll every 2s for up to 30s — run as soon as all critical modules are on window.
+    const criticalModules = ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine', 'App',
+                              'Students', 'HRStaff', 'Salary', 'Finance', 'Accounts',
+                              'Loans', 'Attendance', 'Visitors', 'NoticeBoard',
+                              'DashboardModule', 'LoginUI'];
+    let pollCount = 0;
+    const maxPolls = 15; // 15 × 2s = 30s max wait
+
+    function _pollAndRun() {
+      pollCount++;
+      const allReady = criticalModules.every(m => window[m] !== undefined && window[m] !== null);
+
+      if (allReady || pollCount >= maxPolls) {
+        if (!allReady) {
+          const missing = criticalModules.filter(m => !window[m]);
+          console.warn(`[IntegrityGuard] Timed out waiting for modules: ${missing.join(', ')}`);
+        }
+        run();
+        // Watch mode: 2 মিনিট পরপর check
+        _watchTimer = setInterval(() => run(), 2 * 60 * 1000);
+      } else {
+        setTimeout(_pollAndRun, 2000);
+      }
+    }
+
+    // Start polling after 4s initial delay (let core scripts initialize)
+    setTimeout(_pollAndRun, 4000);
 
     console.log('[IntegrityGuard] 🛡️ Initialized — Press Ctrl+Shift+I to open panel');
   }
