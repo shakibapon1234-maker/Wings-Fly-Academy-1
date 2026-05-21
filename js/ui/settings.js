@@ -5733,6 +5733,13 @@ ${expenseEntries.length > 0 ? `
       await window.SUPABASE_CONFIG.saveCloudCredentials(url, key);
       logActivity('edit', 'security', 'Supabase API credentials updated');
       Utils.toast('Cloud API credentials saved (encrypted) ✅', 'success');
+      // ✅ FIX: Reset sync anchor & trigger full pull so data loads immediately
+      if (window.SyncEngine) {
+        window.SyncEngine.resetSyncAnchor();
+        window.SyncEngine.fullPull({ silent: false }).catch(function(e) {
+          console.warn('[Settings] Full pull after credential save failed:', e);
+        });
+      }
     } catch (e) {
       Utils.toast(`Could not save API credentials: ${e.message}`, 'error');
     }
@@ -5762,6 +5769,13 @@ ${expenseEntries.length > 0 ? `
         .then(() => {
           logActivity('edit', 'security', 'Supabase Auth credentials saved & signed in');
           Utils.toast('Cloud credentials saved ✅ Supabase sign-in successful', 'success');
+          // ✅ FIX: Reset sync anchor & trigger full pull so data loads immediately
+          if (window.SyncEngine) {
+            window.SyncEngine.resetSyncAnchor();
+            window.SyncEngine.fullPull({ silent: false }).catch(function(e) {
+              console.warn('[Settings] Full pull after sign-in failed:', e);
+            });
+          }
         })
         .catch(err => {
           logActivity('edit', 'security', 'Supabase Auth credentials saved (sign-in failed)');

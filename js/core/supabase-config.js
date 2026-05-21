@@ -242,6 +242,10 @@ window.SUPABASE_CONFIG = {
     window.SUPABASE_ANON_KEY = anonKey.trim();
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
+    // ✅ FIX: Reset sync anchor so next pull is FULL (not incremental from stale timestamp)
+    if (window.SyncEngine && typeof window.SyncEngine.resetSyncAnchor === 'function') {
+      window.SyncEngine.resetSyncAnchor();
+    }
     return window.supabaseClient;
   },
 };

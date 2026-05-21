@@ -2286,10 +2286,38 @@ const SyncEngine = (() => {
   function getLocal(table)       { return SupabaseSync.getAll(table); }
   function setLocal(table, rows) { SupabaseSync.setAll(table, rows); }
 
+  // ── Sync Anchor Reset ─────────────────────────────────────────
+  // New browser / changed credentials → _lastPullTimestamp must be
+  // cleared so the next pull is a FULL pull, not incremental.
+  function resetSyncAnchor() {
+    _lastPullTimestamp = null;
+    _lastSyncTime = 0;
+    console.info('[Sync] Sync anchor reset. Next pull will be a full pull.');
+  }
+
   setupNetworkListeners();
 
+  // ── Auth State Change Listener ────────────────────────────────
+  // When user signs in (or session hydrates), reset anchor and do full pull
+  // so pre-existing cloud data is fetched regardless of page-load timing.
+  if (typeof SupabaseAuth !== 'undefined' && SupabaseAuth.onAuthStateChange) {
+    try {
+      SupabaseAuth.onAuthStateChange(function(event, session) {
+        console.log('[Sync] Auth state change event:', event);
+        if (event === 'SIGNED_IN' && session) {
+          resetSyncAnchor();
+          fullPull({ silent: true }).catch(function(e) {
+            console.warn('[Sync] Full pull after SIGNED_IN failed:', e);
+          });
+        }
+      });
+    } catch (e) {
+      console.warn('[Sync] Could not register auth state listener:', e);
+    }
+  }
+
   return {
-    pull, push, syncAll, fullPull,
+    pull, push, syncAll, fullPull, resetSyncAnchor,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,
