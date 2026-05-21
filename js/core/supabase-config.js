@@ -6,7 +6,10 @@
 function _resolveSupabaseCreds() {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
   const stored = window.__WFA_SUPABASE_CREDS || {};
-  const url = stored.url || secrets.url || '';
+  let url = stored.url || secrets.url || '';
+  if (url && url.includes('fznhiqzrs1ldybhmgopk')) {
+    url = url.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
+  }
   const anonKey = stored.anonKey || secrets.anonKey || secrets.anon_key || '';
   return { url, anonKey };
 }
@@ -17,8 +20,13 @@ let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 async function _hydrateSupabaseCredsFromStorage() {
   if (typeof SecureStorage === 'undefined') return;
   try {
-    const url = await SecureStorage.getItem('wfa_supabase_url');
+    let url = await SecureStorage.getItem('wfa_supabase_url');
     const key = await SecureStorage.getItem('wfa_supabase_anon_key');
+    if (url && url.includes('fznhiqzrs1ldybhmgopk')) {
+      console.warn('[Config] Auto-correcting Supabase URL typo in SecureStorage (1 -> l)');
+      url = url.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
+      await SecureStorage.setItem('wfa_supabase_url', url);
+    }
     if (url && key) {
       window.__WFA_SUPABASE_CREDS = { url, anonKey: key };
       window.SUPABASE_URL = url;
@@ -223,10 +231,14 @@ window.SUPABASE_CONFIG = {
   TABLES: DB,
   saveCloudCredentials: async (url, anonKey) => {
     if (typeof SecureStorage === 'undefined') throw new Error('SecureStorage unavailable');
-    await SecureStorage.setItem('wfa_supabase_url', url.trim());
+    let cleanUrl = url.trim();
+    if (cleanUrl.includes('fznhiqzrs1ldybhmgopk')) {
+      cleanUrl = cleanUrl.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
+    }
+    await SecureStorage.setItem('wfa_supabase_url', cleanUrl);
     await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
-    window.__WFA_SUPABASE_CREDS = { url: url.trim(), anonKey: anonKey.trim() };
-    window.SUPABASE_URL = url.trim();
+    window.__WFA_SUPABASE_CREDS = { url: cleanUrl, anonKey: anonKey.trim() };
+    window.SUPABASE_URL = cleanUrl;
     window.SUPABASE_ANON_KEY = anonKey.trim();
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;

@@ -62,6 +62,14 @@ const SystemDiagnostics = (() => {
     _log('System Diagnostics Started', 'header');
     _log('-------------------------------------------', 'info');
 
+    // Verify DB is available
+    if (!window.DB || !window.DB.students) {
+      _log('ERROR: DB constants not loaded (window.DB missing)', 'error');
+      if (btn) btn.disabled = false;
+      return;
+    }
+
+    const DB = window.DB;  // Local reference for clarity
     let studentUuid = null;
     let financeUuid = null;
     let allPassed   = true;
@@ -168,9 +176,12 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 7 — Student RESTORE', 'header');
 
-      await SupabaseSync.restoreRecycleBinItem(binIndex);
+      console.log('[DIAG] About to restore binIndex:', binIndex, 'for studentUuid:', studentUuid);
+      const restoreResult = await SupabaseSync.restoreRecycleBinItem(binIndex);
+      console.log('[DIAG] Restore result:', restoreResult);
 
       const afterRestore = SupabaseSync.getById(DB.students, studentUuid);
+      console.log('[DIAG] After restore, getById result:', afterRestore);
       if (!afterRestore) throw new Error('RESTORE failed — student not returned to active database.');
       _log('Student successfully restored from Recycle Bin!', 'success');
 
@@ -178,18 +189,33 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 8 — Permanent Cleanup', 'header');
 
-      // Delete again to move back to recycle bin
+      // 1. Find and delete active finance records linked to the test student
+      const activeFinance = SupabaseSync.getAll(DB.finance) || [];
+      const diagnosticPayments = activeFinance.filter(f => f.ref_id === studentUuid || f.note === 'Auto-generated diagnostic payment');
+      for (const p of diagnosticPayments) {
+        SupabaseSync.remove(DB.finance, p.id);
+      }
+      _log(`Moved ${diagnosticPayments.length} active diagnostic payment(s) to Recycle Bin.`, 'info');
+
+      // 2. Delete student to move to recycle bin
+      const targetStudentUuid = studentUuid;
       SupabaseSync.remove(DB.students, studentUuid);
       studentUuid = null; // consumed
 
-      bin = SupabaseSync.getAll('recycle_bin');
-      binIndex = bin.findIndex(b => b.table === DB.students && b.data.name === 'System Test Student [UPDATED]');
-      if (binIndex !== -1) {
-        SupabaseSync.permanentDeleteRecycleBinItem(binIndex);
-        _log('Dummy record permanently wiped from system.', 'success');
-      } else {
-        _log('Warning: Record not found in Recycle Bin for permanent deletion.', 'warn');
-      }
+      // 3. Purge all diagnostic items permanently from the recycle bin
+      const purgeBinItems = () => {
+        const bin = SupabaseSync.getAll('recycle_bin') || [];
+        const idx = bin.findIndex(b => 
+          (b.table === DB.students && (b.data.student_id === DUMMY_STUDENT_ID || b.data.name?.includes('System Test Student'))) ||
+          (b.table === DB.finance && (b.data.ref_id === targetStudentUuid || b.data.note === 'Auto-generated diagnostic payment'))
+        );
+        if (idx !== -1) {
+          SupabaseSync.permanentDeleteRecycleBinItem(idx);
+          purgeBinItems(); // Recursive purge until none are left
+        }
+      };
+      purgeBinItems();
+      _log('Dummy records permanently wiped from system & Recycle Bin.', 'success');
 
     } catch (err) {
       allPassed = false;
@@ -199,8 +225,31 @@ const SystemDiagnostics = (() => {
 
       // Cleanup on failure
       try {
-        if (financeUuid) SupabaseSync.remove(DB.finance, financeUuid);
-        if (studentUuid) SupabaseSync.remove(DB.students, studentUuid);
+        // Delete active payments
+        if (studentUuid) {
+          const activeFinance = SupabaseSync.getAll(DB.finance) || [];
+          const diagnosticPayments = activeFinance.filter(f => f.ref_id === studentUuid || f.note === 'Auto-generated diagnostic payment');
+          for (const p of diagnosticPayments) {
+            SupabaseSync.remove(DB.finance, p.id);
+          }
+          SupabaseSync.remove(DB.students, studentUuid);
+        } else if (financeUuid) {
+          SupabaseSync.remove(DB.finance, financeUuid);
+        }
+        
+        // Purge recycle bin of all test items
+        const purgeBinItems = () => {
+          const bin = SupabaseSync.getAll('recycle_bin') || [];
+          const idx = bin.findIndex(b => 
+            (b.table === DB.students && (b.data.student_id === DUMMY_STUDENT_ID || b.data.name?.includes('System Test Student'))) ||
+            (b.table === DB.finance && b.data.note === 'Auto-generated diagnostic payment')
+          );
+          if (idx !== -1) {
+            SupabaseSync.permanentDeleteRecycleBinItem(idx);
+            purgeBinItems();
+          }
+        };
+        purgeBinItems();
         _log('Emergency cleanup complete.', 'warn');
       } catch (ce) {
         _log('Cleanup error: ' + ce.message, 'error');

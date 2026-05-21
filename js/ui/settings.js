@@ -1212,7 +1212,7 @@ const SettingsModule = (() => {
           <button class="settings-btn-lg btn-export" onclick="SettingsModule.exportAllData()">
             <i class="fa fa-floppy-disk"></i> EXPORT DATA
           </button>
-          <button class="settings-btn-lg btn-export" style="border-color:var(--text-muted);color:var(--text-muted)" onclick="SettingsModule.importFromJSON()">
+          <button class="settings-btn-lg btn-export" style="border-color:var(--text-muted);color:var(--text-muted)" onclick="BackupRestore.importBackup()">
             <i class="fa fa-cloud-arrow-up"></i> IMPORT DATA
           </button>
         </div>
@@ -1237,7 +1237,7 @@ const SettingsModule = (() => {
             const r=document.getElementById('dm-sync-result');
             b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
             r.style.display='none';
-            SyncEngine.push({ silent:true }).then(res=>{
+            SyncEngine.push({ silent:true, forcePush:true }).then(res=>{
               b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD';
               const sc=res?.successCount||0; const errs=res?.errors||[];
               if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Push সফল! '+sc+' টেবিল Supabase-এ আপলোড হয়েছে।'; Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড','success'); }
@@ -1751,7 +1751,7 @@ const SettingsModule = (() => {
             const r=document.getElementById('sync-diag-result');
             b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
             r.style.display='none';
-            SyncEngine.push({ silent: true }).then(res=>{
+            SyncEngine.push({ silent: true, forcePush: true }).then(res=>{
               b.disabled=false; b.innerHTML='⬆ Push to Cloud';
               r.style.display='block';
               const sc=res?.successCount||0; const errs=res?.errors||[];
@@ -4937,7 +4937,13 @@ ${expenseEntries.length > 0 ? `
       const statusEl = document.getElementById('mig-status');
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
+        let data = JSON.parse(text);
+
+        // Unwrap wfa_backup_v2 if nested in data property
+        if (data && data.version === 'wfa_backup_v2' && data.data && typeof data.data === 'object') {
+          data = data.data;
+        }
+
         let imported = 0;
         let tableCount = 0;
         const tableDetails = [];
@@ -5006,7 +5012,7 @@ ${expenseEntries.length > 0 ? `
         // ── Push to cloud (Supabase) if connected ──────────────────
         if (statusEl) statusEl.innerHTML += '🔄 Cloud-এ আপলোড হচ্ছে...';
         try {
-          const pushResult = await SyncEngine.push({ silent: true });
+          const pushResult = await SyncEngine.push({ silent: true, forcePush: true });
           if (pushResult?.ok) {
             if (statusEl) statusEl.innerHTML += ' ✅ Cloud sync সফল!';
           } else {
@@ -5063,7 +5069,13 @@ ${expenseEntries.length > 0 ? `
       const statusEl = document.getElementById('mig-status');
       try {
         const text = await file.text();
-        const data = JSON.parse(text);
+        let data = JSON.parse(text);
+
+        // Unwrap wfa_backup_v2 if nested in data property
+        if (data && data.version === 'wfa_backup_v2' && data.data && typeof data.data === 'object') {
+          data = data.data;
+        }
+
         let imported = 0;
         let tableCount = 0;
 

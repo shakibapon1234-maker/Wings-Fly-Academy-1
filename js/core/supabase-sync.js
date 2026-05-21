@@ -318,7 +318,17 @@ const SupabaseSync = (() => {
   }
 
   function getById(table, id) {
-    return getAll(table).find(r => r.id === id) || null;
+    const rows = getAll(table);
+    if (!Array.isArray(rows)) {
+      console.warn('[Sync] getById: table', table, 'returned non-array:', rows);
+      return null;
+    }
+    const found = rows.find(r => r.id === id);
+    if (!found) {
+      console.debug(`[Sync] getById: NOT FOUND - id="${id}" in table="${table}" (${rows.length} rows)`);
+      if (rows.length > 0) console.debug('[Sync] First row IDs:', rows.slice(0, 3).map(r => r.id));
+    }
+    return found || null;
   }
 
   function _storageUsageKB() {
@@ -600,9 +610,13 @@ const SupabaseSync = (() => {
 
   const _ACTIVITY_TABLE = 'activity_log';
   let _activityTableMissing = false; // once confirmed missing, stop retrying
+  let _activityCooldownUntil = 0;   // cooldown to avoid spamming console on network disconnects
 
   async function _pushActivityToCloud(entry) {
     if (_activityTableMissing) return;
+    if (!navigator.onLine) return; // silently skip if offline
+    if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+
     try {
       const { client } = window.SUPABASE_CONFIG;
       if (!client) return;
@@ -624,16 +638,32 @@ const SupabaseSync = (() => {
           console.warn('[ActivityLog] activity_log table not found. Please create it in Supabase.');
           return;
         }
+        
+        // Network/fetch errors or connection closed
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('connection')) {
+          _activityCooldownUntil = Date.now() + 60000;
+          console.warn('[ActivityLog] Cloud push failed (network error, will retry in 60s):', error.message);
+          return;
+        }
+
         console.warn('[ActivityLog] Cloud push failed:', error.message);
       }
     } catch (e) {
-      console.warn('[ActivityLog] Push error:', e?.message || e);
+      if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('connection')) {
+        _activityCooldownUntil = Date.now() + 60000;
+        console.warn('[ActivityLog] Push error (network error, will retry in 60s):', e?.message || e);
+      } else {
+        console.warn('[ActivityLog] Push error:', e?.message || e);
+      }
     }
   }
 
   // সব device-এর activity log Supabase থেকে pull করে localStorage-এ merge করে
   async function _pullActivityFromCloud() {
     if (_activityTableMissing) return;
+    if (!navigator.onLine) return; // silently skip if offline
+    if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+
     try {
       const { client } = window.SUPABASE_CONFIG;
       if (!client) return;
@@ -647,6 +677,14 @@ const SupabaseSync = (() => {
           _activityTableMissing = true;
           return;
         }
+
+        // Network/fetch errors or connection closed
+        if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('connection')) {
+          _activityCooldownUntil = Date.now() + 60000;
+          console.warn('[ActivityLog] Pull failed (network error, will retry in 60s):', error.message);
+          return;
+        }
+
         console.warn('[ActivityLog] Pull failed:', error.message);
         return;
       }
@@ -663,7 +701,12 @@ const SupabaseSync = (() => {
         .slice(0, 500);
       localStorage.setItem('wfa_activity_log', JSON.stringify(merged));
     } catch (e) {
-      console.warn('[ActivityLog] Pull error:', e?.message || e);
+      if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('connection')) {
+        _activityCooldownUntil = Date.now() + 60000;
+        console.warn('[ActivityLog] Pull error (network error, will retry in 60s):', e?.message || e);
+      } else {
+        console.warn('[ActivityLog] Pull error:', e?.message || e);
+      }
     }
   }
 
@@ -893,24 +936,77 @@ const SupabaseSync = (() => {
 
   async function restoreRecycleBinItem(index) {
     const bin = getAll('recycle_bin');
-    if (!Array.isArray(bin)) return false;
+    if (!Array.isArray(bin)) {
+      console.warn('[Restore] Recycle bin not found or not array');
+      return false;
+    }
     const item = bin[index];
-    if (!item?.table || !item?.data?.id) return false;
+    if (!item?.table || !item?.data?.id) {
+      console.warn('[Restore] Invalid recycle bin item at index', index, ':', item);
+      return false;
+    }
 
     const table = item.table;
+    const recordId = item.data.id;
+    _restoredIds[`${table}:${recordId}`] = Date.now();
+    console.log(`[Restore] Starting restore: index=${index}, table="${table}", recordId="${recordId}"`);
+    console.log(`[Restore] Original item data keys:`, Object.keys(item.data || {}).slice(0, 5));
+
     const record = {
       ...item.data,
       updated_at: new Date().toISOString(),
       _device: _deviceId(),
     };
+    
+    console.log(`[Restore] After cloning, record.id="${record.id}", record.name="${record.name || 'N/A'}"`);
 
-    const rows = getAll(table);
-    const idx = rows.findIndex((r) => r.id === record.id);
-    if (idx >= 0) rows[idx] = record;
-    else rows.unshift(record);
+    // Restore to main table first (this is critical)
+    let rows = getAll(table);
+    console.log(`[Restore] Current ${table} rows before restore:`, rows?.length || 0);
+    
+    if (!Array.isArray(rows)) {
+      console.error('[Restore] Table', table, 'returned non-array:', rows);
+      return false;
+    }
+    
+    // Make a fresh copy to avoid reference issues
+    rows = [...rows];
+    
+    const idx = rows.findIndex((r) => r.id === recordId);
+    console.log(`[Restore] Finding existing record in ${table}: idx=${idx}`);
+    
+    if (idx >= 0) {
+      rows[idx] = record;
+      console.log(`[Restore] Updated existing record at index ${idx}`);
+    } else {
+      rows.unshift(record);
+      console.log(`[Restore] Added new record at start of array. New array length:`, rows.length);
+    }
+    
+    console.log(`[Restore] About to call setAll with ${rows.length} rows`);
     setAll(table, rows);
+    console.log(`[Restore] Called setAll for table="${table}", rows.length=${rows.length}`);
 
-    untrackDeletion(table, record.id);
+    // Verify the restore locally before pushing to Supabase
+    const verifyRows = getAll(table);
+    console.log(`[Restore] After setAll, ${table} has:`, verifyRows?.length || 0, 'rows');
+    
+    if (verifyRows.length > 0) {
+      console.log(`[Restore] First row in ${table}: id="${verifyRows[0].id}", name="${verifyRows[0].name || 'N/A'}"`);
+    }
+    
+    const verifyIdx = verifyRows?.findIndex((r) => r?.id === recordId);
+    console.log(`[Restore] Verification: looking for id="${recordId}" in ${table}, found at index:`, verifyIdx);
+    
+    if (verifyIdx === -1 || verifyIdx === undefined) {
+      console.error('[Restore] FAILED verification - record not in table after restore');
+      console.error('[Restore] All row IDs:', verifyRows?.map(r => r.id));
+      return false;
+    }
+    
+    console.log(`[Restore] ✓ Verification passed - record IS in ${table}`);
+
+    untrackDeletion(table, recordId);
     await _pushRecord(table, record);
 
     try {
@@ -923,9 +1019,9 @@ const SupabaseSync = (() => {
           if (!r._isLoan) {
             const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
-            // ✅ Restore: Income → 'in' সবসময় safe (ব্যালেন্স বাড়ে)
-            // Expense → 'out' নেগেটিভ হলে ব্যালেন্স skip করো (ডেটা ফিরে আসবে, কিন্তু অ্যাকাউন্ট negative হবে না)
-            if (isIncome)  updateAccountBalance(method, amount, 'in');
+            // ✅ Restore: Income → 'in' Web-Safe (balance বাড়ে)
+            // Expense → 'out' নেগেটিভ হলে ব্যালেন্স skip করো (ডাটা ফিরে আসবে, কিন্তু অ্যাকাউন্ট negative হবে না)
+            if (isIncome && r.note !== 'Auto-generated diagnostic payment')  updateAccountBalance(method, amount, 'in');
             if (isExpense) {
               const _curBal = (function() {
                 const accs = getAll('accounts');
@@ -1030,6 +1126,7 @@ const SupabaseSync = (() => {
                 updated_at: new Date().toISOString(),
                 _device: _deviceId(),
               };
+              _restoredIds[`finance_ledger:${linkedRecord.id}`] = Date.now();
               const finRows = getAll('finance_ledger');
               const fIdx = finRows.findIndex(f => f.id === linkedRecord.id);
               if (fIdx >= 0) finRows[fIdx] = linkedRecord;
@@ -1094,6 +1191,7 @@ const SupabaseSync = (() => {
 
         for (const { b } of linkedFinance) {
           const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
+          _restoredIds[`finance_ledger:${fr.id}`] = Date.now();
           const finRows = getAll('finance_ledger');
           const fIdx = finRows.findIndex(r => r.id === fr.id);
           if (fIdx >= 0) finRows[fIdx] = fr;
@@ -1104,7 +1202,9 @@ const SupabaseSync = (() => {
           if (fr.method && parseFloat(fr.amount) > 0) {
             const _frDir = fr.type === 'Income' || fr.type === 'Transfer In' ? 'in' : 'out';
             if (_frDir === 'in') {
-              updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+              if (fr.note !== 'Auto-generated diagnostic payment') {
+                updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+              }
             } else {
               const _frBal = (function() {
                 const accs = getAll('accounts');
@@ -1134,73 +1234,22 @@ const SupabaseSync = (() => {
     // Final cleanup: remove from recycle bin by id+table (handles index shift edge cases)
     const freshBinFinal = getAll('recycle_bin');
     const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
-    if (finalIdx !== -1) freshBinFinal.splice(finalIdx, 1);
+    console.log(`[Restore] Final cleanup: looking for recycle bin item with id="${record.id}", table="${table}", found at index:`, finalIdx);
+    if (finalIdx !== -1) {
+      freshBinFinal.splice(finalIdx, 1);
+      console.log(`[Restore] Removed from recycle bin`);
+    }
     setAll('recycle_bin', freshBinFinal);
     _syncRecycleBinToSettings();
+    
+    console.log(`[Restore] ✓ Restore complete for table="${table}", recordId="${record.id}"`);
 
     window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table } }));
     return true;
   }
 
-  function _tableDisplayName(table) {
-    const map = {
-      students:       'ছাত্র/ছাত্রী তালিকা',
-      finance_ledger: 'আয়-ব্যয় লেজার',
-      accounts:       'একাউন্ট রেজিস্টার',
-      loans:          'লোন রেজিস্টার',
-      exams:          'পরীক্ষা তালিকা',
-      staff:          'স্টাফ তালিকা',
-      salary:         'বেতন রেজিস্টার',
-      attendance:     'উপস্থিতি',
-      visitors:       'ভিজিটর লগ',
-      notices:        'নোটিশ বোর্ড',
-      settings:       'সেটিংস',
-    };
-    return map[table] || table;
-  }
-
-  function _humanReadableLog(action, table, r) {
-    const label    = _tableDisplayName(table);
-    const itemName = _recycleDisplayName(table, r);
-    switch (action) {
-      case 'add':     return label + '-এ নতুন এন্ট্রি যোগ করা হয়েছে — ' + itemName;
-      case 'edit':    return label + '-এ তথ্য আপডেট করা হয়েছে — ' + itemName;
-      case 'delete':  return label + ' থেকে মুছে ফেলা হয়েছে — ' + itemName;
-      case 'restore': return 'রিসাইকেল বিন থেকে পুনরুদ্ধার করা হয়েছে — ' + itemName + ' (' + label + ')';
-      default:        return label + ': ' + itemName;
-    }
-  }
-
-  function _addToRecycleBin(table, record) {
-    try {
-      const bin = getAll('recycle_bin');
-      if (!Array.isArray(bin)) return;
-      bin.unshift({
-        table,
-        // ✅ Fix #4: structuredClone is safer than JSON.parse(JSON.stringify()) for deep cloning
-        data: (typeof structuredClone === 'function') ? structuredClone(record) : JSON.parse(JSON.stringify(record)),
-        deletedAt: new Date().toISOString(),
-        type: _recycleTypeLabel(table),
-        name: _recycleDisplayName(table, record),
-        tableLabel: _tableDisplayName(table),
-      });
-      if (bin.length > RECYCLE_MAX) bin.length = RECYCLE_MAX;
-      setAll('recycle_bin', bin);
-      _syncRecycleBinToSettings();
-    } catch (e) {
-      console.warn('[Recycle] add failed:', e);
-    }
-  }
-
-  function _syncRecycleBinToSettings() {
-    if (typeof window.SettingsModule !== 'undefined' && typeof window.SettingsModule.syncRecycleBin === 'function') {
-      try {
-        window.SettingsModule.syncRecycleBin();
-      } catch (e) {
-        console.warn('[Sync] recycle bin sync failed:', e);
-      }
-    }
-  }
+  // ✅ Note: _tableDisplayName, _humanReadableLog, _addToRecycleBin, _syncRecycleBinToSettings
+  // are defined above (single source of truth) — no duplicate definitions here.
 
   function permanentDeleteRecycleBinItem(index) {
     const bin = getAll('recycle_bin');
@@ -1282,6 +1331,60 @@ const SupabaseSync = (() => {
 
   const _badCols = {};
 
+  // ✅ Per-table push cooldown — stops flooding console/retry-queue when Supabase
+  // repeatedly rejects a table (e.g. 500 from missing columns or oversized payload).
+  // After a failure the table is silently skipped for 60 seconds.
+  const _pushCooldown = {};
+  const PUSH_COOLDOWN_MS = 60000; // 60 seconds
+
+  // Cache to track recently restored record IDs to ignore delayed postgres_changes DELETE events
+  const _restoredIds = {};
+
+  // ✅ Large fields that must NOT be sent to Supabase directly via the settings row
+  // (they're either too big or managed in separate IDB tables).
+  // recycle_bin_sync and keep_records can be hundreds of KB when serialised,
+  // causing HTTP 500 / CORS errors on Supabase's PostgREST endpoint.
+  const _SETTINGS_STRIP_COLS = new Set([
+    'recycle_bin_sync', 'keep_records', 'activity_log', 'snapshots',
+    'admin_face_descriptor',
+    // These columns may not exist in Supabase yet — pushing them causes HTTP 500
+    // which the browser then reports as a CORS error (no CORS headers on 500 responses).
+    'exam_questions', 'exam_settings'
+  ]);
+
+  function _prepareRecordForCloud(table, record) {
+    if (!record || typeof record !== 'object') return record;
+    let clean = _sanitizeRecord(record, table);
+    if (table === 'settings') {
+      clean = { ...clean };
+      _SETTINGS_STRIP_COLS.forEach(col => delete clean[col]);
+      
+      const arrayFields = ['income_categories', 'expense_categories', 'courses', 'employee_roles'];
+      arrayFields.forEach(field => {
+        if (clean[field] !== undefined && (Array.isArray(clean[field]) || typeof clean[field] === 'object')) {
+          clean[field] = JSON.stringify(clean[field]);
+        }
+      });
+
+      const dateFields = ['expense_start_date', 'expense_end_date'];
+      dateFields.forEach(field => {
+        if (clean[field] === '') clean[field] = null;
+      });
+
+      if (clean['monthly_target'] === '') {
+        clean['monthly_target'] = null;
+      } else if (clean['monthly_target'] !== undefined && clean['monthly_target'] !== null) {
+        const parsed = parseFloat(clean['monthly_target']);
+        clean['monthly_target'] = isNaN(parsed) ? null : parsed;
+      }
+    }
+    if (_badCols && _badCols[table]) {
+      clean = { ...clean };
+      _badCols[table].forEach(c => delete clean[c]);
+    }
+    return clean;
+  }
+
   async function _pushRecord(table, record) {
     try {
       const { client } = window.SUPABASE_CONFIG;
@@ -1289,11 +1392,14 @@ const SupabaseSync = (() => {
         // Supabase not configured/offline — skip silently, local data already saved
         return;
       }
-      let clean = _sanitizeRecord(record, table);
-      if (_badCols && _badCols[table]) {
-        clean = { ...clean };
-        _badCols[table].forEach(c => delete clean[c]);
+      // ✅ Cooldown check — skip table if it failed recently to stop console flooding
+      const now = Date.now();
+      if (_pushCooldown[table] && now - _pushCooldown[table] < PUSH_COOLDOWN_MS) {
+        return; // silently skip — still within cooldown window
       }
+
+      let clean = _prepareRecordForCloud(table, record);
+
       const { error } = await client.from(table).upsert([clean], { onConflict: 'id' });
       if (error) {
         const msg = (error.message || '') + (error.details || '');
@@ -1309,9 +1415,18 @@ const SupabaseSync = (() => {
         }
         throw error;
       }
+      // Success — clear cooldown for this table
+      delete _pushCooldown[table];
       SyncEngine.setStatus('synced');
     } catch (e) {
-      console.warn('[Sync] Push record failed:', e);
+      // ✅ Record cooldown timestamp so we don't spam console/queue for 60 s
+      _pushCooldown[table] = Date.now();
+      // Only log once per cooldown window to avoid console flood
+      if (!_pushCooldown[`${table}_logged`]) {
+        console.warn(`[Sync] Push record failed for "${table}" (will retry in 60s):`, e?.message || e);
+        _pushCooldown[`${table}_logged`] = true;
+        setTimeout(() => { delete _pushCooldown[`${table}_logged`]; }, PUSH_COOLDOWN_MS);
+      }
       SyncEngine.setStatus('error');
       _queueRetry(table, record);
     }
@@ -1338,19 +1453,27 @@ const SupabaseSync = (() => {
       // Queue records separately for better reliability
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
         const queue = SupabaseSync.getAll('retry_queue') || [];
-        queue.push({ 
-          table, 
-          record, 
-          at: Date.now(),
-          attempts: 0,
-          lastError: null
-        });
+
+        // ✅ Dedup: For single-row tables (settings) or same record ID,
+        // replace the existing queued entry instead of appending a duplicate.
+        const existIdx = queue.findIndex(q =>
+          q.table === table && (
+            table === 'settings' ||
+            (q.record && record && q.record.id && q.record.id === record.id)
+          )
+        );
+        const entry = { table, record, at: Date.now(), attempts: 0, lastError: null };
+        if (existIdx >= 0) {
+          queue[existIdx] = entry; // replace, don't append
+        } else {
+          queue.push(entry);
+        }
+
         // Keep only last 100 retry items to avoid bloating IDB
         if (queue.length > 100) {
           queue.splice(0, queue.length - 100);
         }
         SupabaseSync.setAll('retry_queue', queue);
-        console.log(`[Sync] Queued ${table} record for retry. Queue size: ${queue.length}`);
       } else {
         // Fallback to localStorage only if IDB unavailable
         const queue = (() => { 
@@ -1364,7 +1487,6 @@ const SupabaseSync = (() => {
         (typeof Utils !== 'undefined' && Utils.safeStorageSet)
           ? Utils.safeStorageSet('wfa_retry_queue', JSON.stringify(queue))
           : localStorage.setItem('wfa_retry_queue', JSON.stringify(queue));
-        console.warn('[Sync] Queued to localStorage (IDB unavailable)');
       }
     } catch (e) { 
       console.warn('[Sync] Failed to queue retry:', e);
@@ -1407,7 +1529,7 @@ const SupabaseSync = (() => {
             if (error) throw error;
             successCount++;
           } else {
-            const clean = _sanitizeRecord(item.record, item.table);
+            const clean = _prepareRecordForCloud(item.table, item.record);
             const { error } = await client.from(item.table).upsert([clean], { onConflict: 'id' });
             if (error) throw error;
             successCount++;
@@ -1552,6 +1674,8 @@ const SupabaseSync = (() => {
     _syncRecycleBinToSettings,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
+    _restoredIds,
+    _prepareRecordForCloud,
   };
 })();
 window.SupabaseSync = SupabaseSync;
@@ -1995,7 +2119,7 @@ const SyncEngine = (() => {
         if (missingTables.has(key)) continue;
         const rows = SupabaseSync.getAll(key);
         if (!rows.length) continue;
-        const cleanRows = rows.map(r => _sanitizeRecord(r, key));
+        const cleanRows = rows.map(r => SupabaseSync._prepareRecordForCloud(key, r));
         const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
         if (error) console.error(`[Sync] Push failed for "${key}":`, error);
       }
@@ -2072,6 +2196,16 @@ const SyncEngine = (() => {
         SupabaseSync.setAll(table, rows);
       } else if (eventType === 'DELETE') {
         if (!oldRow?.id) return;
+        
+        // Prevent race condition: if the ID was recently restored/re-created locally,
+        // ignore the incoming DELETE event from the prior deletion.
+        const restoredKey = `${table}:${oldRow.id}`;
+        const restoredTime = SupabaseSync._restoredIds?.[restoredKey];
+        if (restoredTime && (Date.now() - restoredTime < 10000)) {
+          console.info(`[Realtime] Ignoring DELETE event for recently restored/re-created item: ${restoredKey}`);
+          return;
+        }
+
         SupabaseSync.setAll(table, rows.filter(r => r.id !== oldRow.id));
       }
 

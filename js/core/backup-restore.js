@@ -74,53 +74,242 @@ const BackupRestore = (() => {
           const text = await file.text();
           const backup = JSON.parse(text);
 
-          // Validate backup structure
-          if (!backup.version || !backup.data || typeof backup.data !== 'object') {
+          let tableData = null;
+          let exportedAt = backup.exportedAt || backup.exported_at || backup._exportedAt || new Date().toISOString();
+          let totalRows = backup.totalRows || 0;
+          let isLegacy = false;
+
+          // Detect legacy format
+          if (Object.prototype.hasOwnProperty.call(backup, 'employees') ||
+              Object.prototype.hasOwnProperty.call(backup, 'cashBalance') ||
+              Object.prototype.hasOwnProperty.call(backup, 'incomeCategories') ||
+              (backup.students && backup.students[0] && backup.students[0].studentId)) {
+            isLegacy = true;
+          }
+
+          if (isLegacy) {
+            tableData = {};
+            if (backup.students && backup.students.length) {
+              tableData.students = backup.students.map(s => ({
+                id: s.id || SupabaseSync.generateId(),
+                student_id: s.studentId || s.student_id || '',
+                name: s.name || '', phone: s.phone || '', course: s.course || '',
+                batch: s.batch || '', session: s.session || '',
+                total_fee: s.totalPayment || s.total_fee || 0,
+                paid: s.paid || 0, due: s.due || (s.totalPayment || 0) - (s.paid || 0),
+                method: s.method || 'Cash',
+                admission_date: s.enrollDate || s.admission_date || '',
+                father_name: s.fatherName || s.father_name || '',
+                mother_name: s.motherName || s.mother_name || '',
+                blood_group: s.bloodGroup || s.blood_group || '',
+                photo: s.photo || '', remarks: s.remarks || '', status: s.status || 'Active',
+                created_at: s.createdAt || s.created_at || new Date().toISOString(),
+                updated_at: s.updated_at || new Date().toISOString(),
+              }));
+              totalRows += tableData.students.length;
+            }
+            if (backup.employees && backup.employees.length) {
+              tableData.staff = backup.employees.map(emp => ({
+                id: emp.id || SupabaseSync.generateId(),
+                staffId: emp.id || emp.staffId || '', name: emp.name || '', role: emp.role || 'Staff',
+                phone: emp.phone || '', email: emp.email || '', salary: emp.salary || 0,
+                status: emp.status || 'Active', joiningDate: emp.joiningDate || '', resignDate: emp.resignDate || '',
+                created_at: emp.lastUpdated || emp.createdAt || new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              }));
+              totalRows += tableData.staff.length;
+            }
+            if (backup.finance && backup.finance.length) {
+              tableData.finance_ledger = backup.finance.map(f => ({
+                id: String(f.id || SupabaseSync.generateId()),
+                type: f.type || 'Expense', method: f.method || 'Cash', category: f.category || '',
+                description: f.description || '', amount: f.amount || 0, 
+                date: f.date || '',
+                note: f.note || f.person || '',
+                person_name: f.person_name || f.person || '',
+                created_at: f.createdAt || f.timestamp || new Date().toISOString(),
+                updated_at: f.updatedAt || new Date().toISOString(),
+              }));
+              totalRows += tableData.finance_ledger.length;
+            }
+            const accountEntries = [];
+            if (backup.cashBalance) {
+              const bal = typeof backup.cashBalance === 'object' ? (backup.cashBalance.amount || backup.cashBalance.balance || 0) : backup.cashBalance;
+              accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            }
+            if (backup.bankAccounts && Array.isArray(backup.bankAccounts)) {
+              backup.bankAccounts.forEach(b => {
+                const nm = b.name || b.bankName || 'Bank';
+                accountEntries.push({
+                  id: SupabaseSync.generateId(),
+                  type: 'Bank_Detail',
+                  name: nm,
+                  balance: b.balance || b.amount || 0,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                });
+              });
+            }
+            if (backup.mobileBanking) {
+              const bal = typeof backup.mobileBanking === 'object' ? (backup.mobileBanking.balance || backup.mobileBanking.amount || 0) : backup.mobileBanking;
+              const mbName = (typeof backup.mobileBanking === 'object' && backup.mobileBanking.name) ? backup.mobileBanking.name : 'Mobile Banking';
+              accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile_Detail', name: mbName, balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+            }
+            if (accountEntries.length) {
+              tableData.accounts = accountEntries;
+              totalRows += accountEntries.length;
+            }
+            if (backup.visitors && backup.visitors.length) {
+              tableData.visitors = backup.visitors.map(v => ({
+                id: v.id || SupabaseSync.generateId(), name: v.name || '', phone: v.phone || '',
+                course: v.interestedCourse || v.course || '', remarks: v.remarks || '',
+                visit_date: v.date || v.visitDate || '',
+                created_at: v.createdAt || new Date().toISOString(), 
+                updated_at: new Date().toISOString(),
+              }));
+              totalRows += tableData.visitors.length;
+            }
+            if (backup.notices && backup.notices.length) {
+              tableData.notices = backup.notices.map(n => ({
+                ...n,
+                date: n.date || '',
+                created_at: n.created_at || new Date().toISOString(),
+              }));
+              totalRows += tableData.notices.length;
+            }
+            if (backup.settings) {
+              const cfg = Array.isArray(backup.settings) ? backup.settings[0] : backup.settings;
+              if (cfg) {
+                tableData.settings = [{
+                  id: cfg.id || SupabaseSync.generateId(),
+                  academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
+                  address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
+                  created_at: cfg.created_at || new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                }];
+                totalRows += 1;
+              }
+            }
+            if (backup.examRegistrations && backup.examRegistrations.length) {
+              tableData.exams = backup.examRegistrations.map(e => ({
+                id: e.id || SupabaseSync.generateId(),
+                reg_id: e.regId || e.reg_id || '', student_id: e.studentId || e.student_id || '',
+                student_name: e.studentName || e.student_name || '', batch: e.batch || '',
+                subject: e.subject || '', exam_date: e.examDate || e.exam_date || '',
+                exam_fee: e.examFee || e.exam_fee || 0, grade: e.grade || '',
+                marks: e.marks || null, status: e.status || 'Registered',
+                created_at: e.createdAt || new Date().toISOString(), 
+                updated_at: new Date().toISOString(),
+              }));
+              totalRows += tableData.exams.length;
+            }
+          } else if (backup.version === BACKUP_VERSION && backup.data && typeof backup.data === 'object') {
+            tableData = backup.data;
+            totalRows = backup.totalRows || 0;
+
+            const expectedChecksum = _generateChecksum(backup.data);
+            if (backup.checksum && backup.checksum !== expectedChecksum) {
+              if (typeof Utils !== 'undefined') {
+                Utils.toast('⚠️ Backup checksum mismatch — file may be corrupted', 'warning', 8000);
+              }
+            }
+          } else {
+            tableData = {};
+            const SKIP_KEYS = new Set(['meta', 'version', 'exportedAt', '_exportedAt', '_version', '_meta', 'checksum', 'device', 'tableCount', 'totalRows']);
+            for (const [key, val] of Object.entries(backup)) {
+              if (SKIP_KEYS.has(key) || key.startsWith('_')) continue;
+              if (Array.isArray(val)) {
+                tableData[key] = val;
+                totalRows += val.length;
+              }
+            }
+          }
+
+          if (!tableData || Object.keys(tableData).length === 0) {
             if (typeof Utils !== 'undefined') Utils.toast('❌ Invalid backup file format', 'error');
             resolve(false);
             return;
           }
 
-          // Verify checksum
-          const expectedChecksum = _generateChecksum(backup.data);
-          if (backup.checksum && backup.checksum !== expectedChecksum) {
-            if (typeof Utils !== 'undefined') {
-              Utils.toast('⚠️ Backup checksum mismatch — file may be corrupted', 'warning', 8000);
-            }
-          }
-
           // Confirm restore
           const confirmed = await Utils.confirm(
-            `Restore backup from ${new Date(backup.exportedAt).toLocaleString()}?\n\n` +
-            `This will replace ALL current data with ${backup.totalRows || '?'} records.\n` +
+            `Restore backup from ${new Date(exportedAt).toLocaleString()}?\n\n` +
+            `This will replace ALL current data with ${totalRows || '?'} records.\n` +
             `This action cannot be undone!`,
             '🔄 Restore Backup'
           );
           if (!confirmed) { resolve(false); return; }
 
           // Restore each table
-          // Logic #1 fix: setAll ব্যবহার করা হচ্ছে (insert নয়),
-          // যাতে backup-এর প্রতিটি record-এর original created_at,
-          // admission_date, date ইত্যাদি হুবহু preserve হয়।
-          // কোনো timestamp override হবে না।
           let restored = 0;
-          for (const [table, rows] of Object.entries(backup.data)) {
+          for (const [table, rows] of Object.entries(tableData)) {
             if (Array.isArray(rows)) {
-              // activity_log এবং recent_changes ছাড়া সব table restore হবে
-              // (এগুলো real-time log, backup থেকে overwrite করা উচিত না)
               const skipTables = ['activity_log', 'recent_changes'];
               if (skipTables.includes(table)) continue;
+
+              // Preserve active admin password
+              if (table === 'settings') {
+                const existing = SupabaseSync.getAll('settings');
+                if (existing && existing.length && rows.length) {
+                  const restoredCfg = { ...rows[0] };
+                  delete restoredCfg.admin_password;
+                  if (existing[0].admin_password) {
+                    restoredCfg.admin_password = existing[0].admin_password;
+                  }
+                  SupabaseSync.setAll('settings', [restoredCfg]);
+                  restored++;
+                  continue;
+                }
+              }
+
               SupabaseSync.setAll(table, rows);
               restored++;
             }
           }
 
           if (typeof Utils !== 'undefined') {
-            Utils.toast(`✅ Backup restored — ${restored} tables loaded from ${file.name}`, 'success', 5000);
+            Utils.toast(`💾 Saving restored data locally...`, 'info', 3000);
+          }
+
+          // 1. Flush local IndexedDB writes first to ensure they are fully saved
+          if (typeof WFA_IDB !== 'undefined' && WFA_IDB.flushWrites) {
+            await WFA_IDB.flushWrites();
           }
 
           // Trigger UI refresh
           window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore' } }));
+
+          // 2. Push to cloud (Supabase) if connected
+          let pushSuccess = false;
+          try {
+            if (typeof SyncEngine !== 'undefined') {
+              if (typeof Utils !== 'undefined') {
+                Utils.toast(`☁️ Syncing restored data to cloud...`, 'info', 3000);
+              }
+              console.info('[Backup] Restored locally, pushing to cloud...');
+              await SyncEngine.push({ silent: true, forcePush: true });
+              pushSuccess = true;
+            }
+          } catch(e) {
+            console.error('[Backup] Cloud push failed:', e);
+          }
+
+          // 3. Flush any subsequent writes (e.g. sync timestamps, status)
+          if (typeof WFA_IDB !== 'undefined' && WFA_IDB.flushWrites) {
+            await WFA_IDB.flushWrites();
+          }
+
+          if (typeof Utils !== 'undefined') {
+            if (pushSuccess) {
+              Utils.toast(`✅ Backup restored & synced to cloud! Page reloading...`, 'success', 2000);
+            } else {
+              Utils.toast(`⚠️ Backup restored locally, but cloud sync failed! Page reloading...`, 'warning', 3000);
+            }
+          }
+
+          setTimeout(() => {
+            location.reload();
+          }, 1500);
 
           resolve(true);
         } catch (e) {
