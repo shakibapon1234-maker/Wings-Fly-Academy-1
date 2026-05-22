@@ -1353,10 +1353,7 @@ const SupabaseSync = (() => {
   // causing HTTP 500 / CORS errors on Supabase's PostgREST endpoint.
   const _SETTINGS_STRIP_COLS = new Set([
     'recycle_bin_sync', 'keep_records', 'activity_log', 'snapshots',
-    'admin_face_descriptor',
-    // These columns may not exist in Supabase yet — pushing them causes HTTP 500
-    // which the browser then reports as a CORS error (no CORS headers on 500 responses).
-    'exam_questions', 'exam_settings'
+    'admin_face_descriptor'
   ]);
 
   function _prepareRecordForCloud(table, record) {
@@ -1881,6 +1878,16 @@ const SyncEngine = (() => {
             if (localRows[0][field] && !merged[0][field]) {
               merged[0][field] = localRows[0][field];
             }
+          }
+          // Ensure settings table only has 1 record
+          if (merged.length > 1) {
+            merged.sort((a, b) => {
+              const aName = a.academy_name ? 1 : 0;
+              const bName = b.academy_name ? 1 : 0;
+              if (aName !== bName) return bName - aName;
+              return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+            });
+            merged = [merged[0]];
           }
         }
 
