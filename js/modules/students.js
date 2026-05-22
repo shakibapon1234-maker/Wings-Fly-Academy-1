@@ -58,12 +58,15 @@ const Students = (() => {
     const sorted = [...all].sort((a, b) => {
       const ca = a.created_at || a.admission_date || '';
       const cb = b.created_at || b.admission_date || '';
-      if (cb > ca) return 1;
-      if (cb < ca) return -1;
-      // Tiebreak: admission_date desc
+      if (cb !== ca) {
+        return cb.localeCompare(ca);
+      }
       const da = a.admission_date || '';
       const db = b.admission_date || '';
-      return db > da ? 1 : db < da ? -1 : 0;
+      if (db !== da) {
+        return db.localeCompare(da);
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
     });
     const filtered = applyFilters(sorted);
 

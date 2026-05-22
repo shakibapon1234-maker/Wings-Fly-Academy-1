@@ -26,8 +26,20 @@ const Exam = (() => {
       console.warn('[Exam] Core dependencies not loaded'); return;
     }
 
-    // ✅ LOGIC #5: Latest exam_date first
-    const exams    = Utils.sortBy(SupabaseSync.getAll(DB.exams), 'exam_date', 'desc');
+    // ✅ LOGIC #5: Latest exam_date first (with robust tie-breakers for same date)
+    const exams = SupabaseSync.getAll(DB.exams).slice().sort((a, b) => {
+      const dateA = a.exam_date || '';
+      const dateB = b.exam_date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
     const filtered = applyFilters(exams);
     const batches  = [...new Set(exams.map(e => e.batch).filter(Boolean))].sort();
 

@@ -361,8 +361,20 @@ const Accounts = (() => {
 
     let filtered;
     if (isAll) {
-      // All accounts: show everything
-      filtered = Utils.sortBy(dateFiltered, 'date', 'desc');
+      // All accounts: show everything (with robust tie-breakers for same date)
+      filtered = [...dateFiltered].sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+        const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
     } else {
       // Specific account: match by method/account name exactly
       filtered = dateFiltered.filter(f => {
@@ -375,7 +387,19 @@ const Accounts = (() => {
         }
         return false;
       });
-      filtered = Utils.sortBy(filtered, 'date', 'desc');
+      filtered = [...filtered].sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+        const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
     }
 
     if (filtered.length === 0) return `<div style="text-align:center; padding:20px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px; border:1px dashed rgba(255,255,255,0.1);">No transactions found for this filter.</div>`;
@@ -510,7 +534,19 @@ const Accounts = (() => {
     let transfers = finance.filter(f => f.type === 'Transfer Out' && f.category === 'Transfer');
     if (histResFrom) transfers = transfers.filter(f => f.date >= histResFrom);
     if (histResTo)   transfers = transfers.filter(f => f.date <= histResTo);
-    transfers = Utils.sortBy(transfers, 'date', 'desc');
+    transfers = [...transfers].sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
 
     if (transfers.length === 0) {
       return `<div style="text-align:center; padding:40px; color:var(--text-muted); background:rgba(0,0,0,0.2); border-radius:8px;">

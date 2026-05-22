@@ -17,7 +17,19 @@ const Loans = (() => {
       console.warn('[Loans] Core dependencies not loaded'); return;
     }
 
-    const loans = Utils.sortBy(SupabaseSync.getAll(DB.loans),'date','desc');
+    const loans = SupabaseSync.getAll(DB.loans).slice().sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
 
     /* Person-wise summary */
     const personMap = {};
@@ -587,7 +599,21 @@ const Loans = (() => {
   }
 
   function showPersonDetail(person) {
-    const loans = SupabaseSync.getAll(DB.loans).filter(l => (l.person_name === person || l.person === person));
+    const loans = SupabaseSync.getAll(DB.loans)
+      .filter(l => (l.person_name === person || l.person === person))
+      .sort((a, b) => {
+        const dateA = a.date || '';
+        const dateB = b.date || '';
+        if (dateA !== dateB) {
+          return dateB.localeCompare(dateA);
+        }
+        const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+        const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return String(b.id || '').localeCompare(String(a.id || ''));
+      });
     const given = loans.filter(l=>l.type==='Loan Giving' || l.direction==='given').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
     const recv  = loans.filter(l=>l.type==='Loan Receiving' || l.direction==='received').reduce((s,l)=>s+Utils.safeNum(l.amount),0);
     Utils.openModal(`<i class="fa fa-user"></i> ${Utils.esc(person)} — Loan History`, `

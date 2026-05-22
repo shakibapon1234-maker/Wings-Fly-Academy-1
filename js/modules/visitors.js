@@ -14,7 +14,19 @@ const VisitorsModule = (() => {
 
   function getRecords() {
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
-    return Utils.sortBy(SupabaseSync.getAll(DB.visitors), 'visit_date', 'desc');
+    return SupabaseSync.getAll(DB.visitors).slice().sort((a, b) => {
+      const dateA = a.visit_date || a.visitDate || '';
+      const dateB = b.visit_date || b.visitDate || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : (a.created_at ? new Date(a.created_at).getTime() : 0);
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : (b.created_at ? new Date(b.created_at).getTime() : 0);
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
   }
 
   // Reference source options

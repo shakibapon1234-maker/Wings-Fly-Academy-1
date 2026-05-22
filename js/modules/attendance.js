@@ -253,8 +253,19 @@ const Attendance = (() => {
     if (logStatus) filtered = filtered.filter(r => r.status    === logStatus);
     if (logFrom)   filtered = filtered.filter(r => r.date && r.date >= logFrom);
     if (logTo)     filtered = filtered.filter(r => r.date && r.date <= logTo);
-    // Latest first
-    filtered.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    filtered.sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
 
     const statusColor = { Present: '#00ff88', Absent: '#ff4757', Late: '#ffd700', Leave: '#00d4ff' };
 
@@ -725,8 +736,20 @@ const Attendance = (() => {
 
     let filtered = records.filter(r => r.date && r.date.startsWith(month) && r.type === 'student');
     if (batch) filtered = filtered.filter(r => r.batch === batch);
-    // সর্বশেষ তারিখের রেকর্ড আগে (latest on top)
-    filtered = filtered.slice().sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    // সর্বশেষ তারিখের রেকর্ড আগে (latest on top, with robust tie-breakers for same date)
+    filtered = filtered.slice().sort((a, b) => {
+      const dateA = a.date || '';
+      const dateB = b.date || '';
+      if (dateA !== dateB) {
+        return dateB.localeCompare(dateA);
+      }
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : (a.createdAt ? new Date(a.createdAt).getTime() : 0);
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : (b.createdAt ? new Date(b.createdAt).getTime() : 0);
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
+      return String(b.id || '').localeCompare(String(a.id || ''));
+    });
 
     if (!filtered.length) {
       wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">No records found for this month</div></div>`;

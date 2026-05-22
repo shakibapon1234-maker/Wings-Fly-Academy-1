@@ -32,9 +32,17 @@ const Salary = (() => {
     return all.sort((a, b) => {
       const aDate = a.paidDate || '';
       const bDate = b.paidDate || '';
-      if (aDate && bDate) return bDate.localeCompare(aDate);
-      if (aDate) return -1;
-      if (bDate) return 1;
+      if (aDate !== bDate) {
+        if (aDate && bDate) return bDate.localeCompare(aDate);
+        if (aDate) return -1;
+        if (bDate) return 1;
+      }
+      // If paidDates are identical or both missing, use robust tie-breakers (latest first)
+      const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+      const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+      if (timeA !== timeB) {
+        return timeB - timeA;
+      }
       return String(b.id || '').localeCompare(String(a.id || ''));
     });
   }
