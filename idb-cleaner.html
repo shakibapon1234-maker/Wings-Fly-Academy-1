@@ -253,9 +253,10 @@ async function loadStats() {
 
     all.forEach(item => {
       const rows = Array.isArray(item.data) ? item.data : [];
-      if (item.key === 'wfa_snapshots') {
+      const key = item.tableName || item.key;
+      if (key === 'wfa_snapshots') {
         snapCount = rows.length;
-      } else if (item.key === 'retry_queue') {
+      } else if (key === 'retry_queue') {
         retryCount = rows.length;
       } else {
         totalRecords += rows.length;
@@ -279,7 +280,7 @@ async function loadStats() {
 async function clearSnapshots() {
   if (!confirm('সব Auto Snapshots মুছে দেবেন? মূল ডেটা ঠিক থাকবে।')) return;
   try {
-    await putInStore('tables', { key: 'wfa_snapshots', data: [] });
+    await putInStore('tables', { tableName: 'wfa_snapshots', key: 'wfa_snapshots', data: [] });
     addLog('✅ All snapshots cleared from IndexedDB!', 'ok');
     await loadStats();
   } catch (e) {
@@ -297,7 +298,7 @@ function clearMonitor() {
 async function clearRetryQueue() {
   if (!confirm('Retry Queue মুছে দেবেন?')) return;
   try {
-    await putInStore('tables', { key: 'retry_queue', data: [] });
+    await putInStore('tables', { tableName: 'retry_queue', key: 'retry_queue', data: [] });
     localStorage.removeItem('wfa_retry_queue');
     addLog('✅ Retry queue cleared!', 'ok');
     await loadStats();
