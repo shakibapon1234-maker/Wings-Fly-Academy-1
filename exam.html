@@ -662,7 +662,8 @@ function loadData(callback) {
   };
 
   // Fetch directly from Supabase REST API (bypasses IndexedDB/cache)
-  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&limit=1`, {
+  // We filter for rows where exam_questions is not null, and sort by updated_at desc to get the active configuration
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&exam_questions=not.is.null&order=updated_at.desc&limit=1`, {
     headers: {
       'apikey': SUPA_KEY,
       'Authorization': 'Bearer ' + SUPA_KEY,
