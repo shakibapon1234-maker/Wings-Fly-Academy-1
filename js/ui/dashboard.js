@@ -54,13 +54,17 @@ const DashboardModule = (() => {
     const totalStudents = students.length;
 
     // ── Income Calculation ─────────────────────────────────────────
-    // Student Fee Income = sum of s.paid (authoritative — includes unrecorded initial payments)
-    // Other Income (non-student) = from finance ledger only
-    // Loans & Investments are in separate tables — NOT counted as income/expense
+    // ✅ INCOME LOGIC (Double-Count Guard):
+    // Student Fee Income = ONLY from students.paid (authoritative source)
+    // Finance Ledger Income = ONLY non-student categories (other income streams)
+    // ⚠️  'Student Fee' এবং 'Balance Adjustment' finance ledger থেকে বাদ রাখা হয়
+    //     কারণ students.paid থেকে এটি ইতিমধ্যে গণনা করা হয়েছে।
+    //     এই দুটি লাইন একসাথে না বদলালে double-count হবে।
     const studentFeeTotal  = students.reduce((sum, st) => sum + Utils.safeNum(st.paid), 0);
     const otherIncome      = finance.filter(f =>
       f.type === 'Income' &&
       f.category !== 'Student Fee' &&
+      f.category !== 'Student Payment' &&   // ✅ Added: alternate category name guard
       f.category !== 'Balance Adjustment'
     ).reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const totalIncome = studentFeeTotal + otherIncome;

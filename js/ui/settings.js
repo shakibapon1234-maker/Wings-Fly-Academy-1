@@ -3076,10 +3076,12 @@ ${expenseEntries.length > 0 ? `
   }
 
   function saveConfig(cfg) {
-    // সবসময় প্রথম existing row আপডেট করো — duplicate settings row তৈরি হবে না
+    // ✅ DUPLICATE FIX: সবসময় admin_password আছে এমন row আপডেট করো — এটাই keeper row।
+    // allSettings[0] নয়, কারণ sync এর কারণে row order ভিন্ন হতে পারে।
     const allSettings = SupabaseSync.getAll(DB.settings);
     if (allSettings.length > 0) {
-      const existingId = allSettings[0].id;
+      const keeper = allSettings.find(s => s.admin_password) || allSettings[0];
+      const existingId = keeper.id;
       cfg.id = existingId;
       SupabaseSync.update(DB.settings, existingId, cfg);
     } else {

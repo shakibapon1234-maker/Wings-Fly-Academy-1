@@ -285,27 +285,20 @@ const App = (() => {
         const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
                                 (SupabaseSync.getAll(DB.finance).length  > 0);
         if (hasExistingData) {
-          // Track retry attempts — after 3 attempts, allow setup anyway
+          // ✅ SECURITY FIX: When existing data found but no settings loaded yet,
+          // NEVER allow password bypass — always block and wait for cloud sync.
           const retryKey = '_loginRetryCount';
           window[retryKey] = (window[retryKey] || 0) + 1;
           const errEl = document.getElementById('login-error');
+          const waitSec = Math.min(5 * window[retryKey], 30);
 
-          if (window[retryKey] < 4) {
-            // Sync is still loading settings — refuse and guide user
-            const waitSec = 5 * window[retryKey];
-            if (errEl) {
-              errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]}/3)</small>`;
-              errEl.style.display = 'block';
-            }
-            return 'pending';
-          } else {
-            // After 3 retries, allow forced setup with a warning
-            if (errEl) {
-              errEl.innerHTML = `⚠️ Settings could not be loaded from cloud. Setting new password.`;
-              errEl.style.display = 'block';
-            }
-            window[retryKey] = 0;
+          if (errEl) {
+            errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]})</small>`;
+            errEl.style.display = 'block';
           }
+          // CRITICAL: Always return 'pending' — never fall through to allow new password setup
+          // when existing academy data is detected. This prevents admin bypass via fresh browser.
+          return 'pending';
         }
         // Genuine first-time setup — accept any non-empty password and save it
         adminOk = !!password;
@@ -386,7 +379,11 @@ const App = (() => {
     const resetTimeoutKey = 'wfa_reset_timeout_until';
     
     const now = Date.now();
-    const timeoutUntil = parseInt(localStorage.getItem(resetTimeoutKey) || '0');
+    // ✅ SECURITY FIX: Check BOTH localStorage AND sessionStorage so DevTools localStorage.clear()
+    // cannot bypass the lockout. Both must expire before the user can try again.
+    const timeoutLS = parseInt(localStorage.getItem(resetTimeoutKey) || '0');
+    const timeoutSS = parseInt(sessionStorage.getItem(resetTimeoutKey) || '0');
+    const timeoutUntil = Math.max(timeoutLS, timeoutSS);
     
     if (now < timeoutUntil) {
       const waitSeconds = Math.ceil((timeoutUntil - now) / 1000);
@@ -425,9 +422,11 @@ const App = (() => {
       localStorage.setItem(resetAttemptKey, attempts.toString());
       
       if (attempts >= 3) {
-        // Lock out for 15 minutes
+        // Lock out for 15 minutes — stored in BOTH storages to prevent DevTools bypass
         const lockoutTime = 15 * 60 * 1000;
-        localStorage.setItem(resetTimeoutKey, (Date.now() + lockoutTime).toString());
+        const lockoutExpiry = (Date.now() + lockoutTime).toString();
+        localStorage.setItem(resetTimeoutKey, lockoutExpiry);
+        sessionStorage.setItem(resetTimeoutKey, lockoutExpiry);
         console.error('[Auth] ❌ Too many failed attempts (3). Locked for 15 minutes.');
         if (typeof Utils !== 'undefined' && Utils.toast) {
           Utils.toast('❌ Too many failed attempts. Account locked for 15 minutes.', 'error', 5000);
@@ -442,9 +441,10 @@ const App = (() => {
       return false;
     }
 
-    // 🆕 BUG #6 FIX: Clear attempts on success
+    // ✅ SECURITY FIX: Clear attempts from both storages on success
     localStorage.removeItem(resetAttemptKey);
     localStorage.removeItem(resetTimeoutKey);
+    sessionStorage.removeItem(resetTimeoutKey);
 
     // Cleanup duplicates first, then reset
     cleanupDuplicateSettings();
@@ -729,12 +729,31 @@ const App = (() => {
     try {
       switch (section) {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
-        case 'students':      if (typeof Students !== 'undefined') { setTimeout(() => Students.render(), 60); } break;
+        case 'students': {
+          if (typeof Students !== 'undefined') {
+            // ✅ RACE CONDITION FIX: Instead of arbitrary 60ms delay, check if data
+            // is actually available. If not, wait up to 2s with polling (10ms intervals).
+            const _renderWhenReady = (tries = 0) => {
+              const dataReady = typeof SupabaseSync !== 'undefined' &&
+                                typeof DB !== 'undefined' &&
+                                SupabaseSync.getAll(DB.students) !== null;
+              if (dataReady || tries >= 200) {
+                Students.render();
+              } else {
+                setTimeout(() => _renderWhenReady(tries + 1), 10);
+              }
+            };
+            _renderWhenReady();
+          }
+          break;
+        }
         case 'finance':       if (typeof Finance !== 'undefined')            Finance.render(); break;
         case 'accounts':      if (typeof Accounts !== 'undefined')           Accounts.render(); break;
         case 'loans':         if (typeof Loans !== 'undefined')              Loans.render(); break;
         case 'exam':          if (typeof Exam !== 'undefined')               Exam.render(); break;
-        case 'attendance':    if (typeof Attendance !== 'undefined')         Attendance.render(); break;
+        case 'attendance':    /* ✅ Dead Code Fix: attendance উপরের navigateTo() block-এ modal হিসেবে open হয়
+                                 এবং return করে। তাই এখানে কখনো পৌঁছায় না। renderModule() skip করে। */
+                              break;
         case 'salary':        if (typeof Salary !== 'undefined')             Salary.render(); break;
         case 'hr-staff':      if (typeof HRStaff !== 'undefined')            HRStaff.render(); break;
         case 'visitors':      if (typeof VisitorsModule !== 'undefined')     VisitorsModule.render(); break;
