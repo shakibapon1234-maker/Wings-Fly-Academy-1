@@ -662,8 +662,8 @@ function loadData(callback) {
   };
 
   // Fetch directly from Supabase REST API (bypasses IndexedDB/cache)
-  // We filter for rows where exam_questions is not null, and sort by updated_at desc to get the active configuration
-  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings&exam_questions=not.is.null&order=updated_at.desc&limit=1`, {
+  // Fetch settings rows and find the active row containing exam questions in client side logic
+  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings`, {
     headers: {
       'apikey': SUPA_KEY,
       'Authorization': 'Bearer ' + SUPA_KEY,
@@ -673,8 +673,15 @@ function loadData(callback) {
   .then(r => r.json())
   .then(data => {
     if (Array.isArray(data) && data.length > 0) {
-      console.log('[Exam] Settings fetched from Supabase REST ✓');
-      parseAndApply(data[0]);
+      // Find the row that actually contains the questions
+      const validRow = data.find(row => row.exam_questions && row.exam_questions !== '[]' && row.exam_questions !== 'null');
+      if (validRow) {
+        console.log('[Exam] Active Settings fetched from Supabase ✓');
+        parseAndApply(validRow);
+      } else {
+        console.warn('[Exam] No settings row contains valid questions');
+        showNoQuestions();
+      }
     } else {
       console.warn('[Exam] Supabase REST returned no settings rows');
       showNoQuestions();
