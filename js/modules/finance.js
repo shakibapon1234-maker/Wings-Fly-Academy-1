@@ -64,7 +64,26 @@ const Finance = (() => {
     const _initialBal = _noFilters ? (_totalStored - _allNet) : 0;
 
      let running = _initialBal;
-     const withBalance = [...Utils.sortBy(filtered,'date','asc')].map(f=>{
+     // Sort chronologically: by date (asc) first, and by insertion time (_inserted_at) or ID (asc) second.
+     // This guarantees that the running balance is calculated in the exact order they were created,
+     // and after reversing, the latest entries appear at the very top of the table.
+     const sortedChronologically = [...filtered].sort((a, b) => {
+       const dateA = a.date || '';
+       const dateB = b.date || '';
+       if (dateA !== dateB) {
+         return dateA < dateB ? -1 : 1;
+       }
+       const timeA = a._inserted_at ? new Date(a._inserted_at).getTime() : 0;
+       const timeB = b._inserted_at ? new Date(b._inserted_at).getTime() : 0;
+       if (timeA !== timeB) {
+         return timeA < timeB ? -1 : 1;
+       }
+       const idA = String(a.id || '');
+       const idB = String(b.id || '');
+       return idA < idB ? -1 : (idA > idB ? 1 : 0);
+     });
+
+     const withBalance = sortedChronologically.map(f=>{
        const amt = Utils.safeNum(f.amount);
        if (_IN_TYPES.has(f.type)) running+=amt;
        else running-=amt;

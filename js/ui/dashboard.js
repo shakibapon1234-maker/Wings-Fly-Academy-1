@@ -60,12 +60,13 @@ const DashboardModule = (() => {
     const studentFeeTotal  = students.reduce((sum, st) => sum + Utils.safeNum(st.paid), 0);
     const otherIncome      = finance.filter(f =>
       f.type === 'Income' &&
-      f.category !== 'Student Fee'
+      f.category !== 'Student Fee' &&
+      f.category !== 'Balance Adjustment'
     ).reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const totalIncome = studentFeeTotal + otherIncome;
 
     // All-Time: \"Total Expense\" = sum of all finance expenses (loans/investments NOT in ledger)
-    const totalExpense = finance.filter(f => f.type === 'Expense').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    const totalExpense = finance.filter(f => f.type === 'Expense' && f.category !== 'Balance Adjustment').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
     const netProfit    = totalIncome - totalExpense;
 
     // ── Running Batch filtered stats ──────────────────────────
@@ -162,6 +163,7 @@ const DashboardModule = (() => {
     }
     finance.forEach(f => {
       if (!f.date) return;
+      if (f.category === 'Balance Adjustment') return; // excluded from charts
       const key = f.date.slice(0, 7);
       if (!months[key]) return;
       if (f.type === 'Income')  months[key].income  += Utils.safeNum(f.amount);

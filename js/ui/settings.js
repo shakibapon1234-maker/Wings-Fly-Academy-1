@@ -2061,6 +2061,7 @@ const SettingsModule = (() => {
     // ── Expenses: by date range (batch-tagged or general) ──
     const expenseEntries = finance.filter(f => {
       if (f.type !== 'Expense') return false;
+      if (f.category === 'Balance Adjustment') return false; // excluded from batch reports
       const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
       if (!inRange) return false;
       if (!selectedBatch) return true;
@@ -2607,6 +2608,7 @@ ${expenseEntries.length > 0 ? `
       <div class="settings-sub-tabs">
         <button class="settings-sub-tab active" onclick="SettingsModule.showAccountsSubTab('advance')">Advance Payment</button>
         <button class="settings-sub-tab" onclick="SettingsModule.showAccountsSubTab('investment')">Investment</button>
+        <button class="settings-sub-tab" onclick="SettingsModule.showAccountsSubTab('adjustment')">Balance Adjustment</button>
       </div>
 
       <div id="accounts-mgmt-subtab-content">
@@ -2789,14 +2791,198 @@ ${expenseEntries.length > 0 ? `
 
   function showAccountsSubTab(tab) {
     document.querySelectorAll('.settings-sub-tab').forEach((btn, i) => {
-      btn.classList.toggle('active', (tab === 'advance' && i === 0) || (tab === 'investment' && i === 1));
+      btn.classList.toggle('active',
+        (tab === 'advance'    && i === 0) ||
+        (tab === 'investment' && i === 1) ||
+        (tab === 'adjustment' && i === 2)
+      );
     });
     const container = document.getElementById('accounts-mgmt-subtab-content');
     if (!container) return;
     if (tab === 'advance') {
       container.innerHTML = buildAdvancePaymentSection();
+    } else if (tab === 'adjustment') {
+      container.innerHTML = buildBalanceAdjustmentSection();
     } else {
       container.innerHTML = buildInvestmentSection();
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // BALANCE ADJUSTMENT — render, add, save, delete
+  // ════════════════════════════════════════════════════════════════
+
+  function buildBalanceAdjustmentSection() {
+    const entries = (SupabaseSync.getAll(DB.finance) || [])
+      .filter(f => f.category === 'Balance Adjustment')
+      .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+
+    const totalAdded    = entries.filter(f => f.type === 'Income') .reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+    const totalSubtract = entries.filter(f => f.type === 'Expense').reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+
+    const rows = entries.length > 0
+      ? entries.map((f, i) => `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${f.date || '—'}</td>
+            <td>${f.method || '—'}</td>
+            <td><span class="badge ${f.type === 'Income' ? 'badge-success' : 'badge-error'}">${f.type === 'Income' ? '+ Add' : '− Subtract'}</span></td>
+            <td class="text-right" style="color:${f.type === 'Income' ? '#00ff88' : '#ff4757'}">৳${parseFloat(f.amount || 0).toLocaleString()}</td>
+            <td>${f.note || f.description || '—'}</td>
+            <td class="text-center">
+              <button class="btn btn-error btn-sm" onclick="SettingsModule.deleteBalanceAdjustment('${f.id}')"><i class="fa fa-trash"></i></button>
+            </td>
+          </tr>`)
+        .join('')
+      : '<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px">No balance adjustments found.</td></tr>';
+
+    return `
+      <div class="settings-card glow-cyan">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-sliders"></i> Balance Adjustment</div>
+          <button class="btn btn-primary btn-sm" onclick="SettingsModule.addBalanceAdjustment()"><i class="fa fa-plus"></i> ADD ADJUSTMENT</button>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">
+          Manually align account balances (cash / bank / mobile banking).<br>
+          <strong style="color:#ffd700">⚠ These entries are excluded from Batch Profit Reports and Dashboard statistics.</strong>
+        </p>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="flex:1;min-width:130px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Added</div>
+            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">৳${totalAdded.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Subtracted</div>
+            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">৳${totalSubtract.toLocaleString()}</div>
+          </div>
+          <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
+            <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Net Effect</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${(totalAdded - totalSubtract).toLocaleString()}</div>
+          </div>
+        </div>
+        <div class="table-wrapper" style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr>
+                <th>#</th><th>Date</th><th>Account</th><th>Type</th>
+                <th class="text-right">Amount</th><th>Note</th><th class="text-center">Action</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  }
+
+  function addBalanceAdjustment() {
+    const today = new Date().toISOString().split('T')[0];
+    const methods = SupabaseSync.getAll(DB.settings)?.[0]?.paymentMethods
+      || ['Cash', 'Bank', 'bKash', 'Nagad', 'Rocket'];
+    const methodOptions = (Array.isArray(methods) ? methods : ['Cash', 'Bank', 'bKash'])
+      .map(m => `<option value="${m}">${m}</option>`).join('');
+
+    openSettingsInternalModal(`
+      <div class="settings-card-title" style="margin-bottom:16px"><i class="fa fa-sliders"></i> Add Balance Adjustment</div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <label style="font-size:.85rem;color:var(--text-secondary)">Adjustment Type
+          <select id="adj-type" class="settings-input" style="width:100%;margin-top:6px">
+            <option value="Income">+ Add to Balance</option>
+            <option value="Expense">− Subtract from Balance</option>
+          </select>
+        </label>
+        <label style="font-size:.85rem;color:var(--text-secondary)">Date
+          <input type="date" id="adj-date" class="settings-input" value="${today}" style="width:100%;margin-top:6px">
+        </label>
+        <label style="font-size:.85rem;color:var(--text-secondary)">Account / Method
+          <select id="adj-method" class="settings-input" style="width:100%;margin-top:6px">${methodOptions}</select>
+        </label>
+        <label style="font-size:.85rem;color:var(--text-secondary)">Amount (৳)
+          <input type="number" id="adj-amount" class="settings-input" min="1" placeholder="e.g. 5000" style="width:100%;margin-top:6px">
+        </label>
+        <label style="font-size:.85rem;color:var(--text-secondary)">Note (optional)
+          <input type="text" id="adj-note" class="settings-input" placeholder="e.g. Auditing correction" style="width:100%;margin-top:6px">
+        </label>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+        <button class="btn btn-outline btn-sm" onclick="SettingsModule.closeSettingsInternalModal()">Cancel</button>
+        <button class="btn btn-primary btn-sm" onclick="SettingsModule.saveBalanceAdjustment()"><i class="fa fa-save"></i> Save</button>
+      </div>
+    `);
+  }
+
+  async function saveBalanceAdjustment() {
+    const adjType  = document.getElementById('adj-type')?.value;
+    const adjDate  = document.getElementById('adj-date')?.value;
+    const adjMethod= document.getElementById('adj-method')?.value;
+    const adjAmount= parseFloat(document.getElementById('adj-amount')?.value);
+    const adjNote  = document.getElementById('adj-note')?.value?.trim() || 'Balance Adjustment';
+
+    if (!adjMethod) { Utils.toast('Please select an account.', 'error'); return; }
+    if (!adjDate)   { Utils.toast('Please select a date.', 'error'); return; }
+    if (!adjAmount || adjAmount <= 0) { Utils.toast('Amount must be greater than 0.', 'error'); return; }
+
+    // Check sufficient balance when subtracting
+    if (adjType === 'Expense') {
+      const balances = SupabaseSync.getAccountBalances ? SupabaseSync.getAccountBalances() : {};
+      const currentBal = parseFloat(balances[adjMethod] || 0);
+      if (currentBal < adjAmount) {
+        const force = confirm(`⚠ Account "${adjMethod}" balance is ৳${currentBal.toLocaleString()}, which is less than ৳${adjAmount.toLocaleString()}.\n\nForce subtract anyway?`);
+        if (!force) return;
+      }
+    }
+
+    const entry = {
+      type:        adjType,
+      method:      adjMethod,
+      category:    'Balance Adjustment',
+      description: adjNote,
+      amount:      adjAmount,
+      date:        adjDate,
+      note:        adjNote,
+      person:      '',
+    };
+
+    try {
+      await SupabaseSync.insert(DB.finance, entry);
+      await SupabaseSync.updateAccountBalance(adjMethod, adjAmount, adjType === 'Income' ? 'in' : 'out');
+      Utils.toast('Balance adjustment saved!', 'success');
+      closeSettingsInternalModal();
+      showAccountsSubTab('adjustment');
+    } catch (err) {
+      console.error('saveBalanceAdjustment error:', err);
+      Utils.toast('Failed to save adjustment.', 'error');
+    }
+  }
+
+  async function deleteBalanceAdjustment(id) {
+    const all = SupabaseSync.getAll(DB.finance) || [];
+    const entry = all.find(f => String(f.id) === String(id));
+    if (!entry) { Utils.toast('Entry not found.', 'error'); return; }
+
+    // Check sufficient balance when deleting an Add adjustment (which subtracts from the balance)
+    if (entry.type === 'Income') {
+      const balances = SupabaseSync.getAccountBalances ? SupabaseSync.getAccountBalances() : {};
+      const currentBal = parseFloat(balances[entry.method] || 0);
+      const amt = parseFloat(entry.amount);
+      if (currentBal < amt) {
+        const force = confirm(`⚠ Reversing this adjustment will subtract ৳${amt.toLocaleString()} from "${entry.method}", which currently only has ৳${currentBal.toLocaleString()}.\n\nForce delete anyway?`);
+        if (!force) return;
+      }
+    }
+
+    if (!confirm(`Delete this balance adjustment?\n${entry.type === 'Income' ? '+' : '-'} ৳${parseFloat(entry.amount).toLocaleString()} on ${entry.date} (${entry.method})\n\nThis will reverse the balance change.`)) return;
+
+    try {
+      // Reverse the balance effect
+      const reverseDir = entry.type === 'Income' ? 'out' : 'in';
+      await SupabaseSync.updateAccountBalance(entry.method, parseFloat(entry.amount), reverseDir);
+      await SupabaseSync.remove(DB.finance, id);
+      Utils.toast('Adjustment deleted and balance reversed.', 'success');
+      if (typeof logActivity === 'function') logActivity('Deleted balance adjustment', entry);
+      showAccountsSubTab('adjustment');
+    } catch (err) {
+      console.error('deleteBalanceAdjustment error:', err);
+      Utils.toast('Failed to delete adjustment.', 'error');
     }
   }
 
@@ -6335,6 +6521,7 @@ ${expenseEntries.length > 0 ? `
     openReturnAdvanceModal, saveReturnAdvance, viewAdvanceLedger,
     addInvestment, saveInvestment, deleteInvestment,
     openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
+    addBalanceAdjustment, saveBalanceAdjustment, deleteBalanceAdjustment,
     openSettingsInternalModal, closeSettingsInternalModal,
     runAutoHeal, runSyncCheck, runAutoFix,
     rebuildMonitorData,

@@ -30,7 +30,7 @@
 
 const WFA_IDB = (() => {
   const DB_NAME    = 'WingsAcademyDB';
-  const DB_VERSION = 1;
+  const DB_VERSION = 3;
   const STORE_NAME = 'tables';
 
   let _db = null;
@@ -45,14 +45,21 @@ const WFA_IDB = (() => {
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          db.createObjectStore(STORE_NAME, { keyPath: 'tableName' });
+        // If the store already exists, delete it first to ensure the correct keyPath is applied
+        if (db.objectStoreNames.contains(STORE_NAME)) {
+          try {
+            db.deleteObjectStore(STORE_NAME);
+            console.info('[IDB] Re-creating store to ensure correct keyPath: tableName');
+          } catch (err) {
+            console.error('[IDB] Failed to delete store:', err);
+          }
         }
+        db.createObjectStore(STORE_NAME, { keyPath: 'tableName' });
       };
 
       req.onsuccess  = (e) => resolve(e.target.result);
       req.onerror    = (e) => reject(e.target.error);
-      req.onblocked  = ()  => console.warn('[IDB] DB upgrade blocked â€” close other tabs');
+      req.onblocked  = ()  => console.warn('[IDB] DB upgrade blocked — close other tabs');
     });
   }
 

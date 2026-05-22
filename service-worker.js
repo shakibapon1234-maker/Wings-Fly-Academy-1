@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260520-bugfix-batch2';
+const DEPLOY_ID = '20260517-balance-integrity';
 const CACHE_NAME = `wfa-v8-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
