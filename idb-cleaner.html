@@ -158,9 +158,10 @@
   <div class="section">
     <h3>⚠️ Advanced</h3>
     <p>Retry Queue এবং Deleted IDs পরিষ্কার করুন। সতর্কতার সাথে ব্যবহার করুন।</p>
-    <div class="row">
+    <div class="row" style="gap: 10px;">
       <button class="btn-warn" onclick="clearRetryQueue()">🗑️ Clear Retry Queue</button>
       <button class="btn-info" onclick="listAllKeys()">🔍 List All IDB Keys</button>
+      <button class="btn-danger" onclick="resetLocalCache()" style="background: rgba(255,30,80,0.22); color: #ff4d6d; border: 1px solid rgba(255,30,80,0.45);">💥 Full Reset Local Cache (সম্পূর্ণ লোকাল মেমরি মুছুন)</button>
     </div>
   </div>
 
@@ -324,6 +325,29 @@ async function listAllKeys() {
         addLog(`  ${k}: ~${size} KB`, 'info');
       } catch {}
     });
+  } catch (e) {
+    addLog(`Error: ${e.message}`, 'err');
+  }
+}
+
+async function resetLocalCache() {
+  if (!confirm('সম্পূর্ণ লোকাল ক্যাশ মেমরি মুছে ফেলবেন? এটি ক্লাউডের ডেটা মুছবে না। এটি করলে অ্যাপটি পুনরায় নতুন করে ক্লাউড থেকে ফ্রেশ ডেটা সিঙ্ক করবে。\n\nআপনি কি নিশ্চিত?')) return;
+  try {
+    if (db) db.close();
+    const req = indexedDB.deleteDatabase(DB_NAME);
+    req.onsuccess = () => {
+      localStorage.clear();
+      addLog('💥 Local IndexedDB & LocalStorage successfully deleted! Please close all tabs of this app, and open the school management app to let it pull clean data from cloud.', 'ok');
+      document.getElementById('db-dot').className = 'dot red';
+      document.getElementById('db-status').textContent = 'IndexedDB deleted 💥';
+      document.getElementById('stat-total').textContent = '0';
+      document.getElementById('stat-snaps').textContent = '0';
+      document.getElementById('stat-monitor').textContent = '0';
+      document.getElementById('stat-retry').textContent = '0';
+    };
+    req.onerror = e => {
+      addLog(`Error deleting database: ${e.target.error.message}`, 'err');
+    };
   } catch (e) {
     addLog(`Error: ${e.message}`, 'err');
   }
