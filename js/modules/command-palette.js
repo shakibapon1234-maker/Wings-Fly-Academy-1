@@ -95,7 +95,7 @@ const CommandPalette = (() => {
     // FIX: only Ctrl+K, removed Ctrl+Space
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      if (localStorage.getItem('wfa_logged_in') === 'true') toggle();
+      if ((window.SessionStore && SessionStore.isLoggedIn()) || localStorage.getItem('wfa_logged_in') === 'true') toggle();
     }
     if (e.key === 'Escape' && isVisible) close();
   }

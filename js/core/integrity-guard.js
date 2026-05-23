@@ -609,7 +609,7 @@ const IntegrityGuard = (() => {
       console.groupEnd();
     }
 
-    if (s.warnings.length > 0) {
+    if (s.warnings.length > 0 && window.__WFA_DEV__) {
       console.group('%c🟡 WARNINGS:', 'color:#ffa502;font-weight:bold');
       s.warnings.forEach(w => console.warn(`  ⚠️ [${w.name}] ${w.detail}`));
       console.groupEnd();
@@ -997,7 +997,9 @@ const IntegrityGuard = (() => {
       if (allReady || pollCount >= maxPolls) {
         if (!allReady) {
           const missing = criticalModules.filter(m => !window[m]);
-          console.warn(`[IntegrityGuard] Timed out waiting for modules: ${missing.join(', ')}`);
+          if (window.__WFA_DEV__) {
+            console.warn(`[IntegrityGuard] Timed out waiting for modules: ${missing.join(', ')}`);
+          }
         }
         run();
         // Watch mode: 2 মিনিট পরপর check

@@ -12,6 +12,15 @@
 (function () {
   'use strict';
 
+  const navAbort = new AbortController();
+  const navOpts = { signal: navAbort.signal };
+
+  /** Detach all mobile-nav listeners (e.g. before dynamic re-init). */
+  window.WFA_NAV_TEARDOWN = function () {
+    navAbort.abort();
+    window.WFA_NAV_TEARDOWN = null;
+  };
+
   function isMobile() {
     return window.innerWidth <= 768;
   }
@@ -44,7 +53,7 @@
         updateBottomNavActive(section);
         moreMenu.classList.remove('open');
       }
-    });
+    }, navOpts);
 
     // ── More Menu: Item clicks ────────────────────────────
     if (moreMenu) {
@@ -58,7 +67,7 @@
           updateBottomNavActive(section);
           moreMenu.classList.remove('open');
         }
-      });
+      }, navOpts);
     }
 
     // ── Close more menu when tapping outside ──────────────
@@ -68,7 +77,7 @@
           moreMenu.classList.remove('open');
         }
       }
-    });
+    }, navOpts);
 
     // ── Sidebar overlay: Close on tap ─────────────────────
     // NOTE: We do NOT add a separate hamburger click listener here.
@@ -82,7 +91,7 @@
         // Also sync app.js's overlay (it creates its own)
         var appOverlay = document.querySelector('#sidebar-overlay[style*="display"]');
         if (appOverlay) appOverlay.style.display = 'none';
-      });
+      }, navOpts);
     }
 
     // ── Sync mobile overlay with App.toggleSidebar ────────
@@ -101,6 +110,7 @@
         }
       });
       sidebarObserver.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+      navAbort.signal.addEventListener('abort', function () { sidebarObserver.disconnect(); });
     }
 
     // ── Sidebar nav items: close drawer on mobile ─────────
@@ -116,7 +126,7 @@
           if (overlay) overlay.classList.remove('active');
           if (moreMenu) moreMenu.classList.remove('open'); // BUG #22 Fix
         }
-      });
+      }, navOpts);
     }
 
     // ── Update bottom nav active state ────────────────────
@@ -143,7 +153,7 @@
       if (e.detail && e.detail.section) {
         updateBottomNavActive(e.detail.section);
       }
-    });
+    }, navOpts);
 
     // ── Handle back button on Android (Capacitor) ─────────────
     if (window.Capacitor) {
@@ -175,7 +185,7 @@
           updateBottomNavActive('dashboard');
           e.preventDefault();
         }
-      }, false);
+      }, navOpts);
     }
 
     // ── Bug #20 Fix: Browser History API — PWA back button (non-Capacitor) ──
@@ -212,14 +222,14 @@
           updateBottomNavActive('dashboard');
           window.history.pushState({ wfa: true, section: 'dashboard' }, '', window.location.href);
         }
-      });
+      }, navOpts);
 
       // Push state on every WFA navigation
       window.addEventListener('wfa:navigate', function (e) {
         if (e.detail && e.detail.section) {
           window.history.pushState({ wfa: true, section: e.detail.section }, '', window.location.href);
         }
-      });
+      }, navOpts);
     }
 
     // ── Bug #18 Fix: Touch swipe gesture — swipe right from left edge to open sidebar ──
@@ -228,7 +238,7 @@
     document.addEventListener('touchstart', function (e) {
       _touchStartX = e.touches[0].clientX;
       _touchStartY = e.touches[0].clientY;
-    }, { passive: true });
+    }, { passive: true, signal: navAbort.signal });
 
     document.addEventListener('touchend', function (e) {
       var dx = e.changedTouches[0].clientX - _touchStartX;
@@ -247,7 +257,7 @@
         sidebar.classList.remove('open');
         if (overlay) overlay.classList.remove('active');
       }
-    }, { passive: true });
+    }, { passive: true, signal: navAbort.signal });
 
   });
 })();

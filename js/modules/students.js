@@ -1779,7 +1779,7 @@ const Students = (() => {
         date:    date,
         type:    'reminder',
         student_id: id,
-        created_by: localStorage.getItem('wfa_user_name') || 'admin',
+        created_by: (window.SessionStore && SessionStore.getUserName()) || localStorage.getItem('wfa_user_name') || 'admin',
       });
     }
     Utils.closeModal();

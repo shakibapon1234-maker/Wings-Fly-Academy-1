@@ -6,6 +6,7 @@
 const AutoUpdateModule = (() => {
   const VERSION_FILE_URL = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json'; // GitHub Pages hosted version
   const LOCAL_VERSION_KEY = 'wfa_app_version';
+  const LOCAL_VERSION_FALLBACK = '1.2.3';
   const LAST_CHECK_KEY = 'wfa_last_update_check';
   const CHECK_INTERVAL_HOURS = 24; // Check once per day to avoid 503 spam
 
@@ -51,7 +52,11 @@ const AutoUpdateModule = (() => {
       if (!response || !response.ok) return { available: false, reason: 'fetch-failed' };
 
       const remoteVersion = await response.json();
-      const localVersion = localStorage.getItem(LOCAL_VERSION_KEY) || '1.0.0';
+      let localVersion = localStorage.getItem(LOCAL_VERSION_KEY) || LOCAL_VERSION_FALLBACK;
+      if (localVersion === '1.0.0') {
+        localVersion = LOCAL_VERSION_FALLBACK;
+        localStorage.setItem(LOCAL_VERSION_KEY, localVersion);
+      }
       localStorage.setItem(LAST_CHECK_KEY, now.toString());
 
       const hasUpdate = compareVersions(remoteVersion.version, localVersion) > 0;

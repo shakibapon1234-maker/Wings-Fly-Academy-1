@@ -74,21 +74,44 @@ function switchTab(name) {
 }
 
 // QUESTIONS CRUD
-function getQuestions() {
+function _migrateExamLocalStorage() {
   try {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const stored = cfg.exam_questions || localStorage.getItem('wfa_questions');
-    if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
+    let changed = false;
+    const legacyQ = localStorage.getItem('wfa_questions');
+    if (legacyQ && !cfg.exam_questions) {
+      cfg.exam_questions = legacyQ;
+      changed = true;
+      localStorage.removeItem('wfa_questions');
+    }
+    const legacyS = localStorage.getItem('wfa_settings');
+    if (legacyS && !cfg.exam_settings) {
+      cfg.exam_settings = legacyS;
+      changed = true;
+      localStorage.removeItem('wfa_settings');
+    }
+    if (changed) {
+      if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
+      else SupabaseSync.insert(DB.settings, cfg);
+    }
+  } catch (e) { console.warn('[AdminPanel] exam LS migration:', e?.message); }
+}
+
+function getQuestions() {
+  try {
+    _migrateExamLocalStorage();
+    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const stored = cfg.exam_questions;
+    if (stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return [];
   } catch { return []; }
 }
 
 function saveQuestions(qs) {
   try {
-    localStorage.setItem('wfa_questions', JSON.stringify(qs));
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     cfg.exam_questions = JSON.stringify(qs);
-    if(cfg.id) {
+    if (cfg.id) {
       SupabaseSync.update(DB.settings, cfg.id, cfg);
     } else {
       SupabaseSync.insert(DB.settings, cfg);
@@ -234,6 +257,9 @@ function loadResults() {
       results.push(lr);
     }
   });
+  if (localResults.length > 0 && nativeResults.length > 0) {
+    localStorage.removeItem('wfa_results');
+  }
 
   const tbody = document.getElementById('resultBody');
   const noRes = document.getElementById('noResults');
@@ -288,8 +314,9 @@ function exportResults() {
 // SETTINGS
 function getSettings() {
   try {
+    _migrateExamLocalStorage();
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const stored = cfg.exam_settings || localStorage.getItem('wfa_settings');
+    const stored = cfg.exam_settings;
     if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' };
   } catch { return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' }; }
@@ -302,7 +329,6 @@ function saveSettings() {
   s.maxWarnings = parseInt(document.getElementById('maxWarnInput').value) || 3;
   s.examName = document.getElementById('examNameInput').value;
   s.examDate = document.getElementById('examDateInput').value;
-  localStorage.setItem('wfa_settings', JSON.stringify(s));
   const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
   cfg.exam_settings = JSON.stringify(s);
   if(cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);

@@ -3,6 +3,15 @@
 // Credentials: js/core/supabase-secrets.js (gitignored) or Settings → Cloud API
 // ============================================================
 
+const WFA_SUPABASE_URL_TYPO = 'fznhiqzrs1ldybhmgopk';
+const WFA_SUPABASE_URL_CORRECT = 'fznhiqzrslldybhmgopk';
+
+/** One-time fix for legacy typo saved in SecureStorage / settings (not for built-in fallbacks). */
+function _fixLegacySupabaseUrlTypo(url) {
+  if (!url || typeof url !== 'string' || !url.includes(WFA_SUPABASE_URL_TYPO)) return url;
+  return url.replace(WFA_SUPABASE_URL_TYPO, WFA_SUPABASE_URL_CORRECT);
+}
+
 function _resolveSupabaseCreds() {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
   const stored = window.__WFA_SUPABASE_CREDS || {};
@@ -11,10 +20,7 @@ function _resolveSupabaseCreds() {
   // Anon key is public by Supabase design; data access is controlled by RLS.
   const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
   const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
-  let url = stored.url || secrets.url || _fallbackUrl;
-  if (url && url.includes('fznhiqzrs1ldybhmgopk')) {
-    url = url.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
-  }
+  const url = _fixLegacySupabaseUrlTypo(stored.url || secrets.url || _fallbackUrl);
   const anonKey = stored.anonKey || secrets.anonKey || secrets.anon_key || _fallbackKey;
   return { url, anonKey };
 }
@@ -27,9 +33,10 @@ async function _hydrateSupabaseCredsFromStorage() {
   try {
     let url = await SecureStorage.getItem('wfa_supabase_url');
     const key = await SecureStorage.getItem('wfa_supabase_anon_key');
-    if (url && url.includes('fznhiqzrs1ldybhmgopk')) {
-      console.warn('[Config] Auto-correcting Supabase URL typo in SecureStorage (1 -> l)');
-      url = url.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
+    const fixed = _fixLegacySupabaseUrlTypo(url);
+    if (fixed !== url) {
+      console.warn('[Config] Corrected legacy Supabase URL typo in SecureStorage (1 → l)');
+      url = fixed;
       await SecureStorage.setItem('wfa_supabase_url', url);
     }
     if (url && key) {
@@ -236,10 +243,7 @@ window.SUPABASE_CONFIG = {
   TABLES: DB,
   saveCloudCredentials: async (url, anonKey) => {
     if (typeof SecureStorage === 'undefined') throw new Error('SecureStorage unavailable');
-    let cleanUrl = url.trim();
-    if (cleanUrl.includes('fznhiqzrs1ldybhmgopk')) {
-      cleanUrl = cleanUrl.replace('fznhiqzrs1ldybhmgopk', 'fznhiqzrslldybhmgopk');
-    }
+    let cleanUrl = _fixLegacySupabaseUrlTypo(url.trim());
     await SecureStorage.setItem('wfa_supabase_url', cleanUrl);
     await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
     window.__WFA_SUPABASE_CREDS = { url: cleanUrl, anonKey: anonKey.trim() };

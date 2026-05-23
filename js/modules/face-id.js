@@ -8,8 +8,11 @@
 const FaceIDModule = (() => {
   let isModelsLoaded    = false;
   let isLibraryLoading  = false;
-  const FACE_API_CDN = './js/lib/face-api.min.js';
-  const MODEL_URL    = './assets/face-api-models';
+  const _asset = (path) => (typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+    ? Utils.resolveAppUrl(path)
+    : path;
+  const FACE_API_CDN = _asset('js/lib/face-api.min.js');
+  const MODEL_URL    = _asset('assets/face-api-models');
   const FACE_API_CDN_FALLBACK = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js';
   const MODEL_URL_FALLBACK    = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
   let videoStream       = null;
@@ -240,17 +243,33 @@ const FaceIDModule = (() => {
     }, 500);
   }
 
-  function handleDetectionResult(mode, descriptor) {
+  async function _persistFaceDescriptor(json) {
+    if (typeof SecureStorage !== 'undefined') {
+      await SecureStorage.setItem('wfa_admin_face_descriptor', json);
+    } else {
+      localStorage.setItem('wfa_admin_face_descriptor', json);
+    }
+  }
+
+  async function _loadFaceDescriptor() {
+    if (typeof SecureStorage !== 'undefined') {
+      const enc = await SecureStorage.getItem('wfa_admin_face_descriptor');
+      if (enc) return enc;
+    }
+    return localStorage.getItem('wfa_admin_face_descriptor');
+  }
+
+  async function handleDetectionResult(mode, descriptor) {
     const statusEl = document.getElementById('face-id-status');
     if (mode === 'register') {
       const descriptorJson = JSON.stringify(Array.from(descriptor));
-      localStorage.setItem('wfa_admin_face_descriptor', descriptorJson);
+      await _persistFaceDescriptor(descriptorJson);
       if (statusEl) { statusEl.innerText = 'Face registered successfully!'; statusEl.style.color = '#00ff88'; }
       if (typeof Utils !== 'undefined') Utils.toast('Face ID saved! You can now use it on the login page.', 'success');
       setTimeout(() => closeScannerModal(), 1500);
     }
     else if (mode === 'login') {
-      let savedStr = localStorage.getItem('wfa_admin_face_descriptor');
+      const savedStr = await _loadFaceDescriptor();
       if (!savedStr) {
         if (statusEl) { statusEl.innerText = 'No Face ID registered!'; statusEl.style.color = '#ff6b7a'; }
         setTimeout(() => closeScannerModal(), 2000);
@@ -292,18 +311,22 @@ const FaceIDModule = (() => {
 
   function triggerLoginSuccess() {
     if (typeof App !== 'undefined') {
-      localStorage.setItem('wfa_logged_in', 'true');
-      localStorage.setItem('wfa_login_time', String(Date.now())); // ✅ FIX: set session timestamp
-      localStorage.setItem('wfa_user_role', 'admin');
-      localStorage.setItem('wfa_user_name', 'admin');
-      localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+      if (window.SessionStore) SessionStore.setAdminSession();
+      else {
+        localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_login_time', String(Date.now()));
+        localStorage.setItem('wfa_user_role', 'admin');
+        localStorage.setItem('wfa_user_name', 'admin');
+        localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+      }
       App.showApp(true);
       if (typeof Utils !== 'undefined') Utils.toast('Logged in via Face ID ✅', 'success');
     }
   }
 
   function isFaceIdRegistered() {
-    return !!localStorage.getItem('wfa_admin_face_descriptor');
+    const raw = localStorage.getItem('wfa_admin_face_descriptor');
+    return !!(raw && (raw.startsWith('wfa_enc::') || raw.startsWith('[')));
   }
 
   return { openScannerModal, closeScannerModal, isFaceIdRegistered };

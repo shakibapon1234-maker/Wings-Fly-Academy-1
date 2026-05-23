@@ -49,7 +49,9 @@ const WFA_IDB = (() => {
         if (db.objectStoreNames.contains(STORE_NAME)) {
           try {
             db.deleteObjectStore(STORE_NAME);
-            console.info('[IDB] Re-creating store to ensure correct keyPath: tableName');
+            if (window.__WFA_DEV__) {
+              console.info('[IDB] Re-creating store to ensure correct keyPath: tableName');
+            }
           } catch (err) {
             console.error('[IDB] Failed to delete store:', err);
           }
@@ -176,6 +178,22 @@ const WFA_IDB = (() => {
             _writeToIDB('deleted_items', [diData]);
           } catch(e) { console.warn('[IDB] deletedItems parse failed:', e); }
        }
+    }
+    // Sync retry queue: localStorage → IndexedDB (single source of truth)
+    if (!_cache['retry_queue'] || _cache['retry_queue'].length === 0) {
+      const rq = localStorage.getItem('wfa_retry_queue');
+      if (rq) {
+        try {
+          const rqData = JSON.parse(rq);
+          if (Array.isArray(rqData) && rqData.length) {
+            _cache['retry_queue'] = rqData;
+            _writeToIDB('retry_queue', rqData);
+            localStorage.removeItem('wfa_retry_queue');
+          }
+        } catch (e) { console.warn('[IDB] retry_queue parse failed:', e); }
+      }
+    } else {
+      localStorage.removeItem('wfa_retry_queue');
     }
 
     if (localStorage.getItem(migrationFlag) === 'done') return;
@@ -743,7 +761,7 @@ const SupabaseSync = (() => {
         type,
         description,
         status,
-        user:       localStorage.getItem('wfa_user_name') || 'Admin',
+        user:       (window.SessionStore && SessionStore.getUserName()) || localStorage.getItem('wfa_user_name') || 'Admin',
         device_id:  _deviceId(),
         time:       now.toLocaleString('en-US', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
         created_at: now.toISOString(),
@@ -1479,20 +1497,9 @@ const SupabaseSync = (() => {
 
   async function processRetryQueue() {
     try {
-      // ✅ FIX: Read from IndexedDB (persistent) first, fallback to localStorage
       let queue = [];
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
         queue = SupabaseSync.getAll('retry_queue') || [];
-      }
-      // Fallback to localStorage if IDB empty
-      if (!queue || queue.length === 0) {
-        queue = (() => { 
-          try { 
-            return JSON.parse(localStorage.getItem('wfa_retry_queue')) || []; 
-          } catch { 
-            return []; 
-          } 
-        })();
       }
       
       if (!queue.length) return;
@@ -1533,8 +1540,6 @@ const SupabaseSync = (() => {
       // Save remaining back to IDB
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
         SupabaseSync.setAll('retry_queue', remaining);
-      } else {
-        localStorage.setItem('wfa_retry_queue', JSON.stringify(remaining));
       }
       
       if (successCount > 0) {

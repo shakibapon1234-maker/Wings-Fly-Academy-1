@@ -26,7 +26,7 @@ const PushNotificationModule = (() => {
     // Fallback: Web Push API
     try {
       if ('serviceWorker' in navigator && 'Notification' in window) {
-        console.log('[Push] Initializing Web Push API...');
+        if (window.__WFA_DEV__) console.log('[Push] Initializing Web Push API...');
         await initWebPush();
         isInitialized = true;
         return;
@@ -35,7 +35,7 @@ const PushNotificationModule = (() => {
       console.warn('[Push] Web Push not available:', e.message);
     }
 
-    console.warn('[Push] No push notification service available');
+    if (window.__WFA_DEV__) console.info('[Push] No push service (browser — use Android app for notifications)');
   }
 
   // ── Capacitor Push (Android/iOS) ──
@@ -93,10 +93,10 @@ const PushNotificationModule = (() => {
 
   // ── Web Push API (Fallback) ──
   async function initWebPush() {
-    // ⚠️ Web Push disabled: VAPID key not configured.
-    // To enable: generate VAPID keys and call pushManager.subscribe({ applicationServerKey })
-    // See: https://web.dev/push-notifications-subscribing-a-user/
-    console.info('[Push] Web Push not configured — VAPID key needed. Feature disabled.');
+    // Web Push disabled until VAPID keys are configured (see web.dev push notifications).
+    if (window.__WFA_DEV__) {
+      console.info('[Push] Web Push skipped (VAPID not configured). Use Capacitor build for mobile push.');
+    }
   }
 
   // ── Save FCM token to Supabase ──
@@ -122,11 +122,17 @@ const PushNotificationModule = (() => {
         })
       });
 
-      if (!response.ok) {
+      if (!response.ok && (response.status === 401 || response.status === 404)) {
+        if (window.__WFA_DEV__) {
+          console.info('[Push] fcm_tokens table unavailable or RLS blocked — token not saved.');
+        }
+        return;
+      }
+      if (!response.ok && window.__WFA_DEV__) {
         console.warn('[Push] Failed to save token to database:', response.status);
       }
     } catch (e) {
-      console.error('[Push] Error saving token:', e);
+      if (window.__WFA_DEV__) console.warn('[Push] Error saving token:', e.message);
     }
   }
 

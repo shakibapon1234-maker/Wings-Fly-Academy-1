@@ -765,7 +765,7 @@ const VoiceAssistant = (() => {
   }
 
   function greetUser() {
-    if (localStorage.getItem('wfa_logged_in') === 'true') {
+    if ((window.SessionStore && SessionStore.isLoggedIn()) || localStorage.getItem('wfa_logged_in') === 'true') {
       if (sessionStorage.getItem('wfa_greeted') === 'true') {
         // Already greeted this session — just auto-start continuous listening
         setTimeout(() => startContinuousListening(), 2000);
@@ -773,7 +773,7 @@ const VoiceAssistant = (() => {
       }
       sessionStorage.setItem('wfa_greeted', 'true');
 
-      let userName = localStorage.getItem('wfa_user_name') || 'Shakib';
+      let userName = (window.SessionStore && SessionStore.getUserName()) || localStorage.getItem('wfa_user_name') || 'Shakib';
       if (userName.toLowerCase() === 'admin') userName = 'Shakib';
       const displayName = userName + ' Sir';
       

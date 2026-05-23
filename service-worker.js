@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 const DEPLOY_ID = '20260517-balance-integrity';
-const CACHE_NAME = `wfa-v8-${DEPLOY_ID}`;
+const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
 const STATIC_ASSETS = [
@@ -19,7 +19,8 @@ const STATIC_ASSETS = [
   // ✅ BUG #1 Fix: ai-assistant.css exists in project — added back to cache
   './css/ai-assistant.css',
   './js/modules/ai-assistant.js',
-  './js/core/supabase-secrets.js',
+  './js/core/supabase-secrets.stub.js',
+  './js/core/session-store.js',
   './js/core/supabase-standalone-creds.js',
   './js/core/supabase-config.js',
   './js/core/supabase-sync.js',

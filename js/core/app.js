@@ -2,17 +2,22 @@
 // Wings Fly Aviation Academy — Main App (Tab Switching & Init)
 // ============================================================
 
-// ✅ Bug #27 Fix: Production log silencing — debug logs only in localhost
+// Production: silence verbose logs unless debug mode is enabled
 (function() {
   const isDev = ['localhost', '127.0.0.1', '0.0.0.0'].includes(location.hostname);
-  if (!isDev) {
-    // Override console.log + console.debug in production (keep warn/error)
+  let debugLogs = isDev;
+  try {
+    debugLogs = debugLogs
+      || localStorage.getItem('wfa_debug_logs') === '1'
+      || new URLSearchParams(location.search).has('wfa_debug');
+  } catch { /* private mode / blocked storage */ }
+  if (!debugLogs) {
     const _noop = () => {};
     console.log   = _noop;
     console.debug = _noop;
     console.info  = _noop;
   }
-  window.__WFA_DEV__ = isDev;
+  window.__WFA_DEV__ = isDev || debugLogs;
 })();
 
 // ✅ Bug #12 Fix: Global error handler — convert Chinese/Japanese/Korean warnings to Bengali
@@ -168,29 +173,16 @@ const App = (() => {
 
   // ── Auth ───────────────────────────────────────────────────
   // ── Session expiry constants ────────────────────────────────
-  const SESSION_DURATION_MS = 8 * 60 * 60 * 1000; // 8 hours
+  const SESSION_DURATION_MS = (window.SessionStore && SessionStore.SESSION_DURATION_MS) || (8 * 60 * 60 * 1000);
   const MAX_LOGIN_ATTEMPTS  = 5;
   const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
   function isLoggedIn() {
-    if (localStorage.getItem('wfa_logged_in') !== 'true') return false;
-    // ✅ Bug #5: Session expiry check — expire after 1 hour
-    const loginTime = parseInt(localStorage.getItem('wfa_login_time') || '0');
-    if (loginTime && (Date.now() - loginTime > SESSION_DURATION_MS)) {
-      // Session expired — clean up silently
-      localStorage.removeItem('wfa_logged_in');
-      localStorage.removeItem('wfa_login_time');
-      localStorage.removeItem('wfa_user_role');
-      localStorage.removeItem('wfa_user_name');
-      localStorage.removeItem('wfa_user_permissions');
-      return false;
-    }
-    return true;
+    if (window.SessionStore) return SessionStore.isLoggedIn();
+    return localStorage.getItem('wfa_logged_in') === 'true';
   }
 
   function getSubAccounts() {
-    // ✅ Fix #10: Read from IDB/SupabaseSync (cross-device sync) first,
-    // fall back to localStorage for backward-compat on first load.
     try {
       if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
         const idbRows = SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts');
@@ -198,25 +190,23 @@ const App = (() => {
       }
     } catch { /* fall through */ }
     try {
-      return JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
-    } catch {
-      return [];
-    }
+      const legacy = JSON.parse(localStorage.getItem('wfa_sub_accounts') || '[]');
+      if (legacy.length > 0 && typeof SupabaseSync !== 'undefined') {
+        SupabaseSync.setAll('sub_accounts', legacy);
+        localStorage.removeItem('wfa_sub_accounts');
+        return legacy;
+      }
+    } catch { /* ignore */ }
+    return [];
   }
 
   function isAdmin() {
-    const role = localStorage.getItem('wfa_user_role');
-    if (role === 'admin') return true;
-    // Fallback: only treat as admin if there is a real login timestamp
-    // (prevents wfa_logged_in=true with no role from granting admin access)
-    if (!role && localStorage.getItem('wfa_logged_in') === 'true'
-        && localStorage.getItem('wfa_login_time')) {
-      return true;
-    }
-    return false;
+    if (window.SessionStore) return SessionStore.isAdmin();
+    return localStorage.getItem('wfa_user_role') === 'admin';
   }
 
   function getUserPermissions() {
+    if (window.SessionStore) return SessionStore.getPermissions();
     try {
       return JSON.parse(localStorage.getItem('wfa_user_permissions') || '[]');
     } catch {
@@ -338,11 +328,14 @@ const App = (() => {
         localStorage.removeItem(attemptKey);
         localStorage.removeItem('wfa_login_lockout_until');
         sessionStorage.removeItem('wfa_login_lockout_until');
-        localStorage.setItem('wfa_logged_in', 'true');
-        localStorage.setItem('wfa_login_time', String(Date.now()));
-        localStorage.setItem('wfa_user_role', 'admin');
-        localStorage.setItem('wfa_user_name', 'admin');
-        localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+        if (window.SessionStore) SessionStore.setAdminSession();
+        else {
+          localStorage.setItem('wfa_logged_in', 'true');
+          localStorage.setItem('wfa_login_time', String(Date.now()));
+          localStorage.setItem('wfa_user_role', 'admin');
+          localStorage.setItem('wfa_user_name', 'admin');
+          localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+        }
         showApp(true);
         return true;
       }
@@ -361,11 +354,15 @@ const App = (() => {
       // ✅ Bug #5: Reset attempt counter and save login timestamp
       localStorage.removeItem(attemptKey);
       localStorage.removeItem('wfa_login_lockout_until');
-      localStorage.setItem('wfa_logged_in', 'true');
-      localStorage.setItem('wfa_login_time', String(Date.now()));
-      localStorage.setItem('wfa_user_role', 'subaccount');
-      localStorage.setItem('wfa_user_name', sub.username);
-      localStorage.setItem('wfa_user_permissions', JSON.stringify(sub.permissions || []));
+      if (window.SessionStore) {
+        SessionStore.setSubSession(sub.username, sub.permissions || []);
+      } else {
+        localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_login_time', String(Date.now()));
+        localStorage.setItem('wfa_user_role', 'subaccount');
+        localStorage.setItem('wfa_user_name', sub.username);
+        localStorage.setItem('wfa_user_permissions', JSON.stringify(sub.permissions || []));
+      }
       showApp(true);
       return true;
     }
@@ -565,11 +562,14 @@ const App = (() => {
 
 
   function logout() {
-    localStorage.removeItem('wfa_logged_in');
-    localStorage.removeItem('wfa_login_time');
-    localStorage.removeItem('wfa_user_role');
-    localStorage.removeItem('wfa_user_name');
-    localStorage.removeItem('wfa_user_permissions');
+    if (window.SessionStore) SessionStore.clearSession();
+    else {
+      localStorage.removeItem('wfa_logged_in');
+      localStorage.removeItem('wfa_login_time');
+      localStorage.removeItem('wfa_user_role');
+      localStorage.removeItem('wfa_user_name');
+      localStorage.removeItem('wfa_user_permissions');
+    }
     sessionStorage.removeItem('wfa_greeted'); // clear greeting state so next login triggers it
     showLogin();
     SyncEngine.stopAutoSync();
@@ -1220,7 +1220,9 @@ const App = (() => {
         // ✅ Fix: যদি role না থাকে (refresh/session restore) তাহলে admin default করো
         // কারণ sub-account logout করলে wfa_logged_in cleared হয়, কিন্তু
         // কখনো কখনো role missing থাকে। Single-user app হওয়ায় logged_in=true মানেই admin।
-        if (!localStorage.getItem('wfa_user_role')) {
+        if (window.SessionStore && !SessionStore.getRole()) {
+          SessionStore.setSession({ role: 'admin', permissions: ['*'] });
+        } else if (!localStorage.getItem('wfa_user_role')) {
           localStorage.setItem('wfa_user_role', 'admin');
           localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
         }

@@ -828,6 +828,14 @@ const Utils = (() => {
       <input type="hidden" id="${prefix}" value="${dateStr || ''}" />`;
     }
 
+    /** Root-relative URL safe for subdirectory deploys (e.g. /sub-app/index.html). */
+    function resolveAppUrl(relativePath) {
+      const rel = String(relativePath || '').replace(/^\.\//, '').replace(/^\//, '');
+      const path = window.location.pathname || '/';
+      const basePath = path.endsWith('/') ? path : path.replace(/\/[^/]*$/, '/');
+      return new URL(rel, window.location.origin + basePath).href;
+    }
+
     // Sync date select dropdowns to hidden ISO input
     function syncDateSelect(prefix) {
       const dd   = document.getElementById(prefix + '-dd')?.value   || '';
@@ -865,6 +873,8 @@ const Utils = (() => {
       generateStudentId,
       // Print & Export
       printArea, exportExcel, downloadCSV,
+      // Paths
+      resolveAppUrl,
       // Misc
       debounce, paginate, renderPaginationUI,
       getPaymentMethodsHTML, getAccountBalance, onPaymentMethodChange,

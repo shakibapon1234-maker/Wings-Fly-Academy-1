@@ -227,11 +227,14 @@ const PatternLockModule = (() => {
 
   function triggerLoginSuccess() {
     if (typeof App !== 'undefined') {
-      localStorage.setItem('wfa_logged_in', 'true');
-      localStorage.setItem('wfa_login_time', String(Date.now())); // ✅ FIX: set session timestamp
-      localStorage.setItem('wfa_user_role', 'admin');
-      localStorage.setItem('wfa_user_name', 'admin');
-      localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+      if (window.SessionStore) SessionStore.setAdminSession();
+      else {
+        localStorage.setItem('wfa_logged_in', 'true');
+        localStorage.setItem('wfa_login_time', String(Date.now()));
+        localStorage.setItem('wfa_user_role', 'admin');
+        localStorage.setItem('wfa_user_name', 'admin');
+        localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+      }
       App.showApp(true);
       if (typeof Utils !== 'undefined') Utils.toast('Logged in via Pattern Lock ✅', 'success');
     }
