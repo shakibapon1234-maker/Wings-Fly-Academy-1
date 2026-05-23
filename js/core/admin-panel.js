@@ -20,6 +20,11 @@ function _adminIsHashed(s) {
   return /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
 }
 
+function _adminEsc(s) {
+  if (!s && s !== 0) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 async function doLogin() {
   const val = document.getElementById('adminPass').value;
   if (!val) { document.getElementById('loginError').style.display = 'block'; return; }
@@ -132,11 +137,6 @@ function renderQuestionList() {
   if (qs.length === 0) {
     list.innerHTML = `<div class="empty-state"><div class="icon">📭</div><div>কোনো প্রশ্ন নেই। নিচের বাটনে ক্লিক করে যোগ করুন।</div></div>`;
     return;
-  }
-
-  function _adminEsc(s) {
-    if (!s && s !== 0) return '';
-    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
   list.innerHTML = qs.map((q, i) => `
@@ -285,8 +285,8 @@ function loadResults() {
 
   tbody.innerHTML = results.map(r => `
     <tr>
-      <td>${r.name}</td>
-      <td>${r.id}</td>
+      <td>${_adminEsc(r.name)}</td>
+      <td>${_adminEsc(r.id)}</td>
       <td><strong>${r.correct} / 5 </strong> (${r.pct}%)</td>
       <td><span class="pass-badge ${r.passed?'pass':'fail'}">${r.passed?'উত্তীর্ণ':'অনুত্তীর্ণ'}</span></td>
       <td>${r.warnings || 0}</td>

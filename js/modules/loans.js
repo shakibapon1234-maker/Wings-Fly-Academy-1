@@ -119,11 +119,11 @@ const Loans = (() => {
                 <td>${Utils.statusBadge(l.status||'Outstanding')}</td>
                 <td class="no-print">
                   <div class="table-actions">
-                    <button class="btn-edit" onclick="Loans.toggleStatus('${l.id}','${l.status||'Outstanding'}')">
+                    <button class="btn-edit" onclick="Loans.toggleStatus('${Utils.escAttr(l.id)}','${Utils.escAttr(l.status||'Outstanding')}')">
                       <i class="fa fa-check"></i>
                     </button>
-                    <button class="btn-edit" onclick="Loans.openEditModal('${l.id}')"><i class="fa fa-pen"></i></button>
-                    <button class="btn-delete" onclick="Loans.deleteLoan('${l.id}')"><i class="fa fa-trash"></i></button>
+                    <button class="btn-edit" onclick="Loans.openEditModal('${Utils.escAttr(l.id)}')"><i class="fa fa-pen"></i></button>
+                    <button class="btn-delete" onclick="Loans.deleteLoan('${Utils.escAttr(l.id)}')"><i class="fa fa-trash"></i></button>
                   </div>
                 </td>
               </tr>`).join('')}
@@ -308,7 +308,7 @@ const Loans = (() => {
           </div>
           <div class="lf-field">
             <label class="lf-label">Notes</label>
-            <textarea id="lf-note" class="lf-input lf-textarea" rows="2" style="resize:vertical;">${d.note||''}</textarea>
+            <textarea id="lf-note" class="lf-input lf-textarea" rows="2" style="resize:vertical;">${Utils.esc(d.note||'')}</textarea>
           </div>
         </div>
 

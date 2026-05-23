@@ -154,11 +154,11 @@ const HRStaff = (() => {
           ${data.map((s, i) => `
             <tr>
               <td style="color:var(--text-muted);font-size:0.8rem">${startIndex + i + 1}</td>
-              <td><code>${s.staffId || '—'}</code></td>
+              <td><code>${Utils.esc(s.staffId || '—')}</code></td>
               <td><strong>${Utils.esc(s.name)}</strong></td>
-              <td><span class="badge badge-blue">${s.role}</span></td>
+              <td><span class="badge badge-blue">${Utils.esc(s.role)}</span></td>
               <td>${Utils.maskPhone(s.phone)}</td>
-              <td>${s.email || '—'}</td>
+              <td>${Utils.esc(s.email || '—')}</td>
               <td>৳${Utils.formatMoneyPlain(s.salary || 0)}</td>
               <td>${s.joiningDate ? Utils.formatDateDMY(s.joiningDate) : '—'}</td>
               <td>
@@ -167,13 +167,13 @@ const HRStaff = (() => {
                 </span>
               </td>
               <td class="action-btns">
-                <button class="btn-icon btn-edit" onclick="HRStaff.openEditModal('${s.id}')" title="Edit">
+                <button class="btn-icon btn-edit" onclick="HRStaff.openEditModal('${Utils.escAttr(s.id)}')" title="Edit">
                   <i class="fa fa-pen"></i>
                 </button>
-                <button class="btn-icon btn-toggle" onclick="HRStaff.toggleStatus('${s.id}')" title="Status Change">
+                <button class="btn-icon btn-toggle" onclick="HRStaff.toggleStatus('${Utils.escAttr(s.id)}')" title="Status Change">
                   <i class="fa fa-toggle-${s.status === 'Active' ? 'on' : 'off'}"></i>
                 </button>
-                <button class="btn-icon btn-delete" onclick="HRStaff.deleteStaff('${s.id}')" title="Delete">
+                <button class="btn-icon btn-delete" onclick="HRStaff.deleteStaff('${Utils.escAttr(s.id)}')" title="Delete">
                   <i class="fa fa-trash"></i>
                 </button>
               </td>
@@ -250,29 +250,29 @@ const HRStaff = (() => {
         <div class="form-row">
           <div class="form-group">
             <label>FULL NAME <span class="req">*</span></label>
-            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${s?.name || ''}" maxlength="100" autocomplete="name" />
+            <input type="text" id="sf-name" class="form-control" placeholder="e.g. John Doe" value="${Utils.escAttr(s?.name || '')}" maxlength="100" autocomplete="name" />
           </div>
           <div class="form-group">
             <label>ROLE / DESIGNATION <span class="req">*</span></label>
             <select id="sf-role" class="form-control">
-              ${roles.map(r => `<option value="${r}" ${s?.role === r ? 'selected' : ''}>${r}</option>`).join('')}
+              ${roles.map(r => `<option value="${Utils.escAttr(r)}" ${s?.role === r ? 'selected' : ''}>${Utils.esc(r)}</option>`).join('')}
             </select>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>DEPARTMENT</label>
-            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${s?.department || ''}" maxlength="100" />
+            <input type="text" id="sf-department" class="form-control" placeholder="e.g. Flight Operations, Admin..." value="${Utils.escAttr(s?.department || '')}" maxlength="100" />
           </div>
           <div class="form-group">
             <label>PHONE NUMBER</label>
-            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${s?.phone || ''}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
+            <input type="tel" id="sf-phone" class="form-control" placeholder="e.g. +88017..." value="${Utils.escAttr(s?.phone || '')}" maxlength="20" pattern="[0-9+\\-() ]{7,20}" />
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>EMAIL ADDRESS</label>
-            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${s?.email || ''}" maxlength="150" />
+            <input type="email" id="sf-email" class="form-control" placeholder="e.g. john@example.com" value="${Utils.escAttr(s?.email || '')}" maxlength="150" />
           </div>
         </div>
       </div>
@@ -297,7 +297,7 @@ const HRStaff = (() => {
             <option value="Active"   ${(s?.status || 'Active') === 'Active'   ? 'selected' : ''}>Active</option>
             <option value="Inactive" ${s?.status === 'Inactive' ? 'selected' : ''}>Inactive</option>
         </select>
-        <textarea id="sf-note" placeholder="Optional Notes...">${s?.note || ''}</textarea>
+        <textarea id="sf-note" placeholder="Optional Notes...">${Utils.esc(s?.note || '')}</textarea>
       </div>
 
       <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">

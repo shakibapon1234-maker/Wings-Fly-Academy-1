@@ -613,11 +613,15 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
     );
     if (key?.trim()) {
       const trimmed = key.trim();
-      if (typeof SecureStorage !== 'undefined') {
-        SecureStorage.setItem(slotKey, trimmed).catch(() => {});
-      } else {
-        localStorage.setItem(slotKey, trimmed);
+      if (typeof SecureStorage === 'undefined') {
+        if (typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key.', 'error');
+        return;
       }
+      SecureStorage.setItem(slotKey, trimmed).then(() => {
+        try { localStorage.removeItem(slotKey); } catch { /* migrate */ }
+      }).catch(() => {
+        if (typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
+      });
       document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
       if (typeof Utils !== 'undefined') {
         Utils.toast(`✅ API Key (${slotLabel}) saved! আরো key যোগ করতে পারেন (slot 2-5)।`, 'success');

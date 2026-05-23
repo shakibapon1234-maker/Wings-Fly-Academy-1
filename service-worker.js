@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260523-xss-exam-sync';
+const DEPLOY_ID = '20260523-audit-xss-fixes';
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -78,6 +78,8 @@ const STATIC_ASSETS = [
   './js/lib/supabase.min.js',
   './js/lib/qrcode.min.js',
   './js/lib/flatpickr.min.js',
+  './js/lib/html2canvas.min.js',
+  './js/lib/jspdf.umd.min.js',
   './css/lib/font-awesome.min.css',
   './css/lib/flatpickr-dark.css',
   './css/webfonts/fa-solid-900.woff2',
@@ -90,12 +92,19 @@ const STATIC_ASSETS = [
   // automatically cache হয়ে যাবে। Offline mode-এ Face ID ছাড়া বাকি সব কাজ করবে।
 ];
 
+// certificate.html PDF export (local path with CDN fallback in HTML)
+const CDN_CERT_LIBS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js',
+];
+
 // ── Install: Pre-cache static assets ──
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
+      const allUrls = [...STATIC_ASSETS, ...CDN_CERT_LIBS];
       return Promise.allSettled(
-        STATIC_ASSETS.map(url =>
+        allUrls.map(url =>
           fetch(url).then(res => {
             if (!res.ok) throw new Error(`${url}: ${res.status}`);
             return cache.put(url, res);

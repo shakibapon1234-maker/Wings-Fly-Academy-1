@@ -6479,19 +6479,25 @@ ${expenseEntries.length > 0 ? `
     }
     
     if (!key) {
-      localStorage.removeItem('wfa_gemini_key');
       if (typeof SecureStorage !== 'undefined') {
         try { await SecureStorage.removeItem('wfa_gemini_key'); } catch { /* ignore */ }
       }
+      try { localStorage.removeItem('wfa_gemini_key'); } catch { /* ignore */ }
       if(typeof Utils !== 'undefined') Utils.toast('API Key removed.', 'info');
       refreshModal();
       return;
     }
     
-    if (typeof SecureStorage !== 'undefined') {
-      try { await SecureStorage.setItem('wfa_gemini_key', key); } catch { /* ignore */ }
-    } else {
-      localStorage.setItem('wfa_gemini_key', key);
+    if (typeof SecureStorage === 'undefined') {
+      if(typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key safely.', 'error');
+      return;
+    }
+    try {
+      await SecureStorage.setItem('wfa_gemini_key', key);
+      try { localStorage.removeItem('wfa_gemini_key'); } catch { /* migrate off plain storage */ }
+    } catch {
+      if(typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
+      return;
     }
     if (typeof AIAssistant !== 'undefined' && AIAssistant.clearQuotaPause) {
       AIAssistant.clearQuotaPause();
@@ -6506,11 +6512,12 @@ ${expenseEntries.length > 0 ? `
 
   async function _saveGeminiSlot(slotKey, key) {
     if (!key || key.length < 10) return false;
-    if (typeof SecureStorage !== 'undefined') {
-      try { await SecureStorage.setItem(slotKey, key); return true; } catch { /* ignore */ }
-    }
-    localStorage.setItem(slotKey, key);
-    return true;
+    if (typeof SecureStorage === 'undefined') return false;
+    try {
+      await SecureStorage.setItem(slotKey, key);
+      try { localStorage.removeItem(slotKey); } catch { /* migrate off plain storage */ }
+      return true;
+    } catch { return false; }
   }
 
   async function saveAIBackupKeys() {

@@ -271,9 +271,9 @@ const DashboardModule = (() => {
       const due = Math.max(0, Utils.safeNum(r.total_fee) - Utils.safeNum(r.paid));
       return `<tr>
         <td>${Utils.badge(r.student_id||'—','info')}</td>
-        <td class="font-bold">${r.name||'—'}</td>
-        <td>${r.course||'—'}</td>
-        <td>${r.batch||'—'}</td>
+        <td class="font-bold">${Utils.esc(r.name)||'—'}</td>
+        <td>${Utils.displayText(r.course)||'—'}</td>
+        <td>${Utils.esc(r.batch)||'—'}</td>
         <td class="text-right ${due>0?'text-error':'text-success'}" style="font-family:var(--font-ui)">${Utils.takaEn(due)}</td>
       </tr>`;
     }).join('')}
@@ -289,7 +289,7 @@ const DashboardModule = (() => {
     return active.slice(0,5).map(n => `
       <div class="notice-item notice-${n.type||'info'}">
         <span class="badge ${typeMap[n.type]||'badge-info'}">${labelMap[n.type]||'Info'}</span>
-        <p style="margin-top:6px;font-size:.9rem">${n.text||''}</p>
+        <p style="margin-top:6px;font-size:.9rem">${Utils.esc(n.text||'')}</p>
         ${n.expires_at ? `<small class="text-muted">Expires: ${Utils.formatDateDMY(n.expires_at)}</small>` : ''}
       </div>`).join('');
   }
@@ -305,9 +305,9 @@ const DashboardModule = (() => {
     ${dues.map(s => {
       const due = Utils.safeNum(s.total_fee) - Utils.safeNum(s.paid);
       return `<tr>
-        <td class="font-bold">${s.name||'—'}</td>
-        <td style="font-size:0.8rem;color:var(--text-muted)">${s.student_id||'—'}</td>
-        <td>${s.batch||'—'}</td>
+        <td class="font-bold">${Utils.esc(s.name)||'—'}</td>
+        <td style="font-size:0.8rem;color:var(--text-muted)">${Utils.esc(s.student_id)||'—'}</td>
+        <td>${Utils.esc(s.batch)||'—'}</td>
         <td class="text-right text-error" style="font-family:var(--font-ui); font-weight:700">${Utils.takaEn(due)}</td>
       </tr>`;
     }).join('')}

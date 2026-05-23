@@ -140,6 +140,7 @@ IntegrityGuard.run()           // modules, DOM, vital URLs
 |------|--------|
 | 2026-05-23 | `exam.html` + secure-storage/session-store; `SUPABASE_CONFIG.client` getter; SW `DEPLOY_ID` bump; voice-assistant removed from precache; integrity manifest + visitor-form URL; admin i18n/loading-state; visitors XSS hardening |
 | 2026-05-23 | XSS: certificates, command-palette, activity log; exam results REST upsert to `exams`; removed debug telemetry in `students.js`; loans/id-cards escaping |
+| 2026-05-23 | XSS/escaping: dashboard, admin results, students/accounts/loans/hr-staff onclick `escAttr`; finance/loans/hr forms; Gemini keys SecureStorage-only; certificate.html local libs + SW precache |
 
 ---
 

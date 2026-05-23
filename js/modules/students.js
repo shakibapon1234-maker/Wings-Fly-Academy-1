@@ -236,7 +236,7 @@ const Students = (() => {
         <td class="${Utils.safeNum(s.due)>0?'ledger-expense':''}">${Utils.takaEn(s.due)}</td>
         <td>${Utils.statusBadge(s.status||'Active')}</td>
         <td class="no-print">
-          <button class="btn-primary btn-xs" onclick="Students.openManageAction('${s.id}')" style="background:var(--brand-primary);color:var(--bg-base);font-weight:700;border-radius:20px;padding:4px 14px">
+          <button class="btn-primary btn-xs" onclick="Students.openManageAction('${Utils.escAttr(s.id)}')" style="background:var(--brand-primary);color:var(--bg-base);font-weight:700;border-radius:20px;padding:4px 14px">
             <i class="fa fa-sliders"></i> MANAGE
           </button>
         </td>
@@ -644,7 +644,9 @@ const Students = (() => {
   function openManageAction(id) {
     const s = SupabaseSync.getById(DB.students, id);
     if (!s) return;
-    
+    const eid = Utils.escAttr(id);
+    const ename = Utils.escAttr(s.name);
+
     // CSS for the glowing buttons
     const style = `
       <style>
@@ -672,35 +674,35 @@ const Students = (() => {
     Utils.openModal('<i class="fa fa-sliders"></i> Select Action', `
       ${style}
       <div style="text-align:center; margin-bottom: 20px;">
-        <div style="font-weight:700;font-size:1.1rem;color:var(--brand-primary);">${s.name}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">ID: ${s.student_id}</div>
+        <div style="font-weight:700;font-size:1.1rem;color:var(--brand-primary);">${Utils.esc(s.name)}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">ID: ${Utils.esc(s.student_id)}</div>
       </div>
       
-      <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${id}'), 400)">
+      <button class="action-btn-glow btn-yellow" onclick="Utils.closeModal(); setTimeout(()=>Students.openPayModal('${eid}'), 400)">
         <i class="fa fa-plus-circle"></i> ADD INSTALLMENT
       </button>
       
-      <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${id}')">
+      <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${eid}')">
         <i class="fa fa-id-badge"></i> VIEW ID CARD
       </button>
       
-      <button class="action-btn-glow btn-orange" onclick="CertificatesModule && CertificatesModule.previewCertificate('${id}')">
+      <button class="action-btn-glow btn-orange" onclick="CertificatesModule && CertificatesModule.previewCertificate('${eid}')">
         <i class="fa fa-award"></i> GENERATE CERTIFICATE
       </button>
       
-      <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${id}'), 400)">
+      <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${eid}'), 400)">
         <i class="fa fa-user-pen"></i> EDIT PROFILE
       </button>
       
-      <button class="action-btn-glow btn-purple" onclick="Students.printReceipt('${id}')">
+      <button class="action-btn-glow btn-purple" onclick="Students.printReceipt('${eid}')">
         <i class="fa fa-print"></i> PRINT RECEIPT
       </button>
       
-      <button class="action-btn-glow btn-grey" onclick="Students.setReminder('${id}','${s.name.replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">
+      <button class="action-btn-glow btn-grey" onclick="Students.setReminder('${eid}','${ename}')">
         <i class="fa fa-bell"></i> SET REMINDER
       </button>
       
-      <button class="action-btn-glow btn-red" onclick="Utils.closeModal(); setTimeout(()=>Students.deleteStudent('${id}'), 400)">
+      <button class="action-btn-glow btn-red" onclick="Utils.closeModal(); setTimeout(()=>Students.deleteStudent('${eid}'), 400)">
         <i class="fa fa-trash"></i> DELETE
       </button>
       
@@ -716,6 +718,7 @@ const Students = (() => {
   function openPayModal(id) {
     const s = SupabaseSync.getById(DB.students, id);
     if (!s) return;
+    const eid = Utils.escAttr(id);
 
     const allFinance = SupabaseSync.getAll(DB.finance);
     // Match by UUID (new) OR by student_id string (legacy) for backward compatibility
@@ -752,7 +755,7 @@ const Students = (() => {
           '<td style="padding:10px 12px;color:' + (remAfterInit > 0 ? '#ff4757' : '#00ff88') + ';font-weight:600">' + Utils.takaEn(remAfterInit) + '</td>' +
           '<td style="padding:10px 12px;text-align:right;display:flex;align-items:center;gap:6px;justify-content:flex-end">' +
             '<span style="font-size:0.72rem;color:#ffaa00;font-style:italic;margin-right:4px">Initial Payment</span>' +
-            '<button class="btn btn-ghost btn-xs" onclick="Students.editInitialPayment(\'' + id + '\')" title="Edit initial payment amount" style="color:#ffaa00;border-color:rgba(255,170,0,0.4)">' +
+            '<button class="btn btn-ghost btn-xs" onclick="Students.editInitialPayment(\'' + eid + '\')" title="Edit initial payment amount" style="color:#ffaa00;border-color:rgba(255,170,0,0.4)">' +
               '<i class="fa fa-pen"></i>' +
             '</button>' +
           '</td>' +
@@ -775,8 +778,8 @@ const Students = (() => {
           <td style="padding:10px 12px;color:${remaining > 0 ? '#ff4757' : '#00ff88'};font-weight:600">${Utils.takaEn(remaining)}</td>
           <td style="padding:10px 12px;text-align:right">
             ${f.note ? `<span style="font-size:0.78rem;color:var(--text-muted);margin-right:8px">${Utils.esc(f.note)}</span>` : ''}
-            <button class="btn btn-ghost btn-xs" style="color:#00d4ff;border-color:rgba(0,212,255,0.35);margin-right:4px" onclick="Students.editPayment('${f.id}','${id}')" title="Edit this payment"><i class="fa fa-pen"></i></button>
-            <button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${f.id}','${id}')" title="Delete this payment"><i class="fa fa-trash"></i></button>
+            <button class="btn btn-ghost btn-xs" style="color:#00d4ff;border-color:rgba(0,212,255,0.35);margin-right:4px" onclick="Students.editPayment('${Utils.escAttr(f.id)}','${eid}')" title="Edit this payment"><i class="fa fa-pen"></i></button>
+            <button class="btn btn-ghost btn-xs" onclick="Students.deletePayment('${Utils.escAttr(f.id)}','${eid}')" title="Delete this payment"><i class="fa fa-trash"></i></button>
           </td>
         </tr>`;
       }).join('');
@@ -798,7 +801,7 @@ const Students = (() => {
           '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">' +
             '<div>' +
               '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">AMOUNT (\u09F3) *</label>' +
-              '<input id="pay-amount" type="number" class="form-control" placeholder="0" max="' + totalDue + '" min="1" onkeypress="if(event.key===\'Enter\') Students.savePayment(\'' + id + '\')" />' +
+              '<input id="pay-amount" type="number" class="form-control" placeholder="0" max="' + totalDue + '" min="1" onkeypress="if(event.key===\'Enter\') Students.savePayment(\'' + eid + '\')" />' +
             '</div>' +
             '<div>' +
               '<label style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);letter-spacing:0.8px;display:block;margin-bottom:5px">PAYMENT METHOD *</label>' +
@@ -817,7 +820,7 @@ const Students = (() => {
           '</div>' +
           '<div id="pay-bal-display" style="display:none;margin-bottom:8px"></div>' +
           '<div id="pay-error" class="form-error hidden" style="margin-bottom:8px"></div>' +
-          '<button onclick="Students.savePayment(\'' + id + '\')" style="width:100%;padding:12px;background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;border-radius:8px;font-weight:800;font-size:0.9rem;color:#fff;cursor:pointer;letter-spacing:0.5px">' +
+          '<button onclick="Students.savePayment(\'' + eid + '\')" style="width:100%;padding:12px;background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;border-radius:8px;font-weight:800;font-size:0.9rem;color:#fff;cursor:pointer;letter-spacing:0.5px">' +
             '<i class="fa fa-plus"></i> SAVE INSTALLMENT' +
           '</button>' +
         '</div>';
@@ -837,7 +840,7 @@ const Students = (() => {
           <div style="font-size:1.05rem;font-weight:800;color:var(--text-primary)">${Utils.esc(s.name)}</div>
           <div style="font-size:0.82rem;color:var(--text-secondary)">ID: ${Utils.esc(s.student_id)} &nbsp;|&nbsp; ${Utils.displayText(s.course||'—')} &nbsp;|&nbsp; Batch: ${Utils.esc(s.batch||'—')}</div>
         </div>
-        <button onclick="Students.printReceipt('${id}')" style="padding:8px 16px;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);color:#ff6b35;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">
+        <button onclick="Students.printReceipt('${eid}')" style="padding:8px 16px;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);color:#ff6b35;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">
           <i class="fa fa-print"></i> Print
         </button>
       </div>
@@ -878,7 +881,7 @@ const Students = (() => {
           <i class="fa fa-list-ol"></i> Installment History
           <span style="background:var(--brand-primary);color:#000;font-size:0.7rem;font-weight:900;padding:2px 8px;border-radius:20px">${history.length + (unrecordedInitial > 0 ? 1 : 0)}</span>
         </div>
-        <button onclick="Students.printReceipt('${id}')" style="padding:6px 14px;background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.35);color:#ff6b35;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer">
+        <button onclick="Students.printReceipt('${eid}')" style="padding:6px 14px;background:rgba(255,107,53,0.12);border:1px solid rgba(255,107,53,0.35);color:#ff6b35;border-radius:7px;font-size:0.78rem;font-weight:700;cursor:pointer">
           <i class="fa fa-print"></i> Print All
         </button>
       </div>
@@ -1277,7 +1280,7 @@ const Students = (() => {
       <div id="ep-error" class="form-error hidden" style="margin-bottom:8px"></div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Students.saveEditedPayment('${paymentId}','${studentId}')">
+        <button class="btn-primary" onclick="Students.saveEditedPayment('${Utils.escAttr(paymentId)}','${Utils.escAttr(studentId)}')">
           <i class="fa fa-floppy-disk"></i> Save Changes
         </button>
       </div>
@@ -1378,7 +1381,7 @@ const Students = (() => {
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
         <button class="btn-primary" style="background:linear-gradient(90deg,#ffaa00,#ff6b35);border:none;"
-                onclick="Students.saveEditedInitialPayment('${studentId}','${ledgerSum}')">
+                onclick="Students.saveEditedInitialPayment('${Utils.escAttr(studentId)}','${ledgerSum}')">
           <i class="fa fa-floppy-disk"></i> Save Initial Payment
         </button>
       </div>
@@ -1784,10 +1787,12 @@ const Students = (() => {
      Admin পরে Notice Board গিয়ে দেখতে পাবেন।
   ─────────────────────────────────────────────────────────────────── */
   function setReminder(id, name) {
+    const eid = Utils.escAttr(id);
+    const ename = Utils.escAttr(name);
     Utils.openModal('<i class="fa fa-bell"></i> Set Reminder', `
       <div class="form-group">
         <label>Student</label>
-        <input class="form-control" value="${name}" disabled />
+        <input class="form-control" value="${Utils.escAttr(name)}" disabled />
       </div>
       <div class="form-group">
         <label>Reminder Note <span class="req">*</span></label>
@@ -1800,7 +1805,7 @@ const Students = (() => {
       <div id="reminder-err" class="form-error hidden"></div>
       <div class="form-actions">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Students._saveReminder('${id}','${name.replace(/'/g,"\\'")}')">
+        <button class="btn-primary" onclick="Students._saveReminder('${eid}','${ename}')">
           <i class="fa fa-bell"></i> Save Reminder
         </button>
       </div>

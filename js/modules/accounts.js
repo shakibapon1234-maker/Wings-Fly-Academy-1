@@ -133,7 +133,7 @@ const Accounts = (() => {
         <div style="text-align:right; position:relative; z-index:1;">
           <div style="color:#ffd700; font-size:2.8rem; font-weight:800; font-family:var(--font-en); text-shadow:0 0 15px rgba(255,215,0,0.4); margin-bottom:10px; line-height:1;">${Utils.takaEn(cashBal)}</div>
           <div style="display:flex; gap:10px; justify-content:flex-end;">
-            <button class="btn btn-outline btn-sm" style="background:#fff; color:#0e1628; border:none; font-weight:700; padding:6px 16px; border-radius:20px;" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAcc?.balance||0)}','${cashAcc?.id||''}')">
+            <button class="btn btn-outline btn-sm" style="background:#fff; color:#0e1628; border:none; font-weight:700; padding:6px 16px; border-radius:20px;" onclick="Accounts.openSetModal('Cash','${Utils.safeNum(cashAcc?.balance||0)}','${Utils.escAttr(cashAcc?.id||'')}')">
               <i class="fa fa-pen" style="font-size:0.8rem;"></i> UPDATE CASH
             </button>
             <button class="btn btn-outline btn-sm" style="color:var(--text-muted); border-color:rgba(255,255,255,0.2); font-weight:600; border-radius:20px;" onclick="if(typeof SyncEngine!=='undefined')SyncEngine.pull({silent:false})">
@@ -232,8 +232,8 @@ const Accounts = (() => {
                 <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${b.accountNo||'—'}</td>
                 <td style="padding:12px; text-align:right; color:#00ff88; font-weight:700; font-family:var(--font-en); text-shadow:0 0 5px rgba(0,255,136,0.3);">${Utils.takaEn(b.balance)}</td>
                 <td style="padding:12px; text-align:center;">
-                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openBankModal('${b.id}')"><i class="fa fa-edit"></i></button>
-                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteBank('${b.id}')"><i class="fa fa-trash"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openBankModal('${Utils.escAttr(b.id)}')"><i class="fa fa-edit"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteBank('${Utils.escAttr(b.id)}')"><i class="fa fa-trash"></i></button>
                 </td>
               </tr>
             `).join('')}
@@ -266,8 +266,8 @@ const Accounts = (() => {
                 <td style="padding:12px; font-family:var(--font-en); font-size:0.85rem;">${m.accountNo||'—'}</td>
                 <td style="padding:12px; text-align:right; color:#00ff88; font-weight:700; font-family:var(--font-en); text-shadow:0 0 5px rgba(0,255,136,0.3);">${Utils.takaEn(m.balance)}</td>
                 <td style="padding:12px; text-align:center;">
-                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openMobileModal('${m.id}')"><i class="fa fa-edit"></i></button>
-                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteMobile('${m.id}')"><i class="fa fa-trash"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#00d4ff" onclick="Accounts.openMobileModal('${Utils.escAttr(m.id)}')"><i class="fa fa-edit"></i></button>
+                  <button class="btn btn-ghost btn-xs" style="color:#ff4757" onclick="Accounts.deleteMobile('${Utils.escAttr(m.id)}')"><i class="fa fa-trash"></i></button>
                 </td>
               </tr>
             `).join('')}
@@ -674,7 +674,7 @@ const Accounts = (() => {
       </div>
       <div class="form-actions">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Accounts.saveBank('${id||''}')"><i class="fa fa-save"></i> Save</button>
+        <button class="btn-primary" onclick="Accounts.saveBank('${Utils.escAttr(id||'')}')"><i class="fa fa-save"></i> Save</button>
       </div>
     `);
   }
@@ -759,7 +759,7 @@ const Accounts = (() => {
       </div>
       <div class="form-actions">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="Accounts.saveMobile('${id||''}')"><i class="fa fa-save"></i> Save</button>
+        <button class="btn-primary" onclick="Accounts.saveMobile('${Utils.escAttr(id||'')}')"><i class="fa fa-save"></i> Save</button>
       </div>
     `);
   }

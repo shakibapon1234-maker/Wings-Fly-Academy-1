@@ -380,7 +380,7 @@ const Finance = (() => {
           </div>
           <div class="ff-field" style="margin-bottom:12px;">
             <label class="ff-label">Description</label>
-            <input id="ff-description" class="ff-input" value="${d.description||''}" placeholder="Transaction description" maxlength="200" />
+            <input id="ff-description" class="ff-input" value="${Utils.escAttr(d.description||'')}" placeholder="Transaction description" maxlength="200" />
           </div>
           <div class="ff-grid-2">
             <div class="ff-field">
@@ -392,7 +392,7 @@ const Finance = (() => {
             </div>
             <div class="ff-field">
               <label class="ff-label">Notes</label>
-              <input id="ff-note" class="ff-input" value="${d.note||''}" placeholder="Optional notes" />
+              <input id="ff-note" class="ff-input" value="${Utils.escAttr(d.note||'')}" placeholder="Optional notes" />
             </div>
           </div>
         </div>

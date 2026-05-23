@@ -451,7 +451,7 @@ const Exam = (() => {
       </div>
       <div class="form-actions">
         <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-success" onclick="Exam.saveGrade('${id}')"><i class="fa fa-check"></i> Save Grade</button>
+        <button class="btn-success" onclick="Exam.saveGrade('${Utils.escAttr(id)}')"><i class="fa fa-check"></i> Save Grade</button>
       </div>
     `, 'modal-sm');
   }

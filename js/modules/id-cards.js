@@ -211,7 +211,7 @@ const IDCardsModule = (() => {
       `<i class="fa fa-id-badge" style="color:#00d9ff"></i> ID Card &mdash; ${Utils.esc(s.name)}`,
       `<div style="display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px 0;">
         <div>${cardHTML}</div>
-        <button class="btn btn-primary" onclick="IDCardsModule.printStudent('${id}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
+        <button class="btn btn-primary" onclick="IDCardsModule.printStudent('${Utils.escAttr(id)}')" style="border-radius:24px; padding:10px 28px; font-weight:700;">
           <i class="fa fa-print"></i> Print ID Card
         </button>
       </div>`,

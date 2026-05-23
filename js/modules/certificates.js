@@ -167,7 +167,7 @@ const CertificatesModule = (() => {
         </p>
         <div id="qr-render-target" style="display:flex;justify-content:center;margin-bottom:16px;"></div>
         <div style="background:var(--sidebar-bg);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:0.72rem;word-break:break-all;color:var(--text-muted);text-align:left;">
-          <strong>URL:</strong> ${certUrl}
+          <strong>URL:</strong> ${Utils.esc(certUrl)}
         </div>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
           <button class="btn btn-primary" onclick="CertificatesModule.downloadQR('${Utils.escAttr(s.name)}')" style="border-radius:24px;padding:8px 18px;">
@@ -176,7 +176,7 @@ const CertificatesModule = (() => {
           <button class="btn btn-sm" onclick="CertificatesModule.printQRCard('${Utils.escAttr(s.name)}','${Utils.escAttr(s.student_id||s.id)}','${Utils.escAttr(s.course||'')}','${Utils.escAttr(token)}')" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
             <i class="fa fa-print"></i> Card Print
           </button>
-          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${certUrl}').then(()=>Utils.toast('Link copied!','success')).catch(()=>{})" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${Utils.escAttr(certUrl)}').then(()=>Utils.toast('Link copied!','success')).catch(()=>{})" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
             <i class="fa fa-link"></i> Link Copy
           </button>
         </div>
@@ -420,6 +420,7 @@ const CertificatesModule = (() => {
   function previewCertificate(id) {
     const s = SupabaseSync.getAll(DB.students).find(st => st.id === id);
     if (!s) { Utils.toast('Student not found', 'error'); return; }
+    const eid = Utils.escAttr(id);
     const ownModal = document.getElementById('cert-preview-modal');
     const ownArea = document.getElementById('cert-preview-area');
     if (ownModal && ownArea) {
@@ -432,10 +433,10 @@ const CertificatesModule = (() => {
       `<div style="display:flex;flex-direction:column;align-items:center;gap:16px;padding:8px 0;">
         <div style="overflow-x:auto;width:100%;">${buildCertHTML(buildDataFromStudent(s))}</div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" onclick="CertificatesModule.printForStudent('${id}')" style="border-radius:24px;padding:10px 28px;font-weight:700;">
+          <button class="btn btn-primary" onclick="CertificatesModule.printForStudent('${eid}')" style="border-radius:24px;padding:10px 28px;font-weight:700;">
             <i class="fa fa-print"></i> Print
           </button>
-          <button class="btn" onclick="CertificatesModule.showQRModal('${id}')" style="border-radius:24px;padding:10px 28px;font-weight:700;background:linear-gradient(135deg,#1a3a6b,#2563eb);color:#fff;border:none;">
+          <button class="btn" onclick="CertificatesModule.showQRModal('${eid}')" style="border-radius:24px;padding:10px 28px;font-weight:700;background:linear-gradient(135deg,#1a3a6b,#2563eb);color:#fff;border:none;">
             <i class="fa fa-qrcode"></i> QR Generate
           </button>
         </div>
