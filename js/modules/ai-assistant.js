@@ -13,10 +13,36 @@ const AIAssistant = (() => {
     'gemini-1.5-flash-latest'
   ];
   const FETCH_TIMEOUT_MS = 15000;
-  const LOCAL_ONLY_KEY = 'wfa_ai_local_only'; // default: local-only (no Gemini)
+  const LOCAL_ONLY_KEY = 'wfa_ai_local_only'; // opt-in: force local only
+  const QUOTA_PAUSE_KEY = 'wfa_ai_quota_pause_until';
 
   function _isLocalOnlyMode() {
-    return localStorage.getItem(LOCAL_ONLY_KEY) !== 'false';
+    return localStorage.getItem(LOCAL_ONLY_KEY) === 'true';
+  }
+
+  function _isQuotaPaused() {
+    const until = parseInt(sessionStorage.getItem(QUOTA_PAUSE_KEY) || '0', 10);
+    if (until > Date.now()) return true;
+    sessionStorage.removeItem(QUOTA_PAUSE_KEY);
+    return false;
+  }
+
+  function _setQuotaPaused(minutes = 60) {
+    sessionStorage.setItem(QUOTA_PAUSE_KEY, String(Date.now() + minutes * 60 * 1000));
+  }
+
+  function _clearQuotaPause() {
+    sessionStorage.removeItem(QUOTA_PAUSE_KEY);
+  }
+
+  function _localFallbackAfterApiFail(userMessage, note = '') {
+    const retryLocal = _tryLocalAnswer(userMessage);
+    const suffix = note || '\n\n(ℹ️ API লিমিট/ত্রুটি — Academy ডাটা থেকে উত্তর)';
+    if (retryLocal) {
+      _pushLocalReply(userMessage, retryLocal);
+      return retryLocal + suffix;
+    }
+    return _localHelpMessage() + '\n\n⏳ Gemini API এখন ব্যবহার করা যাচ্ছে না। উপরের Academy প্রশ্নগুলো API ছাড়াই কাজ করবে।';
   }
 
   function _num(v) {
@@ -347,7 +373,8 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
         try {
           const text = await _callGemini(keys[ki], model, body);
           if (text) {
-            return { ok: true, message: `✅ Key ${ki + 1} কাজ করছে (${model})`, model, keyIndex: ki + 1 };
+            _clearQuotaPause();
+            return { ok: true, message: `✅ Key ${ki + 1} কাজ করছে (${model}) — Hybrid mode active`, model, keyIndex: ki + 1 };
           }
         } catch (e) {
           lastErr = e.message || String(e);
@@ -364,13 +391,14 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
   }
 
   async function chat(userMessage) {
+    // 1) Academy data — always local (accurate, no API)
     const local = _tryLocalAnswer(userMessage);
     if (local) {
       _pushLocalReply(userMessage, local);
       return local;
     }
 
-    // Default: local-only — no Gemini, no API key needed
+    // 2) User forced local-only in Settings
     if (_isLocalOnlyMode()) {
       const help = _localHelpMessage();
       _pushLocalReply(userMessage, help);
@@ -379,9 +407,15 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
 
     const keys = await _getApiKeys();
     if (!keys || keys.length === 0) {
-      return _localHelpMessage() + '\n\n(Gemini চ্যাট বন্ধ — Settings-এ Local Only mode চালু আছে বা Key নেই)';
+      return _localHelpMessage();
     }
 
+    // 3) API limit hit recently — skip Gemini, use local/help until pause expires
+    if (_isQuotaPaused()) {
+      return _localFallbackAfterApiFail(userMessage, '\n\n(ℹ️ API লিমিট শেষ — স্বয়ংক্রিয় Local মোড)');
+    }
+
+    // 4) Try Gemini (when Key is set and working)
     chatHistory.push({ role: 'user', parts: [{ text: userMessage }] });
 
     const body = {
@@ -392,16 +426,21 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
 
     let lastError = null;
     let reply = null;
+    let quotaHit = false;
 
     for (let i = 0; i < keys.length && !reply; i++) {
       const key = keys[i];
       for (const model of GEMINI_MODELS) {
         try {
           reply = await _callGemini(key, model, body);
-          if (reply) break;
+          if (reply) {
+            _clearQuotaPause();
+            break;
+          }
         } catch (e) {
           lastError = e;
           if (e.isQuota || _isQuotaError(e.message)) {
+            quotaHit = true;
             console.warn(`[AIAssistant] Key ${i + 1} / ${model} quota — trying next...`);
             continue;
           }
@@ -412,27 +451,23 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
 
     if (reply) {
       chatHistory.push({ role: 'model', parts: [{ text: reply }] });
-      _saveChatHistory(); 
+      _saveChatHistory();
 
       if (chatHistory.length > MAX_HISTORY_PAIRS * 2) {
         const keepCount = TRIM_TO_PAIRS * 2;
         chatHistory = chatHistory.slice(chatHistory.length - keepCount);
       }
       return reply;
-    } else {
-      chatHistory.pop();
-      const retryLocal = _tryLocalAnswer(userMessage);
-      if (retryLocal) {
-        _pushLocalReply(userMessage, retryLocal);
-        return retryLocal + '\n\n(ℹ️ Gemini API unavailable — Academy ডাটা থেকে উত্তর)';
-      }
-      if (lastError?.name === 'AbortError') return '⏳ সময় শেষ। ইন্টারনেট ধীর থাকতে পারে। আবার চেষ্টা করুন।';
-      if (!navigator.onLine) return '📴 Internet নেই। Academy প্রশ্ন (ছাত্র/বকেয়া) API ছাড়াই চেষ্টা করুন।';
-      if (lastError?.isQuota || _isQuotaError(lastError?.message || '')) {
-        return _quotaHelpMessage(lastError?.message);
-      }
-      return `❌ API ত্রুটি: ${lastError?.message || 'Unknown Error'}. Settings → AI Assistant → "Test Key" চাপুন।`;
     }
+
+    chatHistory.pop();
+    if (quotaHit || lastError?.isQuota || _isQuotaError(lastError?.message || '')) {
+      _setQuotaPaused(60);
+      return _localFallbackAfterApiFail(userMessage, '\n\n(ℹ️ API লিমিট শেষ — স্বয়ংক্রিয় Local মোডে চলছে)');
+    }
+    if (lastError?.name === 'AbortError') return '⏳ সময় শেষ। ইন্টারনেট ধীর থাকতে পারে। আবার চেষ্টা করুন।';
+    if (!navigator.onLine) return '📴 Internet নেই। Academy প্রশ্ন API ছাড়াই চেষ্টা করুন।';
+    return _localFallbackAfterApiFail(userMessage, '\n\n(ℹ️ Gemini unavailable)');
   }
 
   // ── UI ──
@@ -450,7 +485,7 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
             <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#a855f7,#ec4899);display:flex;align-items:center;justify-content:center;font-size:1.1rem;">✨</div>
             <div>
               <div style="font-weight:800;color:#00d4ff;font-size:0.95rem;">Academy Assistant</div>
-              <div style="font-size:0.7rem;color:#00ff88;">● Local — API লাগে না</div>
+              <div style="font-size:0.7rem;color:#00ff88;">● Hybrid — Academy লোকাল, বাকি Gemini</div>
             </div>
           </div>
           <div style="display:flex;gap:6px;">
@@ -460,7 +495,7 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
         </div>
         <div class="ai-chat-messages" id="ai-chat-messages">
           <div class="ai-msg ai-msg-bot">
-            <span>👋 Academy Assistant — আপনার ডাটা থেকে সরাসরি উত্তর (API লাগে না)।<br><small style="opacity:0.6">মোট ছাত্র, বকেয়া, আদায়, আজকের লেনদেন, নাম/ID দিয়ে খুঁজুন — "help" লিখলে তালিকা দেখাবে।</small></span>
+            <span>👋 Hybrid Assistant — ছাত্র/বকেয়া/লেনদেন = লোকাল ডাটা; অন্য প্রশ্ন = Gemini (Key থাকলে)। লিমিট শেষ হলে অটো লোকাল।<br><small style="opacity:0.6">"help" লিখলে সব কমান্ড দেখাবে।</small></span>
           </div>
         </div>
         <div class="ai-chat-input-area">
@@ -740,10 +775,23 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
   }
 
   function setLocalOnlyMode(enabled) {
-    localStorage.setItem(LOCAL_ONLY_KEY, enabled ? 'true' : 'false');
+    if (enabled) {
+      localStorage.setItem(LOCAL_ONLY_KEY, 'true');
+    } else {
+      localStorage.removeItem(LOCAL_ONLY_KEY);
+      _clearQuotaPause();
+    }
   }
 
-  return { init, openChat, closeChat, clearChat, sendMessage, promptApiKey, addBackupKey, chat, testApiKey, setLocalOnlyMode, isLocalOnlyMode: _isLocalOnlyMode };
+  function clearQuotaPause() {
+    _clearQuotaPause();
+  }
+
+  return {
+    init, openChat, closeChat, clearChat, sendMessage, promptApiKey, addBackupKey,
+    chat, testApiKey, setLocalOnlyMode, clearQuotaPause,
+    isLocalOnlyMode: _isLocalOnlyMode, isQuotaPaused: _isQuotaPaused
+  };
 })();
 
 // Auto-init

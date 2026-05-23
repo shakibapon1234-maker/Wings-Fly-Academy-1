@@ -6371,21 +6371,22 @@ ${expenseEntries.length > 0 ? `
     const displayKey = isEncrypted ? '•••••••• (Encrypted)' : rawKey;
     const hasBackup2 = !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
     const hasBackup3 = !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
-    const localOnly = localStorage.getItem('wfa_ai_local_only') !== 'false';
+    const localOnly = localStorage.getItem('wfa_ai_local_only') === 'true';
     
     return `
     <div class="settings-panel ${activeTab === 'ai-assistant' ? 'active' : ''}" data-panel="ai-assistant">
       <div class="settings-card glow-cyan">
-        <div class="settings-card-title"><i class="fa fa-robot"></i> Academy Assistant</div>
+        <div class="settings-card-title"><i class="fa fa-robot"></i> Academy Assistant (Hybrid)</div>
         <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);padding:14px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;">
-          <strong>✅ API দরকার নেই</strong> — ছাত্র, বকেয়া, আদায়, লেনদেন সব সরাসরি ডাটা থেকে উত্তর। Gemini Key শুধু সাধারণ চ্যাটের জন্য (ঐচ্ছিক)।
+          <strong>🔄 স্বয়ংক্রিয় Hybrid:</strong> ছাত্র/বকেয়া/লেনদেন = সবসময় লোকাল ডাটা।
+          API Key সেট করলে অন্য প্রশ্ন Gemini-তে যাবে। <strong>লিমিট শেষ হলে অটো লোকাল</strong> — আবার Key কাজ করলে Gemini ফিরে আসবে।
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;font-size:0.9rem;">
           <input type="checkbox" id="ai-local-only" ${localOnly ? 'checked' : ''} onchange="SettingsModule.toggleAILocalOnly(this.checked)" />
-          <span><strong>Local Only</strong> — API ছাড়াই চালান (সুপারিশকৃত)</span>
+          <span><strong>শুধু Local</strong> — Gemini একদম বন্ধ (চাইলে টিক দিন)</span>
         </label>
-        <details style="margin-bottom:8px;">
-          <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">ঐচ্ছিক: Gemini API Key</summary>
+        <details open style="margin-bottom:8px;">
+          <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Gemini API Key</summary>
         <div class="form-group" style="margin-bottom:16px;">
           <label>Primary Gemini API Key</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -6417,7 +6418,7 @@ ${expenseEntries.length > 0 ? `
       localStorage.setItem('wfa_ai_local_only', checked ? 'true' : 'false');
     }
     if (typeof Utils !== 'undefined') {
-      Utils.toast(checked ? '✅ Local Only — API লাগবে না' : 'Gemini চ্যাট চালু (Key লাগবে)', 'success');
+      Utils.toast(checked ? 'শুধু Local মোড — Gemini বন্ধ' : 'Hybrid মোড — Key থাকলে Gemini, লিমিটে Local', 'success');
     }
     refreshModal();
   }
@@ -6447,8 +6448,14 @@ ${expenseEntries.length > 0 ? `
     } else {
       localStorage.setItem('wfa_gemini_key', key);
     }
+    if (typeof AIAssistant !== 'undefined' && AIAssistant.clearQuotaPause) {
+      AIAssistant.clearQuotaPause();
+    } else {
+      sessionStorage.removeItem('wfa_ai_quota_pause_until');
+    }
+    localStorage.removeItem('wfa_ai_local_only');
     
-    if(typeof Utils !== 'undefined') Utils.toast('✅ AI API Key Saved Successfully! AI is now active.', 'success');
+    if(typeof Utils !== 'undefined') Utils.toast('✅ API Key saved — Hybrid mode: Gemini + auto local fallback', 'success');
     refreshModal();
   }
 
