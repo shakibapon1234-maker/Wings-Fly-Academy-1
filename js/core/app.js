@@ -206,10 +206,14 @@ const App = (() => {
 
   function isAdmin() {
     const role = localStorage.getItem('wfa_user_role');
-    // ✅ Fix: if logged in but role key is missing (e.g. first visit on GitHub Pages
-    // before a proper login sets the key), default to admin so Settings isn't blocked.
-    if (!role && localStorage.getItem('wfa_logged_in') === 'true') return true;
-    return role === 'admin';
+    if (role === 'admin') return true;
+    // Fallback: only treat as admin if there is a real login timestamp
+    // (prevents wfa_logged_in=true with no role from granting admin access)
+    if (!role && localStorage.getItem('wfa_logged_in') === 'true'
+        && localStorage.getItem('wfa_login_time')) {
+      return true;
+    }
+    return false;
   }
 
   function getUserPermissions() {
@@ -827,9 +831,10 @@ const App = (() => {
         if (typeof Students !== 'undefined') Students.openAddModal();
         break;
       case 'transaction':
-        setTimeout(() => {
+        // ✅ Fix #2: navigate to Finance first, then open modal after render
+        waitAndOpen('finance', 'finance-content', () => {
           if (typeof Finance !== 'undefined') Finance.openAddModal();
-        }, 50);
+        });
         break;
       case 'loan':
         waitAndOpen('loans', 'loans-content', () => {
@@ -1371,32 +1376,4 @@ window.App = App;
   }
 })();
 
-// ── Phase 4.2: Production Console Log Management ────────────────────
-// Enable verbose logs: localStorage.setItem('wfa_debug_mode', 'true')
-// Disable (default): localStorage.removeItem('wfa_debug_mode')
-// ✅ Fix: console.error & console.warn are NEVER suppressed — critical errors must always show.
-(function() {
-  const isDebug = localStorage.getItem('wfa_debug_mode') === 'true';
-  if (!isDebug) {
-    const _origLog  = console.log;
-    const _origInfo = console.info;
-    // Only filter out noisy log/info — errors and warnings are always visible
-    console.log = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth|Scheduler)\]/.test(args[0])) {
-        _origLog.apply(console, args);
-      }
-      // styled %c logs (e.g. Auth reset success) — always pass through
-      if (args[0] && typeof args[0] === 'string' && args[0].startsWith('%c')) {
-        _origLog.apply(console, args);
-      }
-    };
-    console.info = function(...args) {
-      if (args[0] && typeof args[0] === 'string' && /^\[(Sync|IDB|Auth|Scheduler)\]/.test(args[0])) {
-        _origInfo.apply(console, args);
-      }
-    };
-    // ✅ console.error and console.warn are intentionally NOT overridden.
-    // Any module error (students, finance, salary, etc.) must be visible in DevTools.
-  }
-})();
 
