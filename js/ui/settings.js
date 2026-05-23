@@ -42,17 +42,12 @@ const SettingsModule = (() => {
     overlay.innerHTML = buildModalHTML();
     document.body.appendChild(overlay);
     _bindSettingsOverlayEvents(overlay);
+    _persistHealedConfigDates();
 
-    // ✅ FIX: Sanitize all date inputs IMMEDIATELY after DOM is created, BEFORE flatpickr init
     setTimeout(() => {
-      const dateInputs = overlay.querySelectorAll('input[type="date"]');
-      dateInputs.forEach(el => {
-        const val = el.value || '';
-        // Only YYYY-MM-DD format is valid for date inputs
-        if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
-          el.value = '';
-        }
-      });
+      if (typeof Utils !== 'undefined' && Utils.sanitizeDateInputElement) {
+        overlay.querySelectorAll('input[type="date"], #bp-start, #bp-end').forEach(Utils.sanitizeDateInputElement);
+      }
       _initSettingsDatePickers();
     }, 10);
     
@@ -797,7 +792,8 @@ const SettingsModule = (() => {
     // ✅ SANITIZE: if the stored value is not a valid date (e.g. "admin"), clear it
     const _rawExpStart = cfg.expense_start_date || '';
     const expStart = /^\d{4}-\d{2}-\d{2}$/.test(_rawExpStart.trim()) ? _rawExpStart.trim() : '';
-    const expEnd = cfg.expense_end_date || today;
+    const _rawExpEnd = cfg.expense_end_date || '';
+    const expEnd = /^\d{4}-\d{2}-\d{2}$/.test(String(_rawExpEnd).trim()) ? _rawExpEnd.trim() : today;
 
     return `
     <div class="settings-panel ${activeTab === 'general' ? 'active' : ''}" data-panel="general">
@@ -2990,10 +2986,8 @@ ${expenseEntries.length > 0 ? `
   // TAB 11: MONITOR
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
-    const monitor = typeof SyncEngine !== 'undefined' ? SyncEngine.getDataMonitor() : {};
-    // wfa_recent_changes এখন শুধু finance transactions রাখে (supabase-sync.js-এ fixed)
+    // wfa_recent_changes — শুধু finance transactions (supabase-sync.js)
     const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
-    const totalRecords = Object.values(monitor).reduce((s, v) => s + (v.localCount || 0), 0);
 
     // Transaction type badge color
     const txBadge = type => {
@@ -3012,7 +3006,6 @@ ${expenseEntries.length > 0 ? `
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
           <div style="display:flex;align-items:center;gap:10px">
-            <span style="color:var(--brand-primary);font-size:1rem;font-weight:700">Total records (all tables): ${totalRecords}</span>
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
             <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsModule.rebuildMonitorData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
           </div>
@@ -3045,25 +3038,6 @@ ${expenseEntries.length > 0 ? `
             </tbody>
           </table>
         </div>
-
-        <div style="margin-top:16px">
-          <div class="settings-label">DATA TABLE COUNTS</div>
-          <div class="table-wrapper">
-            <table>
-              <thead><tr><th>Table</th><th class="text-right">Local Records</th><th>Last Updated</th><th>Action</th></tr></thead>
-              <tbody>
-                ${Object.entries(monitor).map(([_key, v]) => `
-                  <tr>
-                    <td style="font-weight:600">${v.table}</td>
-                    <td class="text-right" style="font-family:var(--font-ui)">${v.localCount}</td>
-                    <td style="font-size:.78rem;color:var(--text-muted)">${v.lastUpdated !== '—' ? (typeof Utils !== 'undefined' ? Utils.formatDateDMY(v.lastUpdated) : v.lastUpdated) : '—'}</td>
-                    <td><button class="btn btn-outline btn-xs" onclick="SettingsModule.viewTableData('${v.table}')" title="View"><i class="fa fa-eye"></i></button></td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
       </div>
     </div>`;
   }
@@ -3073,6 +3047,31 @@ ${expenseEntries.length > 0 ? `
 
   function getConfig() {
     return SupabaseSync.getAll(DB.settings)[0] || {};
+  }
+
+  /** Fix corrupted date strings in settings (e.g. expense_start_date = "admin"). */
+  function _healConfigDateFields(cfg) {
+    if (!cfg || typeof cfg !== 'object') return cfg;
+    const _d = new Date();
+    const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
+    let dirty = false;
+    const start = String(cfg.expense_start_date || '').trim();
+    if (start && !/^\d{4}-\d{2}-\d{2}$/.test(start)) {
+      delete cfg.expense_start_date;
+      dirty = true;
+    }
+    const end = String(cfg.expense_end_date || '').trim();
+    if (end && !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      cfg.expense_end_date = today;
+      dirty = true;
+    }
+    return { cfg, dirty };
+  }
+
+  function _persistHealedConfigDates() {
+    const raw = SupabaseSync.getAll(DB.settings)[0] || {};
+    const { cfg, dirty } = _healConfigDateFields({ ...raw });
+    if (dirty && cfg.id) saveConfig(cfg);
   }
 
   function saveConfig(cfg) {
@@ -3106,31 +3105,23 @@ ${expenseEntries.length > 0 ? `
     const overlay = document.getElementById('settings-overlay');
     if (!overlay) return;
 
-    // CRITICAL: Sanitize ALL date inputs before ANY flatpickr initialization
-    overlay.querySelectorAll('input[type="date"]').forEach(el => {
-      const val = (el.value || '').trim();
-      // Only allow YYYY-MM-DD format
-      if (val && !/^\d{4}-\d{2}-\d{2}$/.test(val)) {
-        console.warn('[Settings] Clearing invalid date value:', val);
-        el.value = '';
-      }
+    const _fp = (el, opts) => (typeof Utils !== 'undefined' && Utils.initFlatpickrOnElement)
+      ? Utils.initFlatpickrOnElement(el, opts)
+      : null;
+
+    overlay.querySelectorAll('input[type="date"], #bp-start, #bp-end').forEach(el => {
+      if (typeof Utils !== 'undefined' && Utils.sanitizeDateInputElement) Utils.sanitizeDateInputElement(el);
     });
 
-    // General date inputs (type=date) - NOW they are all guaranteed to have valid values
     overlay.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
       if (!el._flatpickr) {
-        try {
-          flatpickr(el, {
-            dateFormat: 'Y-m-d',
-            altInput:   true,
-            altFormat:  'd/m/Y',
-            allowInput: true,
-            locale:     { firstDayOfWeek: 1 },
-          });
-        } catch (e) {
-          console.warn('[Settings] Flatpickr init error:', e);
-          el.value = '';
-        }
+        _fp(el, {
+          dateFormat: 'Y-m-d',
+          altInput:   true,
+          altFormat:  'd/m/Y',
+          allowInput: true,
+          locale:     { firstDayOfWeek: 1 },
+        });
       }
     });
 
@@ -3165,23 +3156,8 @@ ${expenseEntries.length > 0 ? `
       }
     };
     
-    if (bpStart && !bpStart._flatpickr) {
-      try {
-        flatpickr(bpStart, Object.assign({}, bpCfg));
-      } catch (e) {
-        console.warn('[Settings] Flatpickr init error for bp-start:', e);
-        bpStart.value = '';
-      }
-    }
-    
-    if (bpEnd && !bpEnd._flatpickr) {
-      try {
-        flatpickr(bpEnd, Object.assign({}, bpCfg));
-      } catch (e) {
-        console.warn('[Settings] Flatpickr init error for bp-end:', e);
-        bpEnd.value = '';
-      }
-    }
+    if (bpStart && !bpStart._flatpickr) _fp(bpStart, Object.assign({}, bpCfg));
+    if (bpEnd && !bpEnd._flatpickr) _fp(bpEnd, Object.assign({}, bpCfg));
   }
 
   // ─── SyncGuard Panel ──────────────────────────────────────────
@@ -3964,13 +3940,12 @@ ${expenseEntries.length > 0 ? `
     // ✅ লজিক ৪ FIX: inner modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY) apply করো
     // adv-date, ret-adv-date, inv-date, ret-inv-date সহ যেকোনো ভবিষ্যৎ date input
     setTimeout(() => {
-      if (typeof flatpickr === 'undefined') return;
       wrap.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
-        if (!el._flatpickr) {
-          flatpickr(el, {
-            dateFormat:  'Y-m-d',   // stored value: YYYY-MM-DD
+        if (!el._flatpickr && typeof Utils !== 'undefined' && Utils.initFlatpickrOnElement) {
+          Utils.initFlatpickrOnElement(el, {
+            dateFormat:  'Y-m-d',
             altInput:    true,
-            altFormat:   'd/m/Y',   // user sees DD/MM/YYYY
+            altFormat:   'd/m/Y',
             allowInput:  true,
             locale:      { firstDayOfWeek: 1 },
           });
@@ -4480,13 +4455,41 @@ ${expenseEntries.length > 0 ? `
     `, 'modal-lg');
   }
 
+  function _monitorRecordFromItem(item) {
+    if (!item) return null;
+    if (item.recordId && typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getById === 'function') {
+      const live = SupabaseSync.getById(DB.finance, item.recordId);
+      if (live) return live;
+    }
+    return {
+      id: item.recordId || `monitor-${Date.now()}`,
+      type: item.type,
+      category: item.category,
+      amount: item.amount,
+      method: item.method || 'Cash',
+      person_name: item.person,
+      note: item.person,
+      created_at: item.recordAt || item.date || null,
+      date: item.recordAt || item.date || null,
+    };
+  }
+
   function showMonitorSnapshot(index) {
     const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
     const item = transactions[index];
     if (!item) return showLiveAccountSnapshot();
 
-    // ── Use the saved snapshot — no live re-calculation ───────────
-    const snapshot    = item.snapshot || {};
+    let snapshot = item.snapshot || {};
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.buildMonitorSnapshotAtRecord) {
+      const rec = _monitorRecordFromItem(item);
+      if (rec) {
+        try {
+          snapshot = SupabaseSync.buildMonitorSnapshotAtRecord(rec, item.action || 'insert');
+        } catch (e) {
+          console.warn('[Monitor] snapshot recalc failed:', e?.message || e);
+        }
+      }
+    }
     const students    = snapshot.students || {};
     const accounts    = snapshot.accounts || {};
     const finance     = snapshot.finance  || {};
@@ -4593,8 +4596,8 @@ ${expenseEntries.length > 0 ? `
 
       ${batchRow}
 
-      <!-- All-Time dashboard summary cards -->
-      <div style="font-size:.65rem;font-weight:800;letter-spacing:1.5px;color:rgba(255,255,255,0.35);margin-bottom:8px">\u2605 ALL-TIME LIFETIME OVERVIEW</div>
+      <!-- Cumulative totals up to this transaction -->
+      <div style="font-size:.65rem;font-weight:800;letter-spacing:1.5px;color:rgba(255,255,255,0.35);margin-bottom:8px">\u2605 CUMULATIVE UP TO THIS TRANSACTION</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px">
         <div style="padding:12px 14px;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.18);border-radius:10px;text-align:center">
           <div style="font-size:.68rem;color:rgba(0,229,255,0.6);font-weight:700;letter-spacing:.8px;margin-bottom:6px;text-transform:uppercase">Students</div>
@@ -4617,10 +4620,7 @@ ${expenseEntries.length > 0 ? `
       <!-- hint -->
       <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
-        ${snapshot._note === undefined && item.snapshot?.accounts?._note === 'account_balance_estimated_at_transaction_time'
-          ? '⚠️ এই snapshot টি Rebuild দিয়ে তৈরি। Grand Total সেই সময়ের অনুমানিত (estimated), individual account balance বর্তমান। সবচেয়ে accurate data দেখতে নতুন transaction add করুন।'
-          : 'এই snapshot টি transaction-এর সময় automatically save হয়েছিল। Dashboard-এর actual data-ই দেখাচ্ছে, live re-calculation নয়।'
-        }
+        প্রতিটি row-এর Grand Total ও account balance সেই transaction পর্যন্ত (সময় অনুযায়ী) হিসাব করা। পুরনো entry-এর জন্য একবার <strong>Rebuild Data</strong> চাপুন।
       </div>
       `
     , '720px');
@@ -4631,14 +4631,16 @@ ${expenseEntries.length > 0 ? `
   function rebuildMonitorData() {
     try {
       const allFinance = SupabaseSync.getAll(DB.finance);
-      const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving'];
+      const allowedTypes = [
+        'income', 'expense', 'transfer in', 'transfer out',
+        'loan giving', 'loan receiving', 'investment in', 'investment out',
+      ];
 
-      // Filter only allowed transaction types and sort by date (newest first)
       const filtered = allFinance
         .filter(f => allowedTypes.includes(String(f.type || '').toLowerCase()))
         .sort((a, b) => {
-          const da = new Date(a.created_at || a.date || 0);
-          const db = new Date(b.created_at || b.date || 0);
+          const da = new Date(a.created_at || a.updated_at || a.date || 0).getTime();
+          const db = new Date(b.created_at || b.updated_at || b.date || 0).getTime();
           return db - da;
         })
         .slice(0, 15);
@@ -4648,123 +4650,26 @@ ${expenseEntries.length > 0 ? `
         return;
       }
 
-      // ✅ FIX: প্রতিটি transaction-এর জন্য আলাদা snapshot তৈরি করো।
-      // সেই transaction পর্যন্ত যা যা হয়েছিল সেটা দিয়ে cumulative balance বের করো।
-      const allStudents  = SupabaseSync.getAll(DB.students);
-      const allAccounts  = SupabaseSync.getAll(DB.accounts);
-      const allFinanceFull = SupabaseSync.getAll(DB.finance);
-      const cfg          = (SupabaseSync.getAll(DB.settings) || [])[0] || {};
-
-      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving'];
-      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving'];
-
-      // Account list (normalized) — balance এখানে running calculation দিয়ে override হবে
-      const seen0 = new Set();
-      const baseAccounts = allAccounts.filter(a => {
-        const name = String(a.name || '').trim();
-        if (a.type === 'Cash' && name !== 'Cash') return false;
-        if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-          if (!name || /^\d+$/.test(name)) return false;
-        }
-        const key = `${a.type}||${name}`;
-        if (seen0.has(key)) return false;
-        seen0.add(key);
-        return true;
+      const entries = filtered.map(record => {
+        const action = 'insert';
+        const snapshot = typeof SupabaseSync.buildMonitorSnapshotAtRecord === 'function'
+          ? SupabaseSync.buildMonitorSnapshotAtRecord(record, action)
+          : {};
+        return {
+          date: record.created_at ? new Date(record.created_at).toLocaleString() : (record.date || new Date().toLocaleString()),
+          action,
+          type: record.type,
+          category: String(record.category || record.type || '').slice(0, 100),
+          person: String(record.person_name || record.description || record.note || '—').slice(0, 100),
+          amount: Number(record.amount || 0),
+          method: record.method || '',
+          table: DB.finance,
+          recordId: record.id,
+          recordAt: record.created_at || record.updated_at || record.date || null,
+          item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
+          snapshot,
+        };
       });
-
-      const runningBatch = cfg.running_batch || '';
-      const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
-      const batchStudents = runningBatch
-        ? allStudents.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
-        : [];
-      const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
-
-      // সব finance records টাইমস্ট্যাম্প অনুযায়ী sort (পুরনো আগে)
-      const allSorted = [...allFinanceFull].sort((a, b) => {
-        const da = new Date(a.created_at || a.updated_at || a.date || 0).getTime();
-        const db2 = new Date(b.created_at || b.updated_at || b.date || 0).getTime();
-        return da - db2;
-      });
-
-      // প্রতিটি filtered transaction-এর জন্য — সেই transaction পর্যন্ত cumulative income/expense
-      const _buildSnapshotForRecord = (record) => {
-        try {
-          const cutoff = new Date(record.created_at || record.updated_at || record.date || 0).getTime();
-          // সেই transaction পর্যন্ত (inclusive) সব records
-          const upTo = allSorted.filter(f => {
-            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
-            return ft <= cutoff;
-          });
-          const snapIncome  = upTo.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
-          const snapExpense = upTo.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
-
-          // Account balance: current balance থেকে এই transaction-এর পরের amounts বাদ দাও
-          // (অর্থাৎ: current_balance - sum_of_amounts_AFTER_this_transaction_for_that_method)
-          // সরলীকরণ: account-এর current balance ব্যবহার করো কিন্তু
-          // income/expense দিয়ে estimate করো কোন account-এ কত ছিল।
-          // সবচেয়ে নির্ভরযোগ্য পদ্ধতি: current balance ব্যবহার করো,
-          // তবে total grand balance adjust করো cumulative finance দিয়ে।
-          const currentTotal = baseAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
-          const afterIncome  = allSorted.filter(f => {
-            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
-            return ft > cutoff && INCOME_TYPES.includes(String(f.type).toLowerCase());
-          }).reduce((s, r) => s + Number(r.amount || 0), 0);
-          const afterExpense = allSorted.filter(f => {
-            const ft = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
-            return ft > cutoff && EXPENSE_TYPES.includes(String(f.type).toLowerCase());
-          }).reduce((s, r) => s + Number(r.amount || 0), 0);
-          // সেই সময়ের estimated grand total = current_total - after_income + after_expense
-          const estimatedTotal = currentTotal - afterIncome + afterExpense;
-
-          // account list-এ proportional adjustment (account-level breakdown accurate নয়,
-          // তাই grand total accurate রাখি, individual account-এ current balance দেখাই)
-          const accountList = baseAccounts.map(a => ({
-            name: a.name || 'Account',
-            balance: Number(a.balance || 0),
-            type: a.type || '',
-          }));
-
-          return {
-            students: {
-              totalStudents: allStudents.length,
-              totalFee:  allStudents.reduce((s, r) => s + Number(r.total_fee || 0), 0),
-              totalPaid: allStudents.reduce((s, r) => s + Number(r.paid || 0), 0),
-              totalDue:  allStudents.reduce((s, r) => s + Number(r.due  || 0), 0),
-            },
-            accounts: {
-              count: baseAccounts.length,
-              totalBalance: estimatedTotal,
-              list: accountList,
-              _note: 'account_balance_estimated_at_transaction_time',
-            },
-            finance: { totalIncome: snapIncome, totalExpense: snapExpense },
-            batch: {
-              name: runningBatch,
-              students: batchStudents.length,
-              collection: batchCollection,
-              expense: 0,
-              net: batchCollection,
-            },
-            recordedAt: record.created_at || record.updated_at || new Date().toISOString(),
-          };
-        } catch (e) {
-          console.warn('[RebuildMonitor] per-record snapshot failed:', e);
-          return { students: {}, accounts: {}, finance: {}, batch: {}, recordedAt: new Date().toISOString() };
-        }
-      };
-
-      // Build entries — প্রতিটি record-এর জন্য আলাদা snapshot
-      const entries = filtered.map(record => ({
-        date: record.created_at ? new Date(record.created_at).toLocaleString() : (record.date || new Date().toLocaleString()),
-        type: record.type,
-        category: String(record.category || record.type || '').slice(0, 100),
-        person: String(record.person_name || record.description || record.note || '—').slice(0, 100),
-        amount: Number(record.amount || 0),
-        method: record.method || '',
-        table: DB.finance,
-        item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
-        snapshot: _buildSnapshotForRecord(record),
-      }));
 
       localStorage.setItem('wfa_recent_changes', JSON.stringify(entries));
       Utils.toast(`✅ ${entries.length}টি ট্রান্সেকশন Data Monitor-এ restore হয়েছে`, 'success');
@@ -4928,11 +4833,11 @@ ${expenseEntries.length > 0 ? `
     }
     // Preserve existing date only if no new value was selected
     // (empty startVal = user cleared the field = show all expenses)
-    cfg.expense_start_date = startVal;
+    cfg.expense_start_date = (startVal && /^\d{4}-\d{2}-\d{2}$/.test(startVal)) ? startVal : '';
 
-    // ✅ FIX: Use local timezone date — Bangladesh UTC+6 must not show yesterday's date
     const _now = new Date();
     cfg.expense_end_date = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
+    _healConfigDateFields(cfg);
     saveConfig(cfg);
     logActivity('edit', 'settings', 'Updated academy info');
     Utils.toast('Academy info saved ✅', 'success');

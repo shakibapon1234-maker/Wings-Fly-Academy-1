@@ -1323,32 +1323,30 @@ window.App = App;
         el.setAttribute('lang', 'en-GB');
         el.setAttribute('data-locale-fixed', '1');
         // ✅ REQUIREMENT #4: Force DD/MM/YYYY display while keeping YYYY-MM-DD storage
-        if (typeof flatpickr !== 'undefined' && !el._flatpickr) {
-          try {
-            flatpickr(el, {
-              dateFormat: 'Y-m-d',           // ✅ Database storage: YYYY-MM-DD
-              altInput: true,                // ✅ Show display format in alt field
-              altFormat: 'd/m/Y',            // ✅ DISPLAY: DD/MM/YYYY
-              allowInput: true,              // User can type dates
-              locale: { firstDayOfWeek: 1 }, // Week starts Monday
-              mode: 'single',
-              // Parse dates — accept both DD/MM/YYYY and YYYY-MM-DD
-              parseDate: (datestr) => {
-                if (!datestr) return null;
-                const str = String(datestr).trim();
-                // Try DD/MM/YYYY format first
-                const dmy = str.split('/');
-                if (dmy.length === 3) {
-                  const [day, month, year] = dmy.map(p => parseInt(p, 10));
-                  return new Date(year, month - 1, day);
-                }
-                // Fallback: try ISO format (YYYY-MM-DD)
-                return new Date(str);
+        if (!el._flatpickr && typeof Utils !== 'undefined' && Utils.initFlatpickrOnElement) {
+          Utils.initFlatpickrOnElement(el, {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd/m/Y',
+            allowInput: true,
+            locale: { firstDayOfWeek: 1 },
+            mode: 'single',
+            parseDate: (datestr) => {
+              if (!datestr) return null;
+              const str = String(datestr).trim();
+              const dmy = str.split('/');
+              if (dmy.length === 3) {
+                const [day, month, year] = dmy.map(p => parseInt(p, 10));
+                const d = new Date(year, month - 1, day);
+                return isNaN(d.getTime()) ? null : d;
               }
-            });
-          } catch (e) { 
-            console.warn('[Date] Flatpickr init error:', e);
-          }
+              if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+                const d = new Date(str);
+                return isNaN(d.getTime()) ? null : d;
+              }
+              return null;
+            },
+          });
         }
       }
     });

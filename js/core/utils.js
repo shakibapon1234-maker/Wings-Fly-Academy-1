@@ -166,6 +166,38 @@ const Utils = (() => {
     return isValidDate(fb) ? fb : new Date().toISOString().split('T')[0];
   }
 
+  /** Clear invalid values on date inputs before Flatpickr (prevents "Invalid date provided: admin"). */
+  function sanitizeDateInputElement(el) {
+    if (!el) return;
+    const val = String(el.value || '').trim();
+    if (!val) return;
+    const type = String(el.type || '').toLowerCase();
+    if (type === 'date') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(val)) el.value = '';
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(val) && !/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(val)) {
+      el.value = '';
+    }
+  }
+
+  /** Init Flatpickr with sanitized value; never throws on bad stored dates. */
+  function initFlatpickrOnElement(el, options) {
+    if (!el || typeof flatpickr === 'undefined') return null;
+    sanitizeDateInputElement(el);
+    if (el._flatpickr) {
+      try { el._flatpickr.destroy(); } catch { /* ignore */ }
+      el._flatpickr = null;
+    }
+    try {
+      return flatpickr(el, options);
+    } catch (e) {
+      el.value = '';
+      if (window.__WFA_DEV__) console.warn('[Flatpickr] init skipped:', e?.message || e);
+      return null;
+    }
+  }
+
   // ── Number Helpers ─────────────────────────────────────────
   function safeNum(val) {
     const n = parseFloat(val);
@@ -300,19 +332,17 @@ const Utils = (() => {
 
     // ✅ Req 4: auto-convert all modal date inputs to DD/MM/YYYY via Flatpickr
     setTimeout(() => {
-      if (typeof flatpickr !== 'undefined') {
-        bodyEl.querySelectorAll('input[type="date"]').forEach(el => {
-          if (!el._flatpickr) { // prevent double-init
-            flatpickr(el, {
-              dateFormat:  'Y-m-d',  // stored value stays YYYY-MM-DD for backend
-              altInput:    true,     // show a separate human-readable input
-              altFormat:   'd/m/Y',  // displayed as DD/MM/YYYY to the user
-              allowInput:  true,
-              locale:      { firstDayOfWeek: 1 },
-            });
-          }
-        });
-      }
+      bodyEl.querySelectorAll('input[type="date"]').forEach(el => {
+        if (!el._flatpickr) {
+          initFlatpickrOnElement(el, {
+            dateFormat:  'Y-m-d',
+            altInput:    true,
+            altFormat:   'd/m/Y',
+            allowInput:  true,
+            locale:      { firstDayOfWeek: 1 },
+          });
+        }
+      });
     }, 10);
 
     if (box) {
@@ -558,17 +588,15 @@ const Utils = (() => {
     if (!container) return;
     // Only target inputs OUTSIDE modals (filter bars)
     container.querySelectorAll('input[type="date"]').forEach(el => {
-      // Skip if already initialized or inside a modal
       if (el._flatpickr) return;
       if (el.closest('#modal-backdrop') || el.closest('.modal-backdrop')) return;
-      flatpickr(el, {
-        dateFormat:  'Y-m-d',   // stored value: YYYY-MM-DD (used by filter logic)
-        altInput:    true,       // show a separate human-readable input
-        altFormat:   'd/m/Y',   // displayed as DD/MM/YYYY to the user
+      initFlatpickrOnElement(el, {
+        dateFormat:  'Y-m-d',
+        altInput:    true,
+        altFormat:   'd/m/Y',
         allowInput:  true,
         locale:      { firstDayOfWeek: 1 },
         onChange(selectedDates, dateStr, instance) {
-          // Trigger the original onchange so filter logic still fires
           const origEl = instance.element;
           origEl.dispatchEvent(new Event('change', { bubbles: true }));
         },
@@ -893,6 +921,8 @@ const Utils = (() => {
       validateForm,
       // Req 4: Filter bar flatpickr DD/MM/YYYY initializer
       initFilterDatePickers,
+      sanitizeDateInputElement,
+      initFlatpickrOnElement,
       // Bug #17: Cached DOM helper + cache clear
       clearDomCache,
       // Bug #29: Date validation helpers

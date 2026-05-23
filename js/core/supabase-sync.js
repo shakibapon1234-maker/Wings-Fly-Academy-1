@@ -494,7 +494,7 @@ const SupabaseSync = (() => {
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
       let snapshot = {};
-      try { snapshot = _getMonitorSnapshot(); } catch (snapErr) {
+      try { snapshot = _buildMonitorSnapshotAtRecord(record, action); } catch (snapErr) {
         console.warn('[DataMonitor] Snapshot capture failed:', snapErr?.message || snapErr);
       }
       const entry = {
@@ -507,6 +507,8 @@ const SupabaseSync = (() => {
         method: record.method || '',
         table,
         item: _recycleDisplayName(table, record),
+        recordId: record.id,
+        recordAt: record.created_at || record.updated_at || record.date || null,
         snapshot,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
@@ -532,6 +534,173 @@ const SupabaseSync = (() => {
     }
   }
 
+  const _MONITOR_INCOME_TYPES  = ['income', 'transfer in', 'loan receiving', 'investment in'];
+  const _MONITOR_EXPENSE_TYPES = ['expense', 'transfer out', 'loan giving', 'investment out'];
+
+  function _financeRecordSortKey(f) {
+    const t = new Date(f.created_at || f.updated_at || f.date || 0).getTime();
+    return { t: Number.isFinite(t) ? t : 0, id: String(f.id || '') };
+  }
+
+  function _compareFinanceRecords(a, b) {
+    const ka = _financeRecordSortKey(a);
+    const kb = _financeRecordSortKey(b);
+    if (ka.t !== kb.t) return ka.t - kb.t;
+    return ka.id.localeCompare(kb.id);
+  }
+
+  function _balanceDirForFinance(record) {
+    const t = String(record.type || '').toLowerCase();
+    if (_MONITOR_INCOME_TYPES.includes(t)) return 'in';
+    if (_MONITOR_EXPENSE_TYPES.includes(t)) return 'out';
+    return null;
+  }
+
+  function _normalizeMonitorAccounts(accounts) {
+    const seen = new Set();
+    return accounts.filter(a => {
+      const name = String(a.name || '').trim();
+      if (a.type === 'Cash' && name !== 'Cash') return false;
+      if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
+        if (!name || /^\d+$/.test(name)) return false;
+      }
+      const key = `${a.type}||${name}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function _accountMethodName(a) {
+    return a.type === 'Cash' ? 'Cash' : (a.name || 'Cash');
+  }
+
+  /** Account balances at a point in time (undo ledger entries after cutoffIndex). */
+  function _accountBalancesAtCutoff(sorted, cutoffIndex, baseAccounts) {
+    const balances = new Map();
+    baseAccounts.forEach(a => balances.set(_accountMethodName(a), Number(a.balance || 0)));
+    for (let i = sorted.length - 1; i > cutoffIndex; i--) {
+      const f = sorted[i];
+      const amount = Number(f.amount || 0);
+      if (amount <= 0) continue;
+      const dir = _balanceDirForFinance(f);
+      if (!dir) continue;
+      const method = f.method || 'Cash';
+      const cur = balances.get(method) ?? 0;
+      balances.set(method, dir === 'in' ? cur - amount : cur + amount);
+    }
+    return balances;
+  }
+
+  /**
+   * Dashboard-style snapshot as of one finance transaction (inclusive).
+   * @param {object} record — finance_ledger row
+   * @param {string} action — insert | update | delete | restore
+   */
+  function _buildMonitorSnapshotAtRecord(record, action = 'insert') {
+    try {
+      if (!record) return _getMonitorSnapshot();
+
+      const students    = getAll(DB.students);
+      const allFinance  = getAll(DB.finance);
+      const baseAccounts = _normalizeMonitorAccounts(getAll(DB.accounts));
+      const cfg = (() => { try { return (getAll(DB.settings) || [])[0] || {}; } catch { return {}; } })();
+
+      const sorted = [...allFinance];
+      if (action === 'delete' && record.id) sorted.push(record);
+      sorted.sort(_compareFinanceRecords);
+
+      let cutoffIndex = sorted.findIndex(f => f.id && record.id && f.id === record.id);
+      if (cutoffIndex < 0) {
+        const cut = _financeRecordSortKey(record);
+        cutoffIndex = -1;
+        for (let i = 0; i < sorted.length; i++) {
+          const k = _financeRecordSortKey(sorted[i]);
+          if (k.t < cut.t || (k.t === cut.t && k.id <= cut.id)) cutoffIndex = i;
+        }
+      }
+
+      const upTo = sorted.slice(0, Math.max(0, cutoffIndex) + 1);
+      const snapIncome  = upTo.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()))
+        .reduce((s, r) => s + Number(r.amount || 0), 0);
+      const snapExpense = upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()))
+        .reduce((s, r) => s + Number(r.amount || 0), 0);
+
+      const balanceMap = _accountBalancesAtCutoff(sorted, cutoffIndex, baseAccounts);
+      const accountList = baseAccounts.map(a => {
+        const method = _accountMethodName(a);
+        return {
+          name: a.name || a.account_name || 'Account',
+          balance: Math.round((balanceMap.get(method) ?? Number(a.balance || 0)) * 100) / 100,
+          type: a.type || '',
+        };
+      });
+      const totalBalance = accountList.reduce((s, a) => s + a.balance, 0);
+
+      const cutoffMs = _financeRecordSortKey(record).t;
+      const studentsAtTime = cutoffMs
+        ? students.filter(s => {
+            const c = new Date(s.created_at || s.admission_date || 0).getTime();
+            return !Number.isFinite(c) || c <= cutoffMs;
+          })
+        : students;
+
+      const runningBatch = cfg.running_batch || '';
+      const normBatch = v => String(v || '').trim().replace(/^batch\s*/i, '').toLowerCase();
+      const batchStudents = runningBatch
+        ? studentsAtTime.filter(s => normBatch(s.batch) === normBatch(runningBatch) && s.status !== 'Inactive')
+        : [];
+      const batchCollection = batchStudents.reduce((s, st) => s + Number(st.paid || 0), 0);
+      const normDate = d => {
+        if (!d) return '';
+        const str = String(d).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        const p = str.split('/');
+        if (p.length === 3 && p[2].length === 4) return `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        const dt = new Date(str);
+        return isNaN(dt) ? '' : dt.toISOString().split('T')[0];
+      };
+      const expStart = normDate(cfg.expense_start_date);
+      const cutoffDate = cutoffMs ? new Date(cutoffMs).toISOString().split('T')[0] : '';
+      const batchExpense = expStart && cutoffDate
+        ? upTo.filter(f => {
+            if (!_MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
+            const fd = normDate(f.date);
+            return fd && fd >= expStart && fd <= cutoffDate;
+          }).reduce((s, f) => s + Number(f.amount || 0), 0)
+        : upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()))
+            .reduce((s, f) => s + Number(f.amount || 0), 0);
+
+      return {
+        students: {
+          totalStudents: studentsAtTime.length,
+          totalFee:  studentsAtTime.reduce((s, r) => s + Number(r.total_fee || 0), 0),
+          totalPaid: studentsAtTime.reduce((s, r) => s + Number(r.paid || 0), 0),
+          totalDue:  studentsAtTime.reduce((s, r) => s + Number(r.due  || 0), 0),
+        },
+        accounts: {
+          count: baseAccounts.length,
+          totalBalance: Math.round(totalBalance * 100) / 100,
+          list: accountList,
+        },
+        finance: { totalIncome: snapIncome, totalExpense: snapExpense },
+        batch: {
+          name: runningBatch,
+          students: batchStudents.length,
+          collection: batchCollection,
+          expense: batchExpense,
+          net: batchCollection - batchExpense,
+        },
+        recordedAt: record.created_at || record.updated_at || record.date || new Date().toISOString(),
+        atRecordId: record.id || null,
+        atAction: action,
+      };
+    } catch (e) {
+      console.warn('[DataMonitor] buildMonitorSnapshotAtRecord failed:', e?.message || e);
+      return _getMonitorSnapshot();
+    }
+  }
+
   function _getMonitorSnapshot() {
     try {
       const students = getAll(DB.students);
@@ -546,25 +715,13 @@ const SupabaseSync = (() => {
       // ✅ Bug Fix 3: Investment In/Out যোগ করা হয়েছে snapshot calculation-এ
       // Income = Income + Loan Receiving + Investment In
       // Expense = Expense + Loan Giving + Investment Out
-      const INCOME_TYPES  = ['income', 'transfer in',  'loan receiving', 'investment in'];
-      const EXPENSE_TYPES = ['expense','transfer out', 'loan giving',    'investment out'];
+      const INCOME_TYPES  = _MONITOR_INCOME_TYPES;
+      const EXPENSE_TYPES = _MONITOR_EXPENSE_TYPES;
       const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
       const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
 
       // Account balances — normalize same as DashboardModule to avoid duplicates
-      const seen = new Set();
-      const cleanAccounts = accounts.filter(a => {
-        const name = String(a.name || '').trim();
-        if (a.type === 'Cash' && name !== 'Cash') return false;
-        if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-          // ✅ Bug #9 Fix: শুধু সত্যিকারের empty/numeric placeholder drop করুন।
-          if (!name || /^\d+$/.test(name)) return false;
-        }
-        const key = `${a.type}||${name}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+      const cleanAccounts = _normalizeMonitorAccounts(accounts);
       const accountBalance = cleanAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
       const accountList = cleanAccounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
 
@@ -1658,6 +1815,7 @@ const SupabaseSync = (() => {
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
+    buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     TABLE_COLUMNS,
     _addToRecycleBinPublic: _addToRecycleBin,
     _syncRecycleBinToSettings,
