@@ -983,6 +983,24 @@ const SupabaseSync = (() => {
     return false;
   }
 
+  // পুরনো/স্বয়ংক্রিয় জেনেরিক সেটিংস লগ — বিস্তারিত ছাড়া, UI-তে দেখানো হবে না
+  function _isVagueSettingsActivity(entry) {
+    if (!entry || entry.type !== 'settings') return false;
+    const desc = String(entry.description || '').trim();
+    if (/একাডেমি সেটিংস আপডেট\s*—/i.test(desc)) return false;
+    if (/সেটিংস আপডেট\s*—/i.test(desc)) return false;
+    const vague = [
+      /^সেটিংস-এ তথ্য আপডেট করা হয়েছে\s*—\s*একাডেমি সেটিংস$/i,
+      /^সেটিংস-এ নতুন এন্ট্রি যোগ করা হয়েছে\s*—\s*একাডেমি সেটিংস$/i,
+      /^Updated academy info$/i,
+    ];
+    return vague.some((re) => re.test(desc));
+  }
+
+  function _shouldHideActivity(entry) {
+    return _isDiagnosticActivity(entry) || _isVagueSettingsActivity(entry);
+  }
+
   function _fmtLogVal(v) {
     if (v == null || v === '') return '(খালি)';
     if (typeof v === 'number') return String(v);
@@ -1010,7 +1028,7 @@ const SupabaseSync = (() => {
 
   function _logActivity(action, type, description, status = 'success') {
     try {
-      if (_isDiagnosticActivity({ description })) return;
+      if (_shouldHideActivity({ type, description })) return;
 
       const now = new Date();
       const nowMs = now.getTime();
@@ -1955,7 +1973,8 @@ const SupabaseSync = (() => {
     _syncRecycleBinToSettings,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
     isDiagnosticActivity: _isDiagnosticActivity,
-    filterActivityLogs: (logs) => (Array.isArray(logs) ? logs.filter(l => !_isDiagnosticActivity(l)) : []),
+    filterActivityLogs: (logs) => (Array.isArray(logs) ? logs.filter(l => !_shouldHideActivity(l)) : []),
+    isVagueSettingsActivity: _isVagueSettingsActivity,
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
     _restoredIds,
     _prepareRecordForCloud,
