@@ -571,6 +571,7 @@ const Finance = (() => {
       date:        entry.date        || Utils.today(),
       note:        entry.note        || '',
       person_name: entry.person_name || '',
+      ref_id:      entry.ref_id      || '',
     };
     SupabaseSync.insert(DB.finance, record, { bypassLog: true });
 

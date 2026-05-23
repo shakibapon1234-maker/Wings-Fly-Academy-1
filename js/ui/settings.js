@@ -3148,7 +3148,7 @@ ${expenseEntries.length > 0 ? `
     }
     return raw.filter(l => {
       const d = String(l.description || '');
-      if (/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment|Batch-DIAG|Diagnostics Course/i.test(d)) return false;
+      if (/DIAG-TEST-|DIAG-INST-|DIAG-EXAM-|DIAG-SAL-|System Test Student|Auto-generated diagnostic|Diagnostic Test Staff|Diagnostic Installment Student|Diagnostic Exam Student|Diagnostic Loan Person|Batch-DIAG|Diagnostics Course/i.test(d)) return false;
       if (l.type === 'settings' && /^সেটিংস-এ (তথ্য আপডেট|নতুন এন্ট্রি)/i.test(d) && /একাডেমি সেটিংস$/i.test(d)) return false;
       return true;
     });
@@ -3287,7 +3287,7 @@ ${expenseEntries.length > 0 ? `
       ? SupabaseSync.filterActivityLogs(logs)
       : logs.filter(l => {
           const d = String(l.description || '');
-          return !/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment/i.test(d);
+          return !/DIAG-TEST-|DIAG-EXAM-|System Test Student|Auto-generated diagnostic|Diagnostic Test Staff|Diagnostic Exam Student|Diagnostic Loan Person|Batch-DIAG|Diagnostics Course/i.test(d);
         });
     if (filterAction && filterAction !== 'all') items = items.filter(l => l.action === filterAction);
     if (filterType   && filterType   !== 'all') items = items.filter(l => l.type   === filterType);
@@ -3533,6 +3533,9 @@ ${expenseEntries.length > 0 ? `
         Utils.toast('Item restored and synced', 'success');
         refreshModal();
         if (typeof App !== 'undefined' && App.updateNotifCount) App.updateNotifCount();
+        if (item && item.table === 'salary' && typeof Salary !== 'undefined' && Salary.renderContent) {
+          try { Salary.renderContent(); } catch (e) { /* ignore */ }
+        }
       } else {
         Utils.toast('Could not restore item', 'error');
       }

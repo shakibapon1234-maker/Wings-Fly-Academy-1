@@ -316,7 +316,7 @@ const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
   // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase (sync only these columns)
   settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings'],
-  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
+  salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','installment_plan'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
   accounts:      ['id','name','type','balance','description','note'],
@@ -347,10 +347,11 @@ const SupabaseSync = (() => {
       return null;
     }
     const found = rows.find(r => r.id === id);
-    if (!found) {
-      // Record not found - silently return null
+    if (!found) return null;
+    if (table === _salaryTableKey()) {
+      _ensureSalaryLocalFields(found);
     }
-    return found || null;
+    return found;
   }
 
   function _storageUsageKB() {
@@ -423,6 +424,7 @@ const SupabaseSync = (() => {
       record._inserted_at = new Date().toISOString();
     }
     record._device = _deviceId();
+    if (table === _salaryTableKey()) _ensureSalaryLocalFields(record);
     const rows = getAll(table);
     rows.unshift(record);
     setAll(table, rows);
@@ -447,6 +449,7 @@ const SupabaseSync = (() => {
         merged.created_at = new Date(merged[dateField]).toISOString();
       }
       rows[idx] = merged;
+      if (table === _salaryTableKey()) _ensureSalaryLocalFields(rows[idx]);
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
       if (!options.bypassLog && !_isDiagnosticRecord(table, merged)) {
@@ -954,29 +957,77 @@ const SupabaseSync = (() => {
     if (!r || typeof r !== 'object') return false;
     const studentsTable = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
     const financeTable  = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    const salaryTable   = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
     if (table === studentsTable) {
       const sid  = String(r.student_id || '');
       const name = String(r.name || '');
       if (sid.startsWith('DIAG-TEST-') || name.includes('System Test Student') ||
           r.batch === 'Batch-DIAG' || r.course === 'Diagnostics Course') return true;
     }
+    if (table === salaryTable) {
+      const sid = String(r.staffId || r.staff_id || '');
+      const name = String(r.staffName || r.staff_name || '');
+      if (sid === 'DIAG-SAL-STAFF' || name.includes('Diagnostic Test Staff') ||
+          r.note === 'Auto-generated diagnostic salary') return true;
+    }
+    const examsTable = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+    if (table === examsTable) {
+      if (String(r.student_id || '').startsWith('DIAG-EXAM-') ||
+          String(r.student_name || '').includes('Diagnostic Exam Student') ||
+          r.note === 'Auto-generated diagnostic exam') return true;
+    }
+    const loansTable = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
+    if (table === loansTable) {
+      if (String(r.person_name || '').includes('Diagnostic Loan Person') ||
+          r.note === 'Auto-generated diagnostic loan') return true;
+    }
     if (table === financeTable) {
       if (r.note === 'Auto-generated diagnostic payment') return true;
+      if (r.note === 'Auto-generated diagnostic salary payment') return true;
+      if (r.note === 'Auto-generated diagnostic exam payment') return true;
+      if (r.note === 'Auto-generated diagnostic loan finance') return true;
       const ref = String(r.ref_id || '');
       if (ref && ref.length > 10) {
         const st = getAll(studentsTable).find(s => s.id === ref);
         if (st && _isDiagnosticRecord(studentsTable, st)) return true;
+        const sal = getAll(salaryTable).find(s => s.id === ref);
+        if (sal && _isDiagnosticRecord(salaryTable, sal)) return true;
       }
     }
     return false;
+  }
+
+  let _activityLogSuppressDepth = 0;
+
+  function _beginActivityLogSuppress() {
+    _activityLogSuppressDepth++;
+    return () => {
+      if (_activityLogSuppressDepth > 0) _activityLogSuppressDepth--;
+    };
+  }
+
+  async function _runWithoutActivityLog(fn) {
+    const end = _beginActivityLogSuppress();
+    try {
+      return await fn();
+    } finally {
+      end();
+    }
   }
 
   function _isDiagnosticActivity(entry) {
     if (!entry || typeof entry !== 'object') return false;
     const desc = String(entry.description || '');
     if (/DIAG-TEST-/i.test(desc)) return true;
+    if (/DIAG-INST-/i.test(desc)) return true;
+    if (/DIAG-EXAM-/i.test(desc)) return true;
+    if (/DIAG-SAL-/i.test(desc)) return true;
     if (/System Test Student/i.test(desc)) return true;
-    if (/Auto-generated diagnostic payment/i.test(desc)) return true;
+    if (/Diagnostic Installment Student/i.test(desc)) return true;
+    if (/Diagnostic Exam Student/i.test(desc)) return true;
+    if (/Diagnostic Loan Person/i.test(desc)) return true;
+    if (/Auto-generated diagnostic/i.test(desc)) return true;
+    if (/Diagnostic Test Staff/i.test(desc)) return true;
     if (/Batch-DIAG|Diagnostics Course/i.test(desc)) return true;
     return false;
   }
@@ -1026,6 +1077,7 @@ const SupabaseSync = (() => {
 
   function _logActivity(action, type, description, status = 'success') {
     try {
+      if (_activityLogSuppressDepth > 0) return;
       if (_shouldHideActivity({ type, description })) return;
 
       const now = new Date();
@@ -1261,6 +1313,48 @@ const SupabaseSync = (() => {
     }
   }
 
+  function _salaryMonthLabelForMatch(ym) {
+    if (!ym) return '';
+    const parts = ym.split('-');
+    const months = ['January','February','March','April','May','June',
+      'July','August','September','October','November','December'];
+    return (months[parseInt(parts[1], 10) - 1] || '?') + ' ' + parts[0];
+  }
+
+  function _matchesSalaryFinance(f, salaryRecord) {
+    if (!f || f.category !== 'Salary' || f.type !== 'Expense') return false;
+    if (!salaryRecord) return false;
+    if (salaryRecord.id && f.ref_id === salaryRecord.id) return true;
+    const staff = salaryRecord.staff_name || salaryRecord.staffName || '';
+    const month = salaryRecord.month || '';
+    if (!staff || !month) return false;
+    if ((f.person_name || '') !== staff) return false;
+    const desc = f.description || '';
+    return desc.indexOf(staff) !== -1 && desc.indexOf(_salaryMonthLabelForMatch(month)) !== -1;
+  }
+
+  function _matchesExamFinance(f, exam) {
+    if (!f || f.category !== 'Exam Fee' || f.type !== 'Income') return false;
+    if (!exam) return false;
+    if (exam.id && f.ref_id === exam.id) return true;
+    const fee = parseFloat(exam.exam_fee) || 0;
+    if (fee <= 0) return false;
+    if (Math.abs((parseFloat(f.amount) || 0) - fee) > 0.01) return false;
+    const name = exam.student_name || '';
+    return !name || (f.description || '').indexOf(name) !== -1;
+  }
+
+  function _matchesLoanFinance(f, loan) {
+    if (!f || f.category !== 'Loan') return false;
+    if (!loan) return false;
+    if (loan.id && f.ref_id === loan.id) return true;
+    const person = loan.person_name || loan.person || '';
+    return (f.person_name === person) &&
+      f.type === loan.type &&
+      Math.abs((parseFloat(f.amount) || 0) - (parseFloat(loan.amount) || 0)) < 0.01 &&
+      f.date === loan.date;
+  }
+
   async function restoreRecycleBinItem(index) {
     const bin = getAll('recycle_bin');
     if (!Array.isArray(bin)) {
@@ -1403,28 +1497,15 @@ const SupabaseSync = (() => {
             }
           }
 
-          // Find linked finance entry by matching fields (same as delete logic)
-          const financeEntries = getAll('finance_ledger').filter(f =>
-            f._isLoan === true &&
-            (f.person_name === (r.person_name || r.person)) &&
-            f.type === r.type &&
-            f.amount == r.amount &&
-            f.date === r.date
-          );
+          const financeEntries = getAll('finance_ledger').filter(f => _matchesLoanFinance(f, r));
           const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
-          
+
           if (linkedFinanceId) {
             // Already exists in finance ledger, nothing to do
           } else {
-            // Check recycle bin for the linked finance entry
             const allBin = getAll('recycle_bin');
-            const linkedInBin = allBin.find(b => 
-              b?.table === 'finance_ledger' &&
-              b?.data?._isLoan === true &&
-              (b.data.person_name === r.person_name || b.data.person_name === r.person) &&
-              b.data.type === r.type &&
-              b.data.amount == r.amount &&
-              b.data.date === r.date
+            const linkedInBin = allBin.find(b =>
+              b?.table === 'finance_ledger' && _matchesLoanFinance(b.data, r)
             );
             
             if (linkedInBin) {
@@ -1541,6 +1622,80 @@ const SupabaseSync = (() => {
       }
     }
 
+    // Salary restore: linked Salary finance entries রিসাইকেল বিন থেকে ফিরিয়ে আনো + balance
+    if (table === 'salary') {
+      try {
+        const currentBin = getAll('recycle_bin');
+        const linkedFinance = currentBin
+          .filter((b) => b?.table === 'finance_ledger' && _matchesSalaryFinance(b.data, record))
+          .reverse();
+
+        for (const b of linkedFinance) {
+          const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
+          _restoredIds[`finance_ledger:${fr.id}`] = Date.now();
+          const finRows = getAll('finance_ledger');
+          const fIdx = finRows.findIndex((r) => r.id === fr.id);
+          if (fIdx >= 0) finRows[fIdx] = fr;
+          else finRows.unshift(fr);
+          setAll('finance_ledger', finRows);
+          untrackDeletion('finance_ledger', fr.id);
+          await _pushRecord('finance_ledger', fr);
+          if (fr.method && parseFloat(fr.amount) > 0) {
+            const _frBal = (function() {
+              const accs = getAll('accounts');
+              if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+              const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
+            })();
+            if (_frBal - parseFloat(fr.amount) >= 0) {
+              updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
+            } else if (typeof Utils !== 'undefined' && Utils.toast) {
+              Utils.toast(`⚠️ Salary finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
+            }
+          }
+          const freshBin = getAll('recycle_bin');
+          const realIdx = freshBin.findIndex((x) => x?.data?.id === fr.id);
+          if (realIdx !== -1) freshBin.splice(realIdx, 1);
+          setAll('recycle_bin', freshBin);
+        }
+        if (linkedFinance.length > 0 && typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('Salary record + linked finance entries restored ✓', 'success');
+        }
+      } catch (e) {
+        console.warn('[Restore] Salary linked finance restore failed:', e);
+      }
+    }
+
+    // Exam restore: linked Exam Fee income + balance
+    if (table === 'exams') {
+      try {
+        const currentBin = getAll('recycle_bin');
+        const linkedFinance = currentBin
+          .filter((b) => b?.table === 'finance_ledger' && _matchesExamFinance(b.data, record))
+          .reverse();
+
+        for (const b of linkedFinance) {
+          const fr = { ...b.data, updated_at: new Date().toISOString(), _device: _deviceId() };
+          _restoredIds[`finance_ledger:${fr.id}`] = Date.now();
+          const finRows = getAll('finance_ledger');
+          const fIdx = finRows.findIndex((row) => row.id === fr.id);
+          if (fIdx >= 0) finRows[fIdx] = fr;
+          else finRows.unshift(fr);
+          setAll('finance_ledger', finRows);
+          untrackDeletion('finance_ledger', fr.id);
+          await _pushRecord('finance_ledger', fr);
+          if (fr.method && parseFloat(fr.amount) > 0) {
+            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+          }
+          const freshBin = getAll('recycle_bin');
+          const realIdx = freshBin.findIndex((x) => x?.data?.id === fr.id);
+          if (realIdx !== -1) freshBin.splice(realIdx, 1);
+          setAll('recycle_bin', freshBin);
+        }
+      } catch (e) {
+        console.warn('[Restore] Exam linked finance restore failed:', e);
+      }
+    }
+
     // Final cleanup: remove from recycle bin by id+table (handles index shift edge cases)
     const freshBinFinal = getAll('recycle_bin');
     const finalIdx = freshBinFinal.findIndex(x => x?.data?.id === record.id && x?.table === table);
@@ -1609,7 +1764,7 @@ const SupabaseSync = (() => {
     // ✅ keep_records + recycle_bin_sync added for cross-device sync via settings table
     // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase
     settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings'],
-    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','role','phone'],
+    salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
@@ -1661,8 +1816,157 @@ const SupabaseSync = (() => {
     'admin_face_descriptor'
   ]);
 
+  /** Supabase salary table uses basic/total/paid(date) — not base_salary/paidAmount booleans */
+  function _normalizeSalaryForCloud(r) {
+    if (!r || typeof r !== 'object') return r;
+    const base = parseFloat(r.baseSalary ?? r.base_salary ?? r.basic ?? 0) || 0;
+    const bonus = parseFloat(r.bonus ?? 0) || 0;
+    const deduction = parseFloat(r.deduction ?? 0) || 0;
+    const total = parseFloat(r.net_salary ?? r.amount ?? r.total ?? (base + bonus - deduction)) || 0;
+    const paidAmt = parseFloat(r.paidAmount ?? r.paid_amount ?? 0) || 0;
+    const isFullyPaid = r.paid === true || (total > 0 && paidAmt >= total);
+    const isPartial = paidAmt > 0 && !isFullyPaid;
+
+    const o = {
+      id: r.id,
+      staff_id: r.staffId || r.staff_id || '',
+      staff_name: r.staffName || r.staff_name || '',
+      month: r.month || null,
+      year: r.year != null ? parseInt(r.year, 10) : null,
+      basic: base,
+      bonus,
+      deduction,
+      total,
+      paid: isFullyPaid,
+      method: r.method || null,
+      date: r.paidDate || r.paid_date || r.date || null,
+      status: r.status || (isFullyPaid ? 'Paid' : isPartial ? 'Partial' : 'Pending'),
+      note: r.note || null,
+    };
+    if (r.updated_at) o.updated_at = r.updated_at;
+    if (r.created_at) o.created_at = r.created_at;
+    return o;
+  }
+
+  function _ensureSalaryLocalFields(r) {
+    if (!r || typeof r !== 'object') return r;
+    const base = parseFloat(r.baseSalary ?? r.base_salary ?? r.basic ?? 0) || 0;
+    const bonus = parseFloat(r.bonus ?? 0) || 0;
+    const deduction = parseFloat(r.deduction ?? 0) || 0;
+    const total = parseFloat(r.net_salary ?? r.amount ?? r.total ?? (base + bonus - deduction)) || 0;
+    let paidAmount = parseFloat(r.paidAmount ?? r.paid_amount ?? 0) || 0;
+    if (!paidAmount && r.paid === true && total > 0) paidAmount = total;
+    r.baseSalary = base;
+    r.base_salary = base;
+    r.basic = base;
+    r.amount = total;
+    r.net_salary = total;
+    r.total = total;
+    r.paidAmount = paidAmount;
+    r.paid_amount = paidAmount;
+    if (r.paid === undefined) {
+      r.paid = total > 0 && paidAmount >= total;
+    }
+    return r;
+  }
+
+  function _normalizeSalaryFromCloud(r) {
+    if (!r || typeof r !== 'object') return r;
+    const base = parseFloat(r.basic ?? r.baseSalary ?? r.base_salary ?? 0) || 0;
+    const total = parseFloat(r.total ?? r.net_salary ?? r.amount ?? 0) || 0;
+    let paidAmount = parseFloat(r.paidAmount ?? r.paid_amount ?? 0) || 0;
+    if (!paidAmount && r.paid === true && total > 0) paidAmount = total;
+    const isPaid = r.paid === true || String(r.status || '').toLowerCase() === 'paid' ||
+      (total > 0 && paidAmount >= total);
+    const paidDate = r.paidDate || r.paid_date || r.date || '';
+    return _ensureSalaryLocalFields({
+      ...r,
+      staffId: r.staffId || r.staff_id || '',
+      staff_id: r.staffId || r.staff_id || '',
+      staffName: r.staffName || r.staff_name || '',
+      staff_name: r.staffName || r.staff_name || '',
+      baseSalary: base,
+      base_salary: base,
+      basic: base,
+      amount: total,
+      net_salary: total,
+      total,
+      paidAmount,
+      paid_amount: paidAmount,
+      paid: isPaid,
+      paidDate,
+      paid_date: paidDate,
+      date: paidDate,
+    });
+  }
+
+  /** Supabase fee_paid is numeric — app uses boolean */
+  function _normalizeExamForCloud(r) {
+    if (!r || typeof r !== 'object') return r;
+    const fee = parseFloat(r.exam_fee) || 0;
+    let feePaid = r.fee_paid;
+    if (feePaid === true) feePaid = fee > 0 ? fee : 1;
+    else if (feePaid === false || feePaid == null) feePaid = 0;
+    else if (typeof feePaid === 'boolean') feePaid = feePaid ? (fee || 1) : 0;
+    else feePaid = parseFloat(feePaid) || 0;
+
+    const o = {
+      id: r.id,
+      reg_id: r.reg_id || null,
+      student_id: r.student_id || null,
+      student_name: r.student_name || null,
+      batch: r.batch || null,
+      session: r.session || null,
+      subject: r.subject || null,
+      exam_date: r.exam_date || null,
+      exam_fee: fee,
+      fee_paid: feePaid,
+      grade: r.grade || null,
+      marks: r.marks != null && r.marks !== '' ? parseFloat(r.marks) : null,
+      status: r.status || null,
+      note: r.note || null,
+    };
+    if (r.updated_at) o.updated_at = r.updated_at;
+    if (r.created_at) o.created_at = r.created_at;
+    return o;
+  }
+
+  function _normalizeExamFromCloud(r) {
+    if (!r || typeof r !== 'object') return r;
+    const fee = parseFloat(r.exam_fee) || 0;
+    const fp = parseFloat(r.fee_paid);
+    const feePaidBool = r.fee_paid === true || (!isNaN(fp) && fp > 0);
+    return { ...r, fee_paid: feePaidBool };
+  }
+
+  function _salaryTableKey() {
+    return (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
+  }
+
+  function _examsTableKey() {
+    return (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+  }
+
   function _prepareRecordForCloud(table, record) {
     if (!record || typeof record !== 'object') return record;
+
+    if (table === _salaryTableKey()) {
+      let clean = _normalizeSalaryForCloud(record);
+      if (_badCols && _badCols[table]) {
+        clean = { ...clean };
+        _badCols[table].forEach((c) => delete clean[c]);
+      }
+      return clean;
+    }
+    if (table === _examsTableKey()) {
+      let clean = _normalizeExamForCloud(record);
+      if (_badCols && _badCols[table]) {
+        clean = { ...clean };
+        _badCols[table].forEach((c) => delete clean[c]);
+      }
+      return clean;
+    }
+
     let clean = _sanitizeRecord(record, table);
     if (table === 'settings') {
       clean = { ...clean };
@@ -1970,12 +2274,20 @@ const SupabaseSync = (() => {
     _addToRecycleBinPublic: _addToRecycleBin,
     _syncRecycleBinToSettings,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
+    beginActivityLogSuppress: _beginActivityLogSuppress,
+    runWithoutActivityLog: _runWithoutActivityLog,
     isDiagnosticActivity: _isDiagnosticActivity,
     filterActivityLogs: (logs) => (Array.isArray(logs) ? logs.filter(l => !_shouldHideActivity(l)) : []),
     isVagueSettingsActivity: _isVagueSettingsActivity,
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
     _restoredIds,
     _prepareRecordForCloud,
+    normalizeSalaryForCloud: _normalizeSalaryForCloud,
+    normalizeSalaryFromCloud: _normalizeSalaryFromCloud,
+    normalizeExamForCloud: _normalizeExamForCloud,
+    normalizeExamFromCloud: _normalizeExamFromCloud,
+    salaryTableKey: _salaryTableKey,
+    examsTableKey: _examsTableKey,
   };
 })();
 window.SupabaseSync = SupabaseSync;
@@ -2151,6 +2463,15 @@ const SyncEngine = (() => {
             }
             return f;
           });
+        }
+
+        const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
+        const exKey  = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+        if (key === salKey && merged.length > 0 && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
+          merged = merged.map(SupabaseSync.normalizeSalaryFromCloud);
+        }
+        if (key === exKey && merged.length > 0 && typeof SupabaseSync.normalizeExamFromCloud === 'function') {
+          merged = merged.map(SupabaseSync.normalizeExamFromCloud);
         }
 
         // SECURITY: settings table — admin_password কখনো cloud এর plaintext দিয়ে overwrite হবে না
@@ -2504,9 +2825,25 @@ const SyncEngine = (() => {
           }
           rows[idx] = merged;
         } else if (idx >= 0) {
-          rows[idx] = newRow;
+          let merged = { ...rows[idx], ...newRow };
+          const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
+          const exKey = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+          if (table === salKey && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
+            merged = SupabaseSync.normalizeSalaryFromCloud(merged);
+          } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {
+            merged = SupabaseSync.normalizeExamFromCloud(merged);
+          }
+          rows[idx] = merged;
         } else {
-          rows.unshift(newRow);
+          let row = newRow;
+          const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
+          const exKey = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+          if (table === salKey && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
+            row = SupabaseSync.normalizeSalaryFromCloud(row);
+          } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {
+            row = SupabaseSync.normalizeExamFromCloud(row);
+          }
+          rows.unshift(row);
         }
         SupabaseSync.setAll(table, rows);
       } else if (eventType === 'DELETE') {

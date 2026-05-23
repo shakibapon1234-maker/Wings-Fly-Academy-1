@@ -106,6 +106,18 @@ const Salary = (() => {
   /* ══════════════════════════════════════════
      FINANCE LOG — Finance Expense + account balance কমানো
   ══════════════════════════════════════════ */
+  function _matchesSalaryFinance(f, salaryRecord) {
+    if (!f || f.category !== 'Salary' || f.type !== 'Expense') return false;
+    if (!salaryRecord) return false;
+    if (salaryRecord.id && f.ref_id === salaryRecord.id) return true;
+    var staff = salaryRecord.staffName || salaryRecord.staff_name || '';
+    var month = salaryRecord.month || '';
+    if (!staff || !month) return false;
+    if ((f.person_name || '') !== staff) return false;
+    var desc = f.description || '';
+    return desc.indexOf(staff) !== -1 && desc.indexOf(monthLabel(month)) !== -1;
+  }
+
   function _logToFinance(record, payAmount, payDate, method) {
     if (!payAmount || payAmount <= 0) return;
     var entry = {
@@ -117,6 +129,7 @@ const Salary = (() => {
       date:        payDate || new Date().toISOString().split('T')[0],
       note:        record.note || '',
       person_name: record.staffName,
+      ref_id:      record.id || '',
     };
     if (typeof Finance !== 'undefined' && typeof Finance.addExternalTransaction === 'function') {
       Finance.addExternalTransaction(entry);
@@ -328,18 +341,23 @@ const Salary = (() => {
       return;
     }
     activeStaff.forEach(function(s) {
+      var base = Utils.safeNum(s.salary);
       SupabaseSync.insert(DB.salary, {
         staffId: s.staffId,   staff_id:   s.staffId,
         staffName: s.name,    staff_name: s.name,
         role: s.role || '', phone: s.phone || '',
         month: month,
-        baseSalary: Utils.safeNum(s.salary), base_salary: Utils.safeNum(s.salary),
+        baseSalary: base, base_salary: base, basic: base,
         bonus: 0, deduction: 0,
+        net_salary: base, amount: base, total: base,
         paidAmount: 0, paid_amount: 0,
         paid: false, paidDate: '', paid_date: '', method: 'Cash', note: '',
-      });
-
+      }, { bypassLog: true });
     });
+    if (typeof SupabaseSync.logActivity === 'function' && activeStaff.length) {
+      SupabaseSync.logActivity('add', 'salary',
+        'মাসের বেতন শীট স্বয়ংক্রিয় তৈরি — ' + monthLabel(month) + ': ' + activeStaff.length + ' জন স্টাফ');
+    }
     renderContent();
     Utils.toast(activeStaff.length + ' salary sheets created ✓', 'success');
   }
@@ -430,9 +448,13 @@ const Salary = (() => {
     SupabaseSync.update(DB.salary, id, {
       paid:       isFullyPaid,
       paidAmount: totalPaid,
+      paid_amount: totalPaid,
       paidDate:   payDate,
+      paid_date:  payDate,
       method:     method,
       note:       note || r.note || '',
+      amount:     net,
+      net_salary: net,
     }, { bypassLog: true });
 
     _logToFinance(r, payAmount, payDate, method);
@@ -654,26 +676,44 @@ const Salary = (() => {
     }
 
     var diff = isNew ? payAmount : (payAmount - prevPaidAmt);
+    var financeCtx = Object.assign({}, entry, { id: editingId || entry.id || (existingRecord && existingRecord.id) });
     if (diff > 0) {
-      // paidAmount বাড়েছে → নতুন Expense entry তৈরি করো
-      _logToFinance(entry, diff, payDate, method);
-    } else if (diff < 0 && !isNew) {
-      // paidAmount কমেছে → পার্থক্যটা account-এ ফেরত দাও
+      _logToFinance(financeCtx, diff, payDate, method);
+    } else if (diff < 0 && !isNew && financeCtx.id) {
       var reversalAmt = Math.abs(diff);
-      if (typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(method, reversalAmt, 'in', true);
+      var linkedFin = SupabaseSync.getAll(DB.finance).filter(function(f) {
+        return _matchesSalaryFinance(f, financeCtx);
+      });
+      var reversed = 0;
+      linkedFin.sort(function(a, b) {
+        return String(b.date || '').localeCompare(String(a.date || ''));
+      }).forEach(function(f) {
+        if (reversed >= reversalAmt) return;
+        var amt = Utils.safeNum(f.amount);
+        if (amt <= 0) return;
+        SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+        reversed += amt;
+        if (typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(f.method || method, amt, 'in', true);
+        }
+      });
+      var remainder = reversalAmt - reversed;
+      if (remainder > 0) {
+        if (typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(method, remainder, 'in', true);
+        }
+        SupabaseSync.insert(DB.finance, {
+          type:        'Income',
+          category:    'Salary Adjustment',
+          method:      method,
+          description: 'Salary Adjustment (reduced): ' + entry.staffName + ' (' + monthLabel(entry.month) + ')',
+          amount:      remainder,
+          date:        payDate || Utils.today(),
+          note:        'Auto-reversal: paidAmount reduced from ৳' + Utils.formatMoneyPlain(prevPaidAmt) + ' to ৳' + Utils.formatMoneyPlain(payAmount),
+          person_name: entry.staffName,
+          ref_id:      financeCtx.id,
+        }, { bypassLog: true });
       }
-      // Finance-এ reversal entry তৈরি করো
-      SupabaseSync.insert(DB.finance, {
-        type:        'Income',
-        category:    'Salary Adjustment',
-        method:      method,
-        description: 'Salary Adjustment (reduced): ' + entry.staffName + ' (' + monthLabel(entry.month) + ')',
-        amount:      reversalAmt,
-        date:        payDate || Utils.today(),
-        note:        'Auto-reversal: paidAmount reduced from ৳' + Utils.formatMoneyPlain(prevPaidAmt) + ' to ৳' + Utils.formatMoneyPlain(payAmount),
-        person_name: entry.staffName,
-      }, { bypassLog: true });
     }
 
     Utils.closeModal();
@@ -703,19 +743,15 @@ const Salary = (() => {
     var paidAmt = Utils.safeNum(r && r.paidAmount);
     if (r && paidAmt > 0 && r.method) {
       var finEntries = SupabaseSync.getAll(DB.finance).filter(function(f) {
-        return f.category === 'Salary' &&
-               f.type === 'Expense' &&
-               (f.person_name === r.staffName ||
-                (f.description && f.description.indexOf(r.staffName) !== -1));
+        return _matchesSalaryFinance(f, r);
       });
-      var totalLinked = 0;
       finEntries.forEach(function(f) {
-        totalLinked += Utils.safeNum(f.amount);
+        var amt = Utils.safeNum(f.amount);
         SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+        if (amt > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(f.method || r.method, amt, 'in', true);
+        }
       });
-      if (totalLinked > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(r.method, totalLinked, 'in', true);
-      }
     }
 
     SupabaseSync.remove(DB.salary, id, { bypassLog: true });

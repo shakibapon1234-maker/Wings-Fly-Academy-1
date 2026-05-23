@@ -37,6 +37,20 @@ const Accounts = (() => {
     }
   }
 
+  function _removeOpeningEntriesForAccount(accountName) {
+    if (!accountName || typeof SupabaseSync === 'undefined') return;
+    SupabaseSync.getAll(DB.finance).filter(f =>
+      f.category === 'Opening Balance' &&
+      (f.method === accountName || f.account === accountName)
+    ).forEach((f) => {
+      const amt = Utils.safeNum(f.amount);
+      if (amt > 0 && f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(f.method, amt, 'out', true);
+      }
+      SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
+    });
+  }
+
   let searchResMethod = '';
   let searchResFrom = '';
   let searchResTo = '';
@@ -724,6 +738,7 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Bank Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Bank Account')) {
+      if (record && record.name) _removeOpeningEntriesForAccount(record.name);
       SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',
@@ -807,6 +822,7 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Mobile Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Mobile Account')) {
+      if (record && record.name) _removeOpeningEntriesForAccount(record.name);
       SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',

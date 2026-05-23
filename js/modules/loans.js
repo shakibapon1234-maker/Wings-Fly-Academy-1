@@ -6,6 +6,17 @@
 
 const Loans = (() => {
 
+  function _matchesLoanFinance(f, loan) {
+    if (!f || f.category !== 'Loan') return false;
+    if (!loan) return false;
+    if (loan.id && f.ref_id === loan.id) return true;
+    const person = loan.person_name || loan.person || '';
+    return (f.person_name === person) &&
+      f.type === loan.type &&
+      Math.abs(Utils.safeNum(f.amount) - Utils.safeNum(loan.amount)) < 0.01 &&
+      f.date === loan.date;
+  }
+
   let editingId = null;
   let currentPage = 1;
   let pageSize = 20;
@@ -443,13 +454,7 @@ const Loans = (() => {
 
         // 2. Find and update linked finance entry
         const allFinance = SupabaseSync.getAll(DB.finance);
-        const linkedFin = allFinance.find(f =>
-          f.category === 'Loan' &&
-          (f.person_name === (oldRecord.person_name || oldRecord.person)) &&
-          f.type === oldRecord.type &&
-          Math.abs(Utils.safeNum(f.amount) - oldAmount) < 0.01 &&
-          f.date === oldRecord.date
-        );
+        const linkedFin = allFinance.find(f => _matchesLoanFinance(f, oldRecord));
         if (linkedFin) {
           SupabaseSync.update(DB.finance, linkedFin.id, {
             type:        type,
@@ -459,6 +464,7 @@ const Loans = (() => {
             date:        record.date,
             note:        record.note,
             person_name: person,
+            ref_id:      editingId,
           }, { bypassLog: true });
         }
 
@@ -477,17 +483,10 @@ const Loans = (() => {
       }
       Utils.toast('Loan updated ✓', 'success');
     } else {
-      SupabaseSync.insert(DB.loans, record, { bypassLog: true });
+      const createdLoan = SupabaseSync.insert(DB.loans, record, { bypassLog: true });
 
-      // ──────────────────────────────────────────────────────
-      // Loan দেওয়া = Account থেকে টাকা বের হয় (Expense like)
-      // Loan নেওয়া = Account এ টাকা ঢোকে (Income like)
-      // Finance ledger এ যাবে NOT — শুধু Account balance track করতে
-      // finance এ Loan Giving / Loan Receiving type দিয়ে insert করি
-      // যাতে Account balance calculation সঠিক থাকে
-      // ──────────────────────────────────────────────────────
       SupabaseSync.insert(DB.finance, {
-        type:        type,           // 'Loan Giving' বা 'Loan Receiving'
+        type:        type,
         method:      method,
         category:    'Loan',
         description: `${type === 'Loan Giving' ? 'Loan Given to' : 'Loan Taken from'}: ${person}`,
@@ -495,7 +494,8 @@ const Loans = (() => {
         date:        record.date,
         note:        record.note,
         person_name: person,
-        _isLoan:     true,           // flag — Finance UI এ আলাদাভাবে show করতে
+        ref_id:      createdLoan && createdLoan.id ? createdLoan.id : '',
+        _isLoan:     true,
       }, { bypassLog: true });
 
       // ── Account balance আপডেট ──────────────────────────────────────
@@ -557,19 +557,7 @@ const Loans = (() => {
     // ── 2. Finance এ linked entry খুঁজো ──────────────────────────────────
     // _isLoan flag Supabase column sanitizer দ্বারা strip হয়ে যেতে পারে,
     // তাই _isLoan ছাড়াও match করার fallback রাখা হয়েছে
-    const allFinance = SupabaseSync.getAll(DB.finance);
-    const personName = record.person_name || record.person || '';
-    const recDate    = record.date;
-    const recAmt     = Utils.safeNum(record.amount);
-    const recType    = record.type;
-
-    const linked = allFinance.find(f =>
-      (f.person_name === personName) &&
-      f.type  === recType &&
-      Math.abs(Utils.safeNum(f.amount) - recAmt) < 0.01 &&
-      f.date  === recDate &&
-      f.category === 'Loan'
-    );
+    const linked = SupabaseSync.getAll(DB.finance).find(f => _matchesLoanFinance(f, record));
 
     // ── 3. Loan record remove ─────────────────────────────────────────────
     SupabaseSync.remove(DB.loans, id, { bypassLog: true });

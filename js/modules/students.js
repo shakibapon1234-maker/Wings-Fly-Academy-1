@@ -6,6 +6,24 @@
 
 const Students = (() => {
 
+  function _feePaymentsForStudent(studentId, s) {
+    return SupabaseSync.getAll(DB.finance).filter(f =>
+      f.category === 'Student Fee' &&
+      (f.ref_id === studentId || (s && s.student_id && f.ref_id === s.student_id))
+    );
+  }
+
+  function _syncPaidDueAfterLedgerChange(studentId, s, removedPaymentAmount) {
+    const ledgerCurrent = _feePaymentsForStudent(studentId, s)
+      .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const ledgerBefore = ledgerCurrent + Utils.safeNum(removedPaymentAmount || 0);
+    const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBefore);
+    const newPaid = ledgerCurrent + unrecordedInitial;
+    const newDue = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
+    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
+    return { paid: newPaid, due: newDue };
+  }
+
   /* ── State ── */
   let searchQuery  = '';
   let filterBatch  = '';
@@ -1192,26 +1210,6 @@ const Students = (() => {
       if (!ok) return;
 
       const student = SupabaseSync.getById(DB.students, studentId);
-      if (student) {
-        const allFin = SupabaseSync.getAll(DB.finance);
-
-        // Ledger sum BEFORE delete
-        const ledgerBeforeDelete = allFin
-          .filter(f => f.category === 'Student Fee' &&
-                       (f.ref_id === studentId || f.ref_id === student.student_id))
-          .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
-
-        // Ledger sum AFTER delete (= before - this payment)
-        const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(payment.amount);
-
-        // Preserve unrecorded initial (s.paid may be higher than ledger — legacy/migrated data)
-        const unrecordedInitial = Math.max(0, Utils.safeNum(student.paid) - ledgerBeforeDelete);
-
-        // Final: remaining ledger + preserved initial
-        const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
-        const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
-        SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
-      }
 
       // Account balance reverse করো (Income ছিল → 'out' করো)
       if (payment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
@@ -1219,6 +1217,10 @@ const Students = (() => {
       }
 
       SupabaseSync.remove(DB.finance, paymentId, { bypassLog: true });
+
+      if (student) {
+        _syncPaidDueAfterLedgerChange(studentId, student, Utils.safeNum(payment.amount));
+      }
 
       // ✅ Bug Fix: Explicit activity log with student name + amount detail
       if (typeof SupabaseSync.logActivity === 'function') {
@@ -1325,14 +1327,14 @@ const Students = (() => {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
     }
 
-    // Recalculate student paid/due from full ledger
-    const allFin   = SupabaseSync.getAll(DB.finance);
-    const newPaid  = allFin
+    const allFin = SupabaseSync.getAll(DB.finance);
+    const ledgerSum = allFin
       .filter(f => f.category === 'Student Fee' &&
                    (f.ref_id === studentId || f.ref_id === s.student_id))
       .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
-    // Preserve any unrecorded initial (s.paid may be higher than ledger)
-    const effectivePaid = Math.max(newPaid, Utils.safeNum(s.paid) - Utils.safeNum(oldPayment.amount) + amount);
+    const ledgerBeforeEdit = ledgerSum - amount + Utils.safeNum(oldPayment.amount);
+    const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBeforeEdit);
+    const effectivePaid = ledgerSum + unrecordedInitial;
     const newDue = Math.max(0, Utils.safeNum(s.total_fee) - effectivePaid);
     SupabaseSync.update(DB.students, studentId, { paid: effectivePaid, due: newDue }, { bypassLog: true });
 
@@ -1962,7 +1964,8 @@ const Students = (() => {
     _dateSelectHTML, _syncDate,
     reconcileAllStudents,
     editPayment, saveEditedPayment,
-    editInitialPayment, saveEditedInitialPayment
+    editInitialPayment, saveEditedInitialPayment,
+    _syncPaidDueAfterLedgerChange,
   };
 
 })();

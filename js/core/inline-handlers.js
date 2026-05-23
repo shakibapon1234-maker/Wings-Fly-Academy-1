@@ -249,6 +249,13 @@ document.addEventListener('DOMContentLoaded', function () {
   const modalClose = document.getElementById('btn-modal-close');
   if (modalClose) {
     modalClose.addEventListener('click', safe(function () {
+      if (typeof SystemDiagnostics !== 'undefined' &&
+          typeof SystemDiagnostics.isCrudTestModalOpen === 'function' &&
+          SystemDiagnostics.isCrudTestModalOpen() &&
+          typeof SystemDiagnostics.closeTestModal === 'function') {
+        SystemDiagnostics.closeTestModal();
+        return;
+      }
       if (typeof Utils !== 'undefined') Utils.closeModal();
     }));
   }

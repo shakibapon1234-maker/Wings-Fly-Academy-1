@@ -16,6 +16,7 @@ const WfaSettingsDiagnostics = (() => {
     accounts:    'Account Balances',
     students:    'Students & Fees',
     salary:      'Salary & HR',
+    exams:       'Exams',
     loans:       'Loans & Advances',
     storage:     'Storage & Backup',
     security:    'Security & Config',
@@ -260,6 +261,25 @@ const WfaSettingsDiagnostics = (() => {
   // ── Account balances ────────────────────────────────────────
   function _checkAccounts() {
     const accounts = _getAll(DB?.accounts || 'accounts');
+    const finance = _getAll(DB?.finance || 'finance_ledger');
+
+    const orphanOpening = finance.filter(f => {
+      if (f.category !== 'Opening Balance') return false;
+      const m = f.method || f.account || '';
+      if (!m || m === 'Cash') return false;
+      return !accounts.some(a => a.name === m);
+    });
+    if (orphanOpening.length) {
+      _warn('accounts', 'Orphan opening balance', `${orphanOpening.length} finance row(s) for deleted/missing accounts`);
+    } else {
+      _pass('accounts', 'Opening balance links', 'No orphan Opening Balance entries');
+    }
+
+    if (typeof Accounts === 'undefined') {
+      _warn('accounts', 'Accounts module', 'Not loaded');
+    } else {
+      _pass('accounts', 'Accounts module', 'Loaded');
+    }
 
     const negative = accounts.filter(a => _safeNum(a.balance) < 0);
     if (negative.length) {
@@ -324,13 +344,57 @@ const WfaSettingsDiagnostics = (() => {
     if (inactiveDue) _warn('students', 'Inactive with due', `${inactiveDue} student(s) still have due balance`);
   }
 
+  function _salaryMonthLabel(ym) {
+    if (!ym) return '';
+    const parts = ym.split('-');
+    const months = ['January','February','March','April','May','June',
+      'July','August','September','October','November','December'];
+    return (months[parseInt(parts[1], 10) - 1] || '?') + ' ' + parts[0];
+  }
+
+  function _matchesSalaryFinance(f, r) {
+    if (!f || String(f.category || '').toLowerCase() !== 'salary' ||
+        String(f.type || '').toLowerCase() !== 'expense') return false;
+    if (!r) return false;
+    if (r.id && f.ref_id === r.id) return true;
+    const staff = r.staffName || r.staff_name || '';
+    const month = r.month || '';
+    if (!staff || !month) return false;
+    if ((f.person_name || '') !== staff) return false;
+    const desc = f.description || '';
+    return desc.indexOf(staff) !== -1 && desc.indexOf(_salaryMonthLabel(month)) !== -1;
+  }
+
+  function _isDiagSalaryRow(r) {
+    if (!r) return false;
+    if (typeof SystemDiagnostics !== 'undefined' && SystemDiagnostics.isDiagnosticSalary) {
+      return SystemDiagnostics.isDiagnosticSalary(r);
+    }
+    const sid = String(r.staffId || r.staff_id || '');
+    const name = String(r.staffName || r.staff_name || '');
+    return sid === 'DIAG-SAL-STAFF' || name.includes('Diagnostic Test Staff');
+  }
+
   // ── Salary & HR ─────────────────────────────────────────────
   function _checkSalary() {
     const staff = _getAll(DB?.staff || 'staff');
-    const salary = _getAll(DB?.salary || 'salary');
+    const salary = _getAll(DB?.salary || 'salary').filter(r => !_isDiagSalaryRow(r));
+    const finance = _getAll(DB?.finance || 'finance_ledger');
 
     _pass('salary', 'HR staff count', `${staff.length} staff`);
-    _pass('salary', 'Salary records', `${salary.length} row(s)`);
+    _pass('salary', 'Salary records', `${salary.length} row(s) (office data)`);
+
+    if (typeof Salary === 'undefined') {
+      _fail('salary', 'Salary module', 'Not loaded — Salary tab will not work', 'Reload app');
+    } else {
+      const required = ['renderContent', 'deleteRecord', 'saveRecord', 'openEditModal', 'confirmPay'];
+      const missingFn = required.filter(fn => typeof Salary[fn] !== 'function');
+      if (missingFn.length) {
+        _fail('salary', 'Salary API', `Missing: ${missingFn.join(', ')}`);
+      } else {
+        _pass('salary', 'Salary module API', 'create/edit/pay/delete functions present');
+      }
+    }
 
     if (typeof HRStaff !== 'undefined' && typeof HRStaff.getAll === 'function') {
       try {
@@ -355,6 +419,17 @@ const WfaSettingsDiagnostics = (() => {
       _fail('salary', 'Paid > net salary', `${overpaid.length} record(s)`, 'Salary Hub → review payment');
     }
 
+    const paidNoFinance = salary.filter(r => {
+      const paid = _safeNum(r.paidAmount || r.paid_amount);
+      if (paid <= 0) return false;
+      return !finance.some(f => _matchesSalaryFinance(f, r));
+    });
+    if (paidNoFinance.length) {
+      _fail('salary', 'Paid but no finance link', `${paidNoFinance.length} record(s) have payment but no Salary expense in Finance`, 'Salary Hub → re-save or fix ledger');
+    } else {
+      _pass('salary', 'Salary ↔ Finance link', 'All paid salaries have matching finance entries');
+    }
+
     const dupMonth = _dupesBy(salary, r => `${r.staffId || r.staff_id || r.staffName}-${r.month}`);
     if (dupMonth.length) _warn('salary', 'Duplicate month entries', `${dupMonth.length} possible duplicate key(s)`);
 
@@ -366,11 +441,79 @@ const WfaSettingsDiagnostics = (() => {
       return r.month < cur;
     }).length;
     if (pendingOld) _warn('salary', 'Old pending salaries', `${pendingOld} past month(s) still pending`);
+
+    if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.runSalaryTests === 'function') {
+      _pass('salary', 'Live salary CRUD test', 'Available — use "Salary CRUD Test" button below (auto cleanup)');
+    } else {
+      _warn('salary', 'Live salary CRUD test', 'SystemDiagnostics not loaded');
+    }
+  }
+
+  function _matchesLoanFinance(f, loan) {
+    if (!f || String(f.category || '') !== 'Loan') return false;
+    if (!loan) return false;
+    if (loan.id && f.ref_id === loan.id) return true;
+    const person = loan.person_name || loan.person || '';
+    if (!person) return false;
+    const amountOk = Math.abs(_safeNum(f.amount) - _safeNum(loan.amount)) < 0.01;
+    const dateOk = !loan.date || f.date === loan.date;
+    const typeOk = !loan.type || f.type === loan.type;
+    const personOk = (f.person_name === person) ||
+      (f.description && f.description.indexOf(person) !== -1);
+    return personOk && amountOk && dateOk && typeOk;
+  }
+
+  function _matchesExamFinance(f, exam) {
+    if (!f || String(f.category || '') !== 'Exam Fee' || String(f.type || '') !== 'Income') return false;
+    if (!exam) return false;
+    if (exam.id && f.ref_id === exam.id) return true;
+    const fee = _safeNum(exam.exam_fee);
+    if (fee <= 0) return false;
+    if (Math.abs(_safeNum(f.amount) - fee) > 0.01) return false;
+    const name = exam.student_name || '';
+    return !name || (f.description || '').indexOf(name) !== -1;
+  }
+
+  // ── Exams ───────────────────────────────────────────────────
+  function _checkExams() {
+    const exams = _getAll(DB?.exams || 'exams').filter(e =>
+      !String(e.student_id || '').startsWith('DIAG-EXAM-') &&
+      !String(e.student_name || '').includes('Diagnostic Exam Student')
+    );
+    const finance = _getAll(DB?.finance || 'finance_ledger');
+
+    _pass('exams', 'Exam records', `${exams.length} row(s)`);
+
+    if (typeof Exam === 'undefined') {
+      _fail('exams', 'Exam module', 'Not loaded', 'Reload app');
+    } else if (typeof Exam.deleteEntry !== 'function') {
+      _fail('exams', 'Exam API', 'deleteEntry missing');
+    } else {
+      _pass('exams', 'Exam module API', 'deleteEntry present');
+    }
+
+    const paidNoFin = exams.filter(e => {
+      if (!e.fee_paid || _safeNum(e.exam_fee) <= 0) return false;
+      return !finance.some(f => _matchesExamFinance(f, e));
+    });
+    if (paidNoFin.length) {
+      _fail('exams', 'Fee paid but no finance', `${paidNoFin.length} exam(s) — restore/delete may break`, 'Exam tab → re-save fee');
+    } else {
+      _pass('exams', 'Exam ↔ Finance link', 'Paid exams have matching Exam Fee entries');
+    }
+
+    if (typeof SystemDiagnostics !== 'undefined' && SystemDiagnostics.runExamTests) {
+      _pass('exams', 'Live exam CRUD test', 'Use "Exam CRUD Test" button (auto cleanup)');
+    }
   }
 
   // ── Loans ───────────────────────────────────────────────────
   function _checkLoans() {
-    const loans = _getAll(DB?.loans || 'loans');
+    const loans = _getAll(DB?.loans || 'loans').filter(l =>
+      !String(l.person_name || '').includes('Diagnostic Loan Person')
+    );
+    const finance = _getAll(DB?.finance || 'finance_ledger');
+
     if (!loans.length) {
       _pass('loans', 'Loan records', 'None');
       return;
@@ -383,6 +526,21 @@ const WfaSettingsDiagnostics = (() => {
       String(l.status || '').toLowerCase() === 'settled' && _safeNum(l.remaining || l.due) > 0
     ).length;
     if (settledDue) _warn('loans', 'Settled but due remains', `${settledDue} loan(s)`);
+
+    const noFinance = loans.filter(l =>
+      _safeNum(l.amount) > 0 && !finance.some(f => _matchesLoanFinance(f, l))
+    );
+    if (noFinance.length) {
+      _warn('loans', 'Loan without finance link', `${noFinance.length} loan(s) — balance may be OK but ledger missing`, 'Loans tab → edit & save once to link finance');
+    } else {
+      _pass('loans', 'Loan ↔ Finance link', 'All active loans have matching finance entries');
+    }
+
+    if (typeof Loans === 'undefined' || typeof Loans.deleteLoan !== 'function') {
+      _fail('loans', 'Loans module API', 'deleteLoan missing');
+    } else {
+      _pass('loans', 'Loans module API', 'deleteLoan present');
+    }
 
     _pass('loans', 'Loan count', `${loans.length} loan(s)`);
 
@@ -450,6 +608,7 @@ const WfaSettingsDiagnostics = (() => {
     _checkAccounts();
     _checkStudents();
     _checkSalary();
+    _checkExams();
     _checkLoans();
     _checkStorage();
     _checkSecurity();
@@ -561,6 +720,7 @@ const WfaSettingsDiagnostics = (() => {
     }
 
     const report = await buildReport();
+    _lastReport = report;
     _renderResults(report);
 
     if (btn) {
@@ -597,19 +757,24 @@ const WfaSettingsDiagnostics = (() => {
     });
   }
 
-  function run() {
+  let _lastReport = null;
+
+  function run(opts = {}) {
     if (typeof Utils === 'undefined') {
       alert('Utils not loaded.');
       return;
     }
+
+    const skipScan = !!(opts && opts.skipScan);
 
     Utils.openModal(
       '<i class="fa fa-stethoscope" style="color:#a78bfa"></i> System Diagnostics',
       `
       <div id="${MODAL_ID}" style="padding:2px 0">
         <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 12px;line-height:1.55">
-          Read-only scan: modules, sync, finance, balances, students, salary, loans, storage &amp; config.
-          কোনো ডেটা পরিবর্তন করে না।
+          <strong>Run Scan</strong> = read-only (office data untouched).
+          <strong>CRUD Tests</strong> = auto dummy data, wiped after run.
+          অডিটের আগে <strong>AUDIT_IGNORE.md</strong> পড়ুন — settings.js-এ নতুন কোড লিখবেন না।
         </p>
         <div id="wsd-results" style="max-height:min(52vh,420px);overflow-y:auto;padding-right:4px">
           <div style="color:#555;font-size:.8rem;padding:16px;text-align:center">Starting scan…</div>
@@ -621,8 +786,20 @@ const WfaSettingsDiagnostics = (() => {
           <button type="button" onclick="WfaSettingsDiagnostics.copyReport()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:.8rem">
             <i class="fa fa-copy"></i> Copy
           </button>
-          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runAllTests()" style="padding:10px 14px;border:1px solid rgba(167,139,250,0.4);border-radius:8px;background:rgba(167,139,250,0.08);color:#c4b5fd;cursor:pointer;font-size:.8rem" title="Creates & deletes a test student">
-            <i class="fa fa-flask"></i> Live CRUD Test
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runSalaryTests()" style="padding:10px 14px;border:1px solid rgba(0,255,136,0.35);border-radius:8px;background:rgba(0,255,136,0.06);color:#00ff88;cursor:pointer;font-size:.8rem" title="Salary: create, pay, edit, delete, restore">
+            <i class="fa fa-sack-dollar"></i> Salary Test
+          </button>
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runExamTests()" style="padding:10px 14px;border:1px solid rgba(255,183,3,0.35);border-radius:8px;background:rgba(255,183,3,0.06);color:#ffb703;cursor:pointer;font-size:.8rem" title="Exam: create, fee, delete, restore">
+            <i class="fa fa-file-pen"></i> Exam Test
+          </button>
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runLoanTests()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.06);color:#00d4ff;cursor:pointer;font-size:.8rem" title="Loan: create, delete, restore">
+            <i class="fa fa-hand-holding-dollar"></i> Loan Test
+          </button>
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runAllTests()" style="padding:10px 14px;border:1px solid rgba(167,139,250,0.4);border-radius:8px;background:rgba(167,139,250,0.08);color:#c4b5fd;cursor:pointer;font-size:.8rem" title="Student CRUD">
+            <i class="fa fa-flask"></i> Student Test
+          </button>
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runStudentInstallmentTests()" style="padding:10px 14px;border:1px solid rgba(255,105,180,0.35);border-radius:8px;background:rgba(255,105,180,0.06);color:#ff69b4;cursor:pointer;font-size:.8rem" title="4 installments: delete #2, #1, #3 — 1 left">
+            <i class="fa fa-list-ol"></i> Installment Test
           </button>
           <button type="button" onclick="Utils.closeModal()" style="padding:10px 16px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.82rem">Close</button>
         </div>
@@ -634,7 +811,14 @@ const WfaSettingsDiagnostics = (() => {
     const scanBtn = document.getElementById('wsd-scan-btn');
     if (scanBtn) scanBtn.onclick = () => _executeScan();
 
-    setTimeout(() => _executeScan(), 120);
+    const resultsEl = document.getElementById('wsd-results');
+    if (skipScan && _lastReport) {
+      _renderResults(_lastReport);
+    } else if (skipScan && resultsEl) {
+      resultsEl.innerHTML = '<div style="color:#888;font-size:.8rem;padding:16px;text-align:center">Scan skipped — tap <strong>Run Scan</strong> or pick a CRUD test below.</div>';
+    } else {
+      setTimeout(() => _executeScan(), 120);
+    }
   }
 
   return {
