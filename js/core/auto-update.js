@@ -223,7 +223,7 @@ const AutoUpdateModule = (() => {
       if (typeof cordova !== 'undefined' && cordova.plugins && cordova.plugins.AppUpdate) {
         try {
           cordova.plugins.AppUpdate.startUpdate();
-          console.log('[AutoUpdate] Android update initiated via Cordova');
+          if (window.__WFA_DEV__) console.log('[AutoUpdate] Android update initiated via Cordova');
           return; // Don't reload for Android
         } catch(e) { console.warn('[AutoUpdate] Cordova update failed:', e); }
       }
@@ -250,6 +250,8 @@ const AutoUpdateModule = (() => {
     setTimeout(() => {
       checkForUpdate().then(result => {
         if (result.available) showUpdatePrompt(result);
+      }).catch(e => {
+        if (window.__WFA_DEV__) console.error('[AutoUpdate] Check failed:', e);
       });
     }, 5000);
 
@@ -257,6 +259,8 @@ const AutoUpdateModule = (() => {
     setInterval(() => {
       checkForUpdate().then(result => {
         if (result.available) showUpdatePrompt(result);
+      }).catch(e => {
+        if (window.__WFA_DEV__) console.error('[AutoUpdate] Check failed:', e);
       });
     }, CHECK_INTERVAL_HOURS * 60 * 60 * 1000);
 
@@ -264,6 +268,8 @@ const AutoUpdateModule = (() => {
     window.addEventListener('online', () => {
       checkForUpdate().then(result => {
         if (result.available) showUpdatePrompt(result);
+      }).catch(e => {
+        if (window.__WFA_DEV__) console.error('[AutoUpdate] Check failed:', e);
       });
     });
   }

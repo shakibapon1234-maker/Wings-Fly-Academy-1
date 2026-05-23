@@ -122,9 +122,10 @@ const CertificatesModule = (() => {
     }
 
     // Check existing token
-    const { data: existing } = await supabaseClient
+    const { data: existing, error: existingErr } = await supabaseClient
       .from('certificate_tokens').select('token').eq('student_id', s.student_id || s.id).eq('is_active', true).maybeSingle();
     if (existing) return existing.token;
+    if (existingErr && window.__WFA_DEV__) console.debug('[Certs] Query existing token:', existingErr);
 
     // Create new token
     const { data, error } = await supabaseClient
@@ -174,7 +175,7 @@ const CertificatesModule = (() => {
           <button class="btn btn-sm" onclick="CertificatesModule.printQRCard('${Utils.esc(s.name)}','${Utils.esc(s.student_id||s.id)}','${Utils.esc(s.course||'')}','${token}')" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
             <i class="fa fa-print"></i> Card Print
           </button>
-          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${certUrl}').then(()=>Utils.toast('Link copied!','success'))" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${certUrl}').then(()=>Utils.toast('Link copied!','success')).catch(()=>{})" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
             <i class="fa fa-link"></i> Link Copy
           </button>
         </div>

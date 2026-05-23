@@ -330,7 +330,6 @@ const App = (() => {
           if (settings.id) {
             SupabaseSync.update(DB.settings, settings.id, settings);
           }
-          console.log('%c[Auth] ✅ Legacy plaintext password auto-migrated to SHA-256 hash.', 'color:#00ff88;font-weight:bold');
         }
       }
 
@@ -462,7 +461,6 @@ const App = (() => {
       fresh.id = SupabaseSync.generateId();
       SupabaseSync.insert(DB.settings, fresh);
     }
-    console.log('%c[Auth] ✅ Admin password reset successfully! Login with your new password.', 'color: #00ff88; font-weight: bold');
     if (typeof Utils !== 'undefined' && Utils.toast) {
       Utils.toast('✅ Password reset successful! Please login again.', 'success', 3000);
     }

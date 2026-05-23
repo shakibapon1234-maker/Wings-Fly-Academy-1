@@ -96,7 +96,7 @@ const OfflineModeModule = (() => {
    // ── Sync pending actions with server ──
    async function syncQueue() {
      if (!isOnline) {
-       console.log('[Offline] Still offline, sync skipped');
+       if (window.__WFA_DEV__) console.log('[Offline] Still offline, sync skipped');
        return { synced: 0, failed: 0 };
      }
 
@@ -104,7 +104,7 @@ const OfflineModeModule = (() => {
        const queue = await getPendingQueue();
        if (queue.length === 0) return { synced: 0, failed: 0 };
 
-       console.log('[Offline] Syncing', queue.length, 'pending actions...');
+       if (window.__WFA_DEV__) console.log('[Offline] Syncing', queue.length, 'pending actions...');
 
        let synced = 0;
        let failed = 0;
@@ -147,7 +147,7 @@ const OfflineModeModule = (() => {
        // Clean up permanently failed items after max retries
        await cleanupFailedQueue();
 
-       console.log('[Offline] Sync complete:', synced, 'synced,', failed, 'failed');
+      if (window.__WFA_DEV__) console.log('[Offline] Sync complete:', synced, 'synced,', failed, 'failed');
        
        if (typeof Utils !== 'undefined') {
          Utils.toast(`অফলাইন ডেটা সিঙ্ক হয়েছে: ${synced} successful, ${failed} failed`, 'success');
@@ -378,12 +378,12 @@ const OfflineModeModule = (() => {
     try {
       // Initialize IndexedDB
       await initDB();
-      console.log('[Offline] IndexedDB initialized');
+      if (window.__WFA_DEV__) console.log('[Offline] IndexedDB initialized');
 
       // Listen for online/offline events
       window.addEventListener('online', async () => {
         isOnline = true;
-        console.log('[Offline] Back online, syncing...');
+        if (window.__WFA_DEV__) console.log('[Offline] Back online, syncing...');
         if (typeof Utils !== 'undefined') {
           Utils.toast('ইন্টারনেট সংযোগ পুনরুদ্ধার হয়েছে', 'success');
         }
@@ -392,7 +392,7 @@ const OfflineModeModule = (() => {
 
       window.addEventListener('offline', () => {
         isOnline = false;
-        console.log('[Offline] Lost internet connection');
+        if (window.__WFA_DEV__) console.log('[Offline] Lost internet connection');
         if (typeof Utils !== 'undefined') {
           Utils.toast('অফলাইন মোডে কাজ করছি', 'warning');
         }

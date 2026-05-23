@@ -332,8 +332,7 @@ const SupabaseSync = (() => {
     }
     const found = rows.find(r => r.id === id);
     if (!found) {
-      console.debug(`[Sync] getById: NOT FOUND - id="${id}" in table="${table}" (${rows.length} rows)`);
-      if (rows.length > 0) console.debug('[Sync] First row IDs:', rows.slice(0, 3).map(r => r.id));
+      // Record not found - silently return null
     }
     return found || null;
   }
@@ -956,20 +955,15 @@ const SupabaseSync = (() => {
     const table = item.table;
     const recordId = item.data.id;
     _restoredIds[`${table}:${recordId}`] = Date.now();
-    console.log(`[Restore] Starting restore: index=${index}, table="${table}", recordId="${recordId}"`);
-    console.log(`[Restore] Original item data keys:`, Object.keys(item.data || {}).slice(0, 5));
 
     const record = {
       ...item.data,
       updated_at: new Date().toISOString(),
       _device: _deviceId(),
     };
-    
-    console.log(`[Restore] After cloning, record.id="${record.id}", record.name="${record.name || 'N/A'}"`);
 
     // Restore to main table first (this is critical)
     let rows = getAll(table);
-    console.log(`[Restore] Current ${table} rows before restore:`, rows?.length || 0);
     
     if (!Array.isArray(rows)) {
       console.error('[Restore] Table', table, 'returned non-array:', rows);
@@ -980,38 +974,24 @@ const SupabaseSync = (() => {
     rows = [...rows];
     
     const idx = rows.findIndex((r) => r.id === recordId);
-    console.log(`[Restore] Finding existing record in ${table}: idx=${idx}`);
     
     if (idx >= 0) {
       rows[idx] = record;
-      console.log(`[Restore] Updated existing record at index ${idx}`);
     } else {
       rows.unshift(record);
-      console.log(`[Restore] Added new record at start of array. New array length:`, rows.length);
     }
     
-    console.log(`[Restore] About to call setAll with ${rows.length} rows`);
     setAll(table, rows);
-    console.log(`[Restore] Called setAll for table="${table}", rows.length=${rows.length}`);
 
     // Verify the restore locally before pushing to Supabase
     const verifyRows = getAll(table);
-    console.log(`[Restore] After setAll, ${table} has:`, verifyRows?.length || 0, 'rows');
-    
-    if (verifyRows.length > 0) {
-      console.log(`[Restore] First row in ${table}: id="${verifyRows[0].id}", name="${verifyRows[0].name || 'N/A'}"`);
-    }
     
     const verifyIdx = verifyRows?.findIndex((r) => r?.id === recordId);
-    console.log(`[Restore] Verification: looking for id="${recordId}" in ${table}, found at index:`, verifyIdx);
     
     if (verifyIdx === -1 || verifyIdx === undefined) {
       console.error('[Restore] FAILED verification - record not in table after restore');
-      console.error('[Restore] All row IDs:', verifyRows?.map(r => r.id));
       return false;
     }
-    
-    console.log(`[Restore] ✓ Verification passed - record IS in ${table}`);
 
     untrackDeletion(table, recordId);
     await _pushRecord(table, record);
@@ -2267,13 +2247,13 @@ const SyncEngine = (() => {
 
   function setupNetworkListeners() {
     window.addEventListener('online', () => {
-      console.log('[Sync] Back online');
       setStatus('syncing');
-      syncAll({ silent: true }).then(() => { startRealtime(); SupabaseSync.pullActivityLog && SupabaseSync.pullActivityLog(); });
+      syncAll({ silent: true }).then(() => { startRealtime(); SupabaseSync.pullActivityLog && SupabaseSync.pullActivityLog(); }).catch(e => {
+        if (window.__WFA_DEV__) console.error('[Sync] Online sync failed:', e);
+      });
     });
 
     window.addEventListener('offline', () => {
-      console.log('[Sync] Gone offline');
       setStatus('offline');
       stopRealtime();
     });
