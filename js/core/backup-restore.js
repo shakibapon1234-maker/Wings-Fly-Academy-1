@@ -241,7 +241,7 @@ const BackupRestore = (() => {
           if (!confirmed) { resolve(false); return; }
 
           // Restore each table
-          let restored = 0;
+          let _restored = 0;
           for (const [table, rows] of Object.entries(tableData)) {
             if (Array.isArray(rows)) {
               const skipTables = ['activity_log', 'recent_changes'];
@@ -257,13 +257,13 @@ const BackupRestore = (() => {
                     restoredCfg.admin_password = existing[0].admin_password;
                   }
                   SupabaseSync.setAll('settings', [restoredCfg]);
-                  restored++;
+                  _restored++;
                   continue;
                 }
               }
 
               SupabaseSync.setAll(table, rows);
-              restored++;
+              _restored++;
             }
           }
 

@@ -1137,51 +1137,56 @@ const Students = (() => {
     const payment = SupabaseSync.getById(DB.finance, paymentId);
     if (!payment) return;
 
-    const ok = await Utils.confirm(`Delete payment of ${Utils.takaEn(payment.amount)}?`, 'Delete Payment');
-    if (!ok) return;
+    try {
+      const ok = await Utils.confirm(`Delete payment of ${Utils.takaEn(payment.amount)}?`, 'Delete Payment');
+      if (!ok) return;
 
-    const student = SupabaseSync.getById(DB.students, studentId);
-    if (student) {
-      const allFin = SupabaseSync.getAll(DB.finance);
+      const student = SupabaseSync.getById(DB.students, studentId);
+      if (student) {
+        const allFin = SupabaseSync.getAll(DB.finance);
 
-      // Ledger sum BEFORE delete
-      const ledgerBeforeDelete = allFin
-        .filter(f => f.category === 'Student Fee' &&
-                     (f.ref_id === studentId || f.ref_id === student.student_id))
-        .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+        // Ledger sum BEFORE delete
+        const ledgerBeforeDelete = allFin
+          .filter(f => f.category === 'Student Fee' &&
+                       (f.ref_id === studentId || f.ref_id === student.student_id))
+          .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
 
-      // Ledger sum AFTER delete (= before - this payment)
-      const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(payment.amount);
+        // Ledger sum AFTER delete (= before - this payment)
+        const ledgerAfterDelete = ledgerBeforeDelete - Utils.safeNum(payment.amount);
 
-      // Preserve unrecorded initial (s.paid may be higher than ledger — legacy/migrated data)
-      const unrecordedInitial = Math.max(0, Utils.safeNum(student.paid) - ledgerBeforeDelete);
+        // Preserve unrecorded initial (s.paid may be higher than ledger — legacy/migrated data)
+        const unrecordedInitial = Math.max(0, Utils.safeNum(student.paid) - ledgerBeforeDelete);
 
-      // Final: remaining ledger + preserved initial
-      const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
-      const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
-      SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+        // Final: remaining ledger + preserved initial
+        const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
+        const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
+        SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+      }
+
+      // Account balance reverse করো (Income ছিল → 'out' করো)
+      if (payment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+        SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out', true);
+      }
+
+      SupabaseSync.remove(DB.finance, paymentId);
+
+      // ✅ Bug Fix: Explicit activity log with student name + amount detail
+      if (typeof SupabaseSync.logActivity === 'function') {
+        const _s = SupabaseSync.getById(DB.students, studentId);
+        const _sLabel = _s ? `${_s.name} (${_s.student_id})` : studentId;
+        SupabaseSync.logActivity('delete', 'students',
+          `Payment deleted: ${_sLabel} — ${Utils.takaEn(payment.amount)} via ${payment.method || 'N/A'}`);
+      }
+
+      Utils.toast('Payment deleted ✓', 'info');
+      Students.openPayModal(studentId);
+      // ✅ Bug Fix: refresh student list so due/paid totals update immediately
+      render();
+      App.updateNotifCount();
+    } catch (e) {
+      console.error('[deletePayment] Error:', e);
+      Utils.toast('Payment delete failed: ' + (e.message || e), 'error');
     }
-
-    // Account balance reverse করো (Income ছিল → 'out' করো)
-    if (payment.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-      SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out', true);
-    }
-
-    SupabaseSync.remove(DB.finance, paymentId);
-
-    // ✅ Bug Fix: Explicit activity log with student name + amount detail
-    if (typeof SupabaseSync.logActivity === 'function') {
-      const _s = SupabaseSync.getById(DB.students, studentId);
-      const _sLabel = _s ? `${_s.name} (${_s.student_id})` : studentId;
-      SupabaseSync.logActivity('delete', 'students',
-        `Payment deleted: ${_sLabel} — ${Utils.takaEn(payment.amount)} via ${payment.method || 'N/A'}`);
-    }
-
-    Utils.toast('Payment deleted ✓', 'info');
-    Students.openPayModal(studentId);
-    // ✅ Bug Fix: refresh student list so due/paid totals update immediately
-    render();
-    App.updateNotifCount();
   }
 
   /* ══════════════════════════════════════════
@@ -1673,30 +1678,35 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   async function deleteStudent(id) {
     const s  = SupabaseSync.getById(DB.students, id);
-    const ok = await Utils.confirm(`Delete student "${Utils.esc(s?.name || '')}" and all related payment records?`, 'Delete Student');
-    if (!ok) return;
+    try {
+      const ok = await Utils.confirm(`Delete student "${Utils.esc(s?.name || '')}" and all related payment records?`, 'Delete Student');
+      if (!ok) return;
 
-    // এই student-এর সব finance payment খুঁজে account balance reverse করো
-    const allFinance = SupabaseSync.getAll(DB.finance);
-    // Match by UUID or legacy student_id string
-    const studentPayments = allFinance.filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s?.student_id));
-    studentPayments.forEach(f => {
-      if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out', true);
+      // এই student-এর সব finance payment খুঁজে account balance reverse করো
+      const allFinance = SupabaseSync.getAll(DB.finance);
+      // Match by UUID or legacy student_id string
+      const studentPayments = allFinance.filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s?.student_id));
+      studentPayments.forEach(f => {
+        if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+          SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out', true);
+        }
+        SupabaseSync.remove(DB.finance, f.id);
+      });
+
+      // ✅ FIX: Get student data BEFORE deletion to log correctly
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('delete', 'students', 
+          `Deleted student: ${s?.name || 'Unknown'} (ID: ${s?.student_id || 'N/A'})`
+        );
       }
-      SupabaseSync.remove(DB.finance, f.id);
-    });
-
-    // ✅ FIX: Get student data BEFORE deletion to log correctly
-    if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'students', 
-        `Deleted student: ${s?.name || 'Unknown'} (ID: ${s?.student_id || 'N/A'})`
-      );
+      SupabaseSync.remove(DB.students, id);
+      Utils.toast(`Student deleted — ${studentPayments.length} payment(s) also moved to RecycleBin`, 'info');
+      render();
+      App.updateNotifCount();
+    } catch (e) {
+      console.error('[deleteStudent] Error:', e);
+      Utils.toast('Student delete failed: ' + (e.message || e), 'error');
     }
-    SupabaseSync.remove(DB.students, id);
-    Utils.toast(`Student deleted — ${studentPayments.length} payment(s) also moved to RecycleBin`, 'info');
-    render();
-    App.updateNotifCount();
   }
 
   /* ══════════════════════════════════════════

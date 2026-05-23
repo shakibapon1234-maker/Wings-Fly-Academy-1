@@ -48,6 +48,7 @@ export default [
         FaceIDModule: "readonly",
         PatternLockModule: "readonly",
         App: "readonly",
+        SystemDiagnostics: "readonly",
         // ── Capacitor / Mobile ──
         Capacitor: "readonly",
         cordova: "readonly",
