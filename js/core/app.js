@@ -152,6 +152,23 @@ const App = (() => {
     }
   }
 
+  const _isHashedPw = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
+
+  /** Upgrade legacy plaintext admin_password to hash without comparing plaintext at login. */
+  async function _ensureHashedAdminPassword(settings) {
+    const pw = settings?.admin_password;
+    if (!pw || _isHashedPw(pw)) return pw;
+    const upgradedHash = await _hashPw(pw);
+    settings.admin_password = upgradedHash;
+    if (settings.id) {
+      SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
+    } else {
+      settings.id = SupabaseSync.generateId();
+      SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
+    }
+    return upgradedHash;
+  }
+
   const TITLES = {
     dashboard:      'Welcome back, Admin!',
     students:       '👩‍🎓 Students',
@@ -262,16 +279,15 @@ const App = (() => {
     const settingsList = SupabaseSync.getAll(DB.settings);
     // Prefer the row that has admin_password set (guards against partial duplicates)
     const settings = settingsList.find(s => s.admin_password) || settingsList[0] || {};
-    const storedPw = settings.admin_password;
     const normalizedUsername = String(username || '').trim();
 
 
     // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
-      const _isHashed = (s) => /^[0-9a-f]{64}$/.test(s) || (s || '').startsWith('fb_');
       let adminOk;
+      const hashedStoredPw = await _ensureHashedAdminPassword(settings);
 
-      if (!storedPw) {
+      if (!hashedStoredPw) {
         // ✅ Fix #1 (enhanced): Only allow first-time setup if there is truly NO data yet.
         // If students/finance records exist, we're on a new browser before sync — refuse login.
         const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
@@ -304,21 +320,9 @@ const App = (() => {
             SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
           }
         }
-      } else if (_isHashed(storedPw)) {
-        // Stored password is hashed — hash input and compare
-        const inputHash = await _hashPw(password);
-        adminOk = inputHash === storedPw;
       } else {
-        // ✅ Fix C-02: Legacy plaintext comparison — force-migrate to hash immediately
-        adminOk = password === storedPw;
-        if (adminOk) {
-          // Upgrade: replace plaintext with hash now so plaintext is never stored again
-          const upgradedHash = await _hashPw(password);
-          settings.admin_password = upgradedHash;
-          if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
-          }
-        }
+        const inputHash = await _hashPw(password);
+        adminOk = inputHash === hashedStoredPw;
       }
 
       if (adminOk) {

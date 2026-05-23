@@ -181,6 +181,9 @@ const DB = {
   keep_records:     'keep_records',
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
+  // Aliases — certificate/id-card data lives on students until dedicated tables exist
+  certificates:     'students',
+  id_cards:         'students',
 };
 
 // Static reminder only — app cannot read Supabase RLS status from the browser.

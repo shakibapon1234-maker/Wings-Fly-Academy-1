@@ -2,7 +2,7 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260517-balance-integrity';
+const DEPLOY_ID = '20260522-bugfix-audit';
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
@@ -55,9 +55,7 @@ const STATIC_ASSETS = [
   './js/core/offline-mode.js',
   './js/core/loading-state.js',
   './js/core/system-diagnostics.js',
-  // ✅ Bug #7 Fix: voice-assistant.js is lazy-loaded in app.js via requestIdleCallback/setTimeout.
-  // Removing from STATIC_ASSETS to prevent SW install conflict (fetch handler will cache lazily).
-  // './js/modules/voice-assistant.js',
+  './js/modules/voice-assistant.js',
   './js/modules/command-palette.js',
   './js/modules/face-id.js',
   './js/modules/pattern-lock.js',

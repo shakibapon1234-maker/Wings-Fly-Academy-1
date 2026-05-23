@@ -1,32 +1,32 @@
 // ============================================================
-// Wings Fly Aviation Academy â€” Supabase Sync Engine + CRUD
+// Wings Fly Aviation Academy — Supabase Sync Engine + CRUD
 // Phase 11: IndexedDB Storage (No 5MB limit)
 // ============================================================
 //
-// â”€â”€ STORAGE MIGRATION: localStorage â†’ IndexedDB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// —— STORAGE MIGRATION: localStorage → IndexedDB ——
 //
-// à¦†à¦—à§‡:  wfa_students, wfa_finance_ledger à¦‡à¦¤à§à¦¯à¦¾à¦¦à¦¿ â†’ localStorage (5MB limit)
-// à¦à¦–à¦¨:  à¦‰à¦ªà¦°à§‡à¦° à¦¸à¦¬ table data â†’ IndexedDB (500MB+ limit)
+// Before: wfa_students, wfa_finance_ledger etc. → localStorage (5MB limit)
+// Now:   all table data → IndexedDB (500MB+ limit)
 //
-// à¦›à§‹à¦Ÿ meta-data (device_id, retry_queue, deletedItems, activity_log,
-// recent_changes, recycle_bin, wfa_auto_snapshots) à¦à¦–à¦¨à§‹ localStorage-à¦
-// à¦¥à¦¾à¦•à§‡ â€” à¦à¦—à§à¦²à§‹ à¦•à¦–à¦¨à§‹ à¦¬à¦¡à¦¼ à¦¹à¦¯à¦¼ à¦¨à¦¾à¥¤
+// Small meta-data (device_id, retry_queue, deletedItems, activity_log,
+// recent_changes, recycle_bin, wfa_auto_snapshots) stays in localStorage
+// — these do not grow large.
 //
-// à¦¬à¦¾à¦•à¦¿ à¦¸à¦¬ code à¦¹à§à¦¬à¦¹à§ à¦à¦•à¦‡ â€” à¦¶à§à¦§à§ getAll/setAll à¦à¦° storage backend à¦¬à¦¦à¦²à§‡à¦›à§‡à¥¤
+// All modules still use getAll/setAll — only the storage backend changed.
 // ============================================================
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// WFA_IDB â€” IndexedDB Wrapper (Async â†’ Sync-like bridge)
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────
+// WFA_IDB — IndexedDB Wrapper (Async → Sync-like bridge)
+// ─────────────────────────────────────────────────────────────
 //
-// IndexedDB naturally async, à¦•à¦¿à¦¨à§à¦¤à§ SupabaseSync à¦à¦° getAll/setAll
-// synchronousà¥¤ à¦¤à¦¾à¦‡ à¦†à¦®à¦°à¦¾ à¦à¦•à¦Ÿà¦¿ in-memory cache à¦°à¦¾à¦–à¦¬:
-//   - App load à¦¹à¦²à§‡ IndexedDB à¦¥à§‡à¦•à§‡ à¦¸à¦¬ data memory-à¦¤à§‡ load à¦¹à¦¬à§‡
-//   - getAll() â†’ memory à¦¥à§‡à¦•à§‡ à¦¤à¦¾à§Žà¦•à§à¦·à¦£à¦¿à¦• return à¦•à¦°à¦¬à§‡ (synchronous)
-//   - setAll() â†’ memory à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à¦¬à§‡ + async IndexedDB-à¦¤à§‡ write à¦•à¦°à¦¬à§‡
+// IndexedDB is async, but SupabaseSync getAll/setAll are synchronous.
+// We keep an in-memory cache:
+//   - On app load, all IDB data is loaded into memory
+//   - getAll() → returns from memory (synchronous)
+//   - setAll() → updates memory + async write to IndexedDB
 //
-// à¦à¦¤à§‡ à¦•à¦°à§‡ à¦ªà§à¦°à§‹ SupabaseSync API synchronous-à¦‡ à¦¥à¦¾à¦•à¦¬à§‡à¥¤
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// This keeps the SupabaseSync API synchronous for callers.
+// ─────────────────────────────────────────────────────────────
 
 const WFA_IDB = (() => {
   const DB_NAME    = 'WingsAcademyDB';
@@ -38,7 +38,7 @@ const WFA_IDB = (() => {
   let _ready = false;
   let _readyCallbacks = [];
 
-  // IndexedDB open à¦•à¦°à§‹
+  // Open IndexedDB
   function _openDB() {
     return new Promise((resolve, reject) => {
       const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -65,7 +65,7 @@ const WFA_IDB = (() => {
     });
   }
 
-  // IndexedDB à¦¥à§‡à¦•à§‡ à¦¸à¦¬ table data à¦à¦•à¦¬à¦¾à¦°à§‡ load à¦•à¦°à§‡ memory-à¦¤à§‡ à¦°à¦¾à¦–à§‹
+  // Load all table data from IndexedDB into memory cache
   async function _loadAllIntoCache(db) {
     return new Promise((resolve, reject) => {
       const tx    = db.transaction(STORE_NAME, 'readonly');
@@ -124,13 +124,13 @@ const WFA_IDB = (() => {
     return _writeQueue;
   }
 
-  // Initialize â€” app load-à¦ à¦à¦•à¦¬à¦¾à¦° call à¦•à¦°à¦¤à§‡ à¦¹à¦¬à§‡
+  // Initialize — call once on app load
   async function init() {
     try {
       _db = await _openDB();
       await _loadAllIntoCache(_db);
 
-      // â”€â”€ localStorage à¦¥à§‡à¦•à§‡ à¦ªà§à¦°à¦¨à§‹ data migrate à¦•à¦°à§‹ (à¦à¦•à¦¬à¦¾à¦°à¦‡) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+      // One-time migration from localStorage
       await _migrateFromLocalStorage();
 
       _ready = true;
@@ -138,16 +138,16 @@ const WFA_IDB = (() => {
       _readyCallbacks = [];
       console.info('[IDB] IndexedDB ready. Tables cached:', Object.keys(_cache).join(', ') || '(empty)');
     } catch (e) {
-      console.error('[IDB] Init failed â€” falling back to localStorage:', e);
+      console.error('[IDB] Init failed — falling back to localStorage:', e);
       typeof Utils !== 'undefined' && Utils.toast && Utils.toast('Database Storage Init Failed - using temporary cache (incognito mode?).', 'error', 10000);
-      // Fallback: _ready = true à¦•à¦°à§‹ à¦¯à¦¾à¦¤à§‡ app à¦šà¦²à¦¤à§‡ à¦ªà¦¾à¦°à§‡
+      // Fallback: mark ready so the app can still run
       _ready = true;
       _readyCallbacks.forEach(cb => cb());
       _readyCallbacks = [];
     }
   }
 
-  // localStorage-à¦ à¦¯à¦¦à¦¿ à¦ªà§à¦°à¦¨à§‹ wfa_ table data à¦¥à¦¾à¦•à§‡, IndexedDB-à¦¤à§‡ à¦¨à¦¿à¦¯à¦¼à§‡ à¦¯à¦¾à¦“
+  // Migrate legacy wfa_* keys from localStorage into IndexedDB
   async function _migrateFromLocalStorage() {
     const TABLE_KEYS = [
       'students', 'finance_ledger', 'accounts', 'loans', 'exams',
@@ -251,13 +251,13 @@ const WFA_IDB = (() => {
       console.info(`[IDB] Migration: ${migrated} table(s) moved to IndexedDB`);
     }
   }
-  // onReady callback â€” init à¦¶à§‡à¦· à¦¹à¦²à§‡ call à¦•à¦°à¦¬à§‡
+  // onReady callback — run after init completes
   function onReady(cb) {
     if (_ready) { cb(); return; }
     _readyCallbacks.push(cb);
   }
 
-  // â”€â”€ Public API â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // —— Public API ——
 
   // Synchronous read from memory cache
   function getTable(tableName) {
@@ -274,7 +274,7 @@ const WFA_IDB = (() => {
     return _writeQueue;
   }
 
-  // Storage usage â€” cache-à¦à¦° JSON size à¦…à¦¨à§à¦®à¦¾à¦¨ à¦•à¦°à§‹
+  // Storage usage — approximate JSON size in cache
   function getUsageKB() {
     let total = 0;
     for (const [key, rows] of Object.entries(_cache)) {
@@ -298,7 +298,7 @@ const WFA_IDB = (() => {
 
 window.WFA_IDB = WFA_IDB;
 
-// â”€â”€ App à¦¶à§à¦°à§ à¦¹à¦²à§‡ IndexedDB init à¦•à¦°à§‹ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Initialize IndexedDB on app start
 WFA_IDB.init();
 // Best-effort durability: flush pending writes when app goes to background.
 document.addEventListener('visibilitychange', () => {
@@ -308,12 +308,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SupabaseSync â€” CRUD API used by all modules
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ============================================================
+// SupabaseSync — CRUD API used by all modules
 // TABLE_COLUMNS Definition
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ============================================================
 const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
   // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase (sync only these columns)
@@ -337,7 +335,7 @@ const TABLE_COLUMNS = {
 
 const SupabaseSync = (() => {
 
-  // â”€â”€ IDB-backed table storage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // —— IDB-backed table storage ——
   function getAll(table) {
     return WFA_IDB.getTable(table);
   }
@@ -1753,7 +1751,7 @@ const SupabaseSync = (() => {
       const { error } = await client.from(table).delete().eq('id', id);
       if (error) throw error;
     } catch (e) {
-      console.warn('[Sync] Delete from cloud failed â€” queued for retry:', e);
+      console.warn('[Sync] Delete from cloud failed — queued for retry:', e);
       _queueRetry(table, { id, _deleteOnly: true });
     }
   }
@@ -1983,23 +1981,27 @@ const SupabaseSync = (() => {
 window.SupabaseSync = SupabaseSync;
 
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// SyncEngine â€” Pull / Push / Real-time / Multi-user
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ============================================================
+// SyncEngine — Pull / Push / Real-time / Multi-user
+// ============================================================
 const SyncEngine = (() => {
   // ✅ BUG FIX: Do NOT destructure `client` at init time — it may be null during async hydration.
   // Always read window.SUPABASE_CONFIG.client fresh on each operation.
   const { TABLES } = window.SUPABASE_CONFIG;
   function _client() { return window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client; }
+  /** Unique Supabase table names (DB aliases like certificates → students deduped). */
+  function _cloudTableKeys() {
+    return [...new Set(Object.values(TABLES || {}))];
+  }
   let syncInterval = null;
   let realtimeChannels = [];
   let _lastSyncTime = 0;
   let _lastPullTimestamp = null;
   const missingTables = new Set();
 
-  // â”€â”€ Storage Size Guard (IndexedDB-aware) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // IndexedDB à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾à¦¯à¦¼ 5MB limit à¦†à¦° à¦¨à§‡à¦‡à¥¤
-  // Warning/Critical threshold à¦…à¦¨à§‡à¦• à¦¬à¦¾à¦¡à¦¼à¦¿à¦¯à¦¼à§‡ à¦¦à§‡à¦“à¦¯à¦¼à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤
+  // —— Storage Size Guard (IndexedDB-aware) ——
+  // IndexedDB removes the old 5MB localStorage cap.
+  // Warning/critical thresholds are set much higher for IDB.
   const STORAGE_WARN_KB  = 204800;  // 200 MB — IndexedDB can hold 500MB+
   const STORAGE_CRIT_KB  = 409600;  // 400 MB — only warn when truly high
 
@@ -2011,7 +2013,7 @@ const SyncEngine = (() => {
     return WFA_IDB.getTableSizeKB(tableKey);
   }
 
-  // IndexedDB-à¦¤à§‡ à¦¸à¦¾à¦§à¦¾à¦°à¦£à¦¤ trim à¦¦à¦°à¦•à¦¾à¦° à¦¹à¦¬à§‡ à¦¨à¦¾ â€” API compatibility-à¦à¦° à¦œà¦¨à§à¦¯ à¦°à¦¾à¦–à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡
+  // Trim helper kept for API compatibility (rarely needed with IndexedDB)
   function _trimLargeTableForStorage(tableKey, keepCount) {
     try {
       const rows = SupabaseSync.getAll(tableKey);
@@ -2029,7 +2031,7 @@ const SyncEngine = (() => {
     if (usageKB >= STORAGE_CRIT_KB) {
       console.warn(`[Storage] IndexedDB usage high: ${usageKB} KB`);
       if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(`ðŸ“¦ Local data ${Math.round(usageKB/1024)} MB â€” à¦ªà§à¦°à¦¨à§‹ data archive à¦•à¦°à§à¦¨à¥¤`, 'warn');
+        Utils.toast(`Local data ${Math.round(usageKB/1024)} MB — consider archiving old records.`, 'warn');
       }
     } else if (usageKB >= STORAGE_WARN_KB) {
       console.warn(`[Storage] IndexedDB warning: ${usageKB} KB used`);
@@ -2080,7 +2082,7 @@ const SyncEngine = (() => {
 
       let hasChanges = false;
 
-      for (const key of Object.values(TABLES)) {
+      for (const key of _cloudTableKeys()) {
         if (missingTables.has(key)) continue;
 
         let query = client.from(key).select('*');
@@ -2097,6 +2099,7 @@ const SyncEngine = (() => {
         if (error) {
           if (
             error.code === '42P01' ||
+            error.status === 404 ||
             error.message?.includes('does not exist') ||
             error.message?.includes('relation') ||
             error.message?.includes('could not find')
@@ -2208,7 +2211,7 @@ const SyncEngine = (() => {
       if (!silent && typeof Utils !== 'undefined') {
         const mode = isFullPull ? 'Full sync' : 'Incremental sync';
         Utils.toast(
-          hasChanges ? `${mode} complete â€” à¦¨à¦¤à§à¦¨ data à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦—à§‡à¦›à§‡ âœ…` : `${mode} complete â€” à¦¸à¦¬ up to date âœ…`,
+          hasChanges ? `${mode} complete — new data pulled` : `${mode} complete — all up to date`,
           'success'
         );
       }
@@ -2427,7 +2430,7 @@ const SyncEngine = (() => {
         return;
       }
 
-      for (const key of Object.values(TABLES)) {
+      for (const key of _cloudTableKeys()) {
         if (missingTables.has(key)) continue;
         const rows = SupabaseSync.getAll(key);
         if (!rows.length) continue;
@@ -2454,7 +2457,7 @@ const SyncEngine = (() => {
     if (!client?.channel) return;
     stopRealtime();
 
-    for (const key of Object.values(TABLES)) {
+    for (const key of _cloudTableKeys()) {
       try {
         const channel = client
           .channel(`realtime:${key}`)
@@ -2589,7 +2592,7 @@ const SyncEngine = (() => {
               const t = r.updated_at || r.created_at || '';
               return t > max ? t : max;
             }, '')
-          : 'â€”',
+          : '—',
       };
     }
     return stats;
