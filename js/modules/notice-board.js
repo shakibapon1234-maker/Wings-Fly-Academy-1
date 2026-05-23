@@ -413,11 +413,11 @@ const NoticeBoardModule = (() => {
       expires_at: new Date(Date.now() + durationMinutes * 60 * 1000).toISOString(),
       is_pinned: false,
     };
-    if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id);
-    SupabaseSync.insert(DB.notices, payload);
+    if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id, { bypassLog: true });
+    SupabaseSync.insert(DB.notices, payload, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('add', 'notices', 
-        `Published notice: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`
+      SupabaseSync.logActivity('add', 'notices',
+        `নোটিশ প্রকাশ: "${text.substring(0, 80)}${text.length > 80 ? '…' : ''}" (${type}, ${durationMinutes} মিনিট)`
       );
     }
     Utils.toast('নোটিশ সফলভাবে প্রকাশিত হয়েছে!', 'success');
@@ -430,10 +430,11 @@ const NoticeBoardModule = (() => {
     if (!id) return;
     const ok = await Utils.confirm('এই নোটিশটি স্থায়ীভাবে মুছে ফেলবেন?', 'মুছে ফেলুন');
     if (!ok) return;
-    SupabaseSync.remove(DB.notices, id);
+    const victim = SupabaseSync.getById(DB.notices, id);
+    SupabaseSync.remove(DB.notices, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'notices', 
-        `Deleted notice`
+      SupabaseSync.logActivity('delete', 'notices',
+        `নোটিশ মুছে ফেলা: "${(victim?.title || victim?.text || 'Untitled').substring(0, 80)}"`
       );
     }
     if (activeNotice && activeNotice.id === id) { activeNotice = null; hideBanner(); }
@@ -444,10 +445,10 @@ const NoticeBoardModule = (() => {
   async function deleteActive() {
     const ok = await Utils.confirm('সক্রিয় নোটিশ বন্ধ করবেন?', 'নোটিশ বন্ধ');
     if (!ok) return;
-    if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id);
+    if (activeNotice?.id) SupabaseSync.remove(DB.notices, activeNotice.id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'notices', 
-        `Deactivated notice`
+      SupabaseSync.logActivity('delete', 'notices',
+        `সক্রিয় নোটিশ বন্ধ: "${(activeNotice?.title || activeNotice?.text || '').substring(0, 80)}"`
       );
     }
     activeNotice = null;

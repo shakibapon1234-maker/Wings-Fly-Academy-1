@@ -339,18 +339,18 @@ const HRStaff = (() => {
     };
 
     if (editingId) {
-      SupabaseSync.update(DB.staff, editingId, entry);
+      SupabaseSync.update(DB.staff, editingId, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'hr-staff', 
-          `Updated staff: ${entry.name} (${entry.role})`
+        SupabaseSync.logActivity('edit', 'hr-staff',
+          `স্টাফ আপডেট: ${entry.name} (${entry.staffId || entry.staff_id || ''}) — ${entry.role}${entry.department ? ' — ' + entry.department : ''}`
         );
       }
       Utils.toast('Staff Info Updated ✓', 'success');
     } else {
-      SupabaseSync.insert(DB.staff, entry);
+      SupabaseSync.insert(DB.staff, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'hr-staff', 
-          `Added staff: ${entry.name} (${entry.role}) - Dept: ${entry.department}`
+        SupabaseSync.logActivity('add', 'hr-staff',
+          `স্টাফ যোগ: ${entry.name} (${entry.staffId || entry.staff_id || ''}) — ${entry.role}${entry.department ? ' — ' + entry.department : ''}`
         );
       }
       Utils.toast('New Staff Added ✓', 'success');
@@ -369,12 +369,12 @@ const HRStaff = (() => {
     const s = SupabaseSync.getById(DB.staff, id);
     if (!s) return;
     const newStatus = s.status === 'Active' ? 'Inactive' : 'Active';
-    SupabaseSync.update(DB.staff, id, { status: newStatus });
-    
+    SupabaseSync.update(DB.staff, id, { status: newStatus }, { bypassLog: true });
+
     // ✅ লজিক ৬: Status update specific activity log
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('update', 'hr-staff',
-        `Staff Status Updated: ${s.name} → ${newStatus}`);
+        `স্টাফ স্ট্যাটাস: ${s.name} — ${s.status} → ${newStatus}`);
     }
 
     render();
@@ -387,10 +387,10 @@ const HRStaff = (() => {
     const label = staffData?.name || 'Unknown';
     const ok = await Utils.confirm(`"${label}"-কে ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Staff');
     if (!ok) return;
-    SupabaseSync.remove(DB.staff, id);
+    SupabaseSync.remove(DB.staff, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'hr-staff', 
-        `Deleted staff: ${label} (${staffData?.role || 'N/A'})`
+      SupabaseSync.logActivity('delete', 'hr-staff',
+        `স্টাফ মুছে ফেলা: ${label} (${staffData?.role || 'N/A'})`
       );
     }
     render();

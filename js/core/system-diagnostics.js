@@ -93,7 +93,7 @@ const SystemDiagnostics = (() => {
         created_at:     new Date().toISOString(),
       };
 
-      const created = SupabaseSync.insert(DB.students, dummy);
+      const created = SupabaseSync.insert(DB.students, dummy, { bypassLog: true });
       if (!created || !created.id) throw new Error('CREATE failed — SupabaseSync.insert() returned nothing.');
       studentUuid = created.id;
       _log(`Student created. UUID: ${studentUuid}`, 'success');
@@ -121,12 +121,12 @@ const SystemDiagnostics = (() => {
         note:       'Auto-generated diagnostic payment',
         created_at: new Date().toISOString(),
       };
-      const addedFin = SupabaseSync.insert(DB.finance, payment);
+      const addedFin = SupabaseSync.insert(DB.finance, payment, { bypassLog: true });
       if (!addedFin || !addedFin.id) throw new Error('FINANCE INSERT failed.');
       financeUuid = addedFin.id;
 
       // Update student balances as the app would
-      SupabaseSync.update(DB.students, studentUuid, { paid: 3000, due: 7000 });
+      SupabaseSync.update(DB.students, studentUuid, { paid: 3000, due: 7000 }, { bypassLog: true });
       const afterPay = SupabaseSync.getById(DB.students, studentUuid);
       if (afterPay.paid !== 3000 || afterPay.due !== 7000) {
         throw new Error(`Balance MISMATCH after payment. paid=${afterPay.paid}, due=${afterPay.due}`);
@@ -137,7 +137,7 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 4 — Student UPDATE', 'header');
 
-      SupabaseSync.update(DB.students, studentUuid, { name: 'System Test Student [UPDATED]', status: 'Inactive' });
+      SupabaseSync.update(DB.students, studentUuid, { name: 'System Test Student [UPDATED]', status: 'Inactive' }, { bypassLog: true });
       const afterEdit = SupabaseSync.getById(DB.students, studentUuid);
       if (afterEdit.name !== 'System Test Student [UPDATED]') throw new Error('UPDATE failed — name not changed.');
       if (afterEdit.status !== 'Inactive') throw new Error('UPDATE failed — status not changed.');
@@ -147,11 +147,11 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 5 — Finance Rollback (DELETE payment)', 'header');
 
-      SupabaseSync.remove(DB.finance, financeUuid);
+      SupabaseSync.remove(DB.finance, financeUuid, { bypassLog: true });
       financeUuid = null; // consumed
 
       // Reverse balance as app rollback logic does
-      SupabaseSync.update(DB.students, studentUuid, { paid: 0, due: 10000 });
+      SupabaseSync.update(DB.students, studentUuid, { paid: 0, due: 10000 }, { bypassLog: true });
       const afterRollback = SupabaseSync.getById(DB.students, studentUuid);
       if (afterRollback.paid !== 0 || afterRollback.due !== 10000) {
         throw new Error(`Rollback MISMATCH. paid=${afterRollback.paid}, due=${afterRollback.due}`);
@@ -162,7 +162,7 @@ const SystemDiagnostics = (() => {
       await _wait(500);
       _log('PHASE 6 — Student DELETE (To Recycle Bin)', 'header');
 
-      SupabaseSync.remove(DB.students, studentUuid);
+      SupabaseSync.remove(DB.students, studentUuid, { bypassLog: true });
 
       const afterDelete = SupabaseSync.getById(DB.students, studentUuid);
       if (afterDelete) throw new Error('DELETE failed — student still in active database.');
@@ -193,13 +193,13 @@ const SystemDiagnostics = (() => {
       const activeFinance = SupabaseSync.getAll(DB.finance) || [];
       const diagnosticPayments = activeFinance.filter(f => f.ref_id === studentUuid || f.note === 'Auto-generated diagnostic payment');
       for (const p of diagnosticPayments) {
-        SupabaseSync.remove(DB.finance, p.id);
+        SupabaseSync.remove(DB.finance, p.id, { bypassLog: true });
       }
       _log(`Moved ${diagnosticPayments.length} active diagnostic payment(s) to Recycle Bin.`, 'info');
 
       // 2. Delete student to move to recycle bin
       const targetStudentUuid = studentUuid;
-      SupabaseSync.remove(DB.students, studentUuid);
+      SupabaseSync.remove(DB.students, studentUuid, { bypassLog: true });
       studentUuid = null; // consumed
 
       // 3. Purge all diagnostic items permanently from the recycle bin
@@ -230,11 +230,11 @@ const SystemDiagnostics = (() => {
           const activeFinance = SupabaseSync.getAll(DB.finance) || [];
           const diagnosticPayments = activeFinance.filter(f => f.ref_id === studentUuid || f.note === 'Auto-generated diagnostic payment');
           for (const p of diagnosticPayments) {
-            SupabaseSync.remove(DB.finance, p.id);
+            SupabaseSync.remove(DB.finance, p.id, { bypassLog: true });
           }
-          SupabaseSync.remove(DB.students, studentUuid);
+          SupabaseSync.remove(DB.students, studentUuid, { bypassLog: true });
         } else if (financeUuid) {
-          SupabaseSync.remove(DB.finance, financeUuid);
+          SupabaseSync.remove(DB.finance, financeUuid, { bypassLog: true });
         }
         
         // Purge recycle bin of all test items

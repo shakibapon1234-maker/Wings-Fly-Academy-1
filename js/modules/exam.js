@@ -463,11 +463,11 @@ const Exam = (() => {
     const status = Utils.formVal('gf-status');
     if (!grade) { Utils.toast('Please select a grade', 'error'); return; }
     // ✅ LOGIC #3: Sync
-    SupabaseSync.update(DB.exams, id, { grade, marks, status });
+    SupabaseSync.update(DB.exams, id, { grade, marks, status }, { bypassLog: true });
     // ✅ LOGIC #6: Activity log
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('edit', 'exams',
-        `Grade assigned: ${e?.student_name||'Unknown'} (${e?.student_id||''}) — ${e?.subject||''} → Grade: ${grade}, Number: ${marks}%, Status: ${status}`
+        SupabaseSync.logActivity('edit', 'exams',
+        `গ্রেড নির্ধারণ: ${e?.student_name||'Unknown'} (${e?.student_id||''}) — ${e?.subject||''} → গ্রেড: ${grade}, নম্বর: ${marks}%, স্ট্যাটাস: ${status}`
       );
     }
     Utils.toast('Grade Saved ✓', 'success');
@@ -565,7 +565,7 @@ const Exam = (() => {
             if (oldFinEntry.method && typeof SupabaseSync.updateAccountBalance === 'function') {
               SupabaseSync.updateAccountBalance(oldFinEntry.method, Utils.safeNum(oldFinEntry.amount), 'out', true);
             }
-            SupabaseSync.remove(DB.finance, oldFinEntry.id);
+            SupabaseSync.remove(DB.finance, oldFinEntry.id, { bypassLog: true });
           }
           // Create new finance entry if fee > 0
           if (fee > 0 && method) {
@@ -576,7 +576,7 @@ const Exam = (() => {
               amount:      fee,
               method,
               date:        examDate,
-            });
+            }, { bypassLog: true });
             if (typeof SupabaseSync.updateAccountBalance === 'function') {
               SupabaseSync.updateAccountBalance(method, fee, 'in');
             }
@@ -585,21 +585,21 @@ const Exam = (() => {
       }
 
       // ✅ LOGIC #3
-      SupabaseSync.update(DB.exams, editingId, record);
+      SupabaseSync.update(DB.exams, editingId, record, { bypassLog: true });
       // ✅ LOGIC #6
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'exams',
-          `Exam updated: ${subject} — ${studentName} (${studentId}) তারিখ: ${Utils.formatDateDMY(examDate)}`
+          `পরীক্ষা আপডেট: ${subject} — ${studentName} (${studentId}) তারিখ: ${Utils.formatDateDMY(examDate)}`
         );
       }
       Utils.toast('Exam info updated ✓', 'success');
     } else {
       // ✅ LOGIC #3
-      SupabaseSync.insert(DB.exams, record);
+      SupabaseSync.insert(DB.exams, record, { bypassLog: true });
       // ✅ LOGIC #6
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'exams',
-          `Exam registered: ${subject} — ${studentName} (${studentId}) তারিখ: ${Utils.formatDateDMY(examDate)}`
+          `পরীক্ষা তালিকায় নতুন এন্ট্রি: ${subject} — ${studentName} (${studentId}) তারিখ: ${Utils.formatDateDMY(examDate)}`
         );
       }
       Utils.toast('Exam Registration Completed ✓', 'success');
@@ -614,12 +614,12 @@ const Exam = (() => {
           amount:      fee,
           method,
           date:        examDate,
-        });
+        }, { bypassLog: true });
         SupabaseSync.updateAccountBalance(method, fee, 'in');
         // ✅ LOGIC #6
         if (typeof SupabaseSync.logActivity === 'function') {
           SupabaseSync.logActivity('payment', 'exams',
-            `Exam Fee: ${studentName} (${studentId}) — ${subject} ৳${Utils.formatMoneyPlain(fee)} via ${method} — তারিখ: ${Utils.formatDateDMY(examDate)}`
+            `পরীক্ষা ফি: ${studentName} (${studentId}) — ${subject} ৳${Utils.formatMoneyPlain(fee)} (${method}) — তারিখ: ${Utils.formatDateDMY(examDate)}`
           );
         }
       }
@@ -647,17 +647,17 @@ const Exam = (() => {
       );
       if (fin && fin.method) {
         SupabaseSync.updateAccountBalance(fin.method, Utils.safeNum(fin.amount), 'out', true);
-        SupabaseSync.remove(DB.finance, fin.id);
+        SupabaseSync.remove(DB.finance, fin.id, { bypassLog: true });
       }
     }
 
     // ✅ LOGIC #2: remove() auto-sends to recycle bin
-    SupabaseSync.remove(DB.exams, id);
+    SupabaseSync.remove(DB.exams, id, { bypassLog: true });
 
     // ✅ LOGIC #6: Log
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('delete', 'exams',
-        `Exam → Recycle Bin: ${entry?.student_name||'Unknown'} — ${entry?.subject||'Unknown'} (${Utils.formatDateDMY(entry?.exam_date)})`
+        `পরীক্ষা রিসাইকেল বিনে: ${entry?.student_name||'Unknown'} — ${entry?.subject||'Unknown'} (${Utils.formatDateDMY(entry?.exam_date)})`
       );
     }
     Utils.toast('রিসাইকেল বিনে পাঠানো হয়েছে। পুনরুদ্ধারের জন্য Recycle Bin দেখুন।', 'info');

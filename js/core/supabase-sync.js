@@ -429,18 +429,19 @@ const SupabaseSync = (() => {
     rows.unshift(record);
     setAll(table, rows);
     _logRecentChange(table, 'insert', record);
-    if (!options.bypassLog) {
+    if (!options.bypassLog && !_isDiagnosticRecord(table, record)) {
       _logActivity('add', table, _humanReadableLog('add', table, record));
     }
     _pushRecord(table, record);
     return record;
   }
 
-  function update(table, id, partial) {
+  function update(table, id, partial, options = {}) {
     const rows = getAll(table);
     const idx = rows.findIndex(r => r.id === id);
     if (idx >= 0) {
-      const merged = { ...rows[idx], ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
+      const oldRow = rows[idx];
+      const merged = { ...oldRow, ...partial, updated_at: new Date().toISOString(), _device: _deviceId() };
       // Logic #1 fix: edit করার সময় date field পরিবর্তন হলে created_at-ও সেই অনুযায়ী update হবে।
       // এতে sort order সর্বদা import/input date অনুযায়ী থাকবে।
       const dateField = _TABLE_DATE_FIELD[table];
@@ -450,7 +451,9 @@ const SupabaseSync = (() => {
       rows[idx] = merged;
       setAll(table, rows);
       _logRecentChange(table, 'update', rows[idx]);
-      _logActivity('edit', table, _humanReadableLog('edit', table, rows[idx]));
+      if (!options.bypassLog && !_isDiagnosticRecord(table, merged)) {
+        _logActivity('edit', table, _humanReadableLog('edit', table, merged, { old: oldRow, partial }));
+      }
       _pushRecord(table, rows[idx]);
     }
   }
@@ -463,7 +466,7 @@ const SupabaseSync = (() => {
     if (victim) {
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
-      if (!options.bypassLog) {
+      if (!options.bypassLog && !_isDiagnosticRecord(table, victim)) {
         _logActivity('delete', table, _humanReadableLog('delete', table, victim));
       }
     }
@@ -895,8 +898,120 @@ const SupabaseSync = (() => {
   const _DEDUP_WINDOW_MS = 5000;
   const _DEDUP_TYPES = new Set(['settings', 'category']);
 
+  const _LOG_SKIP_KEYS = new Set(['id', 'created_at', 'updated_at', '_device', '_inserted_at', 'admin_password', 'security_answer']);
+
+  const _TABLE_FIELD_LABELS = {
+    finance_ledger: {
+      type: 'ধরন', category: 'ক্যাটাগরি', amount: 'পরিমাণ', method: 'পেমেন্ট মাধ্যম',
+      date: 'তারিখ', description: 'বিবরণ', note: 'নোট', person_name: 'ব্যক্তি',
+    },
+    students: {
+      name: 'নাম', student_id: 'রেজি. নং', phone: 'ফোন', course: 'কোর্স', batch: 'ব্যাচ',
+      total_fee: 'মোট ফি', paid: 'পরিশোধ', due: 'বকেয়া', status: 'স্ট্যাটাস',
+    },
+    loans: {
+      person_name: 'ব্যক্তি', type: 'ধরন', amount: 'পরিমাণ', method: 'মাধ্যম',
+      date: 'তারিখ', status: 'স্ট্যাটাস', note: 'নোট',
+    },
+    salary: {
+      staffName: 'স্টাফ', staff_name: 'স্টাফ', month: 'মাস', baseSalary: 'মূল বেতন',
+      bonus: 'বোনাস', deduction: 'কাটা', paidAmount: 'পরিশোধ', method: 'মাধ্যম', paid: 'স্ট্যাটাস',
+    },
+    exams: {
+      student_name: 'ছাত্র/ছাত্রী', subject: 'বিষয়', exam_date: 'পরীক্ষার তারিখ',
+      grade: 'গ্রেড', marks: 'নম্বর', status: 'স্ট্যাটাস', exam_fee: 'ফি',
+    },
+    accounts: { name: 'একাউন্ট', balance: 'ব্যালেন্স', type: 'ধরন' },
+    attendance: { entityName: 'নাম', date: 'তারিখ', status: 'উপস্থিতি' },
+    visitors: { name: 'নাম', phone: 'ফোন', purpose: 'উদ্দেশ্য', status: 'স্ট্যাটাস' },
+    staff: { name: 'নাম', role: 'ভূমিকা', phone: 'ফোন', status: 'স্ট্যাটাস' },
+    notices: { title: 'শিরোনাম', text: 'বিষয়বস্তু', type: 'ধরন' },
+  };
+
+  const _SETTINGS_FIELD_LABELS = {
+    academy_name:       'একাডেমির নাম',
+    academy_address:    'ঠিকানা',
+    academy_phone:      'ফোন',
+    academy_email:      'ইমেইল',
+    monthly_target:     'মাসিক লক্ষ্য',
+    running_batch:      'চলমান ব্যাচ',
+    expense_start_date: 'ব্যয় শুরুর তারিখ',
+    expense_end_date:   'ব্যয় শেষ তারিখ',
+    expense_month:      'ব্যয় মাস',
+    theme:              'থিম',
+    primary_color:      'প্রাইমারি রঙ',
+    currency:           'মুদ্রা',
+    timezone:           'টাইমজোন',
+    logo_url:           'লোগো',
+    income_categories:  'আয়ের ক্যাটাগরি',
+    expense_categories: 'ব্যয়ের ক্যাটাগরি',
+    courses:            'কোর্স তালিকা',
+    employee_roles:     'কর্মচারীর ভূমিকা',
+    admin_username:     'অ্যাডমিন ইউজারনেম',
+    exam_questions:     'পরীক্ষার প্রশ্ন',
+    exam_settings:      'পরীক্ষা সেটিংস',
+  };
+
+  function _isDiagnosticRecord(table, r) {
+    if (!r || typeof r !== 'object') return false;
+    const studentsTable = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
+    const financeTable  = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    if (table === studentsTable) {
+      const sid  = String(r.student_id || '');
+      const name = String(r.name || '');
+      if (sid.startsWith('DIAG-TEST-') || name.includes('System Test Student') ||
+          r.batch === 'Batch-DIAG' || r.course === 'Diagnostics Course') return true;
+    }
+    if (table === financeTable) {
+      if (r.note === 'Auto-generated diagnostic payment') return true;
+      const ref = String(r.ref_id || '');
+      if (ref && ref.length > 10) {
+        const st = getAll(studentsTable).find(s => s.id === ref);
+        if (st && _isDiagnosticRecord(studentsTable, st)) return true;
+      }
+    }
+    return false;
+  }
+
+  function _isDiagnosticActivity(entry) {
+    if (!entry || typeof entry !== 'object') return false;
+    const desc = String(entry.description || '');
+    if (/DIAG-TEST-/i.test(desc)) return true;
+    if (/System Test Student/i.test(desc)) return true;
+    if (/Auto-generated diagnostic payment/i.test(desc)) return true;
+    if (/Batch-DIAG|Diagnostics Course/i.test(desc)) return true;
+    return false;
+  }
+
+  function _fmtLogVal(v) {
+    if (v == null || v === '') return '(খালি)';
+    if (typeof v === 'number') return String(v);
+    const s = String(v);
+    return s.length > 60 ? s.slice(0, 57) + '…' : s;
+  }
+
+  function _describeFieldChanges(table, oldRow, partial) {
+    if (!partial || typeof partial !== 'object') return '';
+    const parts = [];
+    for (const key of Object.keys(partial)) {
+      if (_LOG_SKIP_KEYS.has(key)) continue;
+      const oldVal = oldRow ? oldRow[key] : undefined;
+      const newVal = partial[key];
+      if (JSON.stringify(oldVal) === JSON.stringify(newVal)) continue;
+      const settingsTable = (typeof DB !== 'undefined' && DB.settings) ? DB.settings : 'settings';
+      const tableLabels = _TABLE_FIELD_LABELS[table] || {};
+      const label = (table === 'settings' || table === settingsTable)
+        ? (_SETTINGS_FIELD_LABELS[key] || key)
+        : (tableLabels[key] || key);
+      parts.push(`${label}: "${_fmtLogVal(oldVal)}" → "${_fmtLogVal(newVal)}"`);
+    }
+    return parts.join('; ');
+  }
+
   function _logActivity(action, type, description, status = 'success') {
     try {
+      if (_isDiagnosticActivity({ description })) return;
+
       const now = new Date();
       const nowMs = now.getTime();
 
@@ -1072,12 +1187,27 @@ const SupabaseSync = (() => {
     return map[table] || table;
   }
 
-  function _humanReadableLog(action, table, r) {
+  function _humanReadableLog(action, table, r, ctx = {}) {
     const label    = _tableDisplayName(table);
     const itemName = _recycleDisplayName(table, r);
     switch (action) {
-      case 'add':     return label + '-এ নতুন এন্ট্রি যোগ করা হয়েছে — ' + itemName;
-      case 'edit':    return label + '-এ তথ্য আপডেট করা হয়েছে — ' + itemName;
+      case 'add': {
+        if (table === 'finance_ledger' || table === (typeof DB !== 'undefined' && DB.finance)) {
+          const who = r.person_name || r.description || '';
+          return `আয়-ব্যয় লেজারে যোগ: ${r.category || r.type || '—'} — ${r.type || ''} ৳${Number(r.amount || 0).toLocaleString()}${r.method ? ' (' + r.method + ')' : ''}${who ? ' — ' + who : ''}${r.date ? ' — তারিখ: ' + r.date : ''}`;
+        }
+        return label + '-এ নতুন এন্ট্রি যোগ করা হয়েছে — ' + itemName;
+      }
+      case 'edit': {
+        const changes = _describeFieldChanges(table, ctx.old, ctx.partial);
+        if (changes) {
+          if (table === 'settings' || table === (typeof DB !== 'undefined' && DB.settings)) {
+            return 'সেটিংস আপডেট — ' + changes;
+          }
+          return label + '-এ আপডেট — ' + itemName + ' (' + changes + ')';
+        }
+        return label + '-এ তথ্য আপডেট করা হয়েছে — ' + itemName;
+      }
       case 'delete':  return label + ' থেকে মুছে ফেলা হয়েছে — ' + itemName;
       case 'restore': return 'রিসাইকেল বিন থেকে পুনরুদ্ধার করা হয়েছে — ' + itemName + ' (' + label + ')';
       default:        return label + ': ' + itemName;
@@ -1314,7 +1444,9 @@ const SupabaseSync = (() => {
     const updatedBin = getAll('recycle_bin').filter((_, i) => i !== index);
     setAll('recycle_bin', updatedBin);
     _syncRecycleBinToSettings();
-    _logActivity('restore', table, _humanReadableLog('restore', table, record));
+    if (!_isDiagnosticRecord(table, record)) {
+      _logActivity('restore', table, _humanReadableLog('restore', table, record));
+    }
 
     // ✅ Bug Fix 2 & 4: Restore হলে finance_ledger এবং loans — দুটো table-এর জন্যই
     // monitor-এ log করা হচ্ছে। finance_ledger এর জন্য allowedTypes চেক হবে,
@@ -1421,7 +1553,9 @@ const SupabaseSync = (() => {
 
     if (item?.table && item?.data?.id) {
       untrackDeletion(item.table, item.data.id);
-      _logActivity('delete', item.table, `Permanently deleted ${item.name} from recycle bin`);
+      if (!_isDiagnosticRecord(item.table, item.data)) {
+        _logActivity('delete', item.table, `রিসাইকেল বিন থেকে স্থায়ীভাবে মুছে ফেলা হয়েছে — ${item.name || _recycleDisplayName(item.table, item.data)}`);
+      }
     }
 
     // ✅ BUG #7 FIX: Fresh read করে ID দিয়ে findIndex — index mismatch থেকে রক্ষা
@@ -1820,6 +1954,8 @@ const SupabaseSync = (() => {
     _addToRecycleBinPublic: _addToRecycleBin,
     _syncRecycleBinToSettings,
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
+    isDiagnosticActivity: _isDiagnosticActivity,
+    filterActivityLogs: (logs) => (Array.isArray(logs) ? logs.filter(l => !_isDiagnosticActivity(l)) : []),
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
     _restoredIds,
     _prepareRecordForCloud,

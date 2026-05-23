@@ -459,7 +459,7 @@ const Loans = (() => {
             date:        record.date,
             note:        record.note,
             person_name: person,
-          });
+          }, { bypassLog: true });
         }
 
         // 3. Apply new account balance
@@ -469,15 +469,15 @@ const Loans = (() => {
         }
       }
 
-      SupabaseSync.update(DB.loans, editingId, record);
+      SupabaseSync.update(DB.loans, editingId, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'loans', 
-          `Updated loan record: ${record.person_name} ৳${Utils.formatMoneyPlain(record.amount)}`
+        SupabaseSync.logActivity('edit', 'loans',
+          `লোন আপডেট: ${record.person_name} — ${record.type} ৳${Utils.formatMoneyPlain(record.amount)} (${record.method || '—'}) — তারিখ: ${record.date || '—'}`
         );
       }
       Utils.toast('Loan updated ✓', 'success');
     } else {
-      SupabaseSync.insert(DB.loans, record);
+      SupabaseSync.insert(DB.loans, record, { bypassLog: true });
 
       // ──────────────────────────────────────────────────────
       // Loan দেওয়া = Account থেকে টাকা বের হয় (Expense like)
@@ -496,7 +496,7 @@ const Loans = (() => {
         note:        record.note,
         person_name: person,
         _isLoan:     true,           // flag — Finance UI এ আলাদাভাবে show করতে
-      });
+      }, { bypassLog: true });
 
       // ── Account balance আপডেট ──────────────────────────────────────
       // Loan Given (আমি দিলাম) → account থেকে টাকা বের হয় = 'out'
@@ -509,9 +509,9 @@ const Loans = (() => {
 
       // ✅ লজিক ৬: Loan specific activity log
       if (typeof SupabaseSync.logActivity === 'function') {
-        const actionStr = type === 'Loan Giving' ? 'Given' : 'Received';
+        const actionStr = type === 'Loan Giving' ? 'দেওয়া' : 'নেওয়া';
         SupabaseSync.logActivity('payment', 'loans',
-          `Loan ${actionStr}: ${person} ৳${Utils.formatMoneyPlain(amount)} via ${method}`);
+          `লোন ${actionStr}: ${person} — ৳${Utils.formatMoneyPlain(amount)} (${method}) — তারিখ: ${record.date || '—'}`);
       }
 
       Utils.toast('Loan Added ✓', 'success');
@@ -524,10 +524,10 @@ const Loans = (() => {
   function toggleStatus(id, currentStatus) {
     const newStatus = currentStatus==='Paid'?'Outstanding':'Paid';
     const record = SupabaseSync.getById(DB.loans, id);
-    SupabaseSync.update(DB.loans, id, { status:newStatus });
+    SupabaseSync.update(DB.loans, id, { status:newStatus }, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('update', 'loans',
-        `Loan status changed: ${record?.person_name || id} -> ${newStatus}`);
+        `লোন স্ট্যাটাস পরিবর্তন: ${record?.person_name || id} — ${currentStatus} → ${newStatus}`);
     }
     Utils.toast(`Status Changed: ${newStatus==='Paid'?'Paid':'Due'}`,'info');
     render();
@@ -572,10 +572,10 @@ const Loans = (() => {
     );
 
     // ── 3. Loan record remove ─────────────────────────────────────────────
-    SupabaseSync.remove(DB.loans, id);
+    SupabaseSync.remove(DB.loans, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('delete', 'loans',
-        `Deleted loan: ${record.person_name} (${record.type}) ৳${Utils.formatMoneyPlain(record.amount)}`
+        `লোন মুছে ফেলা: ${record.person_name} — ${record.type} ৳${Utils.formatMoneyPlain(record.amount)} (${record.method || '—'})`
       );
     }
 
@@ -583,7 +583,7 @@ const Loans = (() => {
     // Finance entry নিজে remove করার সময় balance reverse করবে না (_isLoan guard)
     // তাই শুধু data cleanup এর জন্য remove করি — balance আগেই (step 1) ঠিক হয়েছে
     if (linked?.id) {
-      SupabaseSync.remove(DB.finance, linked.id);
+      SupabaseSync.remove(DB.finance, linked.id, { bypassLog: true });
     }
 
     Utils.toast('Loan deleted — balance updated ✓', 'warning');

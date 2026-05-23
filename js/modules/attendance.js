@@ -39,7 +39,7 @@ const Attendance = (() => {
             if (legacyRecords.length > 0) {
               legacyRecords.forEach(r => {
                 if (!r.id) r.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-                SupabaseSync.insert(DB.attendance, r);
+                SupabaseSync.insert(DB.attendance, r, { bypassLog: true });
               });
               records = SupabaseSync.getAll(DB.attendance) || [];
               localStorage.removeItem('wf_attendance');
@@ -355,7 +355,7 @@ const Attendance = (() => {
     const ok = await Utils.confirm(`${label} — মুছে দেবেন? Recycle Bin-এ যাবে।`, 'Delete Attendance Record');
     if (!ok) return;
     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-      SupabaseSync.remove(DB.attendance, id);
+      SupabaseSync.remove(DB.attendance, id, { bypassLog: true });
       records = records.filter(r => r.id !== id);
     }
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
@@ -696,22 +696,22 @@ const Attendance = (() => {
       if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined' && DB.attendance) {
         if (existingIdx >= 0) {
           // আগের record আপডেট করো
-          SupabaseSync.update(DB.attendance, newRecord.id, newRecord);
+          SupabaseSync.update(DB.attendance, newRecord.id, newRecord, { bypassLog: true });
           records[existingIdx] = newRecord;
           // ✅ REQUIREMENT #6: Log activity
           if (typeof SupabaseSync.logActivity === 'function') {
-            SupabaseSync.logActivity('edit', 'attendance', 
-              `Marked ${entityName} as ${status} on ${date}`
+            SupabaseSync.logActivity('edit', 'attendance',
+              `উপস্থিতি আপডেট: ${entityName} — ${date} (${status})${batch ? ' — ব্যাচ: ' + batch : ''}`
             );
           }
         } else {
           // নতুন insert
-          SupabaseSync.insert(DB.attendance, newRecord);
+          SupabaseSync.insert(DB.attendance, newRecord, { bypassLog: true });
           records.push(newRecord);
           // ✅ REQUIREMENT #6: Log activity
           if (typeof SupabaseSync.logActivity === 'function') {
-            SupabaseSync.logActivity('add', 'attendance', 
-              `Marked ${entityName} as ${status} on ${date}`
+            SupabaseSync.logActivity('add', 'attendance',
+              `উপস্থিতি যোগ: ${entityName} — ${date} (${status})${batch ? ' — ব্যাচ: ' + batch : ''}`
             );
           }
         }

@@ -28,9 +28,9 @@ const Accounts = (() => {
         description: `Opening balance for ${accountName}`,
       };
       if (existing) {
-        SupabaseSync.update(DB.finance, existing.id, entry);
+        SupabaseSync.update(DB.finance, existing.id, entry, { bypassLog: true });
       } else if (balance > 0) {
-        SupabaseSync.insert(DB.finance, entry);
+        SupabaseSync.insert(DB.finance, entry, { bypassLog: true });
       }
     } catch (e) {
       console.warn('[Accounts] _upsertOpeningEntry error:', e);
@@ -615,7 +615,7 @@ const Accounts = (() => {
       // Get old balance to calculate difference
       const old = SupabaseSync.getById(DB.accounts, existingId);
       const oldBal = parseFloat(old?.balance) || 0;
-      SupabaseSync.update(DB.accounts, existingId, { type, balance: bal });
+      SupabaseSync.update(DB.accounts, existingId, { type, balance: bal }, { bypassLog: true });
 
       // Adjust opening balance finance entry if balance changed
       if (bal !== oldBal) {
@@ -623,15 +623,15 @@ const Accounts = (() => {
       }
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'accounts',
-          `${accountName} balance updated: ৳${oldBal.toLocaleString()} → ৳${bal.toLocaleString()}`
+          `একাউন্ট ব্যালেন্স আপডেট: ${accountName} — ৳${oldBal.toLocaleString()} → ৳${bal.toLocaleString()}`
         );
       }
     } else {
-      SupabaseSync.insert(DB.accounts, { type, balance: bal });
+      SupabaseSync.insert(DB.accounts, { type, balance: bal }, { bypassLog: true });
       if (bal > 0) _upsertOpeningEntry(accountName, bal);
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'accounts',
-          `${accountName} account created with balance ৳${bal.toLocaleString()}`
+          `নতুন একাউন্ট যোগ: ${accountName} — প্রারম্ভিক ব্যালেন্স ৳${bal.toLocaleString()}`
         );
       }
     }
@@ -698,20 +698,20 @@ const Accounts = (() => {
     if (id) {
        const old = SupabaseSync.getById(DB.accounts, id);
        const oldBal = parseFloat(old?.balance) || 0;
-       SupabaseSync.update(DB.accounts, id, record);
+       SupabaseSync.update(DB.accounts, id, record, { bypassLog: true });
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
-           `Bank account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+           `ব্যাংক একাউন্ট আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.bankName ? ' (' + record.bankName + ')' : ''}`
          );
        }
        Utils.toast('Bank account updated','success');
     } else {
-       SupabaseSync.insert(DB.accounts, record);
+       SupabaseSync.insert(DB.accounts, record, { bypassLog: true });
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('add', 'accounts',
-           `Bank account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+           `ব্যাংক একাউন্ট যোগ: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — A/C: ' + record.accountNo : ''}`
          );
        }
        Utils.toast('Bank account added','success');
@@ -724,10 +724,10 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Bank Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Bank Account')) {
-      SupabaseSync.remove(DB.accounts, id);
+      SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',
-          `Bank account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+          `ব্যাংক একাউন্ট মুছে ফেলা: ${label} — ব্যালেন্স ৳${Number(record?.balance || 0).toLocaleString()}`
         );
       }
       Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
@@ -781,20 +781,20 @@ const Accounts = (() => {
     if (id) {
        const old = SupabaseSync.getById(DB.accounts, id);
        const oldBal = parseFloat(old?.balance) || 0;
-       SupabaseSync.update(DB.accounts, id, record);
+       SupabaseSync.update(DB.accounts, id, record, { bypassLog: true });
        if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
-           `Mobile account updated: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+           `মোবাইল ব্যাংকিং আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
          );
        }
        Utils.toast('Mobile account updated','success');
     } else {
-       SupabaseSync.insert(DB.accounts, record);
+       SupabaseSync.insert(DB.accounts, record, { bypassLog: true });
        if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('add', 'accounts',
-           `Mobile account added: ${name} (Balance: ৳${record.balance.toLocaleString()})`
+           `মোবাইল ব্যাংকিং যোগ: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
          );
        }
        Utils.toast('Mobile account added','success');
@@ -807,10 +807,10 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Mobile Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Mobile Account')) {
-      SupabaseSync.remove(DB.accounts, id);
+      SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',
-          `Mobile account deleted: ${label} (Balance: ৳${Number(record?.balance || 0).toLocaleString()})`
+          `মোবাইল ব্যাংকিং মুছে ফেলা: ${label} — ব্যালেন্স ৳${Number(record?.balance || 0).toLocaleString()}`
         );
       }
       Utils.toast(`"${label}" — Recycle Bin-এ গেছে ✓`, 'warning');
@@ -928,19 +928,19 @@ const Accounts = (() => {
     SupabaseSync.insert(DB.finance, {
       type:'Transfer Out', method:from, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
-    });
+    }, { bypassLog: true });
     SupabaseSync.updateAccountBalance(from, amount, 'out');
-    
+
     SupabaseSync.insert(DB.finance, {
       type:'Transfer In', method:to, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
-    });
+    }, { bypassLog: true });
     SupabaseSync.updateAccountBalance(to, amount, 'in');
 
     // ✅ লজিক ৬: Transfer specific activity log
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('transfer', 'accounts',
-        `Transfer: ${from} → ${to} ৳${Utils.formatMoneyPlain(amount)}`);
+        `একাউন্ট ট্রান্সফার: ${from} → ${to} — ৳${Utils.formatMoneyPlain(amount)}${date ? ' — তারিখ: ' + date : ''}${notes ? ' — নোট: ' + notes : ''}`);
     }
 
     Utils.toast(`Transfer completed ✓`,'success');

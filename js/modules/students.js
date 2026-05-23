@@ -1016,19 +1016,19 @@ const Students = (() => {
       record.paid = effectivePaid;
       record.due  = effectiveDue;
 
-      SupabaseSync.update(DB.students, editingId, record);
+      SupabaseSync.update(DB.students, editingId, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'students',
-          `Updated student: ${name} (ID: ${record.student_id})`
+          `ছাত্র/ছাত্রী আপডেট: ${name} (ID: ${record.student_id})`
         );
       }
       Utils.toast('Student info updated ✓', 'success');
     } else {
       // insert করো এবং UUID সহ returned record রাখো
-      const inserted = SupabaseSync.insert(DB.students, record);
+      const inserted = SupabaseSync.insert(DB.students, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'students', 
-          `Added student: ${name} (ID: ${record.student_id}) - Batch: ${record.batch}`
+        SupabaseSync.logActivity('add', 'students',
+          `ছাত্র/ছাত্রী যোগ: ${name} (ID: ${record.student_id}) — ব্যাচ: ${record.batch}`
         );
       }
       const studentUUID = inserted.id; // UUID — finance ref_id-এ ব্যবহার হবে
@@ -1050,7 +1050,7 @@ const Students = (() => {
             date:        record.admission_date,
             note:        record.note,
             ref_id:      studentUUID, // ✅ UUID — restore logic কাজ করবে
-          });
+          }, { bypassLog: true });
           if (typeof SupabaseSync.updateAccountBalance === 'function') {
             SupabaseSync.updateAccountBalance(method, paid, 'in');
           }
@@ -1106,7 +1106,7 @@ const Students = (() => {
     const newPaid = Utils.safeNum(s.paid) + amount;
     const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
 
-    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
 
     SupabaseSync.insert(DB.finance, {
       type:        'Income',
@@ -1117,14 +1117,14 @@ const Students = (() => {
       date:        Utils.formVal('pay-date') || Utils.today(),
       note:        Utils.formVal('pay-note') || '',
       ref_id:      studentId,
-    });
+    }, { bypassLog: true });
 
     if (typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
     }
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('payment', 'students',
-        'Payment received: ' + s.name + ' (' + s.student_id + ') — \u09F3' + Utils.formatMoneyPlain(amount) + ' via ' + method);
+        'ফি পরিশোধ: ' + s.name + ' (' + s.student_id + ') — ৳' + Utils.formatMoneyPlain(amount) + ' (' + method + ') — বকেয়া: ৳' + Utils.formatMoneyPlain(newDue));
     }
 
     Utils.toast('Payment saved \u2713 \u09F3' + Utils.formatMoneyPlain(amount), 'success');
@@ -1160,7 +1160,7 @@ const Students = (() => {
         // Final: remaining ledger + preserved initial
         const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
         const newDue = Math.max(0, Utils.safeNum(student.total_fee) - newPaid);
-        SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+        SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
       }
 
       // Account balance reverse করো (Income ছিল → 'out' করো)
@@ -1168,14 +1168,14 @@ const Students = (() => {
         SupabaseSync.updateAccountBalance(payment.method, Utils.safeNum(payment.amount), 'out', true);
       }
 
-      SupabaseSync.remove(DB.finance, paymentId);
+      SupabaseSync.remove(DB.finance, paymentId, { bypassLog: true });
 
       // ✅ Bug Fix: Explicit activity log with student name + amount detail
       if (typeof SupabaseSync.logActivity === 'function') {
         const _s = SupabaseSync.getById(DB.students, studentId);
         const _sLabel = _s ? `${_s.name} (${_s.student_id})` : studentId;
         SupabaseSync.logActivity('delete', 'students',
-          `Payment deleted: ${_sLabel} — ${Utils.takaEn(payment.amount)} via ${payment.method || 'N/A'}`);
+          `ফি পেমেন্ট মুছে ফেলা: ${_sLabel} — ${Utils.takaEn(payment.amount)} (${payment.method || 'N/A'})`);
       }
 
       Utils.toast('Payment deleted ✓', 'info');
@@ -1269,7 +1269,7 @@ const Students = (() => {
       method : method,
       date   : Utils.formVal('ep-date') || Utils.today(),
       note   : Utils.formVal('ep-note') || '',
-    });
+    }, { bypassLog: true });
 
     if (typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
@@ -1284,11 +1284,11 @@ const Students = (() => {
     // Preserve any unrecorded initial (s.paid may be higher than ledger)
     const effectivePaid = Math.max(newPaid, Utils.safeNum(s.paid) - Utils.safeNum(oldPayment.amount) + amount);
     const newDue = Math.max(0, Utils.safeNum(s.total_fee) - effectivePaid);
-    SupabaseSync.update(DB.students, studentId, { paid: effectivePaid, due: newDue });
+    SupabaseSync.update(DB.students, studentId, { paid: effectivePaid, due: newDue }, { bypassLog: true });
 
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('edit', 'students',
-        `Payment edited: ${s.name} (${s.student_id}) — ${Utils.takaEn(amount)} via ${method}`);
+        `ফি পেমেন্ট এডিট: ${s.name} (${s.student_id}) — ${Utils.takaEn(amount)} (${method}) — বকেয়া: ৳${Utils.formatMoneyPlain(newDue)}`);
     }
 
     Utils.toast('Payment updated ✓', 'success');
@@ -1357,11 +1357,11 @@ const Students = (() => {
 
     const newPaid = newInitial + sum;
     const newDue  = Math.max(0, totalFee - newPaid);
-    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue });
+    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
 
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('edit', 'students',
-        `Initial payment adjusted: ${s.name} (${s.student_id}) — ৳${newInitial.toLocaleString('en-IN')}`);
+        `প্রাথমিক ফি সমন্বয়: ${s.name} (${s.student_id}) — ৳${newInitial.toLocaleString('en-IN')} — বকেয়া: ৳${Utils.formatMoneyPlain(newDue)}`);
     }
 
     Utils.toast('Initial payment updated ✓', 'success');
@@ -1690,16 +1690,16 @@ const Students = (() => {
         if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
           SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out', true);
         }
-        SupabaseSync.remove(DB.finance, f.id);
+        SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
       });
 
       // ✅ FIX: Get student data BEFORE deletion to log correctly
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('delete', 'students', 
-          `Deleted student: ${s?.name || 'Unknown'} (ID: ${s?.student_id || 'N/A'})`
+        SupabaseSync.logActivity('delete', 'students',
+          `ছাত্র/ছাত্রী মুছে ফেলা: ${s?.name || 'Unknown'} (ID: ${s?.student_id || 'N/A'}) — ${studentPayments.length}টি পেমেন্ট সহ`
         );
       }
-      SupabaseSync.remove(DB.students, id);
+      SupabaseSync.remove(DB.students, id, { bypassLog: true });
       Utils.toast(`Student deleted — ${studentPayments.length} payment(s) also moved to RecycleBin`, 'info');
       render();
       App.updateNotifCount();

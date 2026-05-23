@@ -381,18 +381,18 @@ const VisitorsModule = (() => {
     };
 
     if (editingId) {
-      SupabaseSync.update(DB.visitors, editingId, data);
+      SupabaseSync.update(DB.visitors, editingId, data, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'visitors', 
-          `Updated visitor: ${name} (${phone}) - Status: ${data.status}`
+        SupabaseSync.logActivity('edit', 'visitors',
+          `ভিজিটর আপডেট: ${name} (${phone}) — স্ট্যাটাস: ${data.status}${data.interested_course ? ' — আগ্রহ: ' + data.interested_course : ''}`
         );
       }
       Utils.toast('Visitor updated successfully', 'success');
     } else {
-      SupabaseSync.insert(DB.visitors, data);
+      SupabaseSync.insert(DB.visitors, data, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'visitors', 
-          `Added visitor: ${name} (${phone}) - Interested in: ${data.interested_course}`
+        SupabaseSync.logActivity('add', 'visitors',
+          `ভিজিটর যোগ: ${name} (${phone}) — উদ্দেশ্য: ${data.purpose || '—'}${data.interested_course ? ' — কোর্স: ' + data.interested_course : ''}`
         );
       }
       Utils.toast('Visitor added successfully', 'success');
@@ -406,10 +406,10 @@ const VisitorsModule = (() => {
     const ok = await Utils.confirm('Are you sure you want to delete this visitor?', 'Delete Visitor');
     if (!ok) return;
     const visitorData = SupabaseSync.getById(DB.visitors, id);
-    SupabaseSync.remove(DB.visitors, id);
+    SupabaseSync.remove(DB.visitors, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('delete', 'visitors', 
-        `Deleted visitor: ${visitorData?.name || 'Unknown'} (${visitorData?.phone || 'N/A'})`
+      SupabaseSync.logActivity('delete', 'visitors',
+        `ভিজিটর মুছে ফেলা: ${visitorData?.name || 'Unknown'} (${visitorData?.phone || 'N/A'})`
       );
     }
     render();

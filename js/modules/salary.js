@@ -121,7 +121,7 @@ const Salary = (() => {
     if (typeof Finance !== 'undefined' && typeof Finance.addExternalTransaction === 'function') {
       Finance.addExternalTransaction(entry);
     } else {
-      SupabaseSync.insert(DB.finance, entry);
+      SupabaseSync.insert(DB.finance, entry, { bypassLog: true });
       if (typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(method, payAmount, 'out');
       }
@@ -431,7 +431,7 @@ const Salary = (() => {
       paidDate:   payDate,
       method:     method,
       note:       note || r.note || '',
-    });
+    }, { bypassLog: true });
 
     _logToFinance(r, payAmount, payDate, method);
 
@@ -444,7 +444,7 @@ const Salary = (() => {
     // ✅ লজিক ৫: Specific payment activity log
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('payment', 'salary',
-        'Salary Payment: ' + r.staffName + ' (' + monthLabel(r.month) + ') — ৳' + Utils.formatMoneyPlain(payAmount) + ' via ' + method);
+        'বেতন পরিশোধ: ' + r.staffName + ' (' + monthLabel(r.month) + ') — ৳' + Utils.formatMoneyPlain(payAmount) + ' (' + method + ')');
     }
   }
 
@@ -634,18 +634,18 @@ const Salary = (() => {
 
     var isNew = !editingId;
     if (editingId) {
-      SupabaseSync.update(DB.salary, editingId, entry);
+      SupabaseSync.update(DB.salary, editingId, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'salary',
-          `Salary record updated: ${entry.staffName} — ${entry.month} (Net: ৳${net.toLocaleString()})`
+          `বেতন রেকর্ড আপডেট: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()}, পরিশোধ: ৳${payAmount.toLocaleString()})`
         );
       }
       Utils.toast('Salary record updated ✓', 'success');
     } else {
-      SupabaseSync.insert(DB.salary, entry);
+      SupabaseSync.insert(DB.salary, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'salary',
-          `Salary record added: ${entry.staffName} — ${entry.month} (Net: ৳${net.toLocaleString()})`
+          `বেতন রেকর্ড যোগ: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()})`
         );
       }
       Utils.toast('Salary record saved ✓', 'success');
@@ -671,7 +671,7 @@ const Salary = (() => {
         date:        payDate || Utils.today(),
         note:        'Auto-reversal: paidAmount reduced from ৳' + Utils.formatMoneyPlain(prevPaidAmt) + ' to ৳' + Utils.formatMoneyPlain(payAmount),
         person_name: entry.staffName,
-      });
+      }, { bypassLog: true });
     }
 
     Utils.closeModal();
@@ -693,7 +693,7 @@ const Salary = (() => {
     if (!ok) return;
 
     if (r && !r.name && r.staffName) {
-      SupabaseSync.update(DB.salary, id, { name: r.staffName });
+      SupabaseSync.update(DB.salary, id, { name: r.staffName }, { bypassLog: true });
     }
 
     // ✅ FIX: Salary paid amount থাকলে Finance Expense + Account balance reverse করো
@@ -716,10 +716,10 @@ const Salary = (() => {
       }
     }
 
-    SupabaseSync.remove(DB.salary, id);
+    SupabaseSync.remove(DB.salary, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('delete', 'salary',
-        `Salary record deleted: ${r ? r.staffName : 'Unknown'} — ${r ? (r.month || '') : ''}${paidAmt > 0 ? ' (Finance reversed)' : ''}`
+        `বেতন রেকর্ড মুছে ফেলা: ${r ? r.staffName : 'Unknown'} — ${r ? (r.month || '') : ''}${paidAmt > 0 ? ' (ফাইন্যান্স রিভার্স)' : ''}`
       );
     }
     renderContent();

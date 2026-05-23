@@ -517,10 +517,11 @@ const Finance = (() => {
           SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
         }
       }
-      SupabaseSync.update(DB.finance, editingId, record);
+      SupabaseSync.update(DB.finance, editingId, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'finance', 
-          `Updated transaction: ${type} ৳${Utils.formatMoneyPlain(amount)} via ${method}`
+        const desc = record.description || record.person_name || record.category || '—';
+        SupabaseSync.logActivity('edit', 'finance',
+          `আয়-ব্যয় লেজার আপডেট: ${record.category || type} — ${type} ৳${Utils.formatMoneyPlain(amount)} (${method}) — ${desc}${record.date ? ' — তারিখ: ' + record.date : ''}`
         );
       }
       if (!isLoanType) {
@@ -531,10 +532,11 @@ const Finance = (() => {
       }
       Utils.toast('Transaction updated ✓','success');
     } else {
-      SupabaseSync.insert(DB.finance, record);
+      SupabaseSync.insert(DB.finance, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'finance', 
-          `Added transaction: ${type} ৳${Utils.formatMoneyPlain(amount)} via ${method}`
+        const desc = record.description || record.person_name || '—';
+        SupabaseSync.logActivity('add', 'finance',
+          `আয়-ব্যয় লেজারে যোগ: ${record.category || type} — ${type} ৳${Utils.formatMoneyPlain(amount)} (${method}) — ${desc}${record.date ? ' — তারিখ: ' + record.date : ''}`
         );
       }
       if (!isLoanType) {
@@ -566,7 +568,7 @@ const Finance = (() => {
       note:        entry.note        || '',
       person_name: entry.person_name || '',
     };
-    SupabaseSync.insert(DB.finance, record);
+    SupabaseSync.insert(DB.finance, record, { bypassLog: true });
 
     // ── Account balance স্বয়ংক্রিয় আপডেট ──────────────────────────
     // Expense → balance কমে (out), Income → বাড়ে (in)
@@ -651,16 +653,15 @@ const Finance = (() => {
           // Final paid = remaining ledger + preserved unrecorded initial
           const newPaid = Math.max(0, ledgerAfterDelete + unrecordedInitial);
           const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
-          SupabaseSync.update(DB.students, s.id, { paid: newPaid, due: newDue });
+          SupabaseSync.update(DB.students, s.id, { paid: newPaid, due: newDue }, { bypassLog: true });
         }
       }
     }
-    SupabaseSync.remove(DB.finance, id);
+    SupabaseSync.remove(DB.finance, id, { bypassLog: true });
     if (typeof SupabaseSync.logActivity === 'function') {
-      const typeStr = entry?.type || 'Unknown';
-      const amountStr = entry?.amount ? `৳${Utils.formatMoneyPlain(entry.amount)}` : 'N/A';
-      SupabaseSync.logActivity('delete', 'finance', 
-        `Deleted transaction: ${typeStr} ${amountStr}`
+      const desc = entry?.description || entry?.person_name || entry?.category || '—';
+      SupabaseSync.logActivity('delete', 'finance',
+        `আয়-ব্যয় লেজার থেকে মুছে ফেলা: ${entry?.category || entry?.type || '—'} — ${entry?.type || ''} ৳${entry?.amount ? Utils.formatMoneyPlain(entry.amount) : '0'} (${entry?.method || '—'}) — ${desc}`
       );
     }
     Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');

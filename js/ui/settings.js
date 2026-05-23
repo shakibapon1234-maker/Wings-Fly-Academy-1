@@ -1000,7 +1000,7 @@ const SettingsModule = (() => {
     saveConfig(cfg);
     input.value = '';
     refreshModal();
-    logActivity('add', 'category', `Added "${newItem}" to ${key}`);
+    logActivity('add', 'category', `ক্যাটাগরি যোগ: "${newItem}" — ${key}`);
   }
 
   function removeCategory(key, item) {
@@ -1026,7 +1026,7 @@ const SettingsModule = (() => {
     saveConfig(cfg);
     refreshModal();
     Utils.toast(`"${item}" deleted → Recycle Bin-এ আছে। Restore করতে Recycle Bin দেখুন। 🗑️`, 'info');
-    logActivity('delete', 'category', `Removed "${item}" from ${key}`);
+    logActivity('delete', 'category', `ক্যাটাগরি মুছে ফেলা: "${item}" — ${key}`);
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -1132,7 +1132,7 @@ const SettingsModule = (() => {
     }
 
     // ── 4. Activity log ────────────────────────────────────────────
-    logActivity('edit', 'category', `Renamed "${oldName}" → "${newName}" in ${key}${updatedCount > 0 ? ` (${updatedCount} record${updatedCount>1?'s':''} updated)` : ''}`);
+    logActivity('edit', 'category', `ক্যাটাগরি নাম পরিবর্তন: "${oldName}" → "${newName}" (${key})${updatedCount > 0 ? ` — ${updatedCount}টি রেকর্ড আপডেট` : ''}`);
 
     // ── 5. Toast & refresh ───────────────────────────────────────
     const msg = updatedCount > 0
@@ -3082,10 +3082,10 @@ ${expenseEntries.length > 0 ? `
       const keeper = allSettings.find(s => s.admin_password) || allSettings[0];
       const existingId = keeper.id;
       cfg.id = existingId;
-      SupabaseSync.update(DB.settings, existingId, cfg);
+      SupabaseSync.update(DB.settings, existingId, cfg, { bypassLog: true });
     } else {
       cfg.id = cfg.id || SupabaseSync.generateId();
-      SupabaseSync.insert(DB.settings, cfg);
+      SupabaseSync.insert(DB.settings, cfg, { bypassLog: true });
     }
   }
 
@@ -3189,7 +3189,14 @@ ${expenseEntries.length > 0 ? `
 
   // ─── Activity Log ─────────────────────────────────────────────
   function getActivityLogs() {
-    return Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
+    const raw = Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.filterActivityLogs) {
+      return SupabaseSync.filterActivityLogs(raw);
+    }
+    return raw.filter(l => {
+      const d = String(l.description || '');
+      return !/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment|Batch-DIAG|Diagnostics Course/i.test(d);
+    });
   }
 
   // ✅ Fix: settings.js logActivity এখন SupabaseSync.logActivity ব্যবহার করে
@@ -3283,6 +3290,8 @@ ${expenseEntries.length > 0 ? `
     exams:          { icon:'fa-file-lines',            label:'পরীক্ষা',         color:'#00d9ff' },
     attendance:     { icon:'fa-clipboard-list',        label:'উপস্থিতি',        color:'#00ff88' },
     staff:          { icon:'fa-user-tie',              label:'স্টাফ',           color:'#ffa502' },
+    'hr-staff':     { icon:'fa-user-tie',              label:'স্টাফ',           color:'#ffa502' },
+    finance:        { icon:'fa-money-bill-wave',       label:'আয়-ব্যয় লেজার', color:'#00ff88' },
     settings:       { icon:'fa-gear',                  label:'সেটিংস',          color:'#aaaaaa' },
     security:       { icon:'fa-shield-halved',         label:'নিরাপত্তা',       color:'#ff4757' },
     category:       { icon:'fa-tags',                  label:'ক্যাটাগরি',       color:'#ffd700' },
@@ -3319,7 +3328,12 @@ ${expenseEntries.length > 0 ? `
       return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> কোনো activity নেই</td></tr>`;
 
     // ── Apply filters ────────────────────────────────────────────
-    let items = logs;
+    let items = (typeof SupabaseSync !== 'undefined' && SupabaseSync.filterActivityLogs)
+      ? SupabaseSync.filterActivityLogs(logs)
+      : logs.filter(l => {
+          const d = String(l.description || '');
+          return !/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment/i.test(d);
+        });
     if (filterAction && filterAction !== 'all') items = items.filter(l => l.action === filterAction);
     if (filterType   && filterType   !== 'all') items = items.filter(l => l.type   === filterType);
     if (filterSearch) {
@@ -4795,6 +4809,7 @@ ${expenseEntries.length > 0 ? `
   // ── Academy Info ──────────────────────────────────────────────
   async function saveAcademyInfo() {
     const cfg = getConfig();
+    const prev = { ...cfg };
     cfg.id = cfg.id || SupabaseSync.generateId();
     cfg.academy_name = document.getElementById('set-academy-name')?.value || cfg.academy_name;
     cfg.monthly_target = parseFloat(document.getElementById('set-monthly-target')?.value) || cfg.monthly_target;
@@ -4839,7 +4854,22 @@ ${expenseEntries.length > 0 ? `
     cfg.expense_end_date = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
     _healConfigDateFields(cfg);
     saveConfig(cfg);
-    logActivity('edit', 'settings', 'Updated academy info');
+    const changes = [];
+    if (String(prev.academy_name || '') !== String(cfg.academy_name || '')) {
+      changes.push(`একাডেমির নাম: "${prev.academy_name || '(খালি)'}" → "${cfg.academy_name || '(খালি)'}"`);
+    }
+    if (Number(prev.monthly_target || 0) !== Number(cfg.monthly_target || 0)) {
+      changes.push(`মাসিক লক্ষ্য: ৳${Number(prev.monthly_target || 0).toLocaleString()} → ৳${Number(cfg.monthly_target || 0).toLocaleString()}`);
+    }
+    if (String(prev.running_batch || '') !== String(cfg.running_batch || '')) {
+      changes.push(`চলমান ব্যাচ: "${prev.running_batch || '(খালি)'}" → "${cfg.running_batch || '(খালি)'}"`);
+    }
+    if (String(prev.expense_start_date || '') !== String(cfg.expense_start_date || '')) {
+      changes.push(`ব্যয় শুরুর তারিখ: "${prev.expense_start_date || '(খালি)'}" → "${cfg.expense_start_date || '(খালি)'}"`);
+    }
+    logActivity('edit', 'settings', changes.length
+      ? 'একাডেমি সেটিংস আপডেট — ' + changes.join('; ')
+      : 'একাডেমি সেটিংস সংরক্ষণ (কোনো মান পরিবর্তন হয়নি)');
     Utils.toast('Academy info saved ✅', 'success');
   }
 
