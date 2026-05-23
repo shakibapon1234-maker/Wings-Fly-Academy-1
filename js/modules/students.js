@@ -25,7 +25,7 @@ const Students = (() => {
 
   function _loadFilterState() {
     filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
-    filterCourse = sessionStorage.getItem('wfa_students_course') || '';
+    filterCourse = Utils.decodeHtmlEntities(sessionStorage.getItem('wfa_students_course') || '');
     filterStatus = sessionStorage.getItem('wfa_students_status') || '';
     const savedPage = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
     currentPage = Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1;
@@ -43,6 +43,37 @@ const Students = (() => {
   /* ══════════════════════════════════════════
      MAIN RENDER
   ══════════════════════════════════════════ */
+  function _normCourse(val) {
+    return Utils.decodeHtmlEntities(String(val || '').trim());
+  }
+
+  function _courseOption(c, selectedVal) {
+    const n = _normCourse(c);
+    const sel = selectedVal != null && _normCourse(selectedVal) === n;
+    return `<option value="${Utils.escAttr(n)}"${sel ? ' selected' : ''}>${Utils.esc(n)}</option>`;
+  }
+
+  /** Fix course fields that were saved with repeated &amp; encoding */
+  function _repairCorruptedCourseFieldsOnce(all) {
+    if (sessionStorage.getItem('wfa_students_course_repair_v1')) return false;
+    let fixed = 0;
+    for (const s of all) {
+      if (!s?.course || !s?.id) continue;
+      const clean = _normCourse(s.course);
+      if (clean && clean !== s.course) {
+        SupabaseSync.update(DB.students, s.id, { ...s, course: clean }, { bypassLog: true });
+        fixed++;
+      }
+    }
+    sessionStorage.setItem('wfa_students_course_repair_v1', '1');
+    if (fixed > 0) console.info('[Students] Repaired corrupted course on', fixed, 'record(s)');
+    return fixed > 0;
+  }
+
+  function _normCourseList(list) {
+    return [...new Set((list || []).map(c => _normCourse(c)).filter(Boolean))];
+  }
+
   /** If filters hide every row but data exists, clear filters (fixes blank list until Reset). */
   function _sanitizeStaleFilters(all) {
     if (!all.length) return;
@@ -62,11 +93,12 @@ const Students = (() => {
     const container = document.getElementById('students-content');
     if (!container) return;
 
-    const all      = SupabaseSync.getAll(DB.students);
+    let all      = SupabaseSync.getAll(DB.students);
+    if (_repairCorruptedCourseFieldsOnce(all)) all = SupabaseSync.getAll(DB.students);
     _sanitizeStaleFilters(all);
     // ✅ FIX: batch/course normalize করা হয়েছে যাতে '20' ও 20 (number) একই option হয়
     const batches  = [...new Set(all.map(s => String(s.batch  || '').trim()).filter(Boolean))].sort();
-    const courses  = [...new Set(all.map(s => String(s.course || '').trim()).filter(Boolean))].sort();
+    const courses  = [...new Set(all.map(s => _normCourse(s.course)).filter(Boolean))].sort();
     // ✅ FIX: সর্বশেষ এড করা ডাটা সবার উপরে — created_at (insert time) দিয়ে primary sort,
     // admission_date দিয়ে secondary sort (একই insert time হলে)
     const sorted = [...all].sort((a, b) => {
@@ -110,7 +142,8 @@ const Students = (() => {
         </select>
         <select class="form-control" onchange="Students.onFilter('course',this.value)">
           <option value="">All Courses</option>
-          ${courses.map(c=>`<option value="${c}" ${filterCourse===c?'selected':''}>${c}</option>`).join('')}
+          <option value="">All Courses</option>
+          ${courses.map(c => _courseOption(c, filterCourse)).join('')}
         </select>
         <select class="form-control" onchange="Students.onFilter('status',this.value)">
           <option value="">All Status</option>
@@ -195,7 +228,7 @@ const Students = (() => {
           ${s.email ? `<div style="font-size:0.75rem;color:var(--text-muted)">${Utils.esc(s.email)}</div>` : ''}
         </td>
         <td>${Utils.esc(s.phone)||'—'}</td>
-        <td>${Utils.esc(s.course)||'—'}</td>
+        <td>${Utils.displayText(s.course)||'—'}</td>
         <td>${Utils.esc(s.batch)||'—'}</td>
         <td>${Utils.esc(s.session)||'—'}</td>
         <td style="font-family:var(--font-en)">${Utils.takaEn(s.total_fee)}</td>
@@ -226,7 +259,7 @@ const Students = (() => {
     // ✅ FIX: trim + string comparison — strict equality miss করত যদি batch
     // number হিসেবে store হয় (20 vs '20') বা whitespace থাকে (' 20')
     if (filterBatch)  r = r.filter(s => String(s.batch  || '').trim() === String(filterBatch).trim());
-    if (filterCourse) r = r.filter(s => String(s.course || '').trim() === String(filterCourse).trim());
+    if (filterCourse) r = r.filter(s => _normCourse(s.course) === _normCourse(filterCourse));
     if (filterStatus) r = r.filter(s => (s.status||'Active') === filterStatus);
     return r;
   }
@@ -268,7 +301,7 @@ const Students = (() => {
     const newId = Utils.generateStudentId(all.map(s => s.student_id));
     const today = Utils.today();
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = _normCourseList(cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both']);
 
     Utils.openModal('<i class="fa fa-user-graduate"></i> Add Student', `
       <style>
@@ -407,7 +440,7 @@ const Students = (() => {
               <label class="sf-label">Course <span class="req">*</span></label>
               <select id="sf-course" class="sf-input sf-select">
                 <option value="">-- Select Course --</option>
-                ${courses.map(c => `<option value="${c}">${c}</option>`).join('')}
+                ${courses.map(c => _courseOption(c)).join('')}
               </select>
             </div>
             <div class="sf-field">
@@ -500,7 +533,7 @@ const Students = (() => {
     editingId = id;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
+    const courses = _normCourseList(cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both']);
 
     Utils.openModal('<i class="fa fa-pen"></i> Student Edit', `
       <div class="form-row">
@@ -538,7 +571,7 @@ const Students = (() => {
           <label>Course</label>
           <select id="sf-course" class="form-control">
             <option value="">-- Select Course --</option>
-            ${courses.map(c => `<option value="${c}" ${s.course===c?'selected':''}>${c}</option>`).join('')}
+            ${courses.map(c => _courseOption(c, s.course)).join('')}
           </select>
         </div>
         <div class="form-group">
@@ -802,7 +835,7 @@ const Students = (() => {
         <i class="fa fa-user-graduate" style="font-size:1.5rem;color:var(--brand-primary);"></i>
         <div style="flex:1">
           <div style="font-size:1.05rem;font-weight:800;color:var(--text-primary)">${Utils.esc(s.name)}</div>
-          <div style="font-size:0.82rem;color:var(--text-secondary)">ID: ${Utils.esc(s.student_id)} &nbsp;|&nbsp; ${Utils.esc(s.course||'—')} &nbsp;|&nbsp; Batch: ${Utils.esc(s.batch||'—')}</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary)">ID: ${Utils.esc(s.student_id)} &nbsp;|&nbsp; ${Utils.displayText(s.course||'—')} &nbsp;|&nbsp; Batch: ${Utils.esc(s.batch||'—')}</div>
         </div>
         <button onclick="Students.printReceipt('${id}')" style="padding:8px 16px;background:rgba(255,107,53,0.15);border:1px solid rgba(255,107,53,0.4);color:#ff6b35;border-radius:8px;font-size:0.82rem;font-weight:700;cursor:pointer;white-space:nowrap">
           <i class="fa fa-print"></i> Print
@@ -1003,7 +1036,7 @@ const Students = (() => {
       phone:         phone,
       email:         Utils.formVal('sf-email'),
       father_name:   Utils.formVal('sf-father'),
-      course:        Utils.formVal('sf-course'),
+      course:        _normCourse(Utils.formVal('sf-course')),
       batch:         Utils.formVal('sf-batch'),
       session:       Utils.formVal('sf-session'),
       admission_date:Utils.formVal('sf-date'),
@@ -1572,7 +1605,7 @@ const Students = (() => {
       </div>
       <div class="info-item">
         <span class="info-label">Course</span>
-        <span class="info-value">${Utils.esc(s.course || '—')}</span>
+        <span class="info-value">${Utils.displayText(s.course || '—')}</span>
       </div>
       <div class="info-item">
         <span class="info-label">Batch / Session</span>

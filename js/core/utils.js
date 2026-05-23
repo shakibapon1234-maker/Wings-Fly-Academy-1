@@ -18,6 +18,37 @@ const Utils = (() => {
       .replace(/\//g, '&#x2F;');
   }
 
+  /** Undo repeated HTML entity encoding (e.g. &amp;amp; → &) */
+  function decodeHtmlEntities(str, maxPasses = 8) {
+    if (str === null || str === undefined) return '';
+    let s = String(str);
+    if (!/&(?:#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/i.test(s)) return s;
+    for (let i = 0; i < maxPasses; i++) {
+      const prev = s;
+      if (typeof document !== 'undefined') {
+        const el = document.createElement('textarea');
+        el.innerHTML = prev;
+        s = el.value;
+      } else {
+        s = prev
+          .replace(/&amp;/gi, '&')
+          .replace(/&lt;/gi, '<')
+          .replace(/&gt;/gi, '>')
+          .replace(/&quot;/gi, '"')
+          .replace(/&#0*39;/gi, "'")
+          .replace(/&#x27;/gi, "'")
+          .replace(/&apos;/gi, "'");
+      }
+      if (s === prev) break;
+    }
+    return s;
+  }
+
+  /** Decode entities, then escape — safe for innerHTML text nodes */
+  function displayText(str) {
+    return esc(decodeHtmlEntities(str));
+  }
+
   // Bug #18 Fix: Phone masking — Admin দেখলে full number, অন্যরা masked দেখবে (e.g. 017••••8899)
   function maskPhone(phone) {
     if (!phone) return '—';
@@ -888,7 +919,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc, safeJSON, safeStorageSet, maskPhone,
+      esc, decodeHtmlEntities, displayText, safeJSON, safeStorageSet, maskPhone,
       // Modal
       openModal, closeModal, confirm,
       // Badges
