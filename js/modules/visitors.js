@@ -213,9 +213,9 @@ const VisitorsModule = (() => {
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}"><i class="fa fa-clock"></i> ${v.follow_up_date ? Utils.formatDateDMY(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
-                    <button class="btn btn-secondary btn-sm" data-action="vis-convert" data-id="${v.id}" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
-                    <button class="btn btn-secondary btn-sm" data-action="vis-edit"    data-id="${v.id}" style="border-radius:20px; padding:4px 12px;"><i class="fa fa-pen"></i> Edit</button>
-                    <button class="btn btn-secondary btn-sm" data-action="vis-delete"  data-id="${v.id}" style="border-radius:20px; padding:4px 10px;" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-convert" data-id="${Utils.escAttr(v.id)}" style="border-radius:20px; padding:4px 12px; background:linear-gradient(90deg, #b224ef, #7579ff); color:#fff; border:none;" title="Convert to Student"><i class="fa fa-user-graduate"></i> Convert</button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-edit"    data-id="${Utils.escAttr(v.id)}" style="border-radius:20px; padding:4px 12px;"><i class="fa fa-pen"></i> Edit</button>
+                    <button class="btn btn-secondary btn-sm" data-action="vis-delete"  data-id="${Utils.escAttr(v.id)}" style="border-radius:20px; padding:4px 10px;" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>
                   </td>
                 </tr>
                 `;
@@ -273,7 +273,7 @@ const VisitorsModule = (() => {
           ${years.map(y=>`<option value="${y}"${yyyy===String(y)?' selected':''}>${y}</option>`).join('')}
         </select>
       </div>
-      <input type="hidden" id="${prefix}" value="${dateStr || ''}" />
+      <input type="hidden" id="${prefix}" value="${Utils.escAttr(dateStr || '')}" />
     `;
   }
 
@@ -308,7 +308,7 @@ const VisitorsModule = (() => {
           <select id="vis-reference" class="form-control">
             <option value="">-- Select Reference --</option>
             ${REFERENCE_OPTIONS.map(ref => `
-              <option value="${ref}" ${r?.reference === ref ? 'selected' : ''}>${ref}</option>
+              <option value="${Utils.escAttr(ref)}" ${r?.reference === ref ? 'selected' : ''}>${Utils.esc(ref)}</option>
             `).join('')}
           </select>
         </div>
@@ -342,7 +342,7 @@ const VisitorsModule = (() => {
 
       <div class="form-group full-width">
         <label>Remarks / Notes</label>
-        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${Utils.escAttr(r?.remarks || '')}</textarea>
+        <textarea id="vis-remarks" class="form-control" rows="2" placeholder="Any discussion points...">${Utils.esc(r?.remarks || '')}</textarea>
       </div>
 
       <div class="form-actions" style="justify-content: flex-end; margin-top: 10px;">

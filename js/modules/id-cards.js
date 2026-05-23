@@ -112,7 +112,7 @@ const IDCardsModule = (() => {
               </div>
               <div style="flex:1;">
                 <div style="font-weight:700; color:#fff; font-size:0.92rem;">${Utils.esc(s.name || 'Unknown')}</div>
-                <div style="font-size:0.78rem; color:rgba(6,182,212,0.7); margin-top:2px;">${s.student_id || s.id} &middot; ${s.course || '—'} &middot; Batch ${s.batch || '—'}</div>
+                <div style="font-size:0.78rem; color:rgba(6,182,212,0.7); margin-top:2px;">${Utils.esc(s.student_id || s.id)} &middot; ${Utils.esc(s.course || '—')} &middot; Batch ${Utils.esc(s.batch || '—')}</div>
               </div>
             </div>
             <div style="display:flex; gap:8px;">
@@ -120,14 +120,14 @@ const IDCardsModule = (() => {
                 color:#fff; border:none; padding:7px 0; border-radius:8px; cursor:pointer;
                 font-weight:700; font-size:0.82rem;
                 box-shadow:0 0 10px rgba(6,182,212,0.25);transition:all 0.2s;"
-                onclick="IDCardsModule.previewStudent('${s.id}')">
+                onclick="IDCardsModule.previewStudent('${Utils.escAttr(s.id)}')">
                 <i class="fa fa-id-card"></i> Preview
               </button>
               <button style="flex:1; background:transparent;
                 color:#a855f7; border:1px solid rgba(139,92,246,0.5);
                 padding:7px 0; border-radius:8px; cursor:pointer;
                 font-weight:700; font-size:0.82rem; transition:all 0.2s;"
-                onclick="IDCardsModule.printStudent('${s.id}')">
+                onclick="IDCardsModule.printStudent('${Utils.escAttr(s.id)}')">
                 <i class="fa fa-print"></i> Print
               </button>
             </div>

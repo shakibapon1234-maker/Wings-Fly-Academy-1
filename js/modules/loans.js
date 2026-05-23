@@ -380,7 +380,7 @@ const Loans = (() => {
     // Dropdown rebuild
     const currentVal = sel.value;
     sel.innerHTML = `<option value="">-- Select existing person --</option>`
-      + persons.map(p => `<option value="${p}" ${currentVal===p?'selected':''}>${p}</option>`).join('');
+      + persons.map(p => `<option value="${Utils.escAttr(p)}" ${currentVal === p ? 'selected' : ''}>${Utils.esc(p)}</option>`).join('');
 
     if (hint) hint.textContent = hintMsg;
   }

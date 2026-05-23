@@ -1705,9 +1705,6 @@ const Students = (() => {
 
     const win = window.open('', '_blank', 'width=860,height=900');
     if (!win) { Utils.toast('Popup blocked! Please allow popups.', 'error'); return; }
-    // #region agent log
-    fetch('http://127.0.0.1:7511/ingest/89b1a3f8-1cb5-4ace-8dc0-b3a3e9a59bde',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'acee3e'},body:JSON.stringify({sessionId:'acee3e',runId:'post-fix',hypothesisId:'XSS',location:'students.js:printReceipt',message:'receipt html escaped',data:{nameRaw:!!s.name,nameInHtml:html.includes(Utils.esc(s.name||'')),scriptBlocked:!html.includes('<script>'),noteEscaped:s.note?html.includes(Utils.esc(s.note)):true},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     win.document.write(html);
     win.document.close();
   }

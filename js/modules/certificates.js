@@ -20,11 +20,12 @@ const CertificatesModule = (() => {
   function buildCertHTML(data) {
     const sigShakib = 'assets/shakib_sign.png';
     const sigChairman = 'assets/ferdous_sign.png';
-    const certNumber = data.certNumber || 'WFA-' + new Date().getFullYear();
-    const studentId = typeof Utils !== 'undefined' ? Utils.esc(data.studentId) : (data.studentId || 'N/A');
-    const courseName = (data.courseName || 'N/A').toUpperCase();
-    const studentName = (data.studentName || 'N/A').toUpperCase();
-    const batch = typeof Utils !== 'undefined' ? Utils.esc(data.batch) : (data.batch || 'N/A');
+    const _esc = (v) => (typeof Utils !== 'undefined' ? Utils.esc(v) : String(v ?? ''));
+    const certNumber = _esc(data.certNumber || 'WFA-' + new Date().getFullYear());
+    const studentId = _esc(data.studentId || 'N/A');
+    const courseName = _esc(data.courseName || 'N/A').toUpperCase();
+    const studentName = _esc(data.studentName || 'N/A').toUpperCase();
+    const batch = _esc(data.batch || 'N/A');
 
     return `
     <div class="cert-v2-container">
@@ -98,7 +99,7 @@ const CertificatesModule = (() => {
   function print(data) {
     const html = buildCertHTML(data);
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate - ${data.studentName || ''}</title>
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate - ${typeof Utils !== 'undefined' ? Utils.esc(data.studentName || '') : (data.studentName || '')}</title>
     <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
@@ -111,7 +112,7 @@ const CertificatesModule = (() => {
   // ══════════════════════════════════════════════════════════
 
   async function generateQRToken(studentDbId) {
-    if (!supabaseClient) { Utils.toast('Supabase connection নেই।', 'error'); return null; }
+    if (!window.supabaseClient) { Utils.toast('Supabase connection নেই।', 'error'); return null; }
     const students = SupabaseSync.getAll(DB.students);
     const s = students.find(st => st.id === studentDbId);
     if (!s) { Utils.toast('Student পাওয়া যায়নি।', 'error'); return null; }
@@ -122,13 +123,13 @@ const CertificatesModule = (() => {
     }
 
     // Check existing token
-    const { data: existing, error: existingErr } = await supabaseClient
+    const { data: existing, error: existingErr } = await window.supabaseClient
       .from('certificate_tokens').select('token').eq('student_id', s.student_id || s.id).eq('is_active', true).maybeSingle();
     if (existing) return existing.token;
     if (existingErr && window.__WFA_DEV__) console.debug('[Certs] Query existing token:', existingErr);
 
     // Create new token
-    const { data, error } = await supabaseClient
+    const { data, error } = await window.supabaseClient
       .from('certificate_tokens')
       .insert({ student_id: s.student_id || s.id, student_db_id: s.id, phone_hash: phone.slice(-4) })
       .select('token').single();
@@ -169,10 +170,10 @@ const CertificatesModule = (() => {
           <strong>URL:</strong> ${certUrl}
         </div>
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="CertificatesModule.downloadQR('${Utils.esc(s.name)}')" style="border-radius:24px;padding:8px 18px;">
+          <button class="btn btn-primary" onclick="CertificatesModule.downloadQR('${Utils.escAttr(s.name)}')" style="border-radius:24px;padding:8px 18px;">
             <i class="fa fa-download"></i> QR ডাউনলোড
           </button>
-          <button class="btn btn-sm" onclick="CertificatesModule.printQRCard('${Utils.esc(s.name)}','${Utils.esc(s.student_id||s.id)}','${Utils.esc(s.course||'')}','${token}')" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
+          <button class="btn btn-sm" onclick="CertificatesModule.printQRCard('${Utils.escAttr(s.name)}','${Utils.escAttr(s.student_id||s.id)}','${Utils.escAttr(s.course||'')}','${Utils.escAttr(token)}')" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
             <i class="fa fa-print"></i> Card Print
           </button>
           <button class="btn btn-sm" onclick="navigator.clipboard.writeText('${certUrl}').then(()=>Utils.toast('Link copied!','success')).catch(()=>{})" style="border-radius:24px;padding:8px 18px;background:var(--sidebar-bg);border:1px solid var(--border);color:var(--text);">
@@ -216,7 +217,7 @@ const CertificatesModule = (() => {
     const certUrl = `${baseUrl}certificate.html?token=${token}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(certUrl)}`;
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Card - ${name}</title>
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Card - ${typeof Utils !== 'undefined' ? Utils.esc(name) : name}</title>
     <style>body{margin:0;background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:'Segoe UI',Arial,sans-serif;}
     .card{width:320px;border:2px solid #1a3a6b;border-radius:16px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.15);}
     .hd{background:linear-gradient(135deg,#1a3a6b,#2563eb);color:#fff;padding:16px;text-align:center;}
@@ -226,8 +227,8 @@ const CertificatesModule = (() => {
     <div class="hd"><div style="font-size:11px;font-weight:700;letter-spacing:0.5px;">WINGS FLY AVIATION ACADEMY</div>
     <div style="font-size:10px;opacity:0.8;margin-top:4px;">Certificate Download QR</div></div>
     <div class="bd"><img src="${qrUrl}" width="160" height="160" style="border-radius:8px;border:3px solid #e2e8f0;">
-    <div style="font-size:15px;font-weight:700;color:#1a1a2e;margin:10px 0 3px;">${name}</div>
-    <div style="font-size:11px;color:#64748b;">${studentId} · ${course}</div>
+    <div style="font-size:15px;font-weight:700;color:#1a1a2e;margin:10px 0 3px;">${typeof Utils !== 'undefined' ? Utils.esc(name) : name}</div>
+    <div style="font-size:11px;color:#64748b;">${typeof Utils !== 'undefined' ? Utils.esc(studentId) : studentId} · ${typeof Utils !== 'undefined' ? Utils.esc(course) : course}</div>
     <div style="font-size:10px;color:#94a3b8;margin-top:8px;font-style:italic;">📱 QR স্ক্যান করুন → Phone দিন → Download</div>
     </div></div>
     <script>window.addEventListener('load',function(){setTimeout(function(){window.print();},800);});}<` + `/script></body></html>`);
@@ -255,8 +256,8 @@ const CertificatesModule = (() => {
         <div style="background:linear-gradient(135deg,#1a3a6b,#2563eb);color:#fff;padding:8px;text-align:center;font-family:Arial;font-size:8px;font-weight:700;">WINGS FLY AVIATION ACADEMY</div>
         <div style="padding:10px;text-align:center;background:#fff;font-family:Arial;">
           <img src="${c.qrUrl}" width="130" height="130" style="border-radius:6px;border:2px solid #e2e8f0;">
-          <div style="font-size:11px;font-weight:700;color:#1a1a2e;margin:6px 0 2px;">${c.name}</div>
-          <div style="font-size:9px;color:#64748b;">${c.studentId} · ${c.course}</div>
+          <div style="font-size:11px;font-weight:700;color:#1a1a2e;margin:6px 0 2px;">${Utils.esc(c.name)}</div>
+          <div style="font-size:9px;color:#64748b;">${Utils.esc(c.studentId)} · ${Utils.esc(c.course)}</div>
           <div style="font-size:8px;color:#94a3b8;margin-top:5px;">📱 Scan → Phone দিন → Download</div>
         </div>
       </div>`).join('');
@@ -320,7 +321,7 @@ const CertificatesModule = (() => {
               </div>
               <div style="flex:1;">
                 <div style="font-weight:600;color:var(--text);">${Utils.esc(s.name || 'Unknown')}</div>
-                <div style="font-size:0.82rem;color:var(--text-muted);">${s.student_id || s.id} · ${s.course || '—'} · ${s.batch || '—'}</div>
+                <div style="font-size:0.82rem;color:var(--text-muted);">${Utils.esc(s.student_id || s.id)} · ${Utils.esc(s.course || '—')} · ${Utils.esc(s.batch || '—')}</div>
                 ${s.phone
                   ? `<div style="font-size:0.75rem;color:var(--text-muted);"><i class="fa fa-phone" style="color:#22c55e;"></i> ${Utils.esc(s.phone)}</div>`
                   : `<div style="font-size:0.75rem;color:#ef4444;"><i class="fa fa-triangle-exclamation"></i> Phone নেই</div>`}
@@ -328,15 +329,15 @@ const CertificatesModule = (() => {
             </div>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;border:none;padding:6px 0;border-radius:6px;cursor:pointer;"
-                onclick="CertificatesModule.previewForStudent('${s.id}')">
+                onclick="CertificatesModule.previewForStudent('${Utils.escAttr(s.id)}')">
                 <i class="fa fa-eye"></i> Preview
               </button>
               <button class="btn btn-sm" style="flex:1;background:transparent;color:#f59e0b;border:1px solid #f59e0b;padding:6px 0;border-radius:6px;cursor:pointer;"
-                onclick="CertificatesModule.printForStudent('${s.id}')">
+                onclick="CertificatesModule.printForStudent('${Utils.escAttr(s.id)}')">
                 <i class="fa fa-print"></i> Print
               </button>
               <button class="btn btn-sm" style="flex:1;background:linear-gradient(135deg,#1a3a6b,#2563eb);color:#fff;border:none;padding:6px 0;border-radius:6px;cursor:pointer;${!s.phone?'opacity:0.5;cursor:not-allowed;':''}"
-                onclick="${s.phone ? `CertificatesModule.showQRModal('${s.id}')` : `Utils.toast('আগে phone নম্বর যোগ করুন।','error')`}">
+                onclick="${s.phone ? `CertificatesModule.showQRModal('${Utils.escAttr(s.id)}')` : `Utils.toast('আগে phone নম্বর যোগ করুন।','error')`}">
                 <i class="fa fa-qrcode"></i> QR
               </button>
             </div>

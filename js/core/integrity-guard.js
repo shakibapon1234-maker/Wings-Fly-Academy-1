@@ -191,6 +191,30 @@ const IntegrityGuard = (() => {
         critical: true,
         desc: 'Login UI module',
       },
+
+      'CommandPalette': {
+        required: ['init', 'open', 'close'],
+        critical: false,
+        desc: 'Global command palette (Ctrl+K)',
+      },
+
+      'PatternLockModule': {
+        required: ['open', 'close', 'isPatternRegistered'],
+        critical: false,
+        desc: 'Pattern lock login',
+      },
+
+      'BackupRestore': {
+        required: ['exportBackup', 'importBackup'],
+        critical: false,
+        desc: 'Local JSON backup & restore',
+      },
+
+      'AIAssistant': {
+        required: ['init', 'openChat', 'closeChat', 'sendMessage'],
+        critical: false,
+        desc: 'AI assistant chat module',
+      },
     },
 
     // ── DB Table Constants ────────────────────────────────────
@@ -409,7 +433,13 @@ const IntegrityGuard = (() => {
             return { ok: true, detail: 'Skipped — offline (cannot HEAD-check URLs)' };
           }
           try {
-            const files = ['/admin.html', '/exam.html', '/certificate.html', '/assets/Visitor.png'];
+            const files = [
+              '/admin.html',
+              '/exam.html',
+              '/certificate.html',
+              '/visitor-form.html',
+              '/assets/Visitor.png',
+            ];
             const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
             const results = await Promise.all(
               files.map(f =>
@@ -420,7 +450,7 @@ const IntegrityGuard = (() => {
             );
             const missing = results.filter(r => !r.ok).map(r => r.f);
             return missing.length === 0
-              ? { ok: true,  detail: 'All 4 URLs and assets are alive & valid ✅' }
+              ? { ok: true,  detail: `All ${files.length} URLs and assets are alive & valid ✅` }
               : { ok: false, detail: `Missing/Dead files: ${missing.join(', ')}` };
           } catch(e) {
             return { ok: false, detail: e.message };

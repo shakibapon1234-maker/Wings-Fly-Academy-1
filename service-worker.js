@@ -2,10 +2,11 @@
 // Wings Fly Aviation Academy — Service Worker v2
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
-const DEPLOY_ID = '20260517-balance-integrity';
+const DEPLOY_ID = '20260523-xss-exam-sync';
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
+// js/core/types.js is intentionally NOT listed (JSDoc only — never load in browser or SW cache).
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -56,7 +57,7 @@ const STATIC_ASSETS = [
   './js/core/offline-mode.js',
   './js/core/loading-state.js',
   './js/core/system-diagnostics.js',
-  './js/modules/voice-assistant.js',
+  // voice-assistant.js: NOT precached — lazy-loaded after login (see app.js) to avoid OOM on low-memory devices
   './js/modules/command-palette.js',
   './js/modules/face-id.js',
   './js/modules/pattern-lock.js',

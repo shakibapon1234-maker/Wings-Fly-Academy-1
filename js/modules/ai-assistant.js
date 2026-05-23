@@ -789,6 +789,8 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
   };
 })();
 
+window.AIAssistant = AIAssistant;
+
 // Auto-init
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => AIAssistant.init());
 else AIAssistant.init();

@@ -3359,9 +3359,12 @@ ${expenseEntries.length > 0 ? `
       const dev = l.device_id ? String(l.device_id).slice(-6) : '—';
       const ok  = l.status !== 'failed';
       const desc = (l.description || '');
-      const rid  = 'al_' + (l.id||Math.random().toString(36).slice(2));
-      const short= desc.length > 90 ? desc.slice(0,90)+'…' : desc;
+      const rid  = 'al_' + (l.id || Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9_-]/g, '');
+      const short= desc.length > 90 ? desc.slice(0, 90) + '…' : desc;
       const long = desc.length > 90;
+      const descEsc = Utils.esc(desc);
+      const shortEsc = Utils.esc(short);
+      const ridEsc = Utils.escAttr(rid);
 
       let absHtml = '';
       if (absorbed.length) {
@@ -3385,8 +3388,8 @@ ${expenseEntries.length > 0 ? `
           </div>
         </td>
         <td style="padding:9px 7px;max-width:270px">
-          <div id="${rid}_s" style="font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${short}${long?`<span onclick="document.getElementById('${rid}_s').style.display='none';document.getElementById('${rid}_f').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▼ আরও</span>`:''}</div>
-          ${long?`<div id="${rid}_f" style="display:none;font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${desc}<span onclick="document.getElementById('${rid}_f').style.display='none';document.getElementById('${rid}_s').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▲ কম</span></div>`:''}
+          <div id="${ridEsc}_s" style="font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${shortEsc}${long?`<span onclick="document.getElementById('${ridEsc}_s').style.display='none';document.getElementById('${ridEsc}_f').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▼ আরও</span>`:''}</div>
+          ${long?`<div id="${ridEsc}_f" style="display:none;font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${descEsc}<span onclick="document.getElementById('${ridEsc}_f').style.display='none';document.getElementById('${ridEsc}_s').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▲ কম</span></div>`:''}
           ${absHtml}
         </td>
         <td style="padding:9px 7px;white-space:nowrap;font-size:.76rem">

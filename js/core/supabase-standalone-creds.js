@@ -1,4 +1,5 @@
 // Shared Supabase URL/key for standalone HTML pages (certificate, exam, visitor-form, migrate).
+// Audit note: inline fallbacks below are intentional; RLS is ON — anon key is public by Supabase design.
 (function () {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
   const stored = window.__WFA_SUPABASE_CREDS || {};

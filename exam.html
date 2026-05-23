@@ -425,6 +425,8 @@
 </style>
 <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
 <script src="js/core/supabase-secrets.stub.js"></script>
+<script src="js/core/secure-storage.js"></script>
+<script src="js/core/session-store.js"></script>
 <script src="js/core/supabase-standalone-creds.js"></script>
 <script src="js/core/utils.js"></script>
 <script src="js/core/supabase-config.js"></script>
@@ -1380,6 +1382,63 @@ function loadAdminPreview() {
   });
 }
 
+function _examGenerateId() {
+  const ts = Date.now().toString(36).toUpperCase();
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const buf = new Uint32Array(2);
+    crypto.getRandomValues(buf);
+    return ts + buf[0].toString(36).toUpperCase() + buf[1].toString(36).toUpperCase();
+  }
+  return ts + Math.random().toString(36).slice(2, 10).toUpperCase();
+}
+
+/** Upsert exam row in Supabase via REST (student devices have no admin IndexedDB). */
+function syncExamResultToCloud(SUPA_URL, SUPA_KEY, payload) {
+  if (!SUPA_URL || !SUPA_KEY) return Promise.resolve();
+  const headers = {
+    apikey: SUPA_KEY,
+    Authorization: 'Bearer ' + SUPA_KEY,
+    'Content-Type': 'application/json',
+  };
+  const sid = encodeURIComponent(payload.student_id || '');
+  const subj = encodeURIComponent(payload.subject || '');
+  const findUrl = `${SUPA_URL}/rest/v1/exams?student_id=eq.${sid}&subject=eq.${subj}&select=id&limit=1`;
+
+  return fetch(findUrl, { headers })
+    .then(r => (r.ok ? r.json() : []))
+    .then(rows => {
+      const existing = Array.isArray(rows) && rows[0] ? rows[0] : null;
+      const body = {
+        student_id: payload.student_id,
+        student_name: payload.student_name,
+        subject: payload.subject || '',
+        exam_date: payload.exam_date,
+        marks: payload.marks,
+        grade: payload.grade,
+        status: payload.status,
+        note: payload.note,
+      };
+      if (existing && existing.id) {
+        return fetch(`${SUPA_URL}/rest/v1/exams?id=eq.${encodeURIComponent(existing.id)}`, {
+          method: 'PATCH',
+          headers: { ...headers, Prefer: 'return=minimal' },
+          body: JSON.stringify(body),
+        });
+      }
+      const newId = _examGenerateId();
+      return fetch(`${SUPA_URL}/rest/v1/exams`, {
+        method: 'POST',
+        headers: { ...headers, Prefer: 'return=minimal' },
+        body: JSON.stringify({
+          id: newId,
+          reg_id: payload.reg_id || ('EXM-' + newId.slice(-6)),
+          ...body,
+        }),
+      });
+    })
+    .catch(err => console.warn('[Exam] Cloud exams sync failed:', err));
+}
+
 function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
   try {
     const todayISO = new Date().toISOString().split('T')[0];
@@ -1449,49 +1508,27 @@ function saveResult(name, id, correct, total, pct, passed, warnings, subject) {
       })
     }).catch(() => {}); // silent fail if table not created yet
 
-    // 3. Sync to main exams table via SupabaseSync
-    WFA_IDB.onReady(() => {
-      const exams = SupabaseSync.getAll(DB.exams);
-      let reg = exams.find(e => e.student_id === id && (e.subject || '') === (subject || ''));
+    // 3. Upsert main exams table via Supabase REST (student device has no admin IndexedDB)
+    const gradeMap = (p) => {
+      if (p >= 90) return 'A+'; if (p >= 80) return 'A';
+      if (p >= 70) return 'A-'; if (p >= 60) return 'B+';
+      if (p >= 50) return 'B';  if (p >= 40) return 'C';
+      return 'F';
+    };
+    const gradeText  = passed ? gradeMap(pct) : 'F';
+    const statusText = passed ? 'Passed' : 'Failed';
+    const examNote = `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`;
 
-      const gradeMap = (p) => {
-        if (p >= 90) return 'A+'; if (p >= 80) return 'A';
-        if (p >= 70) return 'A-'; if (p >= 60) return 'B+';
-        if (p >= 50) return 'B';  if (p >= 40) return 'C';
-        return 'F';
-      };
-      const gradeText  = passed ? gradeMap(pct) : 'F';
-      const statusText = passed ? 'Passed' : 'Failed';
-
-      if (reg) {
-        SupabaseSync.update(DB.exams, reg.id, {
-          marks:          pct,
-          grade:          gradeText,
-          status:         statusText,
-          subject:        subject || reg.subject || '',
-          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
-          answer_details: JSON.stringify(answerDetails),
-        });
-      } else {
-        SupabaseSync.insert(DB.exams, {
-          reg_id:         'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
-          student_id:     id,
-          student_name:   name,
-          subject:        subject || '',
-          exam_date:      todayISO,
-          marks:          pct,
-          grade:          gradeText,
-          status:         statusText,
-          note:           `Auto-graded | Warnings: ${warnings} | Taken: ${dateDMY} | Correct: ${correct}/${total}`,
-          answer_details: JSON.stringify(answerDetails),
-        });
-      }
-
-      if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'exams',
-          `Online Exam: ${name} (${id}) — ${subject||'—'} | Grade: ${gradeText} | ${pct}% | ${statusText} | ${dateDMY}`
-        );
-      }
+    syncExamResultToCloud(SUPA_URL, SUPA_KEY, {
+      student_id: id,
+      student_name: name,
+      subject: subject || '',
+      exam_date: todayISO,
+      marks: pct,
+      grade: gradeText,
+      status: statusText,
+      note: examNote,
+      reg_id: 'EXM-' + Date.now().toString(36).toUpperCase().slice(-6),
     });
 
   } catch(e) {

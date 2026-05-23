@@ -173,8 +173,10 @@ const CommandPalette = (() => {
         });
     }
 
+    const esc = (v) => (typeof Utils !== 'undefined' ? Utils.esc(v) : String(v ?? ''));
+
     if (currentResults.length === 0) {
-      resultsContainer.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted)">No results for "<strong>${query}</strong>"</div>`;
+      resultsContainer.innerHTML = `<div style="padding:24px;text-align:center;color:var(--text-muted)">No results for "<strong>${esc(query)}</strong>"</div>`;
       return;
     }
 
@@ -187,13 +189,13 @@ const CommandPalette = (() => {
           border-left:3px solid ${isSelected ? '#00d4ff' : 'transparent'};
         ">
           <div style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.05);display:flex;align-items:center;justify-content:center;color:${isSelected ? '#00d4ff' : 'rgba(255,255,255,0.55)'}">
-            <i class="fa ${res.icon}"></i>
+            <i class="fa ${esc(res.icon)}"></i>
           </div>
           <div style="flex:1;min-width:0">
-            <div style="font-size:0.92rem;font-weight:${isSelected ? '600' : '400'};color:${isSelected ? '#fff' : 'rgba(255,255,255,0.8)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${res.title}</div>
-            ${res.subtitle ? `<div style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${res.subtitle}</div>` : ''}
+            <div style="font-size:0.92rem;font-weight:${isSelected ? '600' : '400'};color:${isSelected ? '#fff' : 'rgba(255,255,255,0.8)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(res.title)}</div>
+            ${res.subtitle ? `<div style="font-size:0.73rem;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(res.subtitle)}</div>` : ''}
           </div>
-          <span style="font-size:0.68rem;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.05);color:var(--text-muted);text-transform:uppercase;flex-shrink:0">${res.type}</span>
+          <span style="font-size:0.68rem;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.05);color:var(--text-muted);text-transform:uppercase;flex-shrink:0">${esc(res.type)}</span>
         </div>
       `;
     }).join('');
