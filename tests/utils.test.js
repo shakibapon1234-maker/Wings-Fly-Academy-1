@@ -19,6 +19,29 @@ function esc(str) {
     .replace(/\//g, '&#x2F;');
 }
 
+function decodeHtmlEntities(str, maxPasses = 8) {
+  if (str === null || str === undefined) return '';
+  let s = String(str);
+  if (!/&(?:#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/i.test(s)) return s;
+  for (let i = 0; i < maxPasses; i++) {
+    const prev = s;
+    s = prev
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#0*39;/gi, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&apos;/gi, "'");
+    if (s === prev) break;
+  }
+  return s;
+}
+
+function displayText(str) {
+  return esc(decodeHtmlEntities(str));
+}
+
 // ── Mirror: utils.js → safeNum ──────────────────────────
 function safeNum(val) {
   const n = parseFloat(val);
@@ -62,6 +85,22 @@ function calcStudentDue(totalFee, paid) {
 // ═══════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════
+
+describe('Utils.decodeHtmlEntities', () => {
+  it('single &amp; decode করে', () => {
+    expect(decodeHtmlEntities('Air Ticket &amp; Visa')).toBe('Air Ticket & Visa');
+  });
+
+  it('repeated encoding সরায়', () => {
+    expect(decodeHtmlEntities('Air Ticket &amp;amp;amp; Visa')).toBe('Air Ticket & Visa');
+  });
+});
+
+describe('Utils.displayText', () => {
+  it('decode করে তারপর escape করে', () => {
+    expect(displayText('Tom &amp; Jerry')).toBe('Tom &amp; Jerry');
+  });
+});
 
 describe('Utils.esc — XSS Protection', () => {
   it('script tag escape করে', () => {

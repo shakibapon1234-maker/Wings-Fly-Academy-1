@@ -867,7 +867,7 @@ const SettingsModule = (() => {
       const cfg      = getConfig();
       const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
       const students = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.students) || []) : [];
-      const found    = [...new Set(students.map(s => s.course).filter(Boolean))];
+      const found    = [...new Set(students.map(s => Utils.decodeHtmlEntities(s.course)).filter(Boolean))];
       const toAdd    = found.filter(c => !existing.includes(c));
       if (toAdd.length > 0) {
         cfg.courses = JSON.stringify([...existing, ...toAdd]);

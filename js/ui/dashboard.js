@@ -763,16 +763,8 @@ const DashboardModule = (() => {
       if (window.dashCourseChart) window.dashCourseChart.destroy();
 
       const courseMap = {};
-      const decodeHtml = (html) => {
-        const txt = document.createElement("textarea");
-        txt.innerHTML = html;
-        return txt.value;
-      };
-
       students.forEach(s => {
-        let c = s.course || 'Unknown';
-        c = decodeHtml(c); // Decode HTML entities like &amp;
-        c = decodeHtml(c); // Double decode for cases like &amp;amp;
+        const c = Utils.decodeHtmlEntities(s.course || 'Unknown') || 'Unknown';
         courseMap[c] = (courseMap[c] || 0) + 1;
       });
       const cLabels = Object.keys(courseMap);
