@@ -16,9 +16,17 @@ const Finance = (() => {
   // ✅ Module-level helper: balance direction for a transaction type
   // Returns 'in' (balance বাড়ে) | 'out' (balance কমে) | null (skip)
   function _balanceDir(t) {
-    if (t === 'Income' || t === 'Transfer In')                        return 'in';
-    if (t === 'Expense' || t === 'Transfer Out' || t === 'Investment Out') return 'out';
-    return null; // Loan types handled by loans.js
+    if (t === 'Income' || t === 'Transfer In' || t === 'Loan Receiving' || t === 'Investment In') return 'in';
+    if (t === 'Expense' || t === 'Transfer Out' || t === 'Investment Out' || t === 'Loan Giving') return 'out';
+    return null;
+  }
+
+  /** Running-balance delta aligned with _balanceDir (account ledger direction). */
+  function _ledgerDelta(type, amount) {
+    const dir = _balanceDir(type);
+    if (dir === 'in') return amount;
+    if (dir === 'out') return -amount;
+    return 0;
   }
   let currentPage  = 1;
   let pageSize     = 20;
@@ -54,11 +62,9 @@ const Finance = (() => {
      * When filters are active the view is partial, so we start from 0 instead. */
     const _accts = SupabaseSync.getAll(DB.accounts || 'accounts');
     const _totalStored = _accts.reduce((s, a) => s + Utils.safeNum(a.balance), 0);
-    const _IN_TYPES = new Set(['Income','Loan Receiving','Transfer In','Investment In']);
     let _allNet = 0;
     all.forEach(f => {
-      const amt = Utils.safeNum(f.amount);
-      _allNet += _IN_TYPES.has(f.type) ? amt : -amt;
+      _allNet += _ledgerDelta(f.type, Utils.safeNum(f.amount));
     });
     const _noFilters = !searchQuery && !filterType && !filterMethod && !filterFrom && !filterTo;
     const _initialBal = _noFilters ? (_totalStored - _allNet) : 0;
@@ -84,9 +90,7 @@ const Finance = (() => {
      });
 
      const withBalance = sortedChronologically.map(f=>{
-       const amt = Utils.safeNum(f.amount);
-       if (_IN_TYPES.has(f.type)) running+=amt;
-       else running-=amt;
+       running += _ledgerDelta(f.type, Utils.safeNum(f.amount));
        return {...f, _running: running};
      }).reverse();
 

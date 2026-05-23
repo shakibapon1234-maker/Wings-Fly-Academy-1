@@ -12,9 +12,16 @@ import { describe, it, expect } from 'vitest';
 // ── Mirror: finance.js → _balanceDir ────────────────────
 // Source: js/modules/finance.js, line ~19
 function _balanceDir(type) {
-  if (type === 'Income' || type === 'Transfer In') return 'in';
-  if (type === 'Expense' || type === 'Transfer Out' || type === 'Investment Out') return 'out';
-  return null; // Loan types — loans.js হ্যান্ডেল করে
+  if (type === 'Income' || type === 'Transfer In' || type === 'Loan Receiving' || type === 'Investment In') return 'in';
+  if (type === 'Expense' || type === 'Transfer Out' || type === 'Investment Out' || type === 'Loan Giving') return 'out';
+  return null;
+}
+
+function _ledgerDelta(type, amount) {
+  const dir = _balanceDir(type);
+  if (dir === 'in') return amount;
+  if (dir === 'out') return -amount;
+  return 0;
 }
 
 // ── Mirror: utils.js → safeNum ──────────────────────────
@@ -41,18 +48,7 @@ function calcRunningBalance(transactions) {
 
   let running = 0;
   const rows = sorted.map(f => {
-    const amt = safeNum(f.amount);
-    // finance.js এর running balance logic হুবহু (line 54-56)
-    if (
-      f.type === 'Income' ||
-      f.type === 'Loan Receiving' ||
-      f.type === 'Transfer In' ||
-      f.type === 'Investment In'
-    ) {
-      running += amt;
-    } else {
-      running -= amt;
-    }
+    running += _ledgerDelta(f.type, safeNum(f.amount));
     return { ...f, _running: running };
   });
 
@@ -97,12 +93,12 @@ describe('_balanceDir — Transaction type direction', () => {
     expect(_balanceDir('Investment Out')).toBe('out');
   });
 
-  it('Loan Giving → null (loans.js হ্যান্ডেল করে)', () => {
-    expect(_balanceDir('Loan Giving')).toBeNull();
+  it('Loan Giving → "out" (account balance কমে)', () => {
+    expect(_balanceDir('Loan Giving')).toBe('out');
   });
 
-  it('Loan Receiving → null (loans.js হ্যান্ডেল করে)', () => {
-    expect(_balanceDir('Loan Receiving')).toBeNull();
+  it('Loan Receiving → "in" (account balance বাড়ে)', () => {
+    expect(_balanceDir('Loan Receiving')).toBe('in');
   });
 });
 

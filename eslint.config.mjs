@@ -114,6 +114,16 @@ export default [
     }
   },
   {
+    files: ["tests/**/*.test.js", "vitest.config.js"],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: {
+        ...globals.node
+      }
+    }
+  },
+  {
     // Ignore everything except project source
     ignores: [
       "www/**",

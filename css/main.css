@@ -969,6 +969,11 @@ input:focus, select:focus, textarea:focus {
 .sync-badge.offline { background: var(--warning-bg); color: var(--warning); }
 .sync-badge.error   { background: var(--error-bg);   color: var(--error);   }
 
+/* ── Notice banner (below topbar, clears sidebar on desktop) ─── */
+#noticeBoardBanner {
+  left: var(--sidebar-w);
+}
+
 /* ── Main Content ────────────────────────────────────────────── */
 #main-content {
   margin-left: var(--sidebar-w);
