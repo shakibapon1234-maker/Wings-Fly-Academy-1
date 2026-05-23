@@ -3195,7 +3195,9 @@ ${expenseEntries.length > 0 ? `
     }
     return raw.filter(l => {
       const d = String(l.description || '');
-      return !/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment|Batch-DIAG|Diagnostics Course/i.test(d);
+      if (/DIAG-TEST-|System Test Student|Auto-generated diagnostic payment|Batch-DIAG|Diagnostics Course/i.test(d)) return false;
+      if (l.type === 'settings' && /^সেটিংস-এ (তথ্য আপডেট|নতুন এন্ট্রি)/i.test(d) && /একাডেমি সেটিংস$/i.test(d)) return false;
+      return true;
     });
   }
 
@@ -4927,7 +4929,7 @@ ${expenseEntries.length > 0 ? `
     if (newEl) newEl.value = '';
     if (cfmEl) cfmEl.value = '';
 
-    logActivity('edit', 'security', 'Password changed');
+    logActivity('edit', 'security', 'অ্যাডমিন পাসওয়ার্ড পরিবর্তন করা হয়েছে');
     Utils.toast('Password changed successfully ✅', 'success');
   }
 
@@ -5376,7 +5378,7 @@ ${expenseEntries.length > 0 ? `
             academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
             address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
             // admin_password intentionally excluded — set via Settings → Change Password
-          });
+          }, { bypassLog: true });
           total += 1;
         } else {
           // Existing settings থাকলে শুধু non-sensitive fields আপডেট করো
@@ -5386,7 +5388,7 @@ ${expenseEntries.length > 0 ? `
           delete existingCfg.admin_password;
           const currentPw = existing[0].admin_password;
           if (currentPw) existingCfg.admin_password = currentPw;
-          SupabaseSync.update(DB.settings, existingCfg.id, existingCfg);
+          SupabaseSync.update(DB.settings, existingCfg.id, existingCfg, { bypassLog: true });
         }
       }
     }

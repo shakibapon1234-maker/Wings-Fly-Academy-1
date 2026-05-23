@@ -314,13 +314,13 @@ const LoginUI = (() => {
         const row = allSettings.find(s => s.admin_password) || allSettings[0];
         if (row && row.id) {
           row.admin_password = newHash;
-          window.SupabaseSync.update(window.DB.settings, row.id, row);
+          window.SupabaseSync.update(window.DB.settings, row.id, row, { bypassLog: true });
         } else {
           // কোনো row নেই — নতুন তৈরি করো
           window.SupabaseSync.insert(window.DB.settings, {
             id: window.SupabaseSync.generateId(),
             admin_password: newHash,
-          });
+          }, { bypassLog: true });
         }
       }
 

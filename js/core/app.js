@@ -300,10 +300,10 @@ const App = (() => {
           const newHash = await _hashPw(password);
           settings.admin_password = newHash;
           if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings);
+            SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
           } else {
             settings.id = SupabaseSync.generateId();
-            SupabaseSync.insert(DB.settings, settings);
+            SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
           }
         }
       } else if (_isHashed(storedPw)) {
@@ -318,7 +318,7 @@ const App = (() => {
           const upgradedHash = await _hashPw(password);
           settings.admin_password = upgradedHash;
           if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings);
+            SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
           }
         }
       }
@@ -453,10 +453,10 @@ const App = (() => {
     const newHash = await _hashPw(newPassword);
     fresh.admin_password = newHash;
     if (fresh.id) {
-      SupabaseSync.update(DB.settings, fresh.id, fresh);
+      SupabaseSync.update(DB.settings, fresh.id, fresh, { bypassLog: true });
     } else {
       fresh.id = SupabaseSync.generateId();
-      SupabaseSync.insert(DB.settings, fresh);
+      SupabaseSync.insert(DB.settings, fresh, { bypassLog: true });
     }
     if (typeof Utils !== 'undefined' && Utils.toast) {
       Utils.toast('✅ Password reset successful! Please login again.', 'success', 3000);
@@ -543,7 +543,7 @@ const App = (() => {
           }
         }
         if (needsUpdate) {
-          SupabaseSync.update(DB.settings, keeper.id, keeper);
+          SupabaseSync.update(DB.settings, keeper.id, keeper, { bypassLog: true });
         }
 
         // ✅ সঠিক function: remove (delete নয়) — bypassLog: true কারণ এটি system cleanup, activity log দরকার নেই

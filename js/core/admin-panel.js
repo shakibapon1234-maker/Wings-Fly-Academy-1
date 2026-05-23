@@ -91,8 +91,8 @@ function _migrateExamLocalStorage() {
       localStorage.removeItem('wfa_settings');
     }
     if (changed) {
-      if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
-      else SupabaseSync.insert(DB.settings, cfg);
+      if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
+      else SupabaseSync.insert(DB.settings, cfg, { bypassLog: true });
     }
   } catch (e) { console.warn('[AdminPanel] exam LS migration:', e?.message); }
 }
@@ -112,9 +112,9 @@ function saveQuestions(qs) {
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     cfg.exam_questions = JSON.stringify(qs);
     if (cfg.id) {
-      SupabaseSync.update(DB.settings, cfg.id, cfg);
+      SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
     } else {
-      SupabaseSync.insert(DB.settings, cfg);
+      SupabaseSync.insert(DB.settings, cfg, { bypassLog: true });
     }
   } catch(e) { console.warn('[AdminPanel] saveQuestions failed:', e?.message); }
 }
@@ -331,7 +331,7 @@ function saveSettings() {
   s.examDate = document.getElementById('examDateInput').value;
   const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
   cfg.exam_settings = JSON.stringify(s);
-  if(cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
+  if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
 }
 
 function loadSettings() {
@@ -352,7 +352,7 @@ function toggleExamActive() {
   localStorage.setItem('wfa_settings', JSON.stringify(s));
   const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
   cfg.exam_settings = JSON.stringify(s);
-  if(cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg);
+  if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
   const toggle = document.getElementById('examActiveToggle');
   s.active ? toggle.classList.add('on') : toggle.classList.remove('on');
   renderQuestionList();
