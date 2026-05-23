@@ -172,8 +172,6 @@ const App = (() => {
   let currentSection = 'dashboard';
 
   // ── Auth ───────────────────────────────────────────────────
-  // ── Session expiry constants ────────────────────────────────
-  const SESSION_DURATION_MS = (window.SessionStore && SessionStore.SESSION_DURATION_MS) || (8 * 60 * 60 * 1000);
   const MAX_LOGIN_ATTEMPTS  = 5;
   const LOCKOUT_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 

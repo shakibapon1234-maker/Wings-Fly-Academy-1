@@ -140,33 +140,28 @@ Academy-সংক্রান্ত প্রশ্ন: ছাত্র, ফা�
   function _findStudents(snap, query) {
     const q = (query || '').toLowerCase().trim();
     const digits = q.replace(/\D/g, '');
-    let hits = [];
 
-    // WF- ID
     const idHit = snap.students.filter(s => (s.student_id || '').toLowerCase().includes(q));
     if (idHit.length) return idHit;
 
-    // Phone
     if (digits.length >= 4) {
-      hits = snap.students.filter(s => (s.phone || '').replace(/\D/g, '').includes(digits));
-      if (hits.length) return hits;
+      const phoneHits = snap.students.filter(s => (s.phone || '').replace(/\D/g, '').includes(digits));
+      if (phoneHits.length) return phoneHits;
     }
 
-    // Full/partial name in query
-    hits = snap.students.filter(s => {
+    const nameHits = snap.students.filter(s => {
       const name = (s.name || '').toLowerCase();
       return name.length > 2 && q.includes(name);
     });
-    if (hits.length) return hits;
+    if (nameHits.length) return nameHits;
 
-    // Query words match name tokens (e.g. "karim er due")
     const words = q.split(/[\s,?.!]+/).filter(w => w.length > 2 && !/^(কত|কো|তথ্য|due|info|student|ছাত্র|batch|course|আজ|today|মোট|total|এর|the|a)$/i.test(w));
     if (words.length) {
-      hits = snap.students.filter(s => {
+      const wordHits = snap.students.filter(s => {
         const name = (s.name || '').toLowerCase();
         return words.some(w => name.includes(w));
       });
-      if (hits.length) return hits;
+      if (wordHits.length) return wordHits;
     }
     return [];
   }

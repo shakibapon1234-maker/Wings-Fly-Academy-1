@@ -22,6 +22,7 @@ export default [
         SupabaseAuth: "readonly",
         supabaseClient: "readonly",
         SecureStorage: "readonly",
+        SessionStore: "readonly",
         SyncGuard: "readonly",
         SyncEngine: "readonly",
         I18n: "readonly",

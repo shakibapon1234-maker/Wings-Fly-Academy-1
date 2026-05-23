@@ -837,14 +837,6 @@ const VoiceAssistant = (() => {
     }
   }
 
-  // ★ NEW: Stop continuous listening mode (triggered by Escape key)
-  function stopContinuousListening() {
-    dismissAssistant(true);
-    const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
-    showBubble(msg, false);
-    if (typeof Utils !== 'undefined') Utils.toast(msg, 'success');
-  }
-
   function stopUI() {
     isListening = false;
     isActive = false;  // ✅ ANDROID FIX: Mark as inactive
