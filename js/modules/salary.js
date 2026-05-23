@@ -288,7 +288,9 @@ const Salary = (() => {
       '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:32px;">' +
         '<div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7);">' +
           '<div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTH / YEAR</div>' +
-          '<input type="month" id="salary-month-picker" value="' + cm + '" onchange="Salary.renderContent()" style="background:transparent; border:none; color:#fff; font-size:1.1rem; width:100%; outline:none;" />' +
+          '<label class="salary-month-wrap" for="salary-month-picker" title="মাস পরিবর্তন করুন">' +
+            '<input type="month" id="salary-month-picker" class="salary-month-picker" value="' + cm + '" onchange="Salary.renderContent()" />' +
+          '</label>' +
         '</div>' +
         '<div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7);">' +
           '<div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTHLY BUDGET</div>' +
@@ -495,7 +497,7 @@ const Salary = (() => {
             '</div>' +
           '</div>' +
           '<div class="form-group"><label>Month <span class="req">*</span></label>' +
-            '<input type="month" id="sal-month" class="form-control" value="' + (r ? (r.month || getSelectedMonth()) : getSelectedMonth()) + '" /></div>' +
+            '<input type="month" id="sal-month" class="form-control salary-month-picker" value="' + (r ? (r.month || getSelectedMonth()) : getSelectedMonth()) + '" /></div>' +
         '</div>' +
       '</div>' +
       '<div style="margin-bottom:20px;">' +
