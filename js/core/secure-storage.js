@@ -11,7 +11,11 @@ const SecureStorage = (() => {
   // ── Encryption Config ─────────────────────────────────────
   // Keys to encrypt in localStorage (sensitive data only)
   const SENSITIVE_KEYS = [
-    'wfa_gemini_key',      // Bug #22: AI API key
+    'wfa_gemini_key',
+    'wfa_gemini_key_2',
+    'wfa_gemini_key_3',
+    'wfa_gemini_key_4',
+    'wfa_gemini_key_5',
     'wfa_supabase_url',
     'wfa_supabase_anon_key',
     'wfa_admin_pattern',   // Pattern lock hash

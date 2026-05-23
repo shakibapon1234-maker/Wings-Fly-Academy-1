@@ -6366,38 +6366,58 @@ ${expenseEntries.length > 0 ? `
   function panelAIAssistant() {
     const rawKey = localStorage.getItem('wfa_gemini_key') || '';
     const isEncrypted = rawKey.startsWith('wfa_enc::');
-    const displayKey = isEncrypted ? '•••••••• (Encrypted in SecureStorage)' : rawKey;
+    const displayKey = isEncrypted ? '•••••••• (Encrypted)' : rawKey;
+    const hasBackup2 = !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
+    const hasBackup3 = !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
+    const localOnly = localStorage.getItem('wfa_ai_local_only') !== 'false';
     
     return `
     <div class="settings-panel ${activeTab === 'ai-assistant' ? 'active' : ''}" data-panel="ai-assistant">
       <div class="settings-card glow-cyan">
-        <div class="settings-card-title"><i class="fa fa-robot"></i> AI Assistant Configuration</div>
-        <p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:16px;">
-          আপনার ডিফল্ট API Key লিক হওয়ার কারণে গুগলের সার্ভার থেকে ব্লক করা হয়েছে। দয়া করে আপনার নিজের <strong>Google Gemini API Key</strong> এখানে বসান। 
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:#00d4ff;text-decoration:underline;">এখান থেকে ফ্রিতে API Key তৈরি করুন</a>।
-        </p>
-        
-        <div class="form-group" style="margin-bottom:16px;">
-          <label>Custom Gemini API Key</label>
-          <div style="display:flex;gap:10px;">
-            <input type="password" id="ai-api-key-input" class="form-control" placeholder="AIzaSy..." value="${displayKey}" style="flex:1" />
-            <button class="btn btn-primary" onclick="SettingsModule.saveAIApiKey()">💾 Save Key</button>
-          </div>
-          <small style="color:var(--text-muted);font-size:0.75rem;margin-top:6px;display:block;">
-            * আমরা Gemini 2.0 Flash মডেল ব্যবহার করছি। আপনার নিজের Key দিলে AI আবার আগের মত ফাস্ট ও স্মার্টলি কাজ করবে।
-          </small>
+        <div class="settings-card-title"><i class="fa fa-robot"></i> Academy Assistant</div>
+        <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);padding:14px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;">
+          <strong>✅ API দরকার নেই</strong> — ছাত্র, বকেয়া, আদায়, লেনদেন সব সরাসরি ডাটা থেকে উত্তর। Gemini Key শুধু সাধারণ চ্যাটের জন্য (ঐচ্ছিক)।
         </div>
-        
-        <div style="background:rgba(0,255,136,0.05);border:1px solid rgba(0,255,136,0.2);padding:12px;border-radius:8px;font-size:0.8rem;color:var(--text-primary);">
-          <strong>Gemini 2.0 Flash-এর সুবিধা:</strong>
-          <ul style="margin-top:6px;margin-bottom:0;padding-left:20px;color:var(--text-secondary);">
-            <li>অনেক বেশি দ্রুত (Low Latency)।</li>
-            <li>বাংলা ভাষায় আগের চেয়ে বেশি নিখুঁত ও ন্যাচারাল উত্তর।</li>
-            <li>জটিল হিসাব ও লজিক আরও ভালোভাবে বুঝতে পারা।</li>
-          </ul>
+        <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;font-size:0.9rem;">
+          <input type="checkbox" id="ai-local-only" ${localOnly ? 'checked' : ''} onchange="SettingsModule.toggleAILocalOnly(this.checked)" />
+          <span><strong>Local Only</strong> — API ছাড়াই চালান (সুপারিশকৃত)</span>
+        </label>
+        <details style="margin-bottom:8px;">
+          <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">ঐচ্ছিক: Gemini API Key</summary>
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Primary Gemini API Key</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <input type="password" id="ai-api-key-input" class="form-control" placeholder="AIzaSy..." value="${displayKey}" style="flex:1;min-width:200px" />
+            <button class="btn btn-primary" onclick="SettingsModule.saveAIApiKey()">💾 Save</button>
+            <button class="btn btn-secondary" onclick="SettingsModule.testAIApiKey()">🔍 Test Key</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Backup Keys (limit শেষ হলে auto-switch)</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+            <input type="password" id="ai-api-key-2" class="form-control" placeholder="Backup 2 ${hasBackup2 ? '✓' : ''}" style="flex:1;min-width:160px" />
+            <input type="password" id="ai-api-key-3" class="form-control" placeholder="Backup 3 ${hasBackup3 ? '✓' : ''}" style="flex:1;min-width:160px" />
+            <button class="btn btn-secondary" onclick="SettingsModule.saveAIBackupKeys()">💾 Save Backup</button>
+          </div>
+        </div>
+        </details>
+        <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;">
+          <strong>জিজ্ঞেস করুন:</strong> "সারাংশ", "মোট ছাত্র", "বকেয়া", "আদায়", "আজকের লেনদেন", "[নাম]"
         </div>
       </div>
     </div>`;
+  }
+
+  function toggleAILocalOnly(checked) {
+    if (typeof AIAssistant !== 'undefined' && AIAssistant.setLocalOnlyMode) {
+      AIAssistant.setLocalOnlyMode(checked);
+    } else {
+      localStorage.setItem('wfa_ai_local_only', checked ? 'true' : 'false');
+    }
+    if (typeof Utils !== 'undefined') {
+      Utils.toast(checked ? '✅ Local Only — API লাগবে না' : 'Gemini চ্যাট চালু (Key লাগবে)', 'success');
+    }
+    refreshModal();
   }
 
   async function saveAIApiKey() {
@@ -6420,13 +6440,47 @@ ${expenseEntries.length > 0 ? `
       return;
     }
     
-    localStorage.setItem('wfa_gemini_key', key);
     if (typeof SecureStorage !== 'undefined') {
       try { await SecureStorage.setItem('wfa_gemini_key', key); } catch { /* ignore */ }
+    } else {
+      localStorage.setItem('wfa_gemini_key', key);
     }
     
     if(typeof Utils !== 'undefined') Utils.toast('✅ AI API Key Saved Successfully! AI is now active.', 'success');
     refreshModal();
+  }
+
+  async function _saveGeminiSlot(slotKey, key) {
+    if (!key || key.length < 10) return false;
+    if (typeof SecureStorage !== 'undefined') {
+      try { await SecureStorage.setItem(slotKey, key); return true; } catch { /* ignore */ }
+    }
+    localStorage.setItem(slotKey, key);
+    return true;
+  }
+
+  async function saveAIBackupKeys() {
+    const k2 = (document.getElementById('ai-api-key-2')?.value || '').trim();
+    const k3 = (document.getElementById('ai-api-key-3')?.value || '').trim();
+    let saved = 0;
+    if (k2 && await _saveGeminiSlot('wfa_gemini_key_2', k2)) saved++;
+    if (k3 && await _saveGeminiSlot('wfa_gemini_key_3', k3)) saved++;
+    if (typeof Utils !== 'undefined') {
+      Utils.toast(saved ? `✅ ${saved} backup key saved` : 'Backup key খালি — AIzaSy... বসান', saved ? 'success' : 'warning');
+    }
+    refreshModal();
+  }
+
+  async function testAIApiKey() {
+    if (typeof AIAssistant === 'undefined' || typeof AIAssistant.testApiKey !== 'function') {
+      if (typeof Utils !== 'undefined') Utils.toast('AI Assistant module লোড হয়নি', 'error');
+      return;
+    }
+    if (typeof Utils !== 'undefined') Utils.toast('Key যাচাই হচ্ছে...', 'info', 2000);
+    const result = await AIAssistant.testApiKey();
+    if (typeof Utils !== 'undefined') {
+      Utils.toast(result.message, result.ok ? 'success' : (result.quota ? 'warning' : 'error'), 10000);
+    }
   }
 
   // ════════════════════════════════════════════════════════════════
@@ -6464,6 +6518,9 @@ ${expenseEntries.length > 0 ? `
     rebuildMonitorData,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
     saveAIApiKey,
+    saveAIBackupKeys,
+    testAIApiKey,
+    toggleAILocalOnly,
   };
 })();
 

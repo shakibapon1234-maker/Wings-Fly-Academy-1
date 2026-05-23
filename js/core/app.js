@@ -733,19 +733,12 @@ const App = (() => {
         case 'dashboard':     if (typeof DashboardModule !== 'undefined')    DashboardModule.render(); break;
         case 'students': {
           if (typeof Students !== 'undefined') {
-            // ✅ RACE CONDITION FIX: Instead of arbitrary 60ms delay, check if data
-            // is actually available. If not, wait up to 2s with polling (10ms intervals).
-            const _renderWhenReady = (tries = 0) => {
-              const dataReady = typeof SupabaseSync !== 'undefined' &&
-                                typeof DB !== 'undefined' &&
-                                SupabaseSync.getAll(DB.students) !== null;
-              if (dataReady || tries >= 200) {
-                Students.render();
-              } else {
-                setTimeout(() => _renderWhenReady(tries + 1), 10);
-              }
-            };
-            _renderWhenReady();
+            const _renderStudents = () => { Students.render(); };
+            if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
+              WFA_IDB.onReady(_renderStudents);
+            } else {
+              _renderStudents();
+            }
           }
           break;
         }

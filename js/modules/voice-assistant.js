@@ -286,24 +286,24 @@ const VoiceAssistant = (() => {
       if (e.detail?.section === 'dashboard') setTimeout(greetUser, 1500);
     });
 
-    // ✅ Desktop FIX: Escape key — abort() is stronger than stop(), and _hardStop blocks restart
+    // Escape — stop listening, minimize doll, block auto-restart until user clicks again
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && (isContinuous || isActive || _isSpeaking || isListening)) {
-        e.preventDefault();
-        synth.cancel();       // Stop speech immediately
-        _isSpeaking = false;
-        _hardStop = true;     // Block ALL auto-restarts
-        isContinuous = false;
-        isActive = false;
-        isListening = false;
-        _isRestarting = false;
-        try { recognition && recognition.abort(); } catch { /* ignore */ } // abort() > stop() on desktop
-        stopUI();
-        const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
-        showBubble(msg, false);
-        if (typeof Utils !== 'undefined') Utils.toast(msg, 'success');
+      if (e.key === 'Escape' && btn && !btn.classList.contains('minimized')) {
+        if (isContinuous || isActive || _isSpeaking || isListening) {
+          e.preventDefault();
+          dismissAssistant();
+          const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
+          showBubble(msg, false);
+        }
       }
     });
+
+    // Voice script lazy-loads after login navigate — ensure welcome still plays once per session
+    setTimeout(() => {
+      const loggedIn = (window.SessionStore && SessionStore.isLoggedIn()) ||
+        localStorage.getItem('wfa_logged_in') === 'true';
+      if (loggedIn) greetUser();
+    }, 2000);
   }
 
   /* ════════════════════════════════════════════════
@@ -819,13 +819,27 @@ const VoiceAssistant = (() => {
     } catch(e) { console.warn('[Voice] Start failed:', e); }
   }
 
+  // ★ Stop + minimize doll (Escape / "you can go")
+  function dismissAssistant(silent = false) {
+    synth.cancel();
+    _isSpeaking = false;
+    _hardStop = true;
+    isContinuous = false;
+    isActive = false;
+    isListening = false;
+    _isRestarting = false;
+    try { recognition && recognition.abort(); } catch { /* ignore */ }
+    stopUI();
+    hideBubble();
+    if (btn) btn.classList.add('minimized');
+    if (!silent && typeof Utils !== 'undefined') {
+      Utils.toast(currentLang === 'bn-IN' ? '🛑 Assistant বন্ধ — ক্লিক করলে আবার চালু' : '🛑 Assistant off — click to restart', 'success');
+    }
+  }
+
   // ★ NEW: Stop continuous listening mode (triggered by Escape key)
   function stopContinuousListening() {
-    if (!recognition) return;
-    isContinuous = false;
-    isActive = false;  // ✅ ANDROID FIX: Mark as inactive
-    recognition.stop();
-    stopUI();
+    dismissAssistant(true);
     const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
     showBubble(msg, false);
     if (typeof Utils !== 'undefined') Utils.toast(msg, 'success');
@@ -1675,12 +1689,12 @@ const VoiceAssistant = (() => {
 
     // ── YOU CAN GO NOW (Disable/Dismiss Assistant) ─────────────────
     if (/\b(you can go|go now|dismiss|disable|turn off|shut down|disappear|vanish|যাও|যেতে পারো|বন্ধ করো|চলে যাও|উধাও|হারিয়ে যাও)\b/.test(cmd)) {
-      stopContinuousListening();
       const msg = currentLang === 'bn-IN' 
         ? 'ঠিক আছে স্যার, আমি চলে যাচ্ছি। প্রয়োজন হলে আবার ডাকবেন। বাই!'
         : 'Okay sir, I am going offline now. Call me if you need anything. Bye!';
-      speak(msg);
       showBubble(currentLang === 'bn-IN' ? '👋 চলে গেলাম!' : '👋 Going offline!', false);
+      speak(msg);
+      setTimeout(() => dismissAssistant(true), 4500);
       return;
     }
 
@@ -1995,7 +2009,7 @@ const VoiceAssistant = (() => {
       if (typeof AIAssistant !== 'undefined' && AIAssistant.chat) {
         showBubble('Thinking...', false);
         AIAssistant.chat(raw).then(reply => {
-          if (reply.startsWith('❌') || reply.includes('API Key') || reply.includes('Quota exceeded')) {
+          if (reply.startsWith('❌') || reply.startsWith('⏳')) {
             const shortMsg = currentLang === 'bn-IN' ? 'দুঃখিত স্যার, আপনার এপিআই কোটা শেষ হয়ে গেছে। দয়া করে সেটিংসে গিয়ে নতুন কী দিন।' : 'Sorry sir, your API quota has been exceeded. Please provide a new key in Settings.';
             speak(shortMsg);
             showBubble('❌ API Quota Exceeded. Add new key in Settings.', false);

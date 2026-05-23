@@ -15,9 +15,8 @@ const Students = (() => {
   let currentPage  = 1;
   let pageSize     = 20;
 
-  // ✅ BUG #3 FIX: Filter state persistence
+  // Filter persistence: batch/course/status/page only (search is session-local, not restored)
   function _saveFilterState() {
-    sessionStorage.setItem('wfa_students_search', searchQuery);
     sessionStorage.setItem('wfa_students_batch', filterBatch);
     sessionStorage.setItem('wfa_students_course', filterCourse);
     sessionStorage.setItem('wfa_students_status', filterStatus);
@@ -25,16 +24,16 @@ const Students = (() => {
   }
 
   function _loadFilterState() {
-    searchQuery  = sessionStorage.getItem('wfa_students_search') || '';
     filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
     filterCourse = sessionStorage.getItem('wfa_students_course') || '';
     filterStatus = sessionStorage.getItem('wfa_students_status') || '';
     const savedPage = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
     currentPage = Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1;
+    // Legacy: global search / old builds saved search text — drop so list is not blank
+    sessionStorage.removeItem('wfa_students_search');
   }
 
   function _clearFilterState() {
-    sessionStorage.removeItem('wfa_students_search');
     sessionStorage.removeItem('wfa_students_batch');
     sessionStorage.removeItem('wfa_students_course');
     sessionStorage.removeItem('wfa_students_status');
@@ -44,12 +43,27 @@ const Students = (() => {
   /* ══════════════════════════════════════════
      MAIN RENDER
   ══════════════════════════════════════════ */
+  /** If filters hide every row but data exists, clear filters (fixes blank list until Reset). */
+  function _sanitizeStaleFilters(all) {
+    if (!all.length) return;
+    const hasFilter = searchQuery || filterBatch || filterCourse || filterStatus;
+    if (!hasFilter) return;
+    if (applyFilters(all).length > 0) return;
+    searchQuery = filterBatch = filterCourse = filterStatus = '';
+    currentPage = 1;
+    _clearFilterState();
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast('পুরনো ফিল্টার মিলছিল না — পুরো তালিকা দেখানো হচ্ছে', 'info', 3500);
+    }
+  }
+
   function render() {
-    _loadFilterState(); // ✅ BUG #3 FIX: Restore saved filters
+    _loadFilterState();
     const container = document.getElementById('students-content');
     if (!container) return;
 
     const all      = SupabaseSync.getAll(DB.students);
+    _sanitizeStaleFilters(all);
     // ✅ FIX: batch/course normalize করা হয়েছে যাতে '20' ও 20 (number) একই option হয়
     const batches  = [...new Set(all.map(s => String(s.batch  || '').trim()).filter(Boolean))].sort();
     const courses  = [...new Set(all.map(s => String(s.course || '').trim()).filter(Boolean))].sort();
