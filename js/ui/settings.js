@@ -1718,55 +1718,8 @@ const SettingsModule = (() => {
         </p>
         <div id="sync-diag-result" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button id="btn-sync-pull" class="btn btn-primary btn-sm" onclick="
-            const b=document.getElementById('btn-sync-pull');
-            const r=document.getElementById('sync-diag-result');
-            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Syncing...';
-            r.style.display='none';
-            SyncEngine.syncAll({ silent: true }).then(res=>{
-              b.disabled=false; b.innerHTML='⬇ Sync (retry + pull)';
-              r.style.display='block';
-              if(res && res.ok){
-                r.style.background='rgba(0,255,136,0.08)'; r.style.border='1px solid rgba(0,255,136,0.3)'; r.style.color='#00ff88';
-                r.innerHTML='✅ Sync সফল! ডেটা Cloud থেকে নামানো হয়েছে।';
-                Utils.toast('Sync সফল ✅','success');
-              } else {
-                r.style.background='rgba(255,165,0,0.08)'; r.style.border='1px solid rgba(255,165,0,0.3)'; r.style.color='#ffa502';
-                r.innerHTML='⚠️ Sync সম্পন্ন কিন্তু কিছু সমস্যা হয়েছে। Supabase credentials চেক করুন।';
-                Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn');
-              }
-            }).catch(err=>{
-              b.disabled=false; b.innerHTML='⬇ Sync (retry + pull)';
-              r.style.display='block'; r.style.background='rgba(255,71,87,0.08)'; r.style.border='1px solid rgba(255,71,87,0.3)'; r.style.color='#ff4757';
-              r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||'Unknown error');
-              Utils.toast('Sync ব্যর্থ','error');
-            });
-          ">⬇ Sync (retry + pull)</button>
-          <button id="btn-push-cloud" class="btn btn-accent btn-sm" onclick="
-            const b=document.getElementById('btn-push-cloud');
-            const r=document.getElementById('sync-diag-result');
-            b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
-            r.style.display='none';
-            SyncEngine.push({ silent: true, forcePush: true }).then(res=>{
-              b.disabled=false; b.innerHTML='⬆ Push to Cloud';
-              r.style.display='block';
-              const sc=res?.successCount||0; const errs=res?.errors||[];
-              if(res && res.ok){
-                r.style.background='rgba(0,255,136,0.08)'; r.style.border='1px solid rgba(0,255,136,0.3)'; r.style.color='#00ff88';
-                r.innerHTML='✅ Push সফল! সব ডেটা Supabase Cloud-এ আপলোড হয়েছে। ('+sc+' টেবিল sync হয়েছে)';
-                Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড হয়েছে','success');
-              } else {
-                r.style.background='rgba(255,165,0,0.08)'; r.style.border='1px solid rgba(255,165,0,0.3)'; r.style.color='#ffa502';
-                r.innerHTML='⚠️ আংশিক Push: '+sc+' টেবিল সফল, '+errs.length+' টেবিলে সমস্যা।<br><small style="color:var(--text-muted)">F12 Console-এ বিস্তারিত দেখুন</small>';
-                Utils.toast('Push — কিছু সমস্যা হয়েছে','warn');
-              }
-            }).catch(err=>{
-              b.disabled=false; b.innerHTML='⬆ Push to Cloud';
-              r.style.display='block'; r.style.background='rgba(255,71,87,0.08)'; r.style.border='1px solid rgba(255,71,87,0.3)'; r.style.color='#ff4757';
-              r.innerHTML='❌ Push ব্যর্থ: '+(err.message||'Unknown error')+'<br><small>Supabase URL ও Anon Key সঠিক আছে কিনা Security & Access-এ চেক করুন।</small>';
-              Utils.toast('Push ব্যর্থ','error');
-            });
-          ">⬆ Push to Cloud</button>
+          <button id="btn-sync-pull" type="button" class="btn btn-primary btn-sm" onclick="SettingsModule.runCloudPullDiag()">⬇ Sync (retry + pull)</button>
+          <button id="btn-push-cloud" type="button" class="btn btn-accent btn-sm" onclick="SettingsModule.runCloudPushDiag()">⬆ Push to Cloud</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time চালু ✅','success')">🟢 Real-time On</button>
           <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time বন্ধ','info')">🔴 Real-time Off</button>
         </div>
@@ -4779,6 +4732,95 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
+  function _showSyncDiagResult(kind, html, toastMsg, toastType) {
+    const r = document.getElementById('sync-diag-result');
+    if (!r) return;
+    const styles = {
+      ok: 'display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88',
+      warn: 'display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502',
+      err: 'display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'
+    };
+    r.style.cssText = styles[kind] || styles.err;
+    r.innerHTML = html;
+    if (typeof Utils !== 'undefined' && toastMsg) Utils.toast(toastMsg, toastType || 'info');
+  }
+
+  function _supabaseErrHint(msg) {
+    const m = String(msg || '');
+    if (/503|502|504|unavailable|timeout/i.test(m)) {
+      return '<br><small style="color:var(--text-muted)">Supabase server unavailable — Dashboard-এ project paused/active চেক করুন, কিছুক্ষণ পর আবার চেষ্টা করুন।</small>';
+    }
+    return '';
+  }
+
+  function runCloudPullDiag() {
+    const b = document.getElementById('btn-sync-pull');
+    const r = document.getElementById('sync-diag-result');
+    if (!b || typeof SyncEngine === 'undefined') {
+      if (typeof Utils !== 'undefined') Utils.toast('SyncEngine not loaded', 'error');
+      return;
+    }
+    b.disabled = true;
+    b.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Syncing...';
+    if (r) r.style.display = 'none';
+    SyncEngine.syncAll({ silent: true })
+      .then(res => {
+        b.disabled = false;
+        b.innerHTML = '⬇ Sync (retry + pull)';
+        if (res && res.ok) {
+          _showSyncDiagResult('ok', '✅ Sync সফল! ডেটা Cloud থেকে নামানো হয়েছে।', 'Sync সফল ✅', 'success');
+        } else {
+          _showSyncDiagResult('warn', '⚠️ Sync সম্পন্ন কিন্তু কিছু সমস্যা হয়েছে। Supabase credentials চেক করুন।', 'Sync — কিছু সমস্যা হয়েছে', 'warn');
+        }
+      })
+      .catch(err => {
+        b.disabled = false;
+        b.innerHTML = '⬇ Sync (retry + pull)';
+        const msg = (typeof Utils !== 'undefined' && Utils.esc) ? Utils.esc(err?.message || 'Unknown error') : (err?.message || 'Unknown error');
+        _showSyncDiagResult('err', '❌ Sync ব্যর্থ: ' + msg + _supabaseErrHint(err?.message), 'Sync ব্যর্থ', 'error');
+      });
+  }
+
+  function runCloudPushDiag() {
+    const b = document.getElementById('btn-push-cloud');
+    const r = document.getElementById('sync-diag-result');
+    if (!b || typeof SyncEngine === 'undefined') {
+      if (typeof Utils !== 'undefined') Utils.toast('SyncEngine not loaded', 'error');
+      return;
+    }
+    b.disabled = true;
+    b.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Pushing...';
+    if (r) r.style.display = 'none';
+    SyncEngine.push({ silent: true, forcePush: true })
+      .then(res => {
+        b.disabled = false;
+        b.innerHTML = '⬆ Push to Cloud';
+        const sc = res?.successCount || 0;
+        const errs = res?.errors || [];
+        if (res && res.ok) {
+          _showSyncDiagResult('ok', `✅ Push সফল! সব ডেটা Cloud-এ আপলোড হয়েছে। (${sc} টেবিল)`, `Push সফল ✅ ${sc} টেবিল`, 'success');
+        } else {
+          _showSyncDiagResult(
+            'warn',
+            `⚠️ আংশিক Push: ${sc} টেবিল সফল, ${errs.length} টেবিলে সমস্যা।<br><small style="color:var(--text-muted)">F12 Console-এ বিস্তারিত দেখুন</small>`,
+            'Push — কিছু সমস্যা হয়েছে',
+            'warn'
+          );
+        }
+      })
+      .catch(err => {
+        b.disabled = false;
+        b.innerHTML = '⬆ Push to Cloud';
+        const msg = (typeof Utils !== 'undefined' && Utils.esc) ? Utils.esc(err?.message || 'Unknown error') : (err?.message || 'Unknown error');
+        _showSyncDiagResult(
+          'err',
+          '❌ Push ব্যর্থ: ' + msg + _supabaseErrHint(err?.message) + '<br><small style="color:var(--text-muted)">Security &amp; Access-এ URL ও Anon Key যাচাই করুন।</small>',
+          'Push ব্যর্থ',
+          'error'
+        );
+      });
+  }
+
   function runAutoFix() {
     const statusEl = document.getElementById('autofix-status');
     let fixes = 0;
@@ -6523,7 +6565,7 @@ ${expenseEntries.length > 0 ? `
     openReturnInvestmentModal, saveReturnInvestment, viewInvestmentLedger,
     addBalanceAdjustment, saveBalanceAdjustment, deleteBalanceAdjustment,
     openSettingsInternalModal, closeSettingsInternalModal,
-    runAutoHeal, runSyncCheck, runAutoFix,
+    runAutoHeal, runSyncCheck, runAutoFix, runCloudPullDiag, runCloudPushDiag,
     rebuildMonitorData,
     refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
     saveAIApiKey,
