@@ -3123,7 +3123,7 @@ ${expenseEntries.length > 0 ? `
           <button type="button" class="btn btn-outline btn-sm" onclick="SyncGuard.runFullAudit();setTimeout(()=>SyncGuard.renderPanel('syncguard-panel'),200)">
             <i class="fa fa-rotate"></i> Re-Audit
           </button>
-          <button type="button" class="btn btn-outline btn-sm" style="color:#a78bfa;border-color:rgba(167,139,250,0.4);background:rgba(167,139,250,0.06)" onclick="SystemDiagnostics && SystemDiagnostics.runAllTests()" title="Run System Diagnostics">
+          <button type="button" class="btn btn-outline btn-sm" style="color:#a78bfa;border-color:rgba(167,139,250,0.4);background:rgba(167,139,250,0.06)" onclick="typeof WfaSettingsDiagnostics!=='undefined'&&WfaSettingsDiagnostics.run()" title="Full read-only system scan">
             <i class="fa fa-stethoscope"></i> Run Diagnostics
           </button>
         </div>

@@ -1,0 +1,648 @@
+// ============================================================
+// Settings Diagnostics — Wings Fly Aviation Academy
+// Read-only health scan for Settings → Sync Guard → Run Diagnostics
+// Keeps settings.js DOM small; connects via WfaSettingsDiagnostics.run()
+// ============================================================
+
+const WfaSettingsDiagnostics = (() => {
+
+  const MODAL_ID = 'wsd-modal-root';
+
+  const CAT = {
+    environment: 'Environment & App',
+    modules:     'Modules & DOM',
+    sync:        'Sync & Cloud',
+    finance:     'Finance & Ledger',
+    accounts:    'Account Balances',
+    students:    'Students & Fees',
+    salary:      'Salary & HR',
+    loans:       'Loans & Advances',
+    storage:     'Storage & Backup',
+    security:    'Security & Config',
+  };
+
+  /** @type {{ category: string, name: string, status: 'pass'|'warn'|'fail', detail: string, hint?: string }[]} */
+  let _items = [];
+
+  function _add(category, name, status, detail, hint) {
+    _items.push({
+      category: CAT[category] || category,
+      name,
+      status: status === 'pass' || status === 'warn' || status === 'fail' ? status : 'warn',
+      detail: String(detail || ''),
+      hint: hint ? String(hint) : '',
+    });
+  }
+
+  function _pass(cat, name, detail) { _add(cat, name, 'pass', detail); }
+  function _warn(cat, name, detail, hint) { _add(cat, name, 'warn', detail, hint); }
+  function _fail(cat, name, detail, hint) { _add(cat, name, 'fail', detail, hint); }
+
+  function _getAll(table) {
+    try {
+      if (!window.SupabaseSync || !table) return [];
+      const rows = SupabaseSync.getAll(table);
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      _fail('storage', `Read table: ${table}`, e?.message || 'getAll failed');
+      return [];
+    }
+  }
+
+  function _safeNum(v) {
+    return typeof Utils !== 'undefined' && Utils.safeNum ? Utils.safeNum(v) : (parseFloat(v) || 0);
+  }
+
+  function _dupesBy(rows, keyFn) {
+    const seen = new Map();
+    const dupes = [];
+    rows.forEach((r, i) => {
+      const k = keyFn(r, i);
+      if (!k) return;
+      if (seen.has(k)) dupes.push(k);
+      else seen.set(k, true);
+    });
+    return [...new Set(dupes)];
+  }
+
+  // ── Environment ─────────────────────────────────────────────
+  async function _checkEnvironment() {
+    _pass('environment', 'Browser online', navigator.onLine ? 'Connected' : 'Offline mode (cloud checks skipped)');
+
+    const swOk = 'serviceWorker' in navigator;
+    if (swOk && navigator.serviceWorker.controller) {
+      _pass('environment', 'Service Worker', 'Active — offline cache enabled');
+    } else if (swOk) {
+      _warn('environment', 'Service Worker', 'Registered but not controlling this tab yet', 'Hard refresh once');
+    } else {
+      _warn('environment', 'Service Worker', 'Not supported in this browser');
+    }
+
+    const isCap = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    _pass('environment', 'Runtime', isCap ? 'Capacitor Android/iOS shell' : 'Web / PWA');
+
+    const ver = localStorage.getItem('wfa_app_version') || '—';
+    _pass('environment', 'Cached app version', ver);
+
+    if (navigator.onLine && !_isDevHost()) {
+      try {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 6000);
+        const res = await fetch('https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json', {
+          cache: 'no-store', signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (res.ok) {
+          const remote = await res.json();
+          const local = localStorage.getItem('wfa_app_version') || '1.2.3';
+          const cmp = _cmpVer(remote.version, local);
+          if (cmp > 0) {
+            _warn('environment', 'Remote update', `Server v${remote.version} > local v${local}`, 'Settings → reload or reinstall APK');
+          } else {
+            _pass('environment', 'Remote version.json', `v${remote.version} (${remote.deploy_id || 'no deploy id'})`);
+          }
+        } else {
+          _warn('environment', 'Remote version.json', `HTTP ${res.status}`);
+        }
+      } catch {
+        _warn('environment', 'Remote version.json', 'Could not reach GitHub Pages');
+      }
+    }
+
+    try {
+      let kb = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        kb += ((localStorage.getItem(k) || '').length + (k || '').length) * 2 / 1024;
+      }
+      if (kb > 4500) _fail('environment', 'localStorage size', `~${Math.round(kb)} KB — near 5MB limit`, 'Export backup & clear old logs');
+      else if (kb > 3000) _warn('environment', 'localStorage size', `~${Math.round(kb)} KB used`);
+      else _pass('environment', 'localStorage size', `~${Math.round(kb)} KB used`);
+    } catch {
+      _warn('environment', 'localStorage size', 'Could not estimate');
+    }
+  }
+
+  function _isDevHost() {
+    const h = window.location.hostname;
+    return !h || h === 'localhost' || h === '127.0.0.1' || h.startsWith('192.168.');
+  }
+
+  function _cmpVer(a, b) {
+    const p1 = String(a || '0').split('.').map(Number);
+    const p2 = String(b || '0').split('.').map(Number);
+    for (let i = 0; i < 3; i++) {
+      const x = p1[i] || 0; const y = p2[i] || 0;
+      if (x > y) return 1;
+      if (x < y) return -1;
+    }
+    return 0;
+  }
+
+  // ── Modules (IntegrityGuard) ────────────────────────────────
+  async function _checkModulesFromGuard() {
+    if (!window.IntegrityGuard || typeof IntegrityGuard.run !== 'function') {
+      _warn('modules', 'IntegrityGuard', 'Module not loaded — skipping deep module scan');
+      return;
+    }
+    const ig = await IntegrityGuard.run();
+    const mapCat = (name) => {
+      if (/Supabase|Sync|IDB|Recycle/i.test(name)) return 'sync';
+      if (/Student|Salary|HR|Finance|Modal|toast/i.test(name)) return 'modules';
+      if (/Vital|Asset|URL/i.test(name)) return 'environment';
+      return 'modules';
+    };
+
+    const all = [
+      ...(ig.globals || []),
+      ...(ig.modules || []),
+      ...(ig.dom || []),
+      ...(ig.data || []),
+    ];
+
+    let igPass = 0;
+    all.forEach((r) => {
+      const cat = mapCat(r.name || '');
+      if (r.ok) {
+        igPass++;
+        return;
+      }
+      if (r.critical) {
+        _fail(cat, r.name, r.detail || 'Failed', r.desc);
+      } else {
+        _warn(cat, r.name, r.detail || 'Warning', r.desc);
+      }
+    });
+
+    const igFail = (ig.summary?.critical_count || 0) + (ig.summary?.warning_count || 0);
+    if (igFail === 0) {
+      _pass('modules', 'IntegrityGuard (modules/DOM/API)',
+        `${igPass}/${all.length} checks passed — health ${ig.summary?.health_pct || 100}%`);
+    } else {
+      _warn('modules', 'IntegrityGuard summary',
+        `${ig.summary?.passed || 0}/${ig.summary?.total || 0} passed — ${ig.summary?.critical_count || 0} critical, ${ig.summary?.warning_count || 0} warning(s)`);
+    }
+  }
+
+  // ── Sync & Cloud ──────────────────────────────────────────
+  function _checkSync() {
+    const client = window.SUPABASE_CONFIG?.client;
+    if (!client) {
+      _warn('sync', 'Supabase client', 'Not configured — offline-only mode', 'Settings → Cloud API');
+    } else {
+      _pass('sync', 'Supabase client', 'Client object ready');
+      const authed = typeof SupabaseAuth !== 'undefined' && SupabaseAuth.isAuthenticated && SupabaseAuth.isAuthenticated();
+      if (authed) _pass('sync', 'Supabase auth', 'Session token present');
+      else _warn('sync', 'Supabase auth', 'No auth session — anon/RLS mode', 'Sign in via Cloud API if sync fails');
+    }
+
+    if (window.SyncEngine) {
+      const mon = typeof SyncEngine.getDataMonitor === 'function' ? SyncEngine.getDataMonitor() : null;
+      if (mon) {
+        _pass('sync', 'Sync monitor', `Status: ${mon.status || 'unknown'} | last: ${mon.lastSync || '—'}`);
+      } else {
+        _pass('sync', 'SyncEngine', 'Loaded');
+      }
+    } else {
+      _fail('sync', 'SyncEngine', 'Not found on window');
+    }
+
+    const retry = _getAll('retry_queue');
+    if (retry.length === 0) _pass('sync', 'Retry queue', 'Empty');
+    else if (retry.length < 10) _warn('sync', 'Retry queue', `${retry.length} pending item(s)`, 'Wait for sync or check network');
+    else _fail('sync', 'Retry queue', `${retry.length} stuck items`, 'Settings → Sync Diagnostic');
+
+    const sgLog = window.SyncGuard?.getLog ? SyncGuard.getLog() : [];
+    const unread = sgLog.filter(e => !e.seen).length;
+    if (unread > 0) _warn('sync', 'SyncGuard events', `${unread} unread alert(s) in log`);
+    else _pass('sync', 'SyncGuard events', `${sgLog.length} logged event(s)`);
+  }
+
+  // ── Finance (SyncGuard + extras) ────────────────────────────
+  function _checkFinance() {
+    if (window.SyncGuard) {
+      const f = SyncGuard.auditFinance();
+      if (f.ok) _pass('finance', 'Ledger category audit', 'No loan/transfer/advance mislabels');
+      else {
+        f.issues.forEach((issue, i) => {
+          _fail('finance', `Ledger issue ${i + 1}`, issue, 'Finance → review entry type');
+        });
+      }
+    }
+
+    const finance = _getAll(DB?.finance || 'finance_ledger');
+    if (finance.length === 0) {
+      _pass('finance', 'Finance records', 'No entries yet');
+      return;
+    }
+
+    const noDate = finance.filter(f => !f.date && !f.created_at).length;
+    if (noDate) _warn('finance', 'Missing dates', `${noDate} entries without date`);
+
+    const badAmt = finance.filter(f => f.amount != null && Number(f.amount) < 0).length;
+    if (badAmt) _fail('finance', 'Negative amounts', `${badAmt} entries`, 'Edit or delete invalid rows');
+
+    const noMethod = finance.filter(f => !f.method && !f._isLoan).length;
+    if (noMethod > 5) _warn('finance', 'Missing payment method', `${noMethod} entries`);
+
+    const dupIds = _dupesBy(finance, r => r.id);
+    if (dupIds.length) _fail('finance', 'Duplicate IDs', dupIds.slice(0, 5).join(', '));
+
+    const salaryExp = finance.filter(f =>
+      String(f.category || '').toLowerCase() === 'salary' &&
+      String(f.type || '').toLowerCase() === 'expense'
+    ).length;
+    _pass('finance', 'Salary expense entries', `${salaryExp} salary expense row(s) in ledger`);
+
+    _pass('finance', 'Finance row count', `${finance.length} ledger entries`);
+  }
+
+  // ── Account balances ────────────────────────────────────────
+  function _checkAccounts() {
+    const accounts = _getAll(DB?.accounts || 'accounts');
+
+    const negative = accounts.filter(a => _safeNum(a.balance) < 0);
+    if (negative.length) {
+      negative.forEach(a => {
+        _fail('accounts', `Negative: ${a.name || a.type}`, `Balance ৳${_safeNum(a.balance)}`, 'Accounts tab → adjust');
+      });
+    } else {
+      _pass('accounts', 'Stored balances', 'No negative account balances');
+    }
+
+    if (window.SyncGuard) {
+      const b = SyncGuard.auditBalances();
+      if (b.ok) {
+        _pass('accounts', 'Ledger vs stored', 'Within tolerance (৳5000)');
+      } else {
+        b.discrepancies.forEach((d, i) => {
+          if (d.error) {
+            _fail('accounts', 'Balance audit error', d.error);
+          } else {
+            _warn('accounts', `Mismatch: ${d.account}`,
+              `Stored ৳${Math.round(d.stored).toLocaleString()} vs ledger ৳${Math.round(d.calculated).toLocaleString()} (diff ৳${Math.round(d.diff).toLocaleString()})`,
+              'Sync Guard → Auto Fix or manual review');
+          }
+        });
+      }
+    }
+
+    _pass('accounts', 'Account count', `${accounts.length} account(s)`);
+  }
+
+  // ── Students ────────────────────────────────────────────────
+  function _checkStudents() {
+    const students = _getAll(DB?.students || 'students');
+    if (!students.length) {
+      _pass('students', 'Student records', 'None yet');
+      return;
+    }
+
+    const drift = students.filter(s => {
+      const total = _safeNum(s.total_fee);
+      if (total <= 0) return false;
+      return Math.abs((_safeNum(s.paid) + _safeNum(s.due)) - total) > 1;
+    });
+    if (drift.length) {
+      _fail('students', 'paid + due ≠ total_fee', `${drift.length} student(s): ${drift.slice(0, 4).map(s => s.name || s.student_id).join(', ')}`, 'Open student → recalc fee');
+    } else {
+      _pass('students', 'Fee math', `All ${students.length} students balanced`);
+    }
+
+    const overpaid = students.filter(s => _safeNum(s.paid) > _safeNum(s.total_fee) && _safeNum(s.total_fee) > 0);
+    if (overpaid.length) _warn('students', 'Overpaid', `${overpaid.length} student(s)`);
+
+    const dupSid = _dupesBy(students, s => String(s.student_id || '').trim());
+    if (dupSid.length) _fail('students', 'Duplicate student_id', dupSid.slice(0, 5).join(', '));
+
+    const noName = students.filter(s => !String(s.name || '').trim()).length;
+    if (noName) _warn('students', 'Empty names', `${noName} record(s)`);
+
+    const inactiveDue = students.filter(s =>
+      String(s.status || '').toLowerCase() === 'inactive' && _safeNum(s.due) > 0
+    ).length;
+    if (inactiveDue) _warn('students', 'Inactive with due', `${inactiveDue} student(s) still have due balance`);
+  }
+
+  // ── Salary & HR ─────────────────────────────────────────────
+  function _checkSalary() {
+    const staff = _getAll(DB?.staff || 'staff');
+    const salary = _getAll(DB?.salary || 'salary');
+
+    _pass('salary', 'HR staff count', `${staff.length} staff`);
+    _pass('salary', 'Salary records', `${salary.length} row(s)`);
+
+    if (typeof HRStaff !== 'undefined' && typeof HRStaff.getAll === 'function') {
+      try {
+        const n = HRStaff.getAll().length;
+        _pass('salary', 'HRStaff.getAll()', `${n} active staff accessible`);
+      } catch (e) {
+        _fail('salary', 'HRStaff.getAll()', e.message);
+      }
+    } else {
+      _warn('salary', 'HRStaff module', 'Not loaded');
+    }
+
+    const noName = salary.filter(r => !r.staffName && !r.staff_name).length;
+    if (noName) _warn('salary', 'Missing staff name', `${noName} salary row(s)`);
+
+    const overpaid = salary.filter(r => {
+      const net = _safeNum(r.baseSalary || r.base_salary) + _safeNum(r.bonus) - _safeNum(r.deduction);
+      const paid = _safeNum(r.paidAmount || r.paid_amount);
+      return net > 0 && paid > net + 1;
+    });
+    if (overpaid.length) {
+      _fail('salary', 'Paid > net salary', `${overpaid.length} record(s)`, 'Salary Hub → review payment');
+    }
+
+    const dupMonth = _dupesBy(salary, r => `${r.staffId || r.staff_id || r.staffName}-${r.month}`);
+    if (dupMonth.length) _warn('salary', 'Duplicate month entries', `${dupMonth.length} possible duplicate key(s)`);
+
+    const pendingOld = salary.filter(r => {
+      if (r.paid || r.status === 'Paid') return false;
+      if (!r.month) return false;
+      const cm = new Date();
+      const cur = cm.getFullYear() + '-' + String(cm.getMonth() + 1).padStart(2, '0');
+      return r.month < cur;
+    }).length;
+    if (pendingOld) _warn('salary', 'Old pending salaries', `${pendingOld} past month(s) still pending`);
+  }
+
+  // ── Loans ───────────────────────────────────────────────────
+  function _checkLoans() {
+    const loans = _getAll(DB?.loans || 'loans');
+    if (!loans.length) {
+      _pass('loans', 'Loan records', 'None');
+      return;
+    }
+
+    const badAmt = loans.filter(l => _safeNum(l.amount) <= 0).length;
+    if (badAmt) _warn('loans', 'Zero/negative loan amount', `${badAmt} row(s)`);
+
+    const settledDue = loans.filter(l =>
+      String(l.status || '').toLowerCase() === 'settled' && _safeNum(l.remaining || l.due) > 0
+    ).length;
+    if (settledDue) _warn('loans', 'Settled but due remains', `${settledDue} loan(s)`);
+
+    _pass('loans', 'Loan count', `${loans.length} loan(s)`);
+
+    try {
+      const adv = JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]');
+      if (adv.length) _pass('loans', 'Advance payments (local)', `${adv.length} tracked separately from ledger`);
+    } catch { /* ignore */ }
+  }
+
+  // ── Storage ─────────────────────────────────────────────────
+  function _checkStorage() {
+    if (window.WFA_IDB) {
+      try {
+        WFA_IDB.getTable('students');
+        const bin = WFA_IDB.getTable('recycle_bin');
+        const binLen = Array.isArray(bin) ? bin.length : 0;
+        if (binLen > 100) _warn('storage', 'Recycle bin', `${binLen} items — consider emptying old items`);
+        else _pass('storage', 'IndexedDB (WFA_IDB)', `Accessible — recycle bin: ${binLen} item(s)`);
+
+        if (typeof WFA_IDB.getUsageKB === 'function') {
+          const kb = WFA_IDB.getUsageKB();
+          if (kb > 40000) _warn('storage', 'IDB usage', `~${Math.round(kb / 1024)} MB`);
+          else _pass('storage', 'IDB usage', `~${Math.round(kb)} KB`);
+        }
+      } catch (e) {
+        _fail('storage', 'IndexedDB', e.message);
+      }
+    } else {
+      _fail('storage', 'WFA_IDB', 'Not available');
+    }
+
+    if (typeof SystemDiagnostics !== 'undefined' && SystemDiagnostics.cleanupLeftovers) {
+      const n = SystemDiagnostics.cleanupLeftovers();
+      if (n > 0) _warn('storage', 'Diagnostic leftovers', `Removed ${n} orphan test record(s) automatically`);
+      else _pass('storage', 'Diagnostic test data', 'No DIAG-TEST leftovers');
+    }
+  }
+
+  // ── Security & settings ─────────────────────────────────────
+  function _checkSecurity() {
+    const settings = _getAll(DB?.settings || 'settings');
+    const cfg = settings[0] || settings.find(s => s.academy_name) || {};
+
+    if (cfg.academy_name) _pass('security', 'Academy name', String(cfg.academy_name));
+    else _warn('security', 'Academy name', 'Not set', 'Settings → General');
+
+    if (cfg.admin_password || cfg.admin_username) {
+      _pass('security', 'Admin login', 'Credentials configured in settings');
+    } else {
+      _warn('security', 'Admin login', 'Default credentials may still be in use', 'Change admin password');
+    }
+
+    const hasCreds = !!(window.__WFA_SUPABASE_CREDS?.url || window.SUPABASE_URL);
+    if (hasCreds) _pass('security', 'Cloud credentials', 'Supabase URL stored (encrypted storage)');
+    else _warn('security', 'Cloud credentials', 'Not configured');
+  }
+
+  // ── Build full report ───────────────────────────────────────
+  async function buildReport() {
+    _items = [];
+    await _checkEnvironment();
+    await _checkModulesFromGuard();
+    _checkSync();
+    _checkFinance();
+    _checkAccounts();
+    _checkStudents();
+    _checkSalary();
+    _checkLoans();
+    _checkStorage();
+    _checkSecurity();
+
+    const pass = _items.filter(i => i.status === 'pass').length;
+    const warn = _items.filter(i => i.status === 'warn').length;
+    const fail = _items.filter(i => i.status === 'fail').length;
+    const total = _items.length;
+    const health = total ? Math.round((pass / total) * 100) : 0;
+
+    return {
+      items: _items.slice(),
+      summary: { pass, warn, fail, total, health },
+      at: new Date().toISOString(),
+    };
+  }
+
+  // ── UI ──────────────────────────────────────────────────────
+  function _esc(s) {
+    return typeof Utils !== 'undefined' && Utils.esc ? Utils.esc(s) : String(s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function _statusIcon(st) {
+    if (st === 'pass') return '✅';
+    if (st === 'fail') return '❌';
+    return '⚠️';
+  }
+
+  function _statusColor(st) {
+    if (st === 'pass') return '#00ff88';
+    if (st === 'fail') return '#ff4757';
+    return '#ffb703';
+  }
+
+  function _renderResults(report) {
+    const el = document.getElementById('wsd-results');
+    if (!el) return;
+
+    const s = report.summary;
+    const byCat = {};
+    report.items.forEach((item) => {
+      if (!byCat[item.category]) byCat[item.category] = [];
+      byCat[item.category].push(item);
+    });
+
+    const summaryHtml = `
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:10px;margin-bottom:14px">
+        <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:1.4rem;font-weight:800;color:#00ff88">${s.pass}</div>
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase">Passed</div>
+        </div>
+        <div style="background:rgba(255,183,3,0.08);border:1px solid rgba(255,183,3,0.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:1.4rem;font-weight:800;color:#ffb703">${s.warn}</div>
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase">Warnings</div>
+        </div>
+        <div style="background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:1.4rem;font-weight:800;color:#ff4757">${s.fail}</div>
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase">Failed</div>
+        </div>
+        <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:1.4rem;font-weight:800;color:#00d4ff">${s.health}%</div>
+          <div style="font-size:.7rem;color:#888;text-transform:uppercase">Health</div>
+        </div>
+      </div>
+      <div style="font-size:.72rem;color:#666;margin-bottom:12px">Scan completed: ${new Date(report.at).toLocaleString('en-BD')}</div>
+    `;
+
+    const catsHtml = Object.keys(byCat).map((cat) => {
+      const rows = byCat[cat];
+      const catFail = rows.filter(r => r.status === 'fail').length;
+      const catWarn = rows.filter(r => r.status === 'warn').length;
+      const headColor = catFail ? '#ff4757' : catWarn ? '#ffb703' : '#00d4ff';
+
+      const body = rows.map((r) => `
+        <div style="display:flex;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,0.05);align-items:flex-start">
+          <span style="flex-shrink:0;font-size:.9rem">${_statusIcon(r.status)}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:.8rem;font-weight:700;color:${_statusColor(r.status)}">${_esc(r.name)}</div>
+            <div style="font-size:.75rem;color:#aaa;margin-top:2px;line-height:1.45">${_esc(r.detail)}</div>
+            ${r.hint ? `<div style="font-size:.7rem;color:#667;margin-top:3px">💡 ${_esc(r.hint)}</div>` : ''}
+          </div>
+        </div>
+      `).join('');
+
+      return `
+        <details style="margin-bottom:8px;border:1px solid rgba(255,255,255,0.08);border-radius:10px;background:rgba(0,0,0,0.2)" ${catFail || catWarn ? 'open' : ''}>
+          <summary style="cursor:pointer;padding:12px 14px;font-size:.82rem;font-weight:700;color:${headColor};list-style:none;display:flex;justify-content:space-between;align-items:center">
+            <span>${_esc(cat)}</span>
+            <span style="font-size:.72rem;font-weight:500;color:#888">${rows.length} check(s)</span>
+          </summary>
+          <div style="padding:0 14px 10px">${body}</div>
+        </details>
+      `;
+    }).join('');
+
+    el.innerHTML = summaryHtml + catsHtml;
+  }
+
+  async function _executeScan() {
+    const btn = document.getElementById('wsd-scan-btn');
+    const el = document.getElementById('wsd-results');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Scanning…';
+    }
+    if (el) {
+      el.innerHTML = '<div style="color:#00d4ff;padding:20px;text-align:center;font-size:.85rem"><i class="fa fa-spinner fa-spin"></i> Running full system scan…</div>';
+    }
+
+    const report = await buildReport();
+    _renderResults(report);
+
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa fa-rotate-right"></i> Scan Again';
+    }
+
+    const msg = report.summary.fail
+      ? `Scan done — ${report.summary.fail} issue(s) need attention`
+      : report.summary.warn
+        ? `Scan done — ${report.summary.warn} warning(s)`
+        : 'All checks passed';
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast(msg, report.summary.fail ? 'error' : report.summary.warn ? 'warning' : 'success', 5000);
+    }
+
+    return report;
+  }
+
+  function _copyReport() {
+    buildReport().then((report) => {
+      const lines = [
+        'WFA Settings Diagnostics Report',
+        `Time: ${new Date(report.at).toLocaleString()}`,
+        `Health: ${report.summary.health}% | Pass: ${report.summary.pass} | Warn: ${report.summary.warn} | Fail: ${report.summary.fail}`,
+        '',
+      ];
+      report.items.forEach((i) => {
+        lines.push(`${_statusIcon(i.status)} [${i.category}] ${i.name}: ${i.detail}${i.hint ? ' | Fix: ' + i.hint : ''}`);
+      });
+      navigator.clipboard?.writeText(lines.join('\n')).then(() => {
+        Utils?.toast && Utils.toast('Report copied', 'success');
+      });
+    });
+  }
+
+  function run() {
+    if (typeof Utils === 'undefined') {
+      alert('Utils not loaded.');
+      return;
+    }
+
+    Utils.openModal(
+      '<i class="fa fa-stethoscope" style="color:#a78bfa"></i> System Diagnostics',
+      `
+      <div id="${MODAL_ID}" style="padding:2px 0">
+        <p style="font-size:.82rem;color:var(--text-muted);margin:0 0 12px;line-height:1.55">
+          Read-only scan: modules, sync, finance, balances, students, salary, loans, storage &amp; config.
+          কোনো ডেটা পরিবর্তন করে না।
+        </p>
+        <div id="wsd-results" style="max-height:min(52vh,420px);overflow-y:auto;padding-right:4px">
+          <div style="color:#555;font-size:.8rem;padding:16px;text-align:center">Starting scan…</div>
+        </div>
+        <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
+          <button type="button" id="wsd-scan-btn" style="flex:1;min-width:140px;padding:10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:.85rem;background:linear-gradient(90deg,#7b2ff7,#00d4ff);color:#fff">
+            <i class="fa fa-play"></i> Run Scan
+          </button>
+          <button type="button" onclick="WfaSettingsDiagnostics.copyReport()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:.8rem">
+            <i class="fa fa-copy"></i> Copy
+          </button>
+          <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runAllTests()" style="padding:10px 14px;border:1px solid rgba(167,139,250,0.4);border-radius:8px;background:rgba(167,139,250,0.08);color:#c4b5fd;cursor:pointer;font-size:.8rem" title="Creates & deletes a test student">
+            <i class="fa fa-flask"></i> Live CRUD Test
+          </button>
+          <button type="button" onclick="Utils.closeModal()" style="padding:10px 16px;border:1px solid rgba(255,255,255,0.15);border-radius:8px;background:transparent;color:var(--text-muted);cursor:pointer;font-size:.82rem">Close</button>
+        </div>
+      </div>
+      `,
+      'modal-lg'
+    );
+
+    const scanBtn = document.getElementById('wsd-scan-btn');
+    if (scanBtn) scanBtn.onclick = () => _executeScan();
+
+    setTimeout(() => _executeScan(), 120);
+  }
+
+  return {
+    run,
+    buildReport,
+    copyReport: _copyReport,
+    rescan: _executeScan,
+  };
+})();
+
+window.WfaSettingsDiagnostics = WfaSettingsDiagnostics;
