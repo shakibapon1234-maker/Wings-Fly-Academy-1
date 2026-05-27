@@ -127,7 +127,13 @@
     if (msg) notify(msg);
   });
   window.addEventListener('unhandledrejection', (event) => {
-    notify(event?.reason || 'Unhandled promise rejection');
+    // CJK errors are already handled (translated + toasted) by the CJK listener above — skip
+    const reason = event?.reason;
+    if (reason && typeof window._translateChinese === 'function') {
+      const reasonStr = String(reason?.message || reason || '');
+      if (/[\u4E00-\u9FFF\u3400-\u4DBF\u30A0-\u30FF\u3040-\u309F]/.test(reasonStr)) return;
+    }
+    notify(reason || 'Unhandled promise rejection');
   });
 })();
 

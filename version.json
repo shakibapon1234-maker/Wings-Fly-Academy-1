@@ -1,6 +1,6 @@
 {
   "version": "1.2.3",
-  "deploy_id": "20260517-balance-integrity",
+  "deploy_id": "20260523-audit-xss-fixes",
   "changelog": "Critical: enforce strict no-negative-balance rule across all operations (delete, edit, restore). finance.js delete/edit now blocked if balance would go negative. supabase-sync.js restore path: all force=true bypasses removed — expense/loan restores checked and warned if insufficient balance.",
   "size": "~2MB",
   "released": "2026-05-22"
