@@ -327,7 +327,7 @@ const NoticeBoardModule = (() => {
                     </div>
                   </div>
                 </div>
-                <button onclick="NoticeBoardModule.deleteNoticeById('${n.id}')"
+                <button onclick="NoticeBoardModule.deleteNoticeById('${Utils.escAttr(n.id)}')"
                   style="background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#f87171;
                          padding:7px 14px; border-radius:8px; cursor:pointer; font-size:0.78rem; font-weight:700;
                          flex-shrink:0; display:flex; align-items:center; gap:6px; transition:all 0.2s;"
