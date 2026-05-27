@@ -708,6 +708,62 @@ const WfaSettingsDiagnostics = (() => {
     el.innerHTML = summaryHtml + catsHtml;
   }
 
+  // ── Fix: Salary data issues (missing name + duplicate months) ───────────
+  async function fixSalaryDataIssues() {
+    if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') {
+      Utils?.toast('SupabaseSync not available', 'error');
+      return;
+    }
+    let fixed = 0;
+    const salary = SupabaseSync.getAll(DB?.salary || 'salary') || [];
+    const staff  = SupabaseSync.getAll(DB?.staff  || 'staff')  || [];
+
+    // 1. Auto-fill missing staffName / staff_name from HR table
+    salary.forEach(r => {
+      if (!r.staffName && !r.staff_name) {
+        const sid = r.staffId || r.staff_id;
+        if (!sid) return;
+        const hrEntry = staff.find(s => s.staffId === sid || s.id === sid);
+        if (hrEntry && hrEntry.name) {
+          SupabaseSync.update(DB?.salary || 'salary', r.id, {
+            staffName:  hrEntry.name,
+            staff_name: hrEntry.name,
+          }, { bypassLog: true });
+          fixed++;
+        }
+      }
+    });
+
+    // 2. Remove duplicate month entries — keep the most recently inserted one
+    const seen = new Map();
+    const freshSalary = SupabaseSync.getAll(DB?.salary || 'salary') || [];
+    freshSalary.forEach(r => {
+      const sid = r.staffId || r.staff_id || r.staffName || '';
+      const key = `${sid}::${r.month || ''}`;
+      if (!key || key === '::'  ) return;
+      if (seen.has(key)) {
+        // Keep the newer record (higher _inserted_at or updated_at), remove the older duplicate
+        const existing = seen.get(key);
+        const existingTime = new Date(existing._inserted_at || existing.created_at || 0).getTime();
+        const thisTime     = new Date(r._inserted_at         || r.created_at         || 0).getTime();
+        const toRemove = thisTime >= existingTime ? existing : r;
+        const toKeep   = thisTime >= existingTime ? r : existing;
+        SupabaseSync.remove(DB?.salary || 'salary', toRemove.id, { bypassLog: true });
+        seen.set(key, toKeep);
+        fixed++;
+      } else {
+        seen.set(key, r);
+      }
+    });
+
+    if (fixed > 0) {
+      Utils?.toast(`✅ Fixed ${fixed} salary data issue(s) — re-running scan…`, 'success', 4000);
+      setTimeout(() => _executeScan(), 800);
+    } else {
+      Utils?.toast('No fixable salary issues found', 'info');
+    }
+  }
+
   async function _executeScan() {
     const btn = document.getElementById('wsd-scan-btn');
     const el = document.getElementById('wsd-results');
@@ -786,6 +842,9 @@ const WfaSettingsDiagnostics = (() => {
           <button type="button" onclick="WfaSettingsDiagnostics.copyReport()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:.8rem">
             <i class="fa fa-copy"></i> Copy
           </button>
+          <button type="button" onclick="WfaSettingsDiagnostics.fixSalaryDataIssues()" style="padding:10px 14px;border:1px solid rgba(255,183,3,0.35);border-radius:8px;background:rgba(255,183,3,0.06);color:#ffb703;cursor:pointer;font-size:.8rem" title="Auto-fix: populate missing staff names and remove duplicate salary months">
+            <i class="fa fa-wrench"></i> Fix Salary Data
+          </button>
           <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runSalaryTests()" style="padding:10px 14px;border:1px solid rgba(0,255,136,0.35);border-radius:8px;background:rgba(0,255,136,0.06);color:#00ff88;cursor:pointer;font-size:.8rem" title="Salary: create, pay, edit, delete, restore">
             <i class="fa fa-sack-dollar"></i> Salary Test
           </button>
@@ -826,6 +885,7 @@ const WfaSettingsDiagnostics = (() => {
     buildReport,
     copyReport: _copyReport,
     rescan: _executeScan,
+    fixSalaryDataIssues,
   };
 })();
 

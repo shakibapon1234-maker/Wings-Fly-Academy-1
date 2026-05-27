@@ -847,7 +847,9 @@ const SystemDiagnostics = (() => {
       const activeStudents = SupabaseSync.getAll(studentsTable) || [];
       const leftoverStudents = activeStudents.filter(s =>
         (s.student_id && String(s.student_id).startsWith('DIAG-TEST-')) ||
+        (s.student_id && String(s.student_id).startsWith('DIAG-INST-')) ||
         (s.name && String(s.name).includes('System Test Student')) ||
+        (s.name && String(s.name).includes('Diagnostic Installment Student')) ||
         (s.batch === 'Batch-DIAG') ||
         (s.course === 'Diagnostics Course')
       );
@@ -911,7 +913,9 @@ const SystemDiagnostics = (() => {
           if (b.table === studentsTable) {
             const data = b.data || {};
             return (data.student_id && String(data.student_id).startsWith('DIAG-TEST-')) ||
+              (data.student_id && String(data.student_id).startsWith('DIAG-INST-')) ||
               (data.name && String(data.name).includes('System Test Student')) ||
+              (data.name && String(data.name).includes('Diagnostic Installment Student')) ||
               (data.batch === 'Batch-DIAG') ||
               (data.course === 'Diagnostics Course') ||
               leftoverStudentUuids.includes(data.id);
@@ -988,6 +992,8 @@ const SystemDiagnostics = (() => {
     }
 
     try {
+      // Pre-test cleanup: wipe any leftover diagnostic data from a previous failed run
+      cleanupLeftovers();
       await _wait(400);
       _log('Create test student + 4 installments', 'header');
       const st = SupabaseSync.insert(DB.students, {
