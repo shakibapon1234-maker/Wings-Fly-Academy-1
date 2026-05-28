@@ -34,12 +34,14 @@ const LoginUI = (() => {
       }
     } catch { /* ignore */ }
 
-    // Fallback: scan all localStorage keys containing 'setting'
+    // Fallback: scan localStorage keys — restricted to wfa_ prefix to prevent
+    // ✅ Bug #8 Fix: malicious extension keys named 'settings*' from being picked up
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (!key) continue;
-        if (key.toLowerCase().includes('setting')) {
+        // Only trust keys that both start with 'wfa_' AND contain 'setting'
+        if (key.startsWith('wfa_') && key.toLowerCase().includes('setting')) {
           try {
             const raw = localStorage.getItem(key);
             if (!raw) continue;

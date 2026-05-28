@@ -93,11 +93,48 @@ const PushNotificationModule = (() => {
 
   // ── Web Push API (Fallback) ──
   async function initWebPush() {
-    // Web Push disabled until VAPID keys are configured (see web.dev push notifications).
-    if (window.__WFA_DEV__) {
-      console.info('[Push] Web Push skipped (VAPID not configured). Use Capacitor build for mobile push.');
+    // ✅ Bug #7 Fix: VAPID key config placeholder.
+    // To enable Web Push on browsers:
+    //   1. Generate VAPID keys: npx web-push generate-vapid-keys
+    //   2. Replace the empty string below with your Base64 public key.
+    //   3. Configure the private key on your backend/Supabase Edge Function.
+    const VAPID_PUBLIC_KEY = ''; // ← paste your VAPID public key here
+
+    if (!VAPID_PUBLIC_KEY) {
+      if (window.__WFA_DEV__) {
+        console.info('[Push] Web Push skipped (VAPID not configured). Use Capacitor build for mobile push.');
+      }
+      return;
+    }
+
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        if (window.__WFA_DEV__) console.log('[Push] Already subscribed:', existing.endpoint);
+        return;
+      }
+
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: _urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+
+      if (window.__WFA_DEV__) console.log('[Push] Web Push subscription:', subscription);
+      // TODO: send subscription to your backend to store for push delivery
+    } catch (e) {
+      console.warn('[Push] Web Push subscribe failed:', e.message);
     }
   }
+
+  // ── Helper: convert VAPID base64 key to Uint8Array ──
+  function _urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw     = atob(base64);
+    return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+  }
+
 
   // ── Save FCM token to Supabase ──
   async function saveFCMTokenToDatabase(token) {

@@ -568,7 +568,7 @@ const Salary = (() => {
     var ded  = Utils.safeNum((document.getElementById('sal-deduction') || {}).value);
     var net  = base + bon - ded;
     var el   = document.getElementById('sal-net-display');
-    if (el) el.innerHTML = 'Net Salary: ৳' + Utils.formatMoneyPlain(net);
+    if (el) el.textContent = 'Net Salary: ৳' + Utils.formatMoneyPlain(net); // ✅ Bug #5 Fix: textContent instead of innerHTML
     var payEl = document.getElementById('sal-pay-amount');
     if (payEl && !payEl.dataset.touched) payEl.value = net > 0 ? net : '';
   }

@@ -4,11 +4,16 @@
 // ============================================================
 
 const OfflineModeModule = (() => {
-  const DB_NAME = 'WingsFlyCacheDB';
-  const DB_VERSION = 1;
-  
+  // ✅ Bug #2 Fix: Use same DB as main app (WFA_IDB) so offline queue
+  //   and main sync are in a single IndexedDB — no more split data.
+  //   DB_VERSION bumped to 2 so onupgradeneeded runs on existing installs
+  //   and adds the offline stores without touching existing data stores.
+  const DB_NAME    = 'WFA_IDB';
+  const DB_VERSION = 2;
+
   let db = null;
   let isOnline = navigator.onLine;
+
 
   // ── Initialize IndexedDB ──
   async function initDB() {
