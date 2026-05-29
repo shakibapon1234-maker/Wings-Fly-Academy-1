@@ -9,7 +9,7 @@ const itemsToCopy = [
   'assets',
   'css',
   'js',
-  'supabase',
+  // 'supabase' intentionally excluded — SQL migrations/edge functions should not be bundled into the Android app
   'admin.html',
   'certificate.html',
   'exam.html',
@@ -61,21 +61,37 @@ try {
 }
 
 // Auto-sync DEPLOY_ID from version.json to service-worker.js
+// Also auto-sync LOCAL_VERSION_FALLBACK in auto-update.js
 try {
   const versionPath = path.join(srcDir, 'version.json');
   const swPath = path.join(srcDir, 'service-worker.js');
-  if (fs.existsSync(versionPath) && fs.existsSync(swPath)) {
+  const autoUpdatePath = path.join(srcDir, 'js', 'core', 'auto-update.js');
+  if (fs.existsSync(versionPath)) {
     const vData = JSON.parse(fs.readFileSync(versionPath, 'utf8'));
-    let swContent = fs.readFileSync(swPath, 'utf8');
+    const newVersion = vData.version;
     const newDeployId = vData.deploy_id;
-    if (newDeployId) {
+
+    // Sync DEPLOY_ID in service-worker.js
+    if (newDeployId && fs.existsSync(swPath)) {
+      let swContent = fs.readFileSync(swPath, 'utf8');
       swContent = swContent.replace(/const DEPLOY_ID = '.*';/, `const DEPLOY_ID = '${newDeployId}';`);
       fs.writeFileSync(swPath, swContent, 'utf8');
       console.log(`🔄 Auto-synced SW DEPLOY_ID to: ${newDeployId}`);
     }
+
+    // Sync LOCAL_VERSION_FALLBACK in auto-update.js
+    if (newVersion && fs.existsSync(autoUpdatePath)) {
+      let auContent = fs.readFileSync(autoUpdatePath, 'utf8');
+      auContent = auContent.replace(
+        /const LOCAL_VERSION_FALLBACK = '[^']+';/,
+        `const LOCAL_VERSION_FALLBACK = '${newVersion}';`
+      );
+      fs.writeFileSync(autoUpdatePath, auContent, 'utf8');
+      console.log(`🔄 Auto-synced LOCAL_VERSION_FALLBACK to: ${newVersion}`);
+    }
   }
 } catch (e) {
-  console.warn(`⚠️  Auto-sync SW version failed: ${e.message}`);
+  console.warn(`⚠️  Auto-sync version failed: ${e.message}`);
 }
 
 // Copy items

@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ Bug #4 Fix: DEPLOY_ID updated — forces cache refresh for all clients
-const DEPLOY_ID = '20260528-bug-fixes-batch';
+const DEPLOY_ID = '20260523-audit-xss-fixes';
 
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
