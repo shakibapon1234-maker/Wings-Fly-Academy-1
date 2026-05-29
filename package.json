@@ -4,6 +4,8 @@
   "description": "Aviation Academy-র জন্য সম্পূর্ণ ম্যানেজমেন্ট সিস্টেম।",
   "scripts": {
     "test": "vitest run",
+    "lint": "eslint js/core/ js/ui/ js/modules/ --max-warnings=0",
+    "lint:fix": "eslint js/core/ js/ui/ js/modules/ --fix",
     "build:mobile": "node build-www.js && npx cap sync",
     "postinstall": "node fix-gradle.js",
     "watch": "node watch-sync.js"

@@ -730,7 +730,7 @@ const SystemDiagnostics = (() => {
           SupabaseSync.remove(DB.finance, finId, { bypassLog: true });
         }
         cleanupLeftovers();
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     }
     if (allPassed) _log('ALL EXAM PHASES PASSED ✓', 'success');
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-rotate-right"></i> Run Again'; }
@@ -825,7 +825,7 @@ const SystemDiagnostics = (() => {
           if (l) _loanDeleteLikeApp(l);
         }
         cleanupLeftovers();
-      } catch (e) { /* ignore */ }
+      } catch { /* ignore */ }
     }
     if (allPassed) _log('ALL LOAN PHASES PASSED ✓', 'success');
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa fa-rotate-right"></i> Run Again'; }

@@ -1933,7 +1933,7 @@ const SupabaseSync = (() => {
 
   function _normalizeExamFromCloud(r) {
     if (!r || typeof r !== 'object') return r;
-    const fee = parseFloat(r.exam_fee) || 0;
+    const _fee = parseFloat(r.exam_fee) || 0; // eslint: intentionally unused (kept for clarity)
     const fp = parseFloat(r.fee_paid);
     const feePaidBool = r.fee_paid === true || (!isNaN(fp) && fp > 0);
     return { ...r, fee_paid: feePaidBool };

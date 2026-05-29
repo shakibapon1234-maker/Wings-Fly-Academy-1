@@ -3534,7 +3534,7 @@ ${expenseEntries.length > 0 ? `
         refreshModal();
         if (typeof App !== 'undefined' && App.updateNotifCount) App.updateNotifCount();
         if (item && item.table === 'salary' && typeof Salary !== 'undefined' && Salary.renderContent) {
-          try { Salary.renderContent(); } catch (e) { /* ignore */ }
+          try { Salary.renderContent(); } catch { /* ignore */ }
         }
       } else {
         Utils.toast('Could not restore item', 'error');

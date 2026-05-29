@@ -50,6 +50,9 @@ export default [
         PatternLockModule: "readonly",
         App: "readonly",
         SystemDiagnostics: "readonly",
+        // ── Core Guards & Diagnostics ──
+        IntegrityGuard: "readonly",
+        WfaSettingsDiagnostics: "readonly",
         // ── Capacitor / Mobile ──
         Capacitor: "readonly",
         cordova: "readonly",

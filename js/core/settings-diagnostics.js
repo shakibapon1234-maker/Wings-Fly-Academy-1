@@ -295,7 +295,7 @@ const WfaSettingsDiagnostics = (() => {
       if (b.ok) {
         _pass('accounts', 'Ledger vs stored', 'Within tolerance (৳5000)');
       } else {
-        b.discrepancies.forEach((d, i) => {
+        b.discrepancies.forEach((d, _i) => {
           if (d.error) {
             _fail('accounts', 'Balance audit error', d.error);
           } else {
