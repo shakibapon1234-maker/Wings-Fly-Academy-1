@@ -804,7 +804,7 @@ const Attendance = (() => {
 
     const filtered = records.filter(r => r.date && r.date.startsWith(year) && r.type === 'student');
     if (!filtered.length) {
-      wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">No records found for ${year}</div></div>`;
+      wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">No records found for ${typeof Utils !== 'undefined' ? Utils.esc(year) : year}</div></div>`;
       return;
     }
 
@@ -913,7 +913,7 @@ const Attendance = (() => {
 
     const students = getStudents().filter(s => s.batch === batch);
     if (!students.length) {
-      wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">Batch ${batch}-এ কোনো Student নেই</div></div>`;
+      wrapper.innerHTML = `<div class="att-empty-state"><div class="att-empty-text">Batch ${typeof Utils !== 'undefined' ? Utils.esc(batch) : batch}-এ কোনো Student নেই</div></div>`;
       return;
     }
 

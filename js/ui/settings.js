@@ -1224,7 +1224,7 @@ const SettingsModule = (() => {
               r.style.display='block';
               if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Full Sync সফল! সব ডেটা Cloud থেকে নামানো হয়েছে।'; Utils.toast('Full Sync সফল ✅','success'); }
               else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ Sync আংশিক সম্পন্ন। Supabase credentials চেক করুন।'; Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
           ">
             <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (সব data)
           </button>
@@ -1238,7 +1238,7 @@ const SettingsModule = (() => {
               const sc=res?.successCount||0; const errs=res?.errors||[];
               if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Push সফল! '+sc+' টেবিল Supabase-এ আপলোড হয়েছে।'; Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড','success'); }
               else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ আংশিক Push: '+sc+' সফল, '+errs.length+' সমস্যা। Security & Access-এ credentials চেক করুন।'; Utils.toast('Push — কিছু সমস্যা','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.innerHTML='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
           ">
             <i class="fa fa-cloud-arrow-up"></i> PUSH → CLOUD
           </button>
@@ -5094,7 +5094,7 @@ ${expenseEntries.length > 0 ? `
       logActivity('add', 'migration', `Imported ${imported} records`);
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
     } catch (e) {
-      if (statusEl) statusEl.innerHTML = `❌ Migration Failed: ${e.message}`;
+      if (statusEl) statusEl.textContent = `❌ Migration Failed: ${e.message}`;
       Utils.toast('Migration failed', 'error');
     }
   }
@@ -5215,7 +5215,7 @@ ${expenseEntries.length > 0 ? `
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
 
       } catch (err) {
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = `❌ ত্রুটি: ${err.message}`; }
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `❌ ত্রুটি: ${err.message}`; }
         Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
         console.error('[importFromJSON]', err);
       }
@@ -5283,7 +5283,7 @@ ${expenseEntries.length > 0 ? `
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
 
       } catch (err) {
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = `❌ ত্রুটি: ${err.message}`; }
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `❌ ত্রুটি: ${err.message}`; }
         Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
         console.error('[importFromJSONWithDate]', err);
       }
