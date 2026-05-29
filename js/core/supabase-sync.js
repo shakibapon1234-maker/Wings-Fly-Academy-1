@@ -1837,6 +1837,7 @@ const SupabaseSync = (() => {
       bonus,
       deduction,
       total,
+      paid_amount: paidAmt,
       paid: isFullyPaid,
       method: r.method || null,
       date: r.paidDate || r.paid_date || r.date || null,
@@ -2603,6 +2604,21 @@ const SyncEngine = (() => {
           });
         } else if (localTime > cloudTime) {
           merged.set(row.id, row);
+        } else {
+          // ✅ FIX: Cloud wins — salary partial payment paidAmount preserve করো
+          // Cloud-এ paid_amount column না থাকলে local-এর paidAmount হারিয়ে যায়
+          const localPaid = parseFloat(row.paidAmount ?? row.paid_amount ?? 0) || 0;
+          const cloudPaid = parseFloat(existing.paidAmount ?? existing.paid_amount ?? 0) || 0;
+          if (localPaid > 0 && cloudPaid === 0 && existing.paidAmount === undefined && existing.paid_amount === undefined) {
+            existing.paidAmount = localPaid;
+            existing.paid_amount = localPaid;
+            // paid status ও সংশোধন করো
+            const total = parseFloat(existing.total ?? existing.net_salary ?? existing.amount ?? 0) || 0;
+            if (total > 0 && localPaid > 0 && !existing.paid) {
+              existing.status = localPaid >= total ? 'Paid' : 'Partial';
+            }
+            merged.set(row.id, existing);
+          }
         }
       }
     });
@@ -2721,7 +2737,16 @@ const SyncEngine = (() => {
             }
             localMap.set(cloudRow.id, merged);
           } else {
-            localMap.set(cloudRow.id, cloudRow);
+            // ✅ FIX: Salary partial payment — cloud-এ paid_amount column না থাকলে
+            // incremental merge-এ local paidAmount হারিয়ে যেত
+            const _localPaid = parseFloat(localRow.paidAmount ?? localRow.paid_amount ?? 0) || 0;
+            const _cloudPaid = parseFloat(cloudRow.paidAmount ?? cloudRow.paid_amount ?? 0) || 0;
+            if (_localPaid > 0 && _cloudPaid === 0 && cloudRow.paidAmount === undefined && cloudRow.paid_amount === undefined) {
+              const salMerged = { ...cloudRow, paidAmount: _localPaid, paid_amount: _localPaid };
+              localMap.set(cloudRow.id, salMerged);
+            } else {
+              localMap.set(cloudRow.id, cloudRow);
+            }
           }
         }
       }
@@ -2828,6 +2853,18 @@ const SyncEngine = (() => {
           let merged = { ...rows[idx], ...newRow };
           const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
           const exKey = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
+          // ✅ FIX: Salary partial payment — cloud-এ paid_amount column না থাকলে
+          // real-time merge-এ local paidAmount হারিয়ে যেত। Local value preserve করো।
+          if (table === salKey) {
+            const localRow = rows[idx];
+            const localPaid = parseFloat(localRow.paidAmount ?? localRow.paid_amount ?? 0) || 0;
+            const cloudPaid = parseFloat(newRow.paidAmount ?? newRow.paid_amount ?? 0) || 0;
+            // Cloud-এ paidAmount/paid_amount না থাকলে local-এর value রাখো
+            if (localPaid > 0 && cloudPaid === 0 && newRow.paidAmount === undefined && newRow.paid_amount === undefined) {
+              merged.paidAmount = localPaid;
+              merged.paid_amount = localPaid;
+            }
+          }
           if (table === salKey && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
             merged = SupabaseSync.normalizeSalaryFromCloud(merged);
           } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {

@@ -104,6 +104,50 @@ const Salary = (() => {
   }
 
   /* ══════════════════════════════════════════
+     FINANCE ↔ SALARY AUTO-REPAIR
+     Cloud sync-এ paidAmount হারিয়ে গেলে Finance entries
+     থেকে সঠিক paidAmount পুনরুদ্ধার করো
+  ══════════════════════════════════════════ */
+  function _repairFromFinance() {
+    if (typeof SupabaseSync === 'undefined') return;
+    var salaryRecords = SupabaseSync.getAll(DB.salary);
+    var financeRecords = SupabaseSync.getAll(DB.finance);
+    if (!salaryRecords.length || !financeRecords.length) return;
+
+    var repaired = 0;
+    salaryRecords.forEach(function(r) {
+      var currentPaid = Utils.safeNum(r.paidAmount);
+      if (currentPaid > 0) return;  // Already has paidAmount — skip
+      if (r.paid === true) return;  // Fully paid — skip
+
+      // Find matching finance entries
+      var linked = financeRecords.filter(function(f) {
+        return _matchesSalaryFinance(f, r);
+      });
+      var financeTotal = linked.reduce(function(sum, f) {
+        return sum + Utils.safeNum(f.amount);
+      }, 0);
+
+      if (financeTotal > 0) {
+        var net = calcNet(r);
+        var isFullyPaid = net > 0 && financeTotal >= net;
+        SupabaseSync.update(DB.salary, r.id, {
+          paidAmount:  financeTotal,
+          paid_amount: financeTotal,
+          paid:        isFullyPaid,
+          paidDate:    r.paidDate || linked[linked.length - 1].date || '',
+          paid_date:   r.paidDate || linked[linked.length - 1].date || '',
+        }, { bypassLog: true });
+        repaired++;
+      }
+    });
+    if (repaired > 0) {
+      console.log('[Salary] Auto-repaired ' + repaired + ' record(s) from Finance data');
+    }
+    return repaired;
+  }
+
+  /* ══════════════════════════════════════════
      FINANCE LOG — Finance Expense + account balance কমানো
   ══════════════════════════════════════════ */
   function _matchesSalaryFinance(f, salaryRecord) {
@@ -202,6 +246,9 @@ const Salary = (() => {
   function renderContent() {
     var container = document.getElementById('salary-content');
     if (!container) return;
+
+    // ✅ Auto-repair: Finance entries থেকে paidAmount পুনরুদ্ধার করো (cloud sync bug fix)
+    _repairFromFinance();
 
     var cm        = getSelectedMonth();
     var records   = getRecords();
