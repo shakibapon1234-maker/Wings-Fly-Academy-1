@@ -224,10 +224,13 @@ const SyncGuard = (() => {
         const amt = parseFloat(f.amount) || 0;
         if (f._isLoan) return; // loan balance tracked via loans table
 
-        // ✅ Fix: Opening Balance entries count as "in" (they set the initial balance)
+        // NOTE: "Opening Balance" entries are IGNORED in the balance audit.
+        // The _upsertOpeningEntry() system has been permanently removed from accounts.js.
+        // Any remaining Opening Balance entries in the ledger are stale phantom entries
+        // that should NOT be counted — account balances are tracked directly via
+        // accounts.balance (updated live by updateAccountBalance on each transaction).
         if (f.category === 'Opening Balance') {
-          _add(f.method, amt, 'in');
-          return;
+          return; // skip — do NOT count as income
         }
 
         // ✅ Bug Fix: Investment In/Out যোগ করা হয়েছে — এগুলো account balance
@@ -342,7 +345,8 @@ const SyncGuard = (() => {
         <!-- Controls -->
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
           <div style="font-size:.85rem;color:#aaa">Event Log (${log.length})</div>
-          <div style="display:flex;gap:8px">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button onclick="SyncGuard.cleanStaleData()" style="background:rgba(255,20,100,0.12);border:1px solid rgba(255,20,100,0.4);color:#ff4d6d;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🧹 Clean Stale Data</button>
             <button onclick="SyncGuard.autoFix()" style="background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.3);color:orange;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🛠 Auto Fix</button>
             <button onclick="SyncGuard.runFullAudit()" style="background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🔍 Re-Audit</button>
             <button onclick="SyncGuard.clearLog();SyncGuard.renderPanel('${containerId}')" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:#ff4757;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🗑 Clear Log</button>
@@ -494,12 +498,67 @@ const SyncGuard = (() => {
     }
   }
 
+  // ── Clean Stale Data ─────────────────────────────────────
+  // Permanently removes phantom entries from finance_ledger:
+  //   1. "Opening Balance" entries (from the removed _upsertOpeningEntry system)
+  //   2. "Balance Adjustment" entries (from the old broken auto-fix)
+  // These never represented real money. Safe to run anytime.
+  async function cleanStaleData() {
+    if (!window.SupabaseSync) {
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast('SupabaseSync not ready.', 'error');
+      return;
+    }
 
+    const finance = window.SupabaseSync.getAll('finance_ledger') || [];
+    const staleEntries = finance.filter(f =>
+      f.category === 'Opening Balance' || f.category === 'Balance Adjustment'
+    );
+
+    if (staleEntries.length === 0) {
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast('✅ No stale data found — ledger is already clean!', 'success');
+      return;
+    }
+
+    const summary = staleEntries.map(f =>
+      `• [${f.category}] ${f.method || f.account || 'Unknown'} — ৳${parseFloat(f.amount || 0).toLocaleString()} (${f.date || 'no date'})`
+    ).join('\n');
+
+    const ok = await Utils.confirm(
+      `🧹 Finance ledger-এ ${staleEntries.length}টি phantom entry পাওয়া গেছে:\n\n${summary}\n\nতালিকা থেকে সরিয়ে দেবো? (এগুলো ভুয়া entry — আপনার আসল ব্যালেন্সে কোনো প্রভাব রাখবে না)`,
+      'Clean Stale Data'
+    );
+    if (!ok) return;
+
+    let removed = 0;
+    staleEntries.forEach(f => {
+      try {
+        window.SupabaseSync.remove('finance_ledger', f.id, { bypassLog: true });
+        removed++;
+      } catch (e) {
+        console.warn('[SyncGuard] cleanStaleData: failed to remove entry', f.id, e);
+      }
+    });
+
+    if (removed > 0) {
+      console.log(`[SyncGuard] cleanStaleData: removed ${removed} stale finance_ledger entries`);
+      typeof Utils !== 'undefined' && Utils.toast &&
+        Utils.toast(
+          `✅ ${removed}টি phantom entry সরিয়ে দেওয়া হয়েছে। Re-Audit চালানো হচ্ছে...`,
+          'success', 5000
+        );
+      setTimeout(() => {
+        runFullAudit();
+        const c = document.getElementById('settings-content');
+        if (c && typeof SettingsModule !== 'undefined') SettingsModule.render();
+      }, 600);
+    }
+  }
 
   // ── Init ─────────────────────────────────────────────────
   function init() {
     // Wait 12s for initial Supabase pull to finish before first audit
-    // (pull takes ~3-5s; 12s gives real-time subscriptions time to settle too)
     setTimeout(() => {
       runFullAudit();
     }, 12000);
@@ -525,6 +584,7 @@ const SyncGuard = (() => {
     runFullAudit,
     renderPanel,
     autoFix,
+    cleanStaleData,
     init,
   };
 

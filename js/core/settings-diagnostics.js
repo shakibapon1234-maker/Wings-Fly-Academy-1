@@ -263,16 +263,16 @@ const WfaSettingsDiagnostics = (() => {
     const accounts = _getAll(DB?.accounts || 'accounts');
     const finance = _getAll(DB?.finance || 'finance_ledger');
 
-    const orphanOpening = finance.filter(f => {
-      if (f.category !== 'Opening Balance') return false;
-      const m = f.method || f.account || '';
-      if (!m || m === 'Cash') return false;
-      return !accounts.some(a => a.name === m);
-    });
-    if (orphanOpening.length) {
-      _warn('accounts', 'Orphan opening balance', `${orphanOpening.length} finance row(s) for deleted/missing accounts`);
+    // NOTE: Opening Balance finance entries are now STALE — the _upsertOpeningEntry
+    // system has been permanently removed. We no longer check for "orphan" Opening
+    // Balance entries; instead we count them as phantom entries to be cleaned up.
+    const staleOpening = finance.filter(f => f.category === 'Opening Balance');
+    if (staleOpening.length > 0) {
+      _warn('accounts', 'Stale Opening Balance entries',
+        `${staleOpening.length} phantom Opening Balance entry/entries found in finance ledger — use SyncGuard → Clean Stale Data to remove`,
+        'SyncGuard panel → "Clean Stale Data" button');
     } else {
-      _pass('accounts', 'Opening balance links', 'No orphan Opening Balance entries');
+      _pass('accounts', 'Opening balance entries', 'None — ledger is clean');
     }
 
     if (typeof Accounts === 'undefined') {

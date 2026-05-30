@@ -133,6 +133,31 @@ const WFA_IDB = (() => {
       // One-time migration from localStorage
       await _migrateFromLocalStorage();
 
+      // ── One-time cleanup of stale phantom finance entries ──────────────
+      // Remove "Opening Balance" and "Balance Adjustment" entries that were
+      // created by the old broken _upsertOpeningEntry() system in accounts.js.
+      // This flag ensures cleanup runs only once per device.
+      const CLEANUP_FLAG = 'wfa_stale_cleanup_v1';
+      if (!localStorage.getItem(CLEANUP_FLAG)) {
+        try {
+          const finance = _cache['finance_ledger'] || [];
+          const staleIds = finance
+            .filter(f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment')
+            .map(f => f.id);
+          if (staleIds.length > 0) {
+            staleIds.forEach(id => {
+              _cache['finance_ledger'] = (_cache['finance_ledger'] || []).filter(f => f.id !== id);
+            });
+            _writeToIDB('finance_ledger', _cache['finance_ledger']);
+            console.info(`[IDB] One-time cleanup: removed ${staleIds.length} stale phantom finance_ledger entries (Opening Balance / Balance Adjustment)`);
+          }
+          localStorage.setItem(CLEANUP_FLAG, '1');
+        } catch (cleanupErr) {
+          console.warn('[IDB] Stale cleanup failed (non-critical):', cleanupErr);
+        }
+      }
+      // ──────────────────────────────────────────────────────────────────
+
       _ready = true;
       _readyCallbacks.forEach(cb => cb());
       _readyCallbacks = [];

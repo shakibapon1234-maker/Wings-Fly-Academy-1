@@ -6,50 +6,14 @@
 
 const Accounts = (() => {
 
-  // ── Opening Balance Helper ──────────────────────────────────────────────
-  // Account-এ balance set করলে Finance-এ একটা Income entry তৈরি/আপডেট করে
-  // যাতে SyncGuard-এর balance audit মিলে যায়।
-  function _upsertOpeningEntry(accountName, balance) {
-    if (!accountName || typeof SupabaseSync === 'undefined') return;
-    try {
-      const all = SupabaseSync.getAll(DB.finance);
-      const existing = all.find(f =>
-        f.category === 'Opening Balance' &&
-        (f.method === accountName || f.account === accountName)
-      );
-      const entry = {
-        type: 'Income',
-        category: 'Opening Balance',
-        method: accountName,
-        account: accountName,
-        amount: balance,
-        date: Utils.today ? Utils.today() : new Date().toISOString().split('T')[0],
-        note: `Opening balance for ${accountName}`,
-        description: `Opening balance for ${accountName}`,
-      };
-      if (existing) {
-        SupabaseSync.update(DB.finance, existing.id, entry, { bypassLog: true });
-      } else if (balance > 0) {
-        SupabaseSync.insert(DB.finance, entry, { bypassLog: true });
-      }
-    } catch (e) {
-      console.warn('[Accounts] _upsertOpeningEntry error:', e);
-    }
-  }
-
-  function _removeOpeningEntriesForAccount(accountName) {
-    if (!accountName || typeof SupabaseSync === 'undefined') return;
-    SupabaseSync.getAll(DB.finance).filter(f =>
-      f.category === 'Opening Balance' &&
-      (f.method === accountName || f.account === accountName)
-    ).forEach((f) => {
-      const amt = Utils.safeNum(f.amount);
-      if (amt > 0 && f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(f.method, amt, 'out', true);
-      }
-      SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
-    });
-  }
+  // ── Opening Balance System REMOVED (Permanent Fix) ──────────────────────
+  // _upsertOpeningEntry() and _removeOpeningEntriesForAccount() have been
+  // permanently removed. They created phantom "Opening Balance" Income entries
+  // in finance_ledger every time an account balance was saved/updated, which
+  // caused SyncGuard's auditBalances() to double-count balances → inflation.
+  // The user never had opening balances. Account balances are tracked directly
+  // via accounts.balance (updated by updateAccountBalance on each transaction).
+  // Finance ledger should only contain REAL transactions.
 
   let searchResMethod = '';
   let searchResFrom = '';
@@ -631,10 +595,7 @@ const Accounts = (() => {
       const oldBal = parseFloat(old?.balance) || 0;
       SupabaseSync.update(DB.accounts, existingId, { type, balance: bal }, { bypassLog: true });
 
-      // Adjust opening balance finance entry if balance changed
-      if (bal !== oldBal) {
-        _upsertOpeningEntry(accountName, bal);
-      }
+      // Opening balance entries removed — account balance is the direct source of truth
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'accounts',
           `একাউন্ট ব্যালেন্স আপডেট: ${accountName} — ৳${oldBal.toLocaleString()} → ৳${bal.toLocaleString()}`
@@ -642,7 +603,6 @@ const Accounts = (() => {
       }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal }, { bypassLog: true });
-      if (bal > 0) _upsertOpeningEntry(accountName, bal);
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'accounts',
           `নতুন একাউন্ট যোগ: ${accountName} — প্রারম্ভিক ব্যালেন্স ৳${bal.toLocaleString()}`
@@ -713,7 +673,7 @@ const Accounts = (() => {
        const old = SupabaseSync.getById(DB.accounts, id);
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record, { bypassLog: true });
-       if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
            `ব্যাংক একাউন্ট আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.bankName ? ' (' + record.bankName + ')' : ''}`
@@ -722,7 +682,7 @@ const Accounts = (() => {
        Utils.toast('Bank account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record, { bypassLog: true });
-       if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('add', 'accounts',
            `ব্যাংক একাউন্ট যোগ: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — A/C: ' + record.accountNo : ''}`
@@ -738,7 +698,7 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Bank Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Bank Account')) {
-      if (record && record.name) _removeOpeningEntriesForAccount(record.name);
+      // Opening balance cleanup removed — no longer needed
       SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',
@@ -797,7 +757,7 @@ const Accounts = (() => {
        const old = SupabaseSync.getById(DB.accounts, id);
        const oldBal = parseFloat(old?.balance) || 0;
        SupabaseSync.update(DB.accounts, id, record, { bypassLog: true });
-       if (record.balance !== oldBal) _upsertOpeningEntry(name, record.balance);
+       // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
            `মোবাইল ব্যাংকিং আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
@@ -806,7 +766,7 @@ const Accounts = (() => {
        Utils.toast('Mobile account updated','success');
     } else {
        SupabaseSync.insert(DB.accounts, record, { bypassLog: true });
-       if (record.balance > 0) _upsertOpeningEntry(name, record.balance);
+       // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('add', 'accounts',
            `মোবাইল ব্যাংকিং যোগ: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
@@ -822,7 +782,7 @@ const Accounts = (() => {
     const record = SupabaseSync.getById(DB.accounts, id);
     const label = record?.name || 'Mobile Account';
     if (await Utils.confirm(`"${label}" ডিলিট করবেন? Recycle Bin-এ যাবে।`, 'Delete Mobile Account')) {
-      if (record && record.name) _removeOpeningEntriesForAccount(record.name);
+      // Opening balance cleanup removed — no longer needed
       SupabaseSync.remove(DB.accounts, id, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('delete', 'accounts',
