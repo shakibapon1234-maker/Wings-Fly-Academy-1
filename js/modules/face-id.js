@@ -106,9 +106,12 @@ const FaceIDModule = (() => {
       console.log('[FaceID] Capacitor Camera permission request not available:', e.message);
     }
 
-    // Fallback: Try modern Permissions API
+    // Fallback: Try modern Permissions API with 2s timeout (faster fallback)
     try {
-      const result = await navigator.permissions.query({ name: 'camera' });
+      const permPromise = navigator.permissions.query({ name: 'camera' });
+      const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 2000));
+      const result = await Promise.race([permPromise, timeoutPromise]);
+      if (!result) return true; // timeout — optimistic fallback
       if (result.state === 'denied') return false;
       if (result.state === 'granted') return true;
       // 'prompt' — will ask on getUserMedia
@@ -120,9 +123,6 @@ const FaceIDModule = (() => {
   }
 
   async function openScannerModal(mode = 'login') {
-    const modelsReady = await loadModels();
-    if (!modelsReady) return;
-
     const modalId = 'face-id-modal';
     let m = document.getElementById(modalId);
     if (!m) {
@@ -160,6 +160,10 @@ const FaceIDModule = (() => {
     // Stop any existing stream first
     _stopStream();
 
+    // ✅ FIX: Load models in parallel while showing modal (faster perceived speed)
+    const modelsReady = await loadModels();
+    if (!modelsReady) return;
+
     // ✅ NEW: Request permission first!
     const hasPermission = await _requestCameraPermission();
     if (!hasPermission) {
@@ -181,8 +185,9 @@ const FaceIDModule = (() => {
       videoStream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'user',
-          width: { ideal: 320 },
-          height: { ideal: 240 }
+          width: { min: 256, ideal: 320, max: 640 },
+          height: { min: 192, ideal: 240, max: 480 },
+          frameRate: { ideal: 30, max: 60 }
         },
         audio: false
       });
@@ -240,7 +245,7 @@ const FaceIDModule = (() => {
 
         setTimeout(() => handleDetectionResult(mode, detection.descriptor), 800);
       }
-    }, 500);
+    }, 250);
   }
 
   async function _persistFaceDescriptor(json) {
