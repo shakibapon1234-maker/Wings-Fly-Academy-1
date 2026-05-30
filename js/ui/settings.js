@@ -4455,7 +4455,7 @@ ${expenseEntries.length > 0 ? `
     if (!item) return showLiveAccountSnapshot();
 
     let snapshot = item.snapshot || {};
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.buildMonitorSnapshotAtRecord) {
+    if (!item.snapshot && typeof SupabaseSync !== 'undefined' && SupabaseSync.buildMonitorSnapshotAtRecord) {
       const rec = _monitorRecordFromItem(item);
       if (rec) {
         try {

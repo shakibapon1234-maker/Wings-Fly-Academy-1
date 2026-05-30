@@ -360,6 +360,8 @@ const TABLE_COLUMNS = {
 
 const SupabaseSync = (() => {
 
+  let _syncInProgress = false;
+
   // —— IDB-backed table storage ——
   function getAll(table) {
     return WFA_IDB.getTable(table);
@@ -406,6 +408,50 @@ const SupabaseSync = (() => {
 
   function setAll(table, rows) {
     try {
+      // ✅ Suspicious Direct Balance Change Detection System
+      if (table === 'accounts' && !window._realtimeEventInProgress && !_syncInProgress && Array.isArray(rows)) {
+        try {
+          const oldAccounts = WFA_IDB.getTable('accounts') || [];
+          rows.forEach(newAcc => {
+            if (!newAcc || !newAcc.id) return;
+            const oldAcc = oldAccounts.find(o => o.id === newAcc.id);
+            if (oldAcc) {
+              const oldBal = parseFloat(oldAcc.balance) || 0;
+              const newBal = parseFloat(newAcc.balance) || 0;
+              if (oldBal !== newBal) {
+                // Balance changed! Check if it was authorized/legitimate
+                if (!window._legitimateBalanceChangeInProgress) {
+                  console.warn(`[DataMonitor] ⚠️ Suspicious Direct Balance Change: Account "${newAcc.name || 'Account'}" balance changed from ৳${oldBal} to ৳${newBal} without a transaction!`);
+                  
+                  // Log alert to localStorage wfa_balance_alerts
+                  const alertEntry = {
+                    date: new Date().toLocaleString(),
+                    timestamp: Date.now(),
+                    accountName: newAcc.name || newAcc.type || 'Account',
+                    oldBalance: oldBal,
+                    newBalance: newBal,
+                    difference: Math.round((newBal - oldBal) * 100) / 100,
+                    type: 'suspicious_balance_change'
+                  };
+                  
+                  const alerts = (() => { try { return JSON.parse(localStorage.getItem('wfa_balance_alerts') || '[]'); } catch { return []; } })();
+                  alerts.unshift(alertEntry);
+                  if (alerts.length > 50) alerts.length = 50;
+                  localStorage.setItem('wfa_balance_alerts', JSON.stringify(alerts));
+
+                  if (typeof Utils !== 'undefined' && Utils.toast) {
+                    Utils.toast(`⚠️ Suspicious balance change: Account "${newAcc.name}" balance changed from ৳${oldBal.toLocaleString()} to ৳${newBal.toLocaleString()} without a transaction!`, 'error', 10000);
+                  }
+                  window.dispatchEvent(new CustomEvent('wfa:suspicious_balance', { detail: alertEntry }));
+                }
+              }
+            }
+          });
+        } catch (alertErr) {
+          console.warn('[DataMonitor] Balance change audit check failed:', alertErr);
+        }
+      }
+
       WFA_IDB.setTable(table, rows);
     } catch (e) {
       console.error('[Storage] setAll failed for table:', table, e);
@@ -2225,6 +2271,15 @@ const SupabaseSync = (() => {
   }
 
   async function _updateBalanceCore(methodName, amount, direction, force = false) {
+    window._legitimateBalanceChangeInProgress = true;
+    try {
+      return await _updateBalanceCoreInternal(methodName, amount, direction, force);
+    } finally {
+      window._legitimateBalanceChangeInProgress = false;
+    }
+  }
+
+  async function _updateBalanceCoreInternal(methodName, amount, direction, force = false) {
     try {
       const normalizedAmount = Math.round((parseFloat(amount) || 0) * 100) / 100;
       if (normalizedAmount <= 0) return false;
@@ -2414,6 +2469,15 @@ const SyncEngine = (() => {
   }
 
   async function _pullCore(opts = {}) {
+    _syncInProgress = true;
+    try {
+      return await _pullCoreInternal(opts);
+    } finally {
+      _syncInProgress = false;
+    }
+  }
+
+  async function _pullCoreInternal(opts = {}) {
     const silent = opts.silent !== false ? true : false;
     const forceFull = opts.full === true;
     setStatus('syncing');
@@ -2868,6 +2932,15 @@ const SyncEngine = (() => {
   }
 
   function _handleRealtimeEvent(table, payload) {
+    window._realtimeEventInProgress = true;
+    try {
+      return _handleRealtimeEventInternal(table, payload);
+    } finally {
+      window._realtimeEventInProgress = false;
+    }
+  }
+
+  function _handleRealtimeEventInternal(table, payload) {
     try {
       const { eventType, new: newRow, old: oldRow } = payload;
       const rows = SupabaseSync.getAll(table);
