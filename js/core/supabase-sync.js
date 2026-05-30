@@ -2089,7 +2089,12 @@ const SupabaseSync = (() => {
     try {
       const { client } = window.SUPABASE_CONFIG;
       if (!client) {
-        // Supabase not configured/offline — skip silently, local data already saved
+        // If Supabase is configured but client is temporarily unavailable, queue for retry
+        const hasCreds = (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) ||
+                         (window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.url);
+        if (hasCreds) {
+          _queueRetry(table, record);
+        }
         return;
       }
       // ✅ Cooldown check — skip table if it failed recently to stop console flooding
@@ -2136,7 +2141,12 @@ const SupabaseSync = (() => {
     try {
       const { client } = window.SUPABASE_CONFIG;
       if (!client) {
-        // Supabase not configured/offline — skip silently, local delete already done
+        // If Supabase is configured but client is temporarily unavailable, queue for retry
+        const hasCreds = (window.SUPABASE_URL && window.SUPABASE_ANON_KEY) ||
+                         (window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.url);
+        if (hasCreds) {
+          _queueRetry(table, { id, _deleteOnly: true });
+        }
         return;
       }
       const { error } = await client.from(table).delete().eq('id', id);
@@ -2361,7 +2371,7 @@ const SupabaseSync = (() => {
   }
 
   return {
-    getAll, getById, setAll, insert, update, remove, generateId,
+    getAll, getById, setAll, insert, update, remove, generateId, _deleteFromCloud,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
@@ -2614,7 +2624,13 @@ const SyncEngine = (() => {
               if (aName !== bName) return bName - aName;
               return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
             });
-            merged = [merged[0]];
+            const keeper = merged[0];
+            // Proactively delete any duplicate settings rows from the cloud
+            for (let i = 1; i < merged.length; i++) {
+              const dupRow = merged[i];
+              SupabaseSync._deleteFromCloud(key, dupRow.id);
+            }
+            merged = [keeper];
           }
         }
 
@@ -2994,6 +3010,19 @@ const SyncEngine = (() => {
             row = SupabaseSync.normalizeExamFromCloud(row);
           }
           rows.unshift(row);
+        }
+        // Ensure settings table has exactly 1 record after realtime changes
+        if (table === 'settings' && rows.length > 1) {
+          rows.sort((a, b) => {
+            const aName = a.academy_name ? 1 : 0;
+            const bName = b.academy_name ? 1 : 0;
+            if (aName !== bName) return bName - aName;
+            return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+          });
+          for (let i = 1; i < rows.length; i++) {
+            SupabaseSync._deleteFromCloud(table, rows[i].id);
+          }
+          rows.splice(1); // Keep only first row in rows
         }
         SupabaseSync.setAll(table, rows);
       } else if (eventType === 'DELETE') {
