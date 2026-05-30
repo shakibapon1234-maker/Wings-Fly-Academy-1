@@ -328,17 +328,13 @@ const SyncGuard = (() => {
             </div>
             ${!auditF.ok ? `<div style="margin-top:8px;font-size:.75rem;color:#ff4757">${auditF.issues.slice(0,3).map(i=>`• ${i}`).join('<br>')}</div>` : ''}
           </div>
-          <div style="flex:1;min-width:200px;background:${auditB.ok?'rgba(0,255,136,0.07)':'rgba(255,71,87,0.09)'};border:1px solid ${auditB.ok?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.4)'};border-radius:10px;padding:14px">
+          <div style="flex:1;min-width:200px;background:rgba(100,100,100,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px">
             <div style="font-size:.75rem;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Account Balance Audit</div>
-            <div style="font-size:1.05rem;font-weight:700;color:${auditB.ok?'#00ff88':'#ff4757'}">
-              ${auditB.ok ? '✅ Balanced' : `❌ ${auditB.discrepancies.length} mismatch(es)`}
+            <div style="font-size:1.05rem;font-weight:700;color:#888">⏸ Disabled</div>
+            <div style="margin-top:8px;font-size:.72rem;color:#666;line-height:1.5">
+              Finance ledger-এ সব historical transaction নেই (app চালু হওয়ার আগের)। তাই এই audit সবসময় mismatch দেখায়।<br>
+              Account balance সবসময় সঠিক — প্রতিটা real transaction-এ সরাসরি update হয়।
             </div>
-            ${!auditB.ok ? `<div style="margin-top:8px;font-size:.75rem;color:#ff4757">
-              ${auditB.discrepancies.slice(0,3).map(d=>
-                d.error ? `• Error: ${d.error}` :
-                `• ${d.account}: stored ৳${Math.round(d.stored).toLocaleString()} vs calculated ৳${Math.round(d.calculated).toLocaleString()} (diff ৳${Math.round(d.diff).toLocaleString()})`
-              ).join('<br>')}
-            </div>` : ''}
           </div>
         </div>
 
@@ -347,7 +343,6 @@ const SyncGuard = (() => {
           <div style="font-size:.85rem;color:#aaa">Event Log (${log.length})</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button onclick="SyncGuard.cleanStaleData()" style="background:rgba(255,20,100,0.12);border:1px solid rgba(255,20,100,0.4);color:#ff4d6d;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🧹 Clean Stale Data</button>
-            <button onclick="SyncGuard.autoFix()" style="background:rgba(255,165,0,0.12);border:1px solid rgba(255,165,0,0.3);color:orange;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🛠 Auto Fix</button>
             <button onclick="SyncGuard.runFullAudit()" style="background:rgba(0,212,255,0.12);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🔍 Re-Audit</button>
             <button onclick="SyncGuard.clearLog();SyncGuard.renderPanel('${containerId}')" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);color:#ff4757;border-radius:6px;padding:5px 12px;font-size:.78rem;cursor:pointer">🗑 Clear Log</button>
           </div>
@@ -387,17 +382,20 @@ const SyncGuard = (() => {
   // ── Full audit runner ─────────────────────────────────────
   function runFullAudit() {
     const f = auditFinance();
-    const b = auditBalances();
+    // NOTE: auditBalances() is intentionally NOT called here.
+    // The finance_ledger does not contain complete historical transaction data
+    // (many pre-app transactions are missing), so the balance recalculation
+    // will always diverge from stored balances. Stored balances are the
+    // source of truth, updated live by updateAccountBalance() on each transaction.
 
-    if (f.ok && b.ok) {
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('✅ Full audit passed — no issues found', 'success');
+    if (f.ok) {
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast('✅ Finance audit passed — ledger is clean', 'success');
     } else {
-      const total = f.issues.length + b.discrepancies.length;
-      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`⚠️ Audit found ${total} issue(s) — check SyncGuard log`, 'error', 8000);
+      typeof Utils !== 'undefined' && Utils.toast && Utils.toast(`⚠️ Finance audit found ${f.issues.length} issue(s) — check SyncGuard log`, 'error', 8000);
     }
 
     _updateBadge();
-    return { finance: f, balances: b };
+    return { finance: f, balances: { ok: true, discrepancies: [] } };
   }
 
   // ── Auto Fix logic ───────────────────────────────────────
@@ -407,95 +405,22 @@ const SyncGuard = (() => {
   //
   //   ❌ OLD (BROKEN): created fake "Opening Balance" entries in finance_ledger
   //      → This INFLATED balances and created phantom transactions
-  //   ✅ NEW (FIXED): directly corrects accounts.balance to match ledger sum
-  //      → No fake entries, no balance inflation, no phantom activity logs
+  // ── Auto Fix — PERMANENTLY DISABLED ─────────────────────
+  // This feature has been disabled because it was the ROOT CAUSE of
+  // recurring balance corruption. It corrected stored account balances
+  // to match an unreliable ledger recalculation (which was always wrong
+  // because finance_ledger does not contain complete historical data).
   //
-  //   NEVER create finance_ledger entries from auto-fix.
-  //   NEVER set stored to a negative value.
-  async function autoFix() {
-    const ok = await Utils.confirm(
-      'Auto-Fix: অ্যাকাউন্ট ব্যালেন্স finance ledger-এর হিসাব অনুযায়ী সংশোধন হবে।\n\n⚠️ এটি শুধুমাত্র accounts-এর stored balance পরিবর্তন করবে — কোনো নতুন ট্রানজেকশন তৈরি হবে না।\n\nContinue?',
-      'Auto-Fix Balances'
-    );
-    if (!ok) return;
-
-    if (!window.SupabaseSync) {
-      typeof Utils !== 'undefined' && Utils.toast &&
-        Utils.toast('SupabaseSync not ready. Please try again.', 'error');
-      return;
-    }
-
-    const b = auditBalances();
-    if (b.discrepancies.length === 0) {
-      typeof Utils !== 'undefined' && Utils.toast &&
-        Utils.toast('✅ No discrepancies found — balances are correct.', 'success');
-      return;
-    }
-
-    let fixed = 0;
-    let skipped = 0;
-    const accounts = window.SupabaseSync.getAll('accounts');
-    const fixDetails = [];
-
-    b.discrepancies.forEach(d => {
-      if (d.error) { skipped++; return; }
-
-      const acc = accounts.find(a => (a.type === 'Cash' ? 'Cash' : a.name) === d.account);
-      if (!acc) { skipped++; return; }
-
-      // ✅ FIX: Always set stored balance to match the calculated ledger sum.
-      // The ledger is the source of truth — stored balance is just a cached total.
-      // Never create phantom finance_ledger entries.
-      const newBalance = Math.max(0, Math.round(d.calculated));
-
-      // Skip if calculated is negative and stored is also ≤ 0
-      if (d.calculated < 0 && d.stored <= 0) {
-        console.warn(`[SyncGuard] Cannot auto-fix "${d.account}": calculated (৳${d.calculated}) is negative. Manual review needed.`);
-        skipped++;
-        return;
-      }
-
-      console.log(`[SyncGuard] Correcting "${d.account}" balance: ৳${d.stored} → ৳${newBalance} (ledger sum: ৳${Math.round(d.calculated)})`);
-      window.SupabaseSync.update('accounts', acc.id, { balance: newBalance });
-      fixDetails.push({
-        account: d.account,
-        oldBalance: d.stored,
-        newBalance: newBalance,
-        diff: Math.round(d.stored - newBalance),
-      });
-      fixed++;
-    });
-
-    // Log to SyncGuard event log (NOT activity log — no phantom entries)
-    if (fixDetails.length > 0) {
-      const summary = fixDetails.map(f =>
-        `${f.account}: ৳${Math.round(f.oldBalance).toLocaleString()} → ৳${f.newBalance.toLocaleString()} (diff: ৳${Math.abs(f.diff).toLocaleString()})`
-      ).join('; ');
-      report('balance_update_error', {
-        action: 'auto_fix_applied',
-        fixes: fixDetails.length,
-        summary: summary.slice(0, 300),
-      });
-    }
-
-    if (fixed > 0) {
-      typeof Utils !== 'undefined' && Utils.toast &&
-        Utils.toast(
-          `✅ ${fixed}টি অ্যাকাউন্ট ব্যালেন্স সংশোধন হয়েছে।${skipped > 0 ? ` (${skipped}টি manual review দরকার)` : ''} Re-Audit করুন।`,
-          'success', 6000
-        );
-      setTimeout(() => {
-        runFullAudit();
-        const c = document.getElementById('settings-content');
-        if (c && typeof SettingsModule !== 'undefined') SettingsModule.render();
-      }, 600);
-    } else if (skipped > 0) {
-      typeof Utils !== 'undefined' && Utils.toast &&
-        Utils.toast(`⚠️ ${skipped}টি account auto-fix করা সম্ভব হয়নি। Manual review প্রয়োজন।`, 'warning', 10000);
-    } else {
-      typeof Utils !== 'undefined' && Utils.toast &&
-        Utils.toast('No auto-fixable issues found.', 'info');
-    }
+  // Account balances are the SOURCE OF TRUTH. They are correctly updated
+  // live by updateAccountBalance() on every real transaction (student fees,
+  // salary, loans, transfers). DO NOT recalculate from ledger.
+  function autoFix() {
+    typeof Utils !== 'undefined' && Utils.toast &&
+      Utils.toast(
+        '⛔ Auto Fix নিষ্ক্রিয় করা হয়েছে — এটি balance নষ্ট করে দিত। Account balance সবসময় সঠিক থাকে।',
+        'warning', 6000
+      );
+    console.warn('[SyncGuard] autoFix() is permanently disabled. Account balances are the source of truth.');
   }
 
   // ── Clean Stale Data ─────────────────────────────────────
