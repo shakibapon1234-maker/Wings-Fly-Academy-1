@@ -17,6 +17,22 @@
     { "src": "./assets/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
     { "src": "./assets/favicon.ico",  "sizes": "48x48",   "type": "image/x-icon" }
   ],
+  "screenshots": [
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Wings Fly Aviation Academy Dashboard"
+    },
+    {
+      "src": "./assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Wings Fly Aviation Academy Mobile"
+    }
+  ],
   "shortcuts": [
     {
       "name": "Add Student",

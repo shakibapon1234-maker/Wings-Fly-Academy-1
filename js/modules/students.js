@@ -1708,10 +1708,13 @@ const Students = (() => {
 </body>
 </html>`;
 
-    const win = window.open('', '_blank', 'width=860,height=900');
-    if (!win) { Utils.toast('Popup blocked! Please allow popups.', 'error'); return; }
-    win.document.write(html);
-    win.document.close();
+    // ✅ Bug #13 Fix: Replaced document.write() with Blob URL (avoids deprecated API)
+    const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const win = window.open(blobUrl, '_blank', 'width=860,height=900');
+    if (!win) { URL.revokeObjectURL(blobUrl); Utils.toast('Popup blocked! Please allow popups.', 'error'); return; }
+    // Revoke the Blob URL after the window has loaded to free memory
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
   }
 
   /* ══════════════════════════════════════════

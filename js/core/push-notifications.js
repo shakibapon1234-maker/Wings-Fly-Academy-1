@@ -99,11 +99,9 @@ const PushNotificationModule = (() => {
     //   2. Replace the empty string below with your Base64 public key.
     //   3. Configure the private key on your backend/Supabase Edge Function.
     const VAPID_PUBLIC_KEY = ''; // ← paste your VAPID public key here
-
+    // ✅ Bug #7 Fix: Empty VAPID key guard — push subscription will silently skip
     if (!VAPID_PUBLIC_KEY) {
-      if (window.__WFA_DEV__) {
-        console.info('[Push] Web Push skipped (VAPID not configured). Use Capacitor build for mobile push.');
-      }
+      console.warn('[PushNotifications] VAPID_PUBLIC_KEY is empty — web push disabled. Set a valid VAPID key to enable push notifications.');
       return;
     }
 

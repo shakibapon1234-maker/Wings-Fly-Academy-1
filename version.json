@@ -1,7 +1,7 @@
 {
-  "version": "1.2.3",
-  "deploy_id": "20260523-audit-xss-fixes",
-  "changelog": "Critical: enforce strict no-negative-balance rule across all operations (delete, edit, restore). finance.js delete/edit now blocked if balance would go negative. supabase-sync.js restore path: all force=true bypasses removed — expense/loan restores checked and warned if insufficient balance.",
+  "version": "4.9.3",
+  "deploy_id": "20260529-audit-xss-fixes-r2",
+  "changelog": "Bug fixes: salary partial payment sync (paid_amount preserved in cloud), audit fixes (version sync, admin defer scripts, certificate session-store, push notification guard, manifest screenshots, hashPw stronger fallback, visitor-form script order).",
   "size": "~2MB",
-  "released": "2026-05-22"
+  "released": "2026-05-29"
 }

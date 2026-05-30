@@ -203,9 +203,15 @@ const LoginUI = (() => {
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
     } catch {
-      let hash = 0;
-      for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
-      return 'fb_' + Math.abs(hash).toString(16);
+      // ✅ Bug #8 Fix: Stronger HTTP-only fallback — FNV-1a 32-bit with 3 rounds + salt
+      const salt = 'wfa_2026_';
+      const salted = salt + pw + pw.length.toString(16);
+      let h = 0x811c9dc5;
+      for (let round = 0; round < 3; round++) {
+        const input = round === 0 ? salted : salted + (h >>> 0).toString(16);
+        for (let i = 0; i < input.length; i++) { h ^= input.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      }
+      return 'fb_' + (h >>> 0).toString(16).padStart(8,'0') + ((h >>> 0) ^ 0x9e3779b9 >>> 0).toString(16).padStart(8,'0');
     }
   }
 
@@ -371,10 +377,16 @@ const LoginUI = (() => {
         const inputHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
         match = inputHash === masterPin;
       } catch {
-        // Fallback non-crypto hash (same as app.js _hashPw)
-        let hash = 0;
-        for (let i = 0; i < given.length; i++) { hash = ((hash << 5) - hash) + given.charCodeAt(i); hash |= 0; }
-        match = ('fb_' + Math.abs(hash).toString(16)) === masterPin;
+        // ✅ Bug #8 Fix: Stronger fallback — FNV-1a 32-bit with 3 rounds + salt
+        const salt = 'wfa_2026_';
+        const salted = salt + given + given.length.toString(16);
+        let h = 0x811c9dc5;
+        for (let round = 0; round < 3; round++) {
+          const inp = round === 0 ? salted : salted + (h >>> 0).toString(16);
+          for (let i = 0; i < inp.length; i++) { h ^= inp.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+        }
+        const fbHash = 'fb_' + (h >>> 0).toString(16).padStart(8,'0') + ((h >>> 0) ^ 0x9e3779b9 >>> 0).toString(16).padStart(8,'0');
+        match = fbHash === masterPin;
       }
     } else {
       match = given === masterPin;
