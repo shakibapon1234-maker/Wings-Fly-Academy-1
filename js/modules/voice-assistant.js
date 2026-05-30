@@ -2001,11 +2001,21 @@ const VoiceAssistant = (() => {
       if (typeof AIAssistant !== 'undefined' && AIAssistant.chat) {
         showBubble('Thinking...', false);
         AIAssistant.chat(raw).then(reply => {
+          if (!reply) {
+            hideBubble();
+            return;
+          }
+          // If the reply is the local help message, do not speak or show the bubble to avoid disturbing the user
+          if (reply.includes('Academy Assistant') || reply.includes('API লাগে না') || reply.includes('📋')) {
+            hideBubble();
+            return;
+          }
           if (reply.startsWith('❌') || reply.startsWith('⏳')) {
-            const shortMsg = currentLang === 'bn-IN' ? 'দুঃখিত স্যার, আপনার এপিআই কোটা শেষ হয়ে গেছে। দয়া করে সেটিংসে গিয়ে নতুন কী দিন।' : 'Sorry sir, your API quota has been exceeded. Please provide a new key in Settings.';
-            speak(shortMsg);
-            showBubble('❌ API Quota Exceeded. Add new key in Settings.', false);
-            if (typeof Utils !== 'undefined') Utils.toast('Gemini API Quota Exceeded. Please update your API key in Settings.', 'error', 5000);
+            // Quota or API key errors: do not speak or show bubble to avoid repeating it on room noise
+            hideBubble();
+            if (typeof Utils !== 'undefined') {
+              Utils.toast('Gemini API Quota Exceeded / Key Invalid.', 'error', 3000);
+            }
             return;
           }
           // Remove Markdown bold/stars from speech
@@ -2013,15 +2023,12 @@ const VoiceAssistant = (() => {
           speak(cleanSpeech);
           showBubble(cleanSpeech, true);
         }).catch(_err => {
-          const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আমি উত্তরটি খুঁজে পাইনি।' : 'Sorry Sir, I could not process that.';
-          speak(msg);
-          showBubble(msg, false);
+          // Silent catch on unrecognized voice command failures to avoid disturbance
+          hideBubble();
         });
       } else {
-        if(typeof Utils!=='undefined') Utils.toast(`Not recognized: "${raw}" — say "help"`, 'warn');
-        const msg = currentLang === 'bn-IN' ? 'সরি স্যার, আই ডোন্ট আন্ডারস্ট্যান্ড।' : 'Sorry Sir, I don\'t understand.';
-        speak(msg);
-        showBubble(msg, false);
+        // If AIAssistant is not available, remain silent
+        hideBubble();
       }
     }
   }
