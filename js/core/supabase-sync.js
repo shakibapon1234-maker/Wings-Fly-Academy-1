@@ -530,7 +530,11 @@ const SupabaseSync = (() => {
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
       let snapshot = {};
-      try { snapshot = _buildMonitorSnapshotAtRecord(record, action); } catch (snapErr) {
+      // ✅ Snapshot Design: use _getMonitorSnapshot() which reads DIRECTLY from
+      // accounts.balance (the stored value, same as what dashboard shows).
+      // NO historical reconstruction or recalculation.
+      // "Right or wrong, the snapshot shows exactly what's on screen at this moment."
+      try { snapshot = _getMonitorSnapshot(); } catch (snapErr) {
         console.warn('[DataMonitor] Snapshot capture failed:', snapErr?.message || snapErr);
       }
       const entry = {
@@ -754,15 +758,13 @@ const SupabaseSync = (() => {
       const totalFee  = students.reduce((s, r) => s + Number(r.total_fee || 0), 0);
       const totalPaid = students.reduce((s, r) => s + Number(r.paid || 0), 0);
       const totalDue  = students.reduce((s, r) => s + Number(r.due  || 0), 0);
-      // ✅ Bug Fix 3: Investment In/Out যোগ করা হয়েছে snapshot calculation-এ
-      // Income = Income + Loan Receiving + Investment In
-      // Expense = Expense + Loan Giving + Investment Out
-      const INCOME_TYPES  = _MONITOR_INCOME_TYPES;
-      const EXPENSE_TYPES = _MONITOR_EXPENSE_TYPES;
-      const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
-      const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase())).reduce((s, r) => s + Number(r.amount || 0), 0);
+      // ✅ Fix: Exclude phantom categories from finance totals in snapshot
+      const _isPhantomEntry = f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment';
+      const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
 
-      // Account balances — normalize same as DashboardModule to avoid duplicates
+      // Account balances — read DIRECTLY from accounts.balance (same as dashboard)
+      // No recalculation. Whatever is stored is what's shown.
       const cleanAccounts = _normalizeMonitorAccounts(accounts);
       const accountBalance = cleanAccounts.reduce((s, a) => s + Number(a.balance || 0), 0);
       const accountList = cleanAccounts.map(a => ({ name: a.name || a.account_name || 'Account', balance: Number(a.balance || 0), type: a.type || '' }));
