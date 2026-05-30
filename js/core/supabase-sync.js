@@ -520,6 +520,13 @@ const SupabaseSync = (() => {
       const allowedTypes = ['income', 'expense', 'transfer in', 'transfer out', 'loan giving', 'loan receiving', 'investment in', 'investment out'];
       if (!allowedTypes.includes(financeType)) return;
 
+      // ✅ Fix: Skip phantom categories — these were never real money movements.
+      // Opening Balance entries were created by the old broken _upsertOpeningEntry() system.
+      // Balance Adjustment entries were created by the old broken Auto Fix.
+      // Both systems are now permanently removed. Snapshots should only reflect real transactions.
+      const phantomCategories = ['Opening Balance', 'Balance Adjustment'];
+      if (phantomCategories.includes(record.category)) return;
+
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
       let snapshot = {};
@@ -610,6 +617,8 @@ const SupabaseSync = (() => {
     baseAccounts.forEach(a => balances.set(_accountMethodName(a), Number(a.balance || 0)));
     for (let i = sorted.length - 1; i > cutoffIndex; i--) {
       const f = sorted[i];
+      // ✅ Fix: Skip phantom entries when reconstructing historical balances
+      if (f.category === 'Opening Balance' || f.category === 'Balance Adjustment') continue;
       const amount = Number(f.amount || 0);
       if (amount <= 0) continue;
       const dir = _balanceDirForFinance(f);
@@ -650,9 +659,13 @@ const SupabaseSync = (() => {
       }
 
       const upTo = sorted.slice(0, Math.max(0, cutoffIndex) + 1);
-      const snapIncome  = upTo.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()))
+      // ✅ Fix: Exclude phantom categories from income/expense snapshot calculations.
+      // Opening Balance and Balance Adjustment entries were never real money movements.
+      const _isPhantom = f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment';
+
+      const snapIncome  = upTo.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantom(f))
         .reduce((s, r) => s + Number(r.amount || 0), 0);
-      const snapExpense = upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()))
+      const snapExpense = upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantom(f))
         .reduce((s, r) => s + Number(r.amount || 0), 0);
 
       const balanceMap = _accountBalancesAtCutoff(sorted, cutoffIndex, baseAccounts);
