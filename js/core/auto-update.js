@@ -249,8 +249,33 @@ const AutoUpdateModule = (() => {
     }
   }
 
+  // ── Sync local version from bundled version.json ──
+  // Ensures localStorage always has the correct deployed version
+  // instead of relying on the fallback '1.2.3'.
+  async function syncLocalVersion() {
+    try {
+      const stored = localStorage.getItem(LOCAL_VERSION_KEY);
+      // Only sync if not set or still the old fallback
+      if (!stored || stored === LOCAL_VERSION_FALLBACK || stored === '1.0.0') {
+        const res = await fetch('./version.json', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.version) {
+            localStorage.setItem(LOCAL_VERSION_KEY, data.version);
+            console.log(`[AutoUpdate] Synced local version to ${data.version}`);
+          }
+        }
+      }
+    } catch {
+      // Silently ignore — non-critical
+    }
+  }
+
   // ── Initialize auto-check on app start ──
   function init() {
+    // Sync local version from bundled version.json first
+    syncLocalVersion();
+
     // Delay check by 5s so it doesn't slow down initial app load
     setTimeout(() => {
       checkForUpdate().then(result => {
