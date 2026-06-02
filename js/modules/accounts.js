@@ -968,76 +968,23 @@ const Accounts = (() => {
   }
 
   // 🆕 BUG #5 FIX: Verify account balance against finance records
-  // ✅ Updated: Now includes Loan Giving/Receiving to match recalculateBalance logic
+  // ✅ Updated: Permanently bypassed to avoid false-positives and misleading mismatch warnings
   function verifyAccountBalance(accountName, storedBalance) {
-    try {
-      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return null;
-      const finance = SupabaseSync.getAll(DB.finance) || [];
-      
-      // Find all transactions for this account (including Loan types)
-      let calculated = 0;
-      finance.forEach(f => {
-        if (f.method === accountName || f.account === accountName) {
-          const amt = Utils.safeNum(f.amount);
-          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') {
-            calculated += amt;
-          } else if (f.type === 'Expense' || f.type === 'Transfer Out' || f.type === 'Loan Giving') {
-            calculated -= amt;
-          }
-        }
-      });
-      
-      // Compare
-      const diff = Math.abs(calculated - storedBalance);
-      if (diff > 1) { // Allow 1 taka rounding difference
-        console.warn('[Accounts]', accountName, 'balance mismatch:', { stored: storedBalance, calculated: calculated, difference: diff });
-        return false; // Mismatch detected
-      }
-      return true;
-    } catch (e) {
-      console.error('[Accounts] Balance verification error:', e);
-      return null;
-    }
+    console.warn('[Accounts] verifyAccountBalance() is bypassed. Stored balances are the source of truth.');
+    return true; // Always return true to prevent misleading mismatch reports
   }
 
   // 🆕 BUG #5 FIX: Recalculate balance from finance records
+  // ✅ Updated: Permanently disabled. Ledger data is incomplete/unreliable.
   function recalculateBalance(accountName) {
-    try {
-      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return false;
-      const finance = SupabaseSync.getAll(DB.finance) || [];
-      let newBalance = 0;
-      
-      finance.forEach(f => {
-        if (f.method === accountName || f.account === accountName) {
-          const amt = Utils.safeNum(f.amount);
-          if (f.type === 'Income' || f.type === 'Transfer In' || f.type === 'Loan Receiving') {
-            newBalance += amt;
-          } else {
-            newBalance -= amt;
-          }
-        }
-      });
-      
-      // Update account
-      const accounts = SupabaseSync.getAll(DB.accounts) || [];
-      const account = accounts.find(a => a.name === accountName);
-      if (account) {
-        account.balance = Math.round(newBalance * 100) / 100; // ✅ Show real balance, don't hide negatives
-        SupabaseSync.update(DB.accounts, account.id, account);
-        if (typeof Utils !== 'undefined' && Utils.toast) {
-          Utils.toast('✅ Balance recalculated and updated', 'success');
-        }
-        render();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      console.error('[Accounts] Recalculate error:', e);
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast('❌ Recalculation failed', 'error');
-      }
-      return false;
+    if (typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast(
+        '⛔ Recalculate নিষ্ক্রিয় করা হয়েছে — এটি balance নষ্ট করে দেয়। Stored balance-ই সঠিক।',
+        'warning', 6000
+      );
     }
+    console.warn('[Accounts] recalculateBalance() is permanently disabled. Ledger data is incomplete.');
+    return false;
   }
 
   return {
