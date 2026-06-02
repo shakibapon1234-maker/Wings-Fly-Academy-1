@@ -1923,9 +1923,9 @@ const SettingsModule = (() => {
             <label class="settings-label">EXPENSE START DATE</label>
             <div style="position:relative;display:flex;align-items:center;">
               <input type="text" id="bp-start" class="form-control" readonly
-                placeholder="DD/MM/YY" autocomplete="off"
+                placeholder="DD/MM/YYYY" autocomplete="off"
                 style="cursor:pointer;padding-right:38px;"
-                value="${(function(){var d=new Date(monthAgo);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+String(d.getFullYear()).slice(-2);})()}" />
+                value="${(function(){var d=new Date(monthAgo);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+d.getFullYear();})()}" />
               <i class="fa fa-calendar-days" style="position:absolute;right:12px;color:var(--brand-primary);font-size:0.9rem;pointer-events:none;"></i>
             </div>
             <input type="hidden" id="bp-start-raw" value="${monthAgo}" />
@@ -1934,9 +1934,9 @@ const SettingsModule = (() => {
             <label class="settings-label">EXPENSE END DATE</label>
             <div style="position:relative;display:flex;align-items:center;">
               <input type="text" id="bp-end" class="form-control" readonly
-                placeholder="DD/MM/YY" autocomplete="off"
+                placeholder="DD/MM/YYYY" autocomplete="off"
                 style="cursor:pointer;padding-right:38px;"
-                value="${(function(){var d=new Date(today);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+String(d.getFullYear()).slice(-2);})()}" />
+                value="${(function(){var d=new Date(today);return (d.getDate()+'').padStart(2,'0')+'/'+(d.getMonth()+1+'').padStart(2,'0')+'/'+d.getFullYear();})()}" />
               <i class="fa fa-calendar-days" style="position:absolute;right:12px;color:var(--brand-primary);font-size:0.9rem;pointer-events:none;"></i>
             </div>
             <input type="hidden" id="bp-end-raw" value="${today}" />
@@ -2014,8 +2014,8 @@ const SettingsModule = (() => {
       const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
       if (!inRange) return false;
       if (!selectedBatch) return true;
-      // Include ONLY expenses tagged to this batch (untagged general expenses excluded)
-      return f.batch === selectedBatch;
+      // Include expenses tagged to this batch OR untagged general expenses
+      return !f.batch || f.batch === selectedBatch;
     });
 
     const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
@@ -3099,7 +3099,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     const bpCfg = {
-      dateFormat:    'd/m/y',
+      dateFormat:    'd/m/Y',
       disableMobile: true,
       locale:        { firstDayOfWeek: 1 },
       onChange: function(dates, _str, inst) {
