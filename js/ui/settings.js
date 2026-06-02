@@ -2014,8 +2014,8 @@ const SettingsModule = (() => {
       const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
       if (!inRange) return false;
       if (!selectedBatch) return true;
-      // Include expenses tagged to this batch OR untagged general expenses
-      return !f.batch || f.batch === selectedBatch;
+      // Include ONLY expenses tagged to this batch (untagged general expenses excluded)
+      return f.batch === selectedBatch;
     });
 
     const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
