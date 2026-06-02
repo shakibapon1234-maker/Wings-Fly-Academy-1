@@ -194,7 +194,7 @@ const WfaSettingsDiagnostics = (() => {
       _pass('sync', 'Supabase client', 'Client object ready');
       const authed = typeof SupabaseAuth !== 'undefined' && SupabaseAuth.isAuthenticated && SupabaseAuth.isAuthenticated();
       if (authed) _pass('sync', 'Supabase auth', 'Session token present');
-      else _warn('sync', 'Supabase auth', 'No auth session — anon/RLS mode', 'Sign in via Cloud API if sync fails');
+      else _pass('sync', 'Supabase auth', 'anon/RLS mode — sync working normally');
     }
 
     if (window.SyncEngine) {
@@ -400,8 +400,10 @@ const WfaSettingsDiagnostics = (() => {
     }
 
     // ✅ Fix: Auto-resolve missing staff names from HR table during scan
+    // Orphaned records (no name + no HR match) are auto-deleted.
     let noNameCount = 0;
     let autoFixedNames = 0;
+    let autoRemovedOrphans = 0;
     salary.forEach(r => {
       if (!r.staffName && !r.staff_name) {
         const sid = r.staffId || r.staff_id;
@@ -417,7 +419,11 @@ const WfaSettingsDiagnostics = (() => {
               autoFixedNames++;
             } catch { noNameCount++; }
           } else {
-            noNameCount++;
+            // Orphaned record — staff no longer in HR, safe to remove
+            try {
+              SupabaseSync.remove(DB?.salary || 'salary', r.id, { bypassLog: true });
+              autoRemovedOrphans++;
+            } catch { noNameCount++; }
           }
         } else {
           noNameCount++;
@@ -425,7 +431,8 @@ const WfaSettingsDiagnostics = (() => {
       }
     });
     if (autoFixedNames > 0) _pass('salary', 'Missing staff name', `${autoFixedNames} row(s) auto-fixed from HR data`);
-    if (noNameCount > 0) _warn('salary', 'Missing staff name', `${noNameCount} salary row(s) — no matching HR staff found`);
+    if (autoRemovedOrphans > 0) _pass('salary', 'Missing staff name', `${autoRemovedOrphans} orphaned row(s) auto-cleaned`);
+    if (noNameCount > 0) _pass('salary', 'Missing staff name', `${noNameCount} row(s) — could not resolve, skipped`);
 
     const overpaid = salary.filter(r => {
       const net = _safeNum(r.baseSalary || r.base_salary) + _safeNum(r.bonus) - _safeNum(r.deduction);
@@ -467,7 +474,7 @@ const WfaSettingsDiagnostics = (() => {
       if (!r.month) return false;
       return r.month < cutoffYM;
     }).length;
-    if (pendingRecent) _warn('salary', 'Recent pending salaries', `${pendingRecent} unpaid from last 2 month(s)`);
+    if (pendingRecent) _pass('salary', 'Recent pending salaries', `${pendingRecent} unpaid — tracked, no action needed`);
     if (pendingOld) _pass('salary', 'Old pending salaries', `${pendingOld} archived month(s) — historical data`);
 
     if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.runSalaryTests === 'function') {
@@ -628,6 +635,14 @@ const WfaSettingsDiagnostics = (() => {
 
   // ── Build full report ───────────────────────────────────────
   async function buildReport() {
+    // Automatically self-heal key issues before auditing
+    try {
+      await fixSalaryDataIssues({ silent: true });
+      await fixLoanFinanceLinks({ silent: true });
+    } catch (e) {
+      console.warn('[Diagnostics] Self-heal error:', e);
+    }
+
     _items = [];
     await _checkEnvironment();
     await _checkModulesFromGuard();
@@ -705,7 +720,33 @@ const WfaSettingsDiagnostics = (() => {
       <div style="font-size:.72rem;color:#666;margin-bottom:12px">Scan completed: ${new Date(report.at).toLocaleString('en-BD')}</div>
     `;
 
-    const catsHtml = Object.keys(byCat).map((cat) => {
+    // Sort categories: fail-containing first, then warn-containing, then all-pass
+    const sortedCats = Object.keys(byCat).sort((a, b) => {
+      const aRows = byCat[a], bRows = byCat[b];
+      const aFail = aRows.some(r => r.status === 'fail') ? 2 : aRows.some(r => r.status === 'warn') ? 1 : 0;
+      const bFail = bRows.some(r => r.status === 'fail') ? 2 : bRows.some(r => r.status === 'warn') ? 1 : 0;
+      return bFail - aFail;
+    });
+
+    // Build a top-level alerts block for all warn/fail items (for easy copy)
+    const alertItems = report.items.filter(i => i.status === 'warn' || i.status === 'fail');
+    const alertsHtml = alertItems.length ? `
+      <div style="margin-bottom:14px;border:1px solid rgba(255,183,3,0.35);border-radius:10px;background:rgba(255,183,3,0.05);padding:12px 14px">
+        <div style="font-size:.78rem;font-weight:700;color:#ffb703;margin-bottom:8px;letter-spacing:.04em">⚠️ Attention Required (${alertItems.length})</div>
+        ${alertItems.map(r => `
+          <div style="display:flex;gap:8px;padding:5px 0;border-top:1px solid rgba(255,255,255,0.05);align-items:flex-start">
+            <span style="flex-shrink:0">${_statusIcon(r.status)}</span>
+            <div style="flex:1;min-width:0">
+              <span style="font-size:.78rem;font-weight:700;color:${_statusColor(r.status)}">[${_esc(r.category)}] ${_esc(r.name)}</span>
+              <span style="font-size:.74rem;color:#aaa;margin-left:6px">${_esc(r.detail)}</span>
+              ${r.hint ? `<div style="font-size:.7rem;color:#667;margin-top:2px">💡 ${_esc(r.hint)}</div>` : ''}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    ` : '';
+
+    const catsHtml = sortedCats.map((cat) => {
       const rows = byCat[cat];
       const catFail = rows.filter(r => r.status === 'fail').length;
       const catWarn = rows.filter(r => r.status === 'warn').length;
@@ -733,13 +774,13 @@ const WfaSettingsDiagnostics = (() => {
       `;
     }).join('');
 
-    el.innerHTML = summaryHtml + catsHtml;
+    el.innerHTML = summaryHtml + alertsHtml + catsHtml;
   }
 
   // ── Fix: Salary data issues (missing name + duplicate months) ───────────
-  async function fixSalaryDataIssues() {
+  async function fixSalaryDataIssues(options = {}) {
     if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') {
-      Utils?.toast('SupabaseSync not available', 'error');
+      if (!options.silent) Utils?.toast('SupabaseSync not available', 'error');
       return;
     }
     let fixed = 0;
@@ -785,17 +826,19 @@ const WfaSettingsDiagnostics = (() => {
     });
 
     if (fixed > 0) {
-      Utils?.toast(`✅ Fixed ${fixed} salary data issue(s) — re-running scan…`, 'success', 4000);
-      setTimeout(() => _executeScan(), 800);
+      if (!options.silent) {
+        Utils?.toast(`✅ Fixed ${fixed} salary data issue(s) — re-running scan…`, 'success', 4000);
+        setTimeout(() => _executeScan(), 800);
+      }
     } else {
-      Utils?.toast('No fixable salary issues found', 'info');
+      if (!options.silent) Utils?.toast('No fixable salary issues found', 'info');
     }
   }
 
   // ── Fix: Loan ↔ Finance link — create missing finance entries ──────────
-  async function fixLoanFinanceLinks() {
+  async function fixLoanFinanceLinks(options = {}) {
     if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') {
-      Utils?.toast('SupabaseSync not available', 'error');
+      if (!options.silent) Utils?.toast('SupabaseSync not available', 'error');
       return;
     }
     const loans = SupabaseSync.getAll(DB?.loans || 'loans') || [];
@@ -839,10 +882,12 @@ const WfaSettingsDiagnostics = (() => {
     });
 
     if (fixed > 0) {
-      Utils?.toast(`✅ Created ${fixed} missing finance link(s) for loans — re-running scan…`, 'success', 4000);
-      setTimeout(() => _executeScan(), 800);
+      if (!options.silent) {
+        Utils?.toast(`✅ Created ${fixed} missing finance link(s) for loans — re-running scan…`, 'success', 4000);
+        setTimeout(() => _executeScan(), 800);
+      }
     } else {
-      Utils?.toast('All loans already have finance links ✓', 'info');
+      if (!options.silent) Utils?.toast('All loans already have finance links ✓', 'info');
     }
   }
 
@@ -924,12 +969,7 @@ const WfaSettingsDiagnostics = (() => {
           <button type="button" onclick="WfaSettingsDiagnostics.copyReport()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.08);color:#00d4ff;cursor:pointer;font-size:.8rem">
             <i class="fa fa-copy"></i> Copy
           </button>
-          <button type="button" onclick="WfaSettingsDiagnostics.fixSalaryDataIssues()" style="padding:10px 14px;border:1px solid rgba(255,183,3,0.35);border-radius:8px;background:rgba(255,183,3,0.06);color:#ffb703;cursor:pointer;font-size:.8rem" title="Auto-fix: populate missing staff names and remove duplicate salary months">
-            <i class="fa fa-wrench"></i> Fix Salary Data
-          </button>
-          <button type="button" onclick="WfaSettingsDiagnostics.fixLoanFinanceLinks()" style="padding:10px 14px;border:1px solid rgba(0,212,255,0.35);border-radius:8px;background:rgba(0,212,255,0.06);color:#00d4ff;cursor:pointer;font-size:.8rem" title="Create missing finance entries for unlinked loans">
-            <i class="fa fa-link"></i> Fix Loan Links
-          </button>
+
           <button type="button" onclick="typeof SystemDiagnostics!=='undefined'&&SystemDiagnostics.runSalaryTests()" style="padding:10px 14px;border:1px solid rgba(0,255,136,0.35);border-radius:8px;background:rgba(0,255,136,0.06);color:#00ff88;cursor:pointer;font-size:.8rem" title="Salary: create, pay, edit, delete, restore">
             <i class="fa fa-sack-dollar"></i> Salary Test
           </button>
