@@ -14,12 +14,17 @@ const Students = (() => {
   }
 
   function _syncPaidDueAfterLedgerChange(studentId, s, removedPaymentAmount) {
-    const ledgerCurrent = _feePaymentsForStudent(studentId, s)
+    // ✅ Bug Fix: Always re-read the latest student data from DB.
+    // The passed-in `s` may hold a stale `paid` value if another update
+    // happened between when `s` was read and when this function runs,
+    // causing cascading math errors in sequential delete operations.
+    const fresh = SupabaseSync.getById(DB.students, studentId) || s;
+    const ledgerCurrent = _feePaymentsForStudent(studentId, fresh)
       .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const ledgerBefore = ledgerCurrent + Utils.safeNum(removedPaymentAmount || 0);
-    const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBefore);
+    const unrecordedInitial = Math.max(0, Utils.safeNum(fresh.paid) - ledgerBefore);
     const newPaid = ledgerCurrent + unrecordedInitial;
-    const newDue = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
+    const newDue = Math.max(0, Utils.safeNum(fresh.total_fee) - newPaid);
     SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
     return { paid: newPaid, due: newDue };
   }

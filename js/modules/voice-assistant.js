@@ -200,8 +200,12 @@ const VoiceAssistant = (() => {
         };
         const msg = errorMap[e.error] || ('Mic error: ' + e.error);
         
-        // Hide no-speech from console warning as it's very common
-        if (e.error === 'no-speech') {
+        // ✅ Fix: 'aborted' is a normal event when recognition.stop() is called
+        // programmatically (e.g., during speech synthesis). Treat it like 'no-speech'.
+        const isHarmless = (e.error === 'no-speech' || e.error === 'aborted');
+
+        // Hide harmless errors from console warning as they are very common
+        if (isHarmless) {
           console.debug('[Voice] Debug:', e.error);
         } else {
           console.warn('[Voice] Error:', e.error);
@@ -218,12 +222,12 @@ const VoiceAssistant = (() => {
           return;
         }
 
-        // In continuous mode, no-speech is expected, so don't show the error bubble
-        if (!(isContinuous && e.error === 'no-speech')) {
+        // In continuous mode, harmless errors are expected, so don't show the error bubble
+        if (!(isContinuous && isHarmless)) {
           showBubble(msg, true);
         }
 
-        if (typeof Utils !== 'undefined' && e.error !== 'no-speech' && e.error !== 'aborted') {
+        if (typeof Utils !== 'undefined' && !isHarmless) {
           Utils.toast(msg, 'error', 3000);
         }
         if (!isContinuous) stopUI();

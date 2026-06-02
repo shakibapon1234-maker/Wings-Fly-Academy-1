@@ -5961,6 +5961,9 @@ ${expenseEntries.length > 0 ? `
   }
 
   function getSubAccounts() {
+     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        return SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts') || [];
+     }
      return Utils.safeJSON(localStorage.getItem('wfa_sub_accounts'), []);
   }
 
@@ -6043,6 +6046,12 @@ ${expenseEntries.length > 0 ? `
         return;
      }
 
+     // Security check: restrict "admin" username for sub-accounts
+     if (un.toLowerCase() === 'admin') {
+        if(typeof Utils !== 'undefined') Utils.toast('Cannot use "admin" as sub-account username', 'error');
+        return;
+     }
+
      const permissions = [];
      const permsMap = {
         'perm-students': 'Students',
@@ -6071,12 +6080,19 @@ ${expenseEntries.length > 0 ? `
      // ── Password SHA-256 hash করে সংরক্ষণ ───────────────────────────
      const hashedPw = await hashPassword(pw);
 
-     subs.push({
+     const newSub = {
+        id: (typeof SupabaseSync !== 'undefined') ? SupabaseSync.generateId() : Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
         username: un,
         password: hashedPw,   // SHA-256 hashed — plaintext কখনো store হয় না
         permissions: permissions
-     });
-     subs.forEach(s => SupabaseSync.update(DB.sub_accounts || 'sub_accounts', s.id, s));
+     };
+
+     if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        SupabaseSync.insert(DB.sub_accounts || 'sub_accounts', newSub);
+     } else {
+        subs.push(newSub);
+        localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+     }
      
      logActivity('add', 'security', `Added sub-account @${un}`);
      if(typeof Utils !== 'undefined') Utils.toast('Sub-account created ✅', 'success');
@@ -6099,8 +6115,12 @@ ${expenseEntries.length > 0 ? `
       }
       _saveRecycleBinToSettings();
 
-      subs.splice(idx, 1);
-      subs.forEach(s => SupabaseSync.update(DB.sub_accounts || 'sub_accounts', s.id, s));
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+         SupabaseSync.remove(DB.sub_accounts || 'sub_accounts', target.id);
+      } else {
+         subs.splice(idx, 1);
+         localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
+      }
       logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
       if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted → Recycle Bin-এ আছে', 'warning');
       refreshModal();

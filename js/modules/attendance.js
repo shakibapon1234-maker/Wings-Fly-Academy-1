@@ -644,10 +644,11 @@ const Attendance = (() => {
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (!el || el._flatpickr) return; // already initialized
-      flatpickr(el, {
-        dateFormat:    'Y-m-d',   // stored value: YYYY-MM-DD (filter logic অক্ষুণ্ণ)
+      // ✅ Fix: Use safe wrapper to prevent 'Invalid date provided' errors
+      Utils.initFlatpickrOnElement(el, {
+        dateFormat:    'Y-m-d',
         altInput:      true,
-        altFormat:     'd/m/Y',   // displayed as DD/MM/YYYY
+        altFormat:     'd/m/Y',
         allowInput:    true,
         disableMobile: false,
       });

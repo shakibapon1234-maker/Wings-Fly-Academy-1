@@ -317,10 +317,11 @@ const Accounts = (() => {
     ids.forEach(id => {
       const el = document.getElementById(id);
       if (!el || el._flatpickr) return; // already initialized
-      flatpickr(el, {
-        dateFormat:  'Y-m-d',   // stored value stays YYYY-MM-DD for filter logic
+      // ✅ Fix: Use safe wrapper to prevent 'Invalid date provided' errors
+      Utils.initFlatpickrOnElement(el, {
+        dateFormat:  'Y-m-d',
         altInput:    true,
-        altFormat:   'd/m/Y',   // displayed as DD/MM/YYYY to the user
+        altFormat:   'd/m/Y',
         allowInput:  true,
         disableMobile: false,
       });
@@ -868,7 +869,8 @@ const Accounts = (() => {
     if (typeof flatpickr !== 'undefined') {
       const trDate = document.getElementById('tr-date');
       if (trDate && !trDate._flatpickr) {
-        flatpickr(trDate, {
+        // ✅ Fix: Use safe wrapper to prevent 'Invalid date provided' errors
+        Utils.initFlatpickrOnElement(trDate, {
           dateFormat:  'Y-m-d',
           altInput:    true,
           altFormat:   'd/m/Y',

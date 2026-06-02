@@ -359,6 +359,9 @@ const App = (() => {
         showApp(true);
         return true;
       }
+      
+      // Prevent login fall-through to sub-accounts if username is 'admin' but password is wrong
+      return false;
     }
 
     if (!normalizedUsername) return false;

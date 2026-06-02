@@ -240,15 +240,30 @@ const Utils = (() => {
       }
       return null; // Unknown format — ignore silently instead of throwing
     };
-    const mergedOptions = { parseDate: safeParseFn, ...options };
+    // ✅ Fix: Wrap caller-provided parseDate with safeParseFn as a fallback.
+    // Previous: `{ parseDate: safeParseFn, ...options }` let caller override the safe fn.
+    const callerParse = options && options.parseDate;
+    const wrappedParse = callerParse
+      ? (datestr) => { try { return callerParse(datestr) ?? safeParseFn(datestr); } catch { return safeParseFn(datestr); } }
+      : safeParseFn;
+    const mergedOptions = { ...options, parseDate: wrappedParse };
     try {
-      return flatpickr(el, mergedOptions);
+      // ✅ Fix: Temporarily suppress flatpickr's internal console.warn for invalid dates
+      const origWarn = console.warn;
+      console.warn = function(...args) {
+        if (typeof args[0] === 'string' && args[0].includes('Invalid date provided')) return;
+        origWarn.apply(console, args);
+      };
+      const instance = flatpickr(el, mergedOptions);
+      console.warn = origWarn;
+      return instance;
     } catch (e) {
       el.value = '';
       if (window.__WFA_DEV__) console.warn('[Flatpickr] init skipped:', e?.message || e);
       return null;
     }
   }
+
 
 
   // ── Number Helpers ─────────────────────────────────────────
