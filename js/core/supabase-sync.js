@@ -2378,6 +2378,7 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
+    getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,
     _addToRecycleBinPublic: _addToRecycleBin,
     _syncRecycleBinToSettings,

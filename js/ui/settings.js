@@ -2975,9 +2975,13 @@ ${expenseEntries.length > 0 ? `
                   const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
                   const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
                   const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
+                  // ✅ Rebuilt vs Real snapshot indicator
+                  const snapshotBadge = c.rebuilt
+                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
+                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>';
                   return `
                   <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
-                    <td>${i + 1}</td>
+                    <td>${i + 1}${snapshotBadge}</td>
                     <td style="font-size:.82rem">${c.date || '—'}</td>
                     <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
                     <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
@@ -4454,17 +4458,13 @@ ${expenseEntries.length > 0 ? `
     const item = transactions[index];
     if (!item) return showLiveAccountSnapshot();
 
+    // ✅ Bug Fix: আগে snapshot না থাকলে _buildMonitorSnapshotAtRecord দিয়ে recalculate
+    // করতো — যেটা backwards calculation করে সবসময় "সঠিক" দেখাতো।
+    // এখন শুধু stored snapshot ব্যবহার হবে। না থাকলে warning দেখাবে।
     let snapshot = item.snapshot || {};
-    if (!item.snapshot && typeof SupabaseSync !== 'undefined' && SupabaseSync.buildMonitorSnapshotAtRecord) {
-      const rec = _monitorRecordFromItem(item);
-      if (rec) {
-        try {
-          snapshot = SupabaseSync.buildMonitorSnapshotAtRecord(rec, item.action || 'insert');
-        } catch (e) {
-          console.warn('[Monitor] snapshot recalc failed:', e?.message || e);
-        }
-      }
-    }
+    const isRebuilt = !!item.rebuilt;
+    const hasRealSnapshot = !!(item.snapshot && item.snapshot.accounts && item.snapshot.accounts.list);
+
     const students    = snapshot.students || {};
     const accounts    = snapshot.accounts || {};
     const finance     = snapshot.finance  || {};
@@ -4539,9 +4539,24 @@ ${expenseEntries.length > 0 ? `
         </div>
       </div>` : '';
 
+    // ✅ Warning banner: rebuilt entry বা snapshot না থাকলে alert দেখাবে
+    const snapshotWarningBanner = (isRebuilt || !hasRealSnapshot) ? `
+      <div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,215,0,0.10);border:1px solid rgba(255,215,0,0.35);border-radius:10px;display:flex;align-items:flex-start;gap:10px">
+        <i class="fa fa-triangle-exclamation" style="color:#ffd700;margin-top:2px;flex-shrink:0"></i>
+        <div style="font-size:.80rem;color:#ffd700;line-height:1.6">
+          <strong>⚠ এটি আসল time-stamped স্ক্রিনশট নয়।</strong><br>
+          ${isRebuilt
+            ? 'এই entry <strong>Rebuild</strong> বাটন দিয়ে তৈরি — snapshot সেই transaction-এর সময়ের নয়, বরং Rebuild করার সময়ের বর্তমান balance দেখাচ্ছে।'
+            : 'এই entry-র কোনো stored snapshot নেই। Balance data অনুপলব্ধ।'
+          }<br>
+          <span style="opacity:.75;font-size:.74rem">নতুন transaction add করলে real-time snapshot স্বয়ংক্রিয়ভাবে সেভ হবে।</span>
+        </div>
+      </div>` : '';
+
     openSettingsInternalModal(
       `<span style="display:inline-flex;align-items:center;gap:8px"><i class="fa fa-camera" style="color:#00d9ff"></i><span>Monitor \u2014 Account Balances</span></span>`,
       `
+      ${snapshotWarningBanner}
       <!-- Snapshot header bar -->
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
         <div style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:rgba(0,212,255,0.9);font-weight:700">
@@ -4613,6 +4628,8 @@ ${expenseEntries.length > 0 ? `
 
       const filtered = allFinance
         .filter(f => allowedTypes.includes(String(f.type || '').toLowerCase()))
+        // ✅ Fix: Exclude phantom categories from rebuild
+        .filter(f => f.category !== 'Opening Balance' && f.category !== 'Balance Adjustment')
         .sort((a, b) => {
           const da = new Date(a.created_at || a.updated_at || a.date || 0).getTime();
           const db = new Date(b.created_at || b.updated_at || b.date || 0).getTime();
@@ -4625,11 +4642,18 @@ ${expenseEntries.length > 0 ? `
         return;
       }
 
+      // ✅ Bug Fix: Rebuild-এ _buildMonitorSnapshotAtRecord ব্যবহার করা হতো যেটা
+      // বর্তমান ব্যালেন্স থেকে backwards recalculate করতো — ফলে ডেটা ভুল থাকলেও
+      // snapshot "সঠিক" দেখাতো (কারণ গাণিতিকভাবে derive করা)।
+      // এখন _getMonitorSnapshot() ব্যবহার করা হচ্ছে যেটা accounts.balance সরাসরি পড়ে
+      // (আসল স্ক্রিনশট)। Rebuild-কৃত entry-তে rebuilt:true ফ্ল্যাগ থাকবে।
+      // NOTE: Rebuilt snapshot = বর্তমান state, historical point-in-time নয়।
+      const currentSnapshot = typeof SupabaseSync.getMonitorSnapshot === 'function'
+        ? SupabaseSync.getMonitorSnapshot()
+        : {};
+
       const entries = filtered.map(record => {
         const action = 'insert';
-        const snapshot = typeof SupabaseSync.buildMonitorSnapshotAtRecord === 'function'
-          ? SupabaseSync.buildMonitorSnapshotAtRecord(record, action)
-          : {};
         return {
           date: record.created_at ? new Date(record.created_at).toLocaleString() : (record.date || new Date().toLocaleString()),
           action,
@@ -4642,12 +4666,13 @@ ${expenseEntries.length > 0 ? `
           recordId: record.id,
           recordAt: record.created_at || record.updated_at || record.date || null,
           item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
-          snapshot,
+          snapshot: currentSnapshot,
+          rebuilt: true,  // ✅ Mark as rebuilt — real-time snapshot ছিল না
         };
       });
 
       localStorage.setItem('wfa_recent_changes', JSON.stringify(entries));
-      Utils.toast(`✅ ${entries.length}টি ট্রান্সেকশন Data Monitor-এ restore হয়েছে`, 'success');
+      Utils.toast(`✅ ${entries.length}টি ট্রান্সেকশন Data Monitor-এ restore হয়েছে (snapshot = বর্তমান state)`, 'success');
       refreshModal();
     } catch (err) {
       console.error('[RebuildMonitor] Failed:', err);
