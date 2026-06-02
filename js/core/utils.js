@@ -220,14 +220,36 @@ const Utils = (() => {
       try { el._flatpickr.destroy(); } catch { /* ignore */ }
       el._flatpickr = null;
     }
+    // ✅ Fix: safe parseDate prevents "Invalid data provided: <string>" runtime
+    // errors when a non-date value (e.g. "admin") reaches a flatpickr field.
+    // Returns null instead of throwing so flatpickr just ignores the bad value.
+    const safeParseFn = (datestr) => {
+      if (!datestr) return null;
+      const str = String(datestr).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? null : d;
+      }
+      const dmy = str.split('/');
+      if (dmy.length === 3) {
+        const [day, month, year] = dmy.map(p => parseInt(p, 10));
+        if (!isNaN(day) && !isNaN(month) && !isNaN(year)) {
+          const d = new Date(year, month - 1, day);
+          return isNaN(d.getTime()) ? null : d;
+        }
+      }
+      return null; // Unknown format — ignore silently instead of throwing
+    };
+    const mergedOptions = { parseDate: safeParseFn, ...options };
     try {
-      return flatpickr(el, options);
+      return flatpickr(el, mergedOptions);
     } catch (e) {
       el.value = '';
       if (window.__WFA_DEV__) console.warn('[Flatpickr] init skipped:', e?.message || e);
       return null;
     }
   }
+
 
   // ── Number Helpers ─────────────────────────────────────────
   function safeNum(val) {

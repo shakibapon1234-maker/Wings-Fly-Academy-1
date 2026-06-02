@@ -152,14 +152,13 @@ const Students = (() => {
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="stu-search" class="form-control" placeholder="Search by Name / ID / Phone / Batch…" value="${searchQuery}" oninput="Students.onSearch(this.value)" />
+          <input id="stu-search" class="form-control" placeholder="Search by Name / ID / Phone / Batch…" value="${Utils.escAttr(searchQuery)}" oninput="Students.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Students.onFilter('batch',this.value)">
           <option value="">All Batches</option>
           ${batches.map(b=>`<option value="${b}" ${filterBatch===b?'selected':''}>${b}</option>`).join('')}
         </select>
         <select class="form-control" onchange="Students.onFilter('course',this.value)">
-          <option value="">All Courses</option>
           <option value="">All Courses</option>
           ${courses.map(c => _courseOption(c, filterCourse)).join('')}
         </select>

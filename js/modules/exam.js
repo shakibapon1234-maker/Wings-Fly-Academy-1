@@ -137,7 +137,7 @@ const Exam = (() => {
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="exam-search" class="form-control" placeholder="Name / Reg ID Search..." value="${searchQuery}" oninput="Exam.onSearch(this.value)" />
+          <input id="exam-search" class="form-control" placeholder="Name / Reg ID Search..." value="${Utils.escAttr(searchQuery)}" oninput="Exam.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Exam.onFilter('batch',this.value)">
           <option value="">All Batches</option>

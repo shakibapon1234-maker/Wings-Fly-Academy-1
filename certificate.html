@@ -382,13 +382,24 @@
       }, 500); // Small visual delay
     }
 
+    // ── XSS Escape Helper (utils.js not loaded in this page) ────
+    function esc(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+    }
+
     // ── Render Certificate ───────────────────────
     function loadCertificate(s) {
-      const certNumber = `WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`;
-      const studentName = (s.name || 'N/A').toUpperCase();
-      const courseName  = (s.course || 'N/A').toUpperCase();
-      const batch       = s.batch || 'N/A';
-      const stdId       = s.student_id || s.id || 'N/A';
+      const certNumber  = esc(`WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`);
+      const studentName = esc((s.name || 'N/A').toUpperCase());
+      const courseName  = esc((s.course || 'N/A').toUpperCase());
+      const batch       = esc(s.batch || 'N/A');
+      const stdId       = esc(s.student_id || s.id || 'N/A');
 
       certHTML = `
       <div class="cert-v2-container" id="cert-for-download">

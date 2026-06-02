@@ -107,7 +107,7 @@ const Finance = (() => {
       <div class="filter-bar" style="flex-wrap:wrap;gap:8px;align-items:center">
         <div class="search-input-wrapper" style="flex:1;min-width:160px">
           <i class="fa fa-search"></i>
-          <input id="fin-search" class="form-control" placeholder="Description Search…" value="${searchQuery}" oninput="Finance.onSearch(this.value)" />
+          <input id="fin-search" class="form-control" placeholder="Description Search\u2026" value="${Utils.escAttr(searchQuery)}" oninput="Finance.onSearch(this.value)" />
         </div>
         <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('type',this.value)">
           <option value="">All Types</option>

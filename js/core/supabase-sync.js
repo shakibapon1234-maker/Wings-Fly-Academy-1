@@ -3008,7 +3008,7 @@ const SyncEngine = (() => {
           // _pushRecord) AFTER we have already deleted the record locally.
           // Without this guard the record reappears in the active table, causing
           // count mismatches (e.g. Student Installment diagnostic test failure).
-          const deletedIds = getDeletedIds(table);
+          const deletedIds = SupabaseSync.getDeletedIds(table);
           if (deletedIds.includes(newRow.id)) {
             console.info(`[Realtime] Ignoring INSERT for locally-deleted record: ${table}:${newRow.id}`);
             return;
