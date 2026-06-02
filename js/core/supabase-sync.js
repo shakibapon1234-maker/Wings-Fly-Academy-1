@@ -1047,7 +1047,9 @@ const SupabaseSync = (() => {
     if (table === studentsTable) {
       const sid  = String(r.student_id || '');
       const name = String(r.name || '');
-      if (sid.startsWith('DIAG-TEST-') || name.includes('System Test Student') ||
+      // ✅ BUG FIX: also recognise DIAG-INST- prefix (Student Installment test)
+      if (sid.startsWith('DIAG-TEST-') || sid.startsWith('DIAG-INST-') ||
+          name.includes('System Test Student') || name.includes('Diagnostic Installment Student') ||
           r.batch === 'Batch-DIAG' || r.course === 'Diagnostics Course') return true;
     }
     if (table === salaryTable) {
@@ -3001,6 +3003,16 @@ const SyncEngine = (() => {
           }
           rows[idx] = merged;
         } else {
+          // ✅ BUG FIX: Do NOT re-insert a record that was deleted locally.
+          // Supabase realtime may deliver a delayed INSERT event (from the initial
+          // _pushRecord) AFTER we have already deleted the record locally.
+          // Without this guard the record reappears in the active table, causing
+          // count mismatches (e.g. Student Installment diagnostic test failure).
+          const deletedIds = getDeletedIds(table);
+          if (deletedIds.includes(newRow.id)) {
+            console.info(`[Realtime] Ignoring INSERT for locally-deleted record: ${table}:${newRow.id}`);
+            return;
+          }
           let row = newRow;
           const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
           const exKey = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
