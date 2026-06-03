@@ -210,8 +210,8 @@ const Finance = (() => {
         <td class="ledger-balance" style="font-family:var(--font-en);color:${(f._running||0)>=0?'#00e5ff':'#ff4757'}">${(f._running||0)<0?'-':''}${Utils.takaEn(Math.abs(f._running||0))}</td>
         <td class="no-print">
           <div class="table-actions">
-            <button class="btn-outline btn-xs" onclick="Finance.openEditModal('${f.id}')"><i class="fa fa-pen"></i></button>
-            <button class="btn-danger btn-xs"  onclick="Finance.deleteEntry('${f.id}')"><i class="fa fa-trash"></i></button>
+            <button class="btn-outline btn-xs" onclick="Finance.openEditModal('${Utils.escAttr(f.id)}')"><i class="fa fa-pen"></i></button>
+            <button class="btn-danger btn-xs"  onclick="Finance.deleteEntry('${Utils.escAttr(f.id)}')"><i class="fa fa-trash"></i></button>
           </div>
         </td>
       </tr>`;

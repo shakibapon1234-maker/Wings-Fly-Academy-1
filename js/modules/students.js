@@ -1229,7 +1229,7 @@ const Students = (() => {
       // ✅ Bug Fix: Explicit activity log with student name + amount detail
       if (typeof SupabaseSync.logActivity === 'function') {
         const _s = SupabaseSync.getById(DB.students, studentId);
-        const _sLabel = _s ? `${_s.name} (${_s.student_id})` : studentId;
+        const _sLabel = _s ? `${Utils.esc(_s.name)} (${Utils.esc(_s.student_id)})` : studentId;
         SupabaseSync.logActivity('delete', 'students',
           `ফি পেমেন্ট মুছে ফেলা: ${_sLabel} — ${Utils.takaEn(payment.amount)} (${payment.method || 'N/A'})`);
       }

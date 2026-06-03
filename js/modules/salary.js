@@ -288,7 +288,7 @@ const Salary = (() => {
           : 'Month: ' + monthLabel(r.month);
 
         var payBtn = !r.paid
-          ? '<button class="btn btn-primary" style="border-radius:20px; padding:4px 12px; font-size:.82rem;" onclick="Salary.openPayModal(\'' + r.id + '\')">' +
+          ? '<button class="btn btn-primary" style="border-radius:20px; padding:4px 12px; font-size:.82rem;" onclick="Salary.openPayModal(\'' + Utils.escAttr(r.id) + '\')">' +
             '<i class="fa fa-sack-dollar"></i> ' + payBtnLabel + '</button>'
           : '';
         var bonusDedRow = (r.bonus || r.deduction)
@@ -309,8 +309,8 @@ const Salary = (() => {
             '<div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end;">' +
               '<span style="font-size:.72rem; padding:3px 10px; border-radius:12px; background:' + statusBg + '; color:' + statusColor + '; font-weight:700;"><i class="fa ' + statusIcon + '"></i> ' + statusLabel + '</span>' +
               payBtn +
-              '<button class="btn btn-secondary" style="border-radius:20px; padding:4px 10px;" onclick="Salary.openEditModal(\'' + r.id + '\')"><i class="fa fa-pen"></i></button>' +
-              '<button class="btn btn-secondary" style="border-radius:20px; padding:4px 10px;" onclick="Salary.deleteRecord(\'' + r.id + '\')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>' +
+              '<button class="btn btn-secondary" style="border-radius:20px; padding:4px 10px;" onclick="Salary.openEditModal(\'' + Utils.escAttr(r.id) + '\')"><i class="fa fa-pen"></i></button>' +
+              '<button class="btn btn-secondary" style="border-radius:20px; padding:4px 10px;" onclick="Salary.deleteRecord(\'' + Utils.escAttr(r.id) + '\')" title="Delete"><i class="fa fa-trash" style="color:#ff4757;"></i></button>' +
             '</div>' +
           '</div>' +
           '<div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:16px;">' +
@@ -460,7 +460,7 @@ const Salary = (() => {
       '</div>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:10px;">' +
         '<button class="btn-secondary" style="border-radius:24px; padding:10px 24px; font-weight:700; color:#fff; background:rgba(255,255,255,0.1); border:none;" onclick="Utils.closeModal()">CANCEL</button>' +
-        '<button class="btn-primary" style="border-radius:24px; padding:10px 24px; font-weight:700; border:none; color:#fff; background:linear-gradient(135deg,#00d4ff,#7c3aed);" onclick="Salary.confirmPay(\'' + id + '\')">' +
+        '<button class="btn-primary" style="border-radius:24px; padding:10px 24px; font-weight:700; border:none; color:#fff; background:linear-gradient(135deg,#00d4ff,#7c3aed);" onclick="Salary.confirmPay(\'' + Utils.escAttr(id) + '\')">' +
           '<i class="fa fa-sack-dollar"></i> CONFIRM PAYMENT</button>' +
       '</div>';
 
@@ -827,7 +827,7 @@ const Salary = (() => {
         var statusCls   = r.paid ? 'badge-success' : paid_amt > 0 ? 'badge-info' : 'badge-warning';
         var statusIcon  = r.paid ? 'fa-check' : paid_amt > 0 ? 'fa-circle-half-stroke' : 'fa-hourglass-half';
         var actionBtn   = !r.paid
-          ? '<button class="btn btn-primary" style="padding:4px 10px; font-size:.78rem; border-radius:20px;" onclick="Salary.openPayModal(\'' + r.id + '\'); Utils.closeModal()"><i class="fa fa-sack-dollar"></i> ' + (paid_amt > 0 ? 'Pay Rest' : 'Pay') + '</button>'
+          ? '<button class="btn btn-primary" style="padding:4px 10px; font-size:.78rem; border-radius:20px;" onclick="Salary.openPayModal(\'' + Utils.escAttr(r.id) + '\'); Utils.closeModal()"><i class="fa fa-sack-dollar"></i> ' + (paid_amt > 0 ? 'Pay Rest' : 'Pay') + '</button>'
           : '<span style="font-size:.75rem; color:var(--text-muted);"><i class="fa fa-check-circle" style="color:#00ff88;"></i> Done</span>';
         return '<tr>' +
           '<td style="font-weight:700; color:' + (r.paid ? '#00ff88' : paid_amt > 0 ? '#00d4ff' : '#ffb703') + ';">' + (r.paidDate ? formatDate(r.paidDate) : '—') + '</td>' +

@@ -56,11 +56,20 @@ const Attendance = (() => {
       // ✅ Fix: যদি SupabaseSync থেকে data না পাওয়া গেল (IDB এখনো sync হয়নি),
       // তাহলে records empty রাখো — empty array দেখানো ভুল data দেখানোর চেয়ে নিরাপদ।
       // Sync complete হলে wfa:synced event fire হবে এবং render() আবার call হবে।
+      // ✅ Fix M-2: Use persistent listener instead of once:true to avoid stale records after multiple syncs
       if (records.length === 0) {
-        window.addEventListener('wfa:synced', function _attSyncRetry() {
+        // Initial retry: if IDB not ready yet, wait for first sync
+        const _attSyncRetry = () => {
           records = SupabaseSync.getAll(DB.attendance) || [];
-          window.removeEventListener('wfa:synced', _attSyncRetry);
-        }, { once: true });
+        };
+        window.addEventListener('wfa:synced', _attSyncRetry, { once: true });
+      }
+      // Always keep records fresh on subsequent syncs (persistent listener, registered once)
+      if (!Attendance._syncListenerRegistered) {
+        window.addEventListener('wfa:synced', () => {
+          records = SupabaseSync.getAll(DB.attendance) || [];
+        });
+        Attendance._syncListenerRegistered = true;
       }
 
     } else {
