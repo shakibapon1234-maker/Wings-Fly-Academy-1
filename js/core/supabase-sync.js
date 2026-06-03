@@ -1563,6 +1563,10 @@ const SupabaseSync = (() => {
             }
           }
          } else if (table === 'loans') {
+          // ✅ Diagnostic loan restore-এ balance update করা হবে না
+          if (r.note === 'Auto-generated diagnostic loan') {
+            // skip — diagnostic test data, balance touch করবো না
+          } else {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
           // Loan Giving restore: ব্যালেন্স কমে ('out') — negative হলে warn, skip
           // Loan Receiving restore: ব্যালেন্স বাড়ে ('in') — সবসময় safe
@@ -1584,6 +1588,7 @@ const SupabaseSync = (() => {
               }
             }
           }
+          } // end diagnostic loan check
 
           const financeEntries = getAll('finance_ledger').filter(f => _matchesLoanFinance(f, r));
           const linkedFinanceId = financeEntries.length > 0 ? financeEntries[0].id : null;
@@ -1611,6 +1616,8 @@ const SupabaseSync = (() => {
               setAll('finance_ledger', finRows);
               untrackDeletion('finance_ledger', linkedRecord.id);
               await _pushRecord('finance_ledger', linkedRecord);
+              // ✅ Diagnostic loan finance restore-এ balance update করা হবে না
+              // (note চেক — linkedRecord.note === 'Auto-generated diagnostic loan finance')
               
               // Remove from recycle bin
               const freshBin = getAll('recycle_bin');
@@ -1729,15 +1736,20 @@ const SupabaseSync = (() => {
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
           if (fr.method && parseFloat(fr.amount) > 0) {
-            const _frBal = (function() {
-              const accs = getAll('accounts');
-              if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
-              const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
-            })();
-            if (_frBal - parseFloat(fr.amount) >= 0) {
-              updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
-            } else if (typeof Utils !== 'undefined' && Utils.toast) {
-              Utils.toast(`⚠️ Salary finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
+            // ✅ Diagnostic salary payment restore-এ balance update করা হবে না
+            if (fr.note === 'Auto-generated diagnostic salary payment') {
+              // skip — diagnostic test data, balance touch করবো না
+            } else {
+              const _frBal = (function() {
+                const accs = getAll('accounts');
+                if (fr.method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }
+                const a = accs.find(x => x.name === fr.method); return a ? parseFloat(a.balance) || 0 : 0;
+              })();
+              if (_frBal - parseFloat(fr.amount) >= 0) {
+                updateAccountBalance(fr.method, parseFloat(fr.amount), 'out');
+              } else if (typeof Utils !== 'undefined' && Utils.toast) {
+                Utils.toast(`⚠️ Salary finance restore: "${fr.method}"-এ balance যথেষ্ট নেই। Record ফিরে এসেছে।`, 'warning', 7000);
+              }
             }
           }
           const freshBin = getAll('recycle_bin');
@@ -1772,7 +1784,10 @@ const SupabaseSync = (() => {
           untrackDeletion('finance_ledger', fr.id);
           await _pushRecord('finance_ledger', fr);
           if (fr.method && parseFloat(fr.amount) > 0) {
-            updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+            // ✅ Diagnostic exam fee restore-এ balance update করা হবে না
+            if (fr.note !== 'Auto-generated diagnostic exam payment') {
+              updateAccountBalance(fr.method, parseFloat(fr.amount), 'in');
+            }
           }
           const freshBin = getAll('recycle_bin');
           const realIdx = freshBin.findIndex((x) => x?.data?.id === fr.id);
