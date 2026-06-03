@@ -28,7 +28,7 @@ const SyncGuard = (() => {
   // ── Public: report an issue ───────────────────────────────
   /**
    * @param {'merge_conflict'|'negative_balance'|'balance_lock_error'|'balance_update_error'|
-   *         'loan_as_income'|'transfer_as_income'|'advance_as_income'} type
+   *         'loan_as_income'|'transfer_as_income'|'advance_as_income'|'balance_mismatch'} type
    * @param {object} detail
    */
   function report(type, detail = {}) {
@@ -60,11 +60,16 @@ const SyncGuard = (() => {
       loan_as_income:       '🔴 Data Error: Loan entry income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
       transfer_as_income:   '🔴 Data Error: Transfer entry income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
       advance_as_income:    '🔴 Data Error: Advance Payment income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
+      balance_mismatch:     '🔴 Balance Mismatch: Transaction-এর পরে expected balance মিলছে না! মানুয়ালী ব্যালেন্স পরিবর্তন বা sync সমস্যা হয়ে থাকতে পারে। Data Monitor চেক করুন।'
     };
 
     const msg = msgs[entry.type] || `⚠️ SyncGuard: ${entry.type}`;
 
-    const isCritical = (entry.type === 'negative_balance' || entry.type === 'merge_conflict');
+    const isCritical = (
+      entry.type === 'negative_balance' ||
+      entry.type === 'merge_conflict'   ||
+      entry.type === 'balance_mismatch'
+    );
 
     if (isCritical) {
       // Show persistent floating alert for critical issues
@@ -314,6 +319,7 @@ const SyncGuard = (() => {
       loan_as_income:       { label: 'Loan Count Error',  color: '#ff4757' },
       transfer_as_income:   { label: 'Transfer Count Err',color: '#ff4757' },
       advance_as_income:    { label: 'Advance Count Err', color: '#ff4757' },
+      balance_mismatch:     { label: 'Balance Mismatch',  color: '#ff4757' },
     };
 
     container.innerHTML = `

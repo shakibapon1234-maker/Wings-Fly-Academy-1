@@ -584,18 +584,15 @@ const SupabaseSync = (() => {
 
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
-      let snapshot = {};
-      // ✅ Snapshot Design: use _getMonitorSnapshot() which reads DIRECTLY from
-      // accounts.balance (the stored value, same as what dashboard shows).
-      // NO historical reconstruction or recalculation.
-      // "Right or wrong, the snapshot shows exactly what's on screen at this moment."
-      try { snapshot = _getMonitorSnapshot(); } catch (snapErr) {
-        console.warn('[DataMonitor] Snapshot capture failed:', snapErr?.message || snapErr);
-      }
+      // ✅ Deferred Snapshot: snapshot নেওয়া হবে updateAccountBalance() complete হওয়ার পরে।
+      // এটা pure screenshot — accounts.balance সরাসরি পড়ে, কোনো calculation নেই।
+      // _pendingSnapshot: true মানে balance update এখনো pending আছে।
+      const _mid = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       const entry = {
+        _mid,
         date: new Date().toLocaleString(),
-        action,                    // 'insert' | 'update' | 'delete'
-        type: record.type,         // Income / Expense / Transfer In / Transfer Out
+        action,
+        type: record.type,
         category: String(category).slice(0, 100),
         person: String(person).slice(0, 100),
         amount: Number(record.amount || 0),
@@ -604,26 +601,30 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         recordId: record.id,
         recordAt: record.created_at || record.updated_at || record.date || null,
-        snapshot,
+        snapshot: {},
+        _pendingSnapshot: true,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
-      if (arr.length > 15) arr.length = 15; // Last 15 entries
+      if (arr.length > 15) arr.length = 15;
 
       // Try to save — handle localStorage quota errors gracefully
       try {
         localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
       } catch (quotaErr) {
-        // Quota exceeded — trim older entries and try again
         console.warn('[DataMonitor] localStorage quota hit, trimming old entries...', quotaErr?.message);
         while (arr.length > 1) {
           arr.pop();
           try {
             localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
-            break; // success
+            break;
           } catch { /* keep trimming */ }
         }
       }
+
+      // Fallback: loan types বা balance-neutral entries-এর জন্য যেখানে
+      // updateAccountBalance() call নাও হতে পারে — 500ms পরে finalize করো
+      setTimeout(() => _finalizeMonitorSnapshot(_mid), 500);
     } catch (err) {
       console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
     }
@@ -2295,6 +2296,74 @@ const SupabaseSync = (() => {
     }
   }
 
+  // ── DataMonitor: Deferred Snapshot Finalizer ────────────────────────────────
+  // প্রতিটি transaction-এর balance update শেষে এই function-টি call হয়।
+  // Pure screenshot: accounts.balance সরাসরি পড়া — কোনো calculation নেই।
+  // Automatic mismatch alert: আগের snapshot-এর balance vs নতুন balance compare করে।
+  function _finalizeMonitorSnapshot(mid) {
+    try {
+      const arr = (() => {
+        try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; }
+      })();
+      if (!arr.length) return;
+
+      // mid দিলে specific entry, না দিলে সবচেয়ে নতুন pending entry
+      const idx = (mid !== undefined)
+        ? arr.findIndex(e => e._mid === mid && e._pendingSnapshot)
+        : arr.findIndex(e => e._pendingSnapshot);
+      if (idx < 0) return; // ইতিমধ্যে finalize হয়ে গেছে
+
+      // ✅ Pure screenshot: accounts.balance সরাসরি পড়া
+      const newSnapshot = _getMonitorSnapshot();
+
+      // ── Automatic Mismatch Alert ────────────────────────────────────────────
+      // আগের entry-র snapshot total vs এই transaction-এর পরের total compare করো।
+      // Transfer In/Out বাদ — pair-এ কাজ করে, net change = 0।
+      const prev = arr[idx + 1]; // ঠিক আগের entry (পুরনো)
+      if (prev && prev.snapshot && prev.snapshot.accounts && newSnapshot.accounts) {
+        const prevTotal   = Number(prev.snapshot.accounts.totalBalance || 0);
+        const newTotal    = Number(newSnapshot.accounts.totalBalance || 0);
+        const actualDelta = newTotal - prevTotal;
+
+        const entry      = arr[idx];
+        const entryType  = String(entry.type || '').toLowerCase();
+        const _incTypes  = ['income', 'loan receiving', 'investment in'];
+        const _outTypes  = ['expense', 'loan giving', 'investment out'];
+        const _skipTypes = ['transfer in', 'transfer out']; // pair হয়ে কাজ করে
+
+        if (!_skipTypes.includes(entryType)) {
+          let expectedDelta = 0;
+          if (_incTypes.includes(entryType))  expectedDelta =  Number(entry.amount || 0);
+          if (_outTypes.includes(entryType))  expectedDelta = -Number(entry.amount || 0);
+
+          const mismatch = Math.abs(actualDelta - expectedDelta);
+          // ৳1-এর বেশি পার্থক্য = mismatch (floating point tolerance)
+          if (mismatch > 1 && (prevTotal > 0 || newTotal > 0)) {
+            try {
+              typeof SyncGuard !== 'undefined' && SyncGuard && SyncGuard.report &&
+                SyncGuard.report('balance_mismatch', {
+                  transaction:    `${entry.type} ৳${Number(entry.amount || 0).toLocaleString()} (${entry.method || '?'})`,
+                  prevBalance:    prevTotal,
+                  newBalance:     newTotal,
+                  expectedChange: expectedDelta,
+                  actualChange:   actualDelta,
+                  discrepancy:    Math.round(mismatch),
+                });
+            } catch { /* SyncGuard not ready yet */ }
+          }
+        }
+      }
+
+      arr[idx].snapshot = newSnapshot;
+      delete arr[idx]._pendingSnapshot;
+      delete arr[idx]._mid; // internal field — UI-তে দরকার নেই
+
+      try { localStorage.setItem('wfa_recent_changes', JSON.stringify(arr)); } catch { /* ignore */ }
+    } catch (e) {
+      console.warn('[DataMonitor] _finalizeMonitorSnapshot failed:', e?.message || e);
+    }
+  }
+
   const _balanceLocks = {};
 
   // ✅ Req 7: force=true bypasses negative check (for deletion reversals only)
@@ -2389,6 +2458,9 @@ const SupabaseSync = (() => {
       // ✅ Fix: await _pushRecord so any cloud push errors are caught below,
       // not swallowed as unhandled Promise rejections that trigger balance_update_error.
       await _pushRecord('accounts', accounts[accountIdx]);
+      // ✅ Deferred snapshot: balance update সম্পন্ন — এখন DataMonitor snapshot নাও
+      // এটা pure screenshot: accounts.balance-এর current state সরাসরি save হবে
+      _finalizeMonitorSnapshot();
       return true;
     } catch (e) {
       console.warn('[Sync] _updateBalanceCore failed:', e);
