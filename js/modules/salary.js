@@ -550,8 +550,8 @@ const Salary = (() => {
       allStaff.map(function(s) {
         return '<option value="' + s.staffId + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
           ' data-name="' + Utils.esc(s.name) + '"' +
-          ' data-role="' + (s.role || '') + '"' +
-          ' data-phone="' + (s.phone || '') + '"' +
+          ' data-role="' + Utils.escAttr(s.role || '') + '"' +
+          ' data-phone="' + Utils.escAttr(s.phone || '') + '"' +
           ' data-salary="' + Utils.safeNum(s.salary) + '">' +
           s.staffId + ' — ' + s.name + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')' +
           '</option>';

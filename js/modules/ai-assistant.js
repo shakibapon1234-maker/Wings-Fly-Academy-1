@@ -617,9 +617,7 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
         if (typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key.', 'error');
         return;
       }
-      SecureStorage.setItem(slotKey, trimmed).then(() => {
-        try { localStorage.removeItem(slotKey); } catch { /* migrate */ }
-      }).catch(() => {
+      SecureStorage.setItem(slotKey, trimmed).catch(() => {
         if (typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
       });
       document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
@@ -630,11 +628,12 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
   }
 
   // Add a 2nd/3rd backup key for auto-rotation
-  function addBackupKey() {
-    // Find next empty slot
+  async function addBackupKey() {
+    // Find next empty slot (check SecureStorage, not plain localStorage)
     let nextSlot = 2;
     for (let i = 2; i <= 5; i++) {
-      if (!localStorage.getItem(`wfa_gemini_key_${i}`)) { nextSlot = i; break; }
+      const existing = await _readGeminiKey(`wfa_gemini_key_${i}`);
+      if (!existing) { nextSlot = i; break; }
     }
     promptApiKey(nextSlot);
   }

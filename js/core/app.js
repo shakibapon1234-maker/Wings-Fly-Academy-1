@@ -374,9 +374,10 @@ const App = (() => {
       return isHashed ? s.password === inputHash : s.password === password;
     });
     if (sub) {
-      // ✅ Bug #5: Reset attempt counter and save login timestamp
+      // ✅ Bug #5 + Fix C-01: Reset attempt counter in both storages
       localStorage.removeItem(attemptKey);
       localStorage.removeItem('wfa_login_lockout_until');
+      sessionStorage.removeItem('wfa_login_lockout_until');
       if (window.SessionStore) {
         SessionStore.setSubSession(sub.username, sub.permissions || []);
       } else {
@@ -1270,6 +1271,7 @@ const App = (() => {
     return (
       typeof window.Utils !== 'undefined' &&
       typeof window.SupabaseSync !== 'undefined' &&
+      typeof window.SyncEngine !== 'undefined' &&
       typeof window.DB !== 'undefined' &&
       typeof window.WFA_IDB !== 'undefined' &&
       typeof window.App !== 'undefined'

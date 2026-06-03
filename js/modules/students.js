@@ -161,7 +161,7 @@ const Students = (() => {
         </div>
         <select class="form-control" onchange="Students.onFilter('batch',this.value)">
           <option value="">All Batches</option>
-          ${batches.map(b=>`<option value="${b}" ${filterBatch===b?'selected':''}>${b}</option>`).join('')}
+          ${batches.map(b=>`<option value="${Utils.escAttr(b)}" ${filterBatch===b?'selected':''}>${Utils.esc(b)}</option>`).join('')}
         </select>
         <select class="form-control" onchange="Students.onFilter('course',this.value)">
           <option value="">All Courses</option>
