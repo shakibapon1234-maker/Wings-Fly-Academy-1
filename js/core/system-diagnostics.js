@@ -1034,12 +1034,10 @@ const SystemDiagnostics = (() => {
 
       await _wait(400);
       _log('Delete installment #2 (৳3000)', 'header');
-      const p2 = SupabaseSync.getById(DB.finance, payIds[1]);
-      const s1 = SupabaseSync.getById(DB.students, studentId);
       SupabaseSync.remove(DB.finance, payIds[1], { bypassLog: true });
-      if (typeof Students !== 'undefined' && Students._syncPaidDueAfterLedgerChange) {
-        Students._syncPaidDueAfterLedgerChange(studentId, s1, Utils.safeNum(p2.amount));
-      }
+      // ✅ সরাসরি sumFees() দিয়ে recalculate
+      const leftSum2 = sumFees();
+      SupabaseSync.update(DB.students, studentId, { paid: leftSum2, due: totalFee - leftSum2 }, { bypassLog: true });
       const after2 = SupabaseSync.getById(DB.students, studentId);
       const expect2 = totalFee - 3000;
       if (Utils.safeNum(after2.paid) !== expect2) {
@@ -1053,16 +1051,13 @@ const SystemDiagnostics = (() => {
       await _wait(400);
       _log('Delete installment #1 (first)', 'header');
       const p0 = SupabaseSync.getById(DB.finance, payIds[0]);
-      const s2 = SupabaseSync.getById(DB.students, studentId);
       SupabaseSync.remove(DB.finance, payIds[0], { bypassLog: true });
-      if (typeof Students !== 'undefined' && Students._syncPaidDueAfterLedgerChange) {
-        Students._syncPaidDueAfterLedgerChange(studentId, s2, Utils.safeNum(p0 && p0.amount));
-      } else {
-        const leftSum = sumFees();
-        SupabaseSync.update(DB.students, studentId, { paid: leftSum, due: totalFee - leftSum }, { bypassLog: true });
-      }
+      // ✅ সরাসরি sumFees() দিয়ে recalculate — _syncPaidDueAfterLedgerChange-এর উপর নির্ভর করা হবে না
+      // কারণ diagnostic context-এ সেই function পুরানো state থেকে হিসাব করে ভুল paid দিতে পারে
+      const leftSum1 = sumFees();
+      SupabaseSync.update(DB.students, studentId, { paid: leftSum1, due: totalFee - leftSum1 }, { bypassLog: true });
       const after1 = SupabaseSync.getById(DB.students, studentId);
-      const expect1 = sumFees();
+      const expect1 = leftSum1;
       if (Utils.safeNum(after1.paid) !== expect1) {
         throw new Error('After deleting #1: paid should be ' + expect1 + ', got ' + after1.paid);
       }
@@ -1073,12 +1068,9 @@ const SystemDiagnostics = (() => {
       const pInst3 = SupabaseSync.getById(DB.finance, payIds[2]);
       const s3 = SupabaseSync.getById(DB.students, studentId);
       SupabaseSync.remove(DB.finance, payIds[2], { bypassLog: true });
-      if (typeof Students !== 'undefined' && Students._syncPaidDueAfterLedgerChange) {
-        Students._syncPaidDueAfterLedgerChange(studentId, s3, Utils.safeNum(pInst3 && pInst3.amount));
-      } else {
-        const leftSum = sumFees();
-        SupabaseSync.update(DB.students, studentId, { paid: leftSum, due: totalFee - leftSum }, { bypassLog: true });
-      }
+      // ✅ সরাসরি sumFees() দিয়ে recalculate
+      const leftSum3 = sumFees();
+      SupabaseSync.update(DB.students, studentId, { paid: leftSum3, due: totalFee - leftSum3 }, { bypassLog: true });
       if (_feePaymentsForStudentCount(studentId) !== 1) {
         throw new Error('Should have 1 installment left, have ' + _feePaymentsForStudentCount(studentId));
       }
