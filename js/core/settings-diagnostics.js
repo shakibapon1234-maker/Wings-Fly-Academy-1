@@ -304,7 +304,18 @@ const WfaSettingsDiagnostics = (() => {
 
   // ── Students ────────────────────────────────────────────────
   function _checkStudents() {
-    const students = _getAll(DB?.students || 'students');
+    // ✅ Fix: Filter out diagnostic test records before checks.
+    // cleanupLeftovers() runs in _checkStorage() which is called AFTER this function,
+    // so leftover DIAG-TEST-* students may still be present during the scan.
+    const allStudents = _getAll(DB?.students || 'students');
+    const students = allStudents.filter(s =>
+      !String(s.student_id || '').startsWith('DIAG-TEST-') &&
+      !String(s.student_id || '').startsWith('DIAG-INST-') &&
+      !String(s.name || '').includes('System Test Student') &&
+      !String(s.name || '').includes('Diagnostic Installment Student') &&
+      s.batch !== 'Batch-DIAG' &&
+      s.course !== 'Diagnostics Course'
+    );
     if (!students.length) {
       _pass('students', 'Student records', 'None yet');
       return;
@@ -333,7 +344,7 @@ const WfaSettingsDiagnostics = (() => {
     const inactiveDue = students.filter(s =>
       String(s.status || '').toLowerCase() === 'inactive' && _safeNum(s.due) > 0
     ).length;
-    if (inactiveDue) _warn('students', 'Inactive with due', `${inactiveDue} student(s) still have due balance`);
+    if (inactiveDue) _warn('students', 'Inactive with due', `${inactiveDue} student(s) still have due balance`, 'Students tab → open each student → clear due or mark fully paid');
   }
 
   function _salaryMonthLabel(ym) {

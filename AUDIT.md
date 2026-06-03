@@ -138,6 +138,7 @@ IntegrityGuard.run()           // modules, DOM, vital URLs
 
 | Date | Change |
 |------|--------|
+| 2026-06-03 | `_checkStudents()`: filter out DIAG-TEST-*/DIAG-INST-* records before duplicate student_id check (ran before `cleanupLeftovers()`); added actionable hint to "Inactive with due" warning; bumped SW `DEPLOY_ID` to `20260603-bugfix-12-verified` (cache bust → v4.9.5); `admin.html` + `certificate.html` audit fixes (C-2, C-3); `manifest.json` screenshot form_factor fix (S-2); `version.json` date sync (W-3) |
 | 2026-05-23 | `exam.html` + secure-storage/session-store; `SUPABASE_CONFIG.client` getter; SW `DEPLOY_ID` bump; voice-assistant removed from precache; integrity manifest + visitor-form URL; admin i18n/loading-state; visitors XSS hardening |
 | 2026-05-23 | XSS: certificates, command-palette, activity log; exam results REST upsert to `exams`; removed debug telemetry in `students.js`; loans/id-cards escaping |
 | 2026-05-23 | XSS/escaping: dashboard, admin results, students/accounts/loans/hr-staff onclick `escAttr`; finance/loans/hr forms; Gemini keys SecureStorage-only; certificate.html local libs + SW precache |
