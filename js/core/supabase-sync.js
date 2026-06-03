@@ -1511,8 +1511,13 @@ const SupabaseSync = (() => {
             const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
             // ✅ Restore: Income → 'in' Web-Safe (balance বাড়ে)
             // Expense → 'out' নেগেটিভ হলে ব্যালেন্স skip করো (ডাটা ফিরে আসবে, কিন্তু অ্যাকাউন্ট negative হবে না)
-            if (isIncome && r.note !== 'Auto-generated diagnostic payment')  updateAccountBalance(method, amount, 'in');
-            if (isExpense) {
+            // ✅ Diagnostic notes — সব ধরনের diagnostic record-এ balance touch করা হবে না
+            const _isDiagNote = r.note === 'Auto-generated diagnostic payment'
+              || r.note === 'Auto-generated diagnostic exam payment'
+              || r.note === 'Auto-generated diagnostic salary payment'
+              || r.note === 'Auto-generated diagnostic loan finance';
+            if (isIncome && !_isDiagNote)  updateAccountBalance(method, amount, 'in');
+            if (isExpense && !_isDiagNote) {
               const _curBal = (function() {
                 const accs = getAll('accounts');
                 if (method === 'Cash') { const a = accs.find(x => x.type === 'Cash'); return a ? parseFloat(a.balance) || 0 : 0; }

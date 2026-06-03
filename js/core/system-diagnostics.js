@@ -506,9 +506,7 @@ const SystemDiagnostics = (() => {
       const addedFin = SupabaseSync.insert(DB.finance, finEntry, { bypassLog: true });
       if (!addedFin || !addedFin.id) throw new Error('Finance INSERT failed for salary payment.');
       financeUuid = addedFin.id;
-      if (typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance('Cash', payAmount, 'out');
-      }
+      // ✅ Diagnostic test — balance touch করা হবে না (শুধু data test, real balance পরিবর্তন নয়)
 
       SupabaseSync.update(DB.salary, salaryUuid, {
         paidAmount: payAmount,
@@ -680,7 +678,7 @@ const SystemDiagnostics = (() => {
       }, { bypassLog: true });
       if (!fin || !fin.id) throw new Error('Exam finance INSERT failed');
       finId = fin.id;
-      SupabaseSync.updateAccountBalance('Cash', fee, 'in');
+      // ✅ Diagnostic test — balance touch করা হবে না (শুধু data test, real balance পরিবর্তন নয়)
       _log('Exam + Exam Fee finance created.', 'success');
 
       await _wait(400);
@@ -786,7 +784,7 @@ const SystemDiagnostics = (() => {
       }, { bypassLog: true });
       if (!fin || !fin.id) throw new Error('Loan finance INSERT failed');
       finId = fin.id;
-      SupabaseSync.updateAccountBalance('Cash', amount, 'out');
+      // ✅ Diagnostic test — balance touch করা হবে না (শুধু data test, real balance পরিবর্তন নয়)
       _log('Loan + finance created.', 'success');
 
       await _wait(400);
