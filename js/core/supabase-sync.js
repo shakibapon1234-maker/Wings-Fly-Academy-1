@@ -503,7 +503,10 @@ const SupabaseSync = (() => {
     if (!options.bypassLog && !_isDiagnosticRecord(table, record)) {
       _logActivity('add', table, _humanReadableLog('add', table, record));
     }
-    _pushRecord(table, record);
+    // ✅ Diagnostic records: skip cloud push to prevent realtime/pull overwrite race
+    if (!options.bypassLog || !_isDiagnosticRecord(table, record)) {
+      _pushRecord(table, record);
+    }
     return record;
   }
 
@@ -526,7 +529,10 @@ const SupabaseSync = (() => {
       if (!options.bypassLog && !_isDiagnosticRecord(table, merged)) {
         _logActivity('edit', table, _humanReadableLog('edit', table, merged, { old: oldRow, partial }));
       }
-      _pushRecord(table, rows[idx]);
+      // ✅ Diagnostic records: skip cloud push to prevent realtime/pull overwrite race
+      if (!options.bypassLog || !_isDiagnosticRecord(table, rows[idx])) {
+        _pushRecord(table, rows[idx]);
+      }
     }
   }
 
@@ -542,8 +548,11 @@ const SupabaseSync = (() => {
         _logActivity('delete', table, _humanReadableLog('delete', table, victim));
       }
     }
-    _deleteFromCloud(table, id);
-    _trackDeletion(table, id);
+    // ✅ Diagnostic records: skip cloud delete to prevent sync interference
+    if (!victim || !_isDiagnosticRecord(table, victim)) {
+      _deleteFromCloud(table, id);
+      _trackDeletion(table, id);
+    }
   }
 
   // ✅ Security fix #3: use crypto.getRandomValues() instead of Math.random()
