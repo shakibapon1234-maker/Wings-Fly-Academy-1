@@ -20,8 +20,10 @@
   <!-- ✅ Bug #5 Fix: All scripts consolidated in <head> with defer for correct load order -->
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="js/core/supabase-secrets.stub.js"></script>
+  <script defer src="js/core/secure-storage.js"></script>
   <script defer src="js/core/supabase-standalone-creds.js"></script>
   <script defer src="js/core/utils.js"></script>
+  <script defer src="js/core/supabase-config.js"></script>
 
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -377,11 +379,15 @@
     const SUPABASE_URL  = window.WFA_STANDALONE_SUPABASE.url;
     const SUPABASE_KEY  = window.WFA_STANDALONE_SUPABASE.key;
 
-    let supabaseClient = null;
+    let fallbackClient = null;
     try {
-      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      fallbackClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     } catch(e) {
       console.warn('Supabase init failed:', e);
+    }
+
+    function getSupabaseClient() {
+      return window.supabaseClient || fallbackClient;
     }
 
     // ─── Load courses from settings table ────────────────────────────
@@ -389,10 +395,11 @@
       const sel = document.getElementById('vf-course');
       const fallback = ['Air Ticketing', 'Air Ticket & Visa Processing'];
       try {
-        if (!supabaseClient) throw new Error('no client');
+        const client = getSupabaseClient();
+        if (!client) throw new Error('no client');
 
         // RLS-safe: শুধু courses (settings-এর password ইত্যাদি লিক হয় না)
-        const { data, error } = await supabaseClient.rpc('wfa_get_public_courses');
+        const { data, error } = await client.rpc('wfa_get_public_courses');
 
         let courses = [];
         if (!error && data) {
@@ -421,6 +428,9 @@
     }
 
     loadCourses();
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(loadCourses, 200);
+    });
 
     // ─── Reference "Other" toggle ─────────────────────────────────────
     function onReferenceChange(val) {
@@ -478,9 +488,10 @@
       };
 
       try {
-        if (!supabaseClient) throw new Error('Supabase not initialized');
+        const client = getSupabaseClient();
+        if (!client) throw new Error('Supabase not initialized');
 
-        const { error } = await supabaseClient
+        const { error } = await client
           .from('visitors')
           .insert([data]);
 

@@ -6542,7 +6542,6 @@ ${expenseEntries.length > 0 ? `
     }
     try {
       await SecureStorage.setItem('wfa_gemini_key', key);
-      try { localStorage.removeItem('wfa_gemini_key'); } catch { /* migrate off plain storage */ }
     } catch {
       if(typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
       return;
@@ -6563,7 +6562,6 @@ ${expenseEntries.length > 0 ? `
     if (typeof SecureStorage === 'undefined') return false;
     try {
       await SecureStorage.setItem(slotKey, key);
-      try { localStorage.removeItem(slotKey); } catch { /* migrate off plain storage */ }
       return true;
     } catch { return false; }
   }

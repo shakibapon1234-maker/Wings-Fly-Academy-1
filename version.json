@@ -1,7 +1,7 @@
 {
-  "version": "4.9.3",
-  "deploy_id": "20260529-audit-xss-fixes-r2",
-  "changelog": "Bug fixes: salary partial payment sync (paid_amount preserved in cloud), audit fixes (version sync, admin defer scripts, certificate session-store, push notification guard, manifest screenshots, hashPw stronger fallback, visitor-form script order).",
+  "version": "4.9.4",
+  "deploy_id": "20260603-bugfix-8-verified",
+  "changelog": "Verified and resolved 8 true bugs from audit report including Gemini API key deletion, dropdown XSS vulnerabilities, Service Worker CDN font fallbacks, sub-account lockout session resets, and bootstrap SyncEngine checks.",
   "size": "~2MB",
   "released": "2026-05-29"
 }
