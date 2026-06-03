@@ -306,26 +306,26 @@ const App = (() => {
       const hashedStoredPw = await _ensureHashedAdminPassword(settings);
 
       if (!hashedStoredPw) {
-        // ✅ Fix #1 (enhanced): Only allow first-time setup if there is truly NO data yet.
-        // If students/finance records exist, we're on a new browser before sync — refuse login.
-        const hasExistingData = (SupabaseSync.getAll(DB.students).length > 0) ||
-                                (SupabaseSync.getAll(DB.finance).length  > 0);
-        if (hasExistingData) {
-          // ✅ SECURITY FIX: When existing data found but no settings loaded yet,
-          // NEVER allow password bypass — always block and wait for cloud sync.
+        // ✅ Security Fix: Genuine first-time setup ONLY if absolutely no data exists anywhere.
+        // Check all major tables to prevent password bypass on a fresh browser/device.
+        const hasAnyData =
+          (SupabaseSync.getAll(DB.students   ).length > 0) ||
+          (SupabaseSync.getAll(DB.finance    ).length > 0) ||
+          (SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts').length > 0);
+
+        if (hasAnyData) {
+          // Data exists but settings not loaded yet — block and wait for sync.
           const retryKey = '_loginRetryCount';
           window[retryKey] = (window[retryKey] || 0) + 1;
-          const errEl = document.getElementById('login-error');
           const waitSec = Math.min(5 * window[retryKey], 30);
-
+          const errEl = document.getElementById('login-error');
           if (errEl) {
             errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]})</small>`;
             errEl.style.display = 'block';
           }
-          // CRITICAL: Always return 'pending' — never fall through to allow new password setup
-          // when existing academy data is detected. This prevents admin bypass via fresh browser.
           return 'pending';
         }
+
         // Genuine first-time setup — accept any non-empty password and save it
         adminOk = !!password;
         if (adminOk) {
