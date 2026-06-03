@@ -653,7 +653,7 @@ const SystemDiagnostics = (() => {
       await _wait(400);
       _log('PHASE 1 — Exam CREATE + Fee', 'header');
       const created = SupabaseSync.insert(DB.exams, {
-        reg_id: 'REG-DIAG',
+        reg_id: 'REG-DIAG-' + Date.now(),
         student_id: DIAG_EXAM_STUDENT_ID,
         student_name: 'Diagnostic Exam Student [AUTO]',
         subject: 'Diagnostics Subject',
