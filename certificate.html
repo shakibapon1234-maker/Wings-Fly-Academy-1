@@ -483,6 +483,7 @@
     // ── Print ─────────────────────────────────────────────────
     // ✅ Bug #13 Fix: Replaced document.write() with Blob URL (avoids deprecated API)
     const printHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate</title>
+      <base href="${window.location.href.replace(/\/[^/]*$/, '/')}">
       <link rel="stylesheet" href="css/cert-v2.css" />
       <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}
       @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
