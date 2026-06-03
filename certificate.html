@@ -302,16 +302,23 @@
   <!-- ══════════════════════════════════════════════════════ -->
   <!-- Supabase Config -->
   <!-- ══════════════════════════════════════════════════════ -->
-  <script src="js/core/secure-storage.js" defer></script>
-  <script src="js/core/session-store.js" defer></script>
   <script src="js/core/supabase-secrets.stub.js"></script>
   <script src="js/core/supabase-standalone-creds.js"></script>
+  <script src="js/core/secure-storage.js"></script>
+  <script src="js/core/session-store.js"></script>
   <!-- ✅ Bug #10 Fix: utils.js added — provides Utils.esc(), Utils.toast() for future features -->
   <script src="js/core/utils.js"></script>
 
   <script>
-    const SUPABASE_URL      = window.WFA_STANDALONE_SUPABASE.url;
-    const SUPABASE_ANON_KEY = window.WFA_STANDALONE_SUPABASE.key;
+    // ✅ Fix #2: Null-check WFA_STANDALONE_SUPABASE before accessing — guards against CDN/404 failures
+    if (!window.WFA_STANDALONE_SUPABASE || !window.WFA_STANDALONE_SUPABASE.url) {
+      document.addEventListener('DOMContentLoaded', () => {
+        const statusArea = document.getElementById('status-area');
+        if (statusArea) statusArea.innerHTML = '<div class="status-msg status-error"><i class="fa fa-wifi-slash"></i> সংযোগ স্থাপন ব্যর্থ। পেজটি রিলোড করুন।</div>';
+      });
+    }
+    const SUPABASE_URL      = window.WFA_STANDALONE_SUPABASE?.url || '';
+    const SUPABASE_ANON_KEY = window.WFA_STANDALONE_SUPABASE?.key || '';
 
     let sbClient = null;
     let studentData = null;

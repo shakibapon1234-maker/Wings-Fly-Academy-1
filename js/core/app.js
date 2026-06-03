@@ -20,57 +20,32 @@
   window.__WFA_DEV__ = isDev || debugLogs;
 })();
 
-// ✅ Bug #12 Fix: Global error handler — convert Chinese/Japanese/Korean warnings to Bengali
+// ✅ Fix #3: Merged CJK-translation + stabilization into ONE IIFE with shared listeners.
+// Previously 2 IIFEs each registered window.addEventListener('error') and
+// window.addEventListener('unhandledrejection') — totalling 4 listeners and
+// causing double-toast for every error. Now only 1 error + 1 unhandledrejection listener.
 (function() {
   // Extended dictionary: 40+ Chinese browser/Supabase error strings → Bengali
   const chineseTobengali = {
     // Storage
-    '已取消': 'বাতিল করা হয়েছে',
-    '存储': 'স্টোরেজ',
-    '配额': 'কোটা',
-    '超出': 'অতিক্রম করেছে',
-    '容量超限': 'স্টোরেজ সীমা পার হয়েছে',
-    '内存不足': 'মেমোরি সীমিত',
+    '已取消': 'বাতিল করা হয়েছে', '存储': 'স্টোরেজ', '配额': 'কোটা',
+    '超出': 'অতিক্রম করেছে', '容量超限': 'স্টোরেজ সীমা পার হয়েছে', '内存不足': 'মেমোরি সীমিত',
     // Network
-    '网络': 'নেটওয়ার্ক',
-    '连接': 'সংযোগ',
-    '连接失败': 'সংযোগ বিচ্ছিন্ন',
-    '请求失败': 'অনুরোধ বিফল',
-    '超时': 'টাইমআউট',
-    '新建连接': 'নতুন সংযোগ',
+    '网络': 'নেটওয়ার্ক', '连接': 'সংযোগ', '连接失败': 'সংযোগ বিচ্ছিন্ন',
+    '请求失败': 'অনুরোধ বিফল', '超时': 'টাইমআউট', '新建连接': 'নতুন সংযোগ',
     // General errors
-    '失败': 'ব্যর্থ',
-    '错误': 'ত্রুটি',
-    '警告': 'সতর্কতা',
-    '异常': 'অসঙ্গতি',
-    '未知错误': 'অজানা ত্রুটি',
+    '失败': 'ব্যর্থ', '错误': 'ত্রুটি', '警告': 'সতর্কতা', '异常': 'অসঙ্গতি', '未知错误': 'অজানা ত্রুটি',
     // Data
-    '数据': 'ডেটা',
-    '同步': 'সিঙ্ক',
-    '加载': 'লোডিং',
-    '保存': 'সেভ',
-    '删除': 'মুছে ফেলা',
-    '更新': 'আপডেট',
-    '查询': 'অনুসন্ধান',
-    '排列': 'সাজানো',
-    '过滤': 'ফিল্টার',
+    '数据': 'ডেটা', '同步': 'সিঙ্ক', '加载': 'লোডিং', '保存': 'সেভ',
+    '删除': 'মুছে ফেলা', '更新': 'আপডেট', '查询': 'অনুসন্ধান', '排列': 'সাজানো', '过滤': 'ফিল্টার',
     // Auth
-    '未授权': 'অনুমতি নেই',
-    '登录': 'লগইন',
-    '登出': 'লগআউট',
-    '密码': 'পাসওয়ার্ড',
-    '用户': 'ব্যবহারকারী',
-    '权限': 'অনুমতি',
+    '未授权': 'অনুমতি নেই', '登录': 'লগইন', '登出': 'লগআউট',
+    '密码': 'পাসওয়ার্ড', '用户': 'ব্যবহারকারী', '权限': 'অনুমতি',
     // UI
-    '打开': 'খুলুন',
-    '关闭': 'বন্ধ করুন',
-    '取消': 'বাতিল',
-    '确认': 'নিশ্চিত',
-    '提交': 'জমা দিন',
-    '重试': 'আবার চেষ্টা',
+    '打开': 'খুলুন', '关闭': 'বন্ধ করুন', '取消': 'বাতিল',
+    '确认': 'নিশ্চিত', '提交': 'জমা দিন', '重试': 'আবার চেষ্টা',
   };
 
-  // Detect Chinese/Japanese/Korean characters (expanded range)
   const isCJK = (text) => /[\u4E00-\u9FFF\u3400-\u4DBF\u3000-\u303F\uFF00-\uFFEF\u30A0-\u30FF\u3040-\u309F]/.test(text);
 
   const translateChinese = (text) => {
@@ -79,41 +54,16 @@
     for (const [cn, bn] of Object.entries(chineseTobengali)) {
       result = result.replace(new RegExp(cn, 'g'), bn);
     }
-    // If still has CJK chars after dict lookup, strip them with a note
     if (isCJK(result)) {
       result = result.replace(/[\u4E00-\u9FFF\u3400-\u4DBF\u30A0-\u30FF\u3040-\u309F]+/g, '[non-latin]');
     }
     return result;
   };
-
-  // Intercept window errors
-  window.addEventListener('error', (event) => {
-    if (event.message && isCJK(event.message)) {
-      const translated = translateChinese(event.message);
-      if (window.__WFA_DEV__) console.warn('[Translation] CJK error → Bengali:', translated);
-    }
-  });
-
-  // Intercept unhandled promise rejections
-  window.addEventListener('unhandledrejection', (event) => {
-    const reason = String(event.reason);
-    if (isCJK(reason)) {
-      const translated = translateChinese(reason);
-      if (window.__WFA_DEV__) console.warn('[Translation] CJK rejection → Bengali:', translated);
-      if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(translated, 'warning', 5000);
-      }
-    }
-  });
-
-  // Also expose for manual use
   window._translateChinese = translateChinese;
-})();
 
-// ✅ Critical stabilization: catch uncaught runtime failures and surface them.
-(function() {
+  // ── Stabilization: rate-limited error toast ────────────────
   let lastUiErrorAt = 0;
-  function notify(errLike) {
+  function _notify(errLike) {
     const now = Date.now();
     if (now - lastUiErrorAt < 3000) return;
     lastUiErrorAt = now;
@@ -122,18 +72,35 @@
       Utils.toast(`Unexpected error: ${msg}`, 'error', 5000);
     }
   }
+
+  // ── Single 'error' listener ────────────────────────────────
   window.addEventListener('error', (event) => {
-    const msg = event?.error || event?.message;
-    if (msg) notify(msg);
-  });
-  window.addEventListener('unhandledrejection', (event) => {
-    // CJK errors are already handled (translated + toasted) by the CJK listener above — skip
-    const reason = event?.reason;
-    if (reason && typeof window._translateChinese === 'function') {
-      const reasonStr = String(reason?.message || reason || '');
-      if (/[\u4E00-\u9FFF\u3400-\u4DBF\u30A0-\u30FF\u3040-\u309F]/.test(reasonStr)) return;
+    const msgStr = event?.message || '';
+    // CJK translation
+    if (isCJK(msgStr)) {
+      const translated = translateChinese(msgStr);
+      if (window.__WFA_DEV__) console.warn('[Translation] CJK error → Bengali:', translated);
     }
-    notify(reason || 'Unhandled promise rejection');
+    // Stabilization toast
+    const err = event?.error || event?.message;
+    if (err) _notify(err);
+  });
+
+  // ── Single 'unhandledrejection' listener ───────────────────
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event?.reason;
+    const reasonStr = String(reason?.message || reason || '');
+    // CJK translation
+    if (isCJK(reasonStr)) {
+      const translated = translateChinese(reasonStr);
+      if (window.__WFA_DEV__) console.warn('[Translation] CJK rejection → Bengali:', translated);
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(translated, 'warning', 5000);
+      }
+      return; // Already toasted as CJK — skip generic stabilization toast
+    }
+    // Stabilization toast for non-CJK rejections
+    _notify(reason || 'Unhandled promise rejection');
   });
 })();
 

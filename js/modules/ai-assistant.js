@@ -603,27 +603,50 @@ ${lastMsg ? `\n(${lastMsg})` : ''}`;
     return div;
   }
 
+  // ✅ Fix #10: Gemini API key format validation added.
+  // Google Gemini keys always start with 'AIza' and are 39 characters long.
+  // Invalid keys are rejected before saving to prevent silent API failures.
+  function _validateGeminiKeyFormat(key) {
+    if (!key || typeof key !== 'string') return false;
+    const trimmed = key.trim();
+    // Google API keys: start with 'AIza', length 39
+    return trimmed.startsWith('AIza') && trimmed.length === 39;
+  }
+
   function promptApiKey(slotNumber = 1) {
     const slotKey = slotNumber === 1 ? 'wfa_gemini_key' : `wfa_gemini_key_${slotNumber}`;
     const slotLabel = slotNumber === 1 ? 'Primary' : `Backup ${slotNumber - 1}`;
     const key = prompt(
       `Google Gemini API Key দিন (${slotLabel}):\n` +
       `পান: https://aistudio.google.com/app/apikey\n\n` +
-      `⚠️ একাধিক key থাকলে limit শেষ হলে auto-switch হবে।`
+      `⚠️ Key অবশ্যই "AIza" দিয়ে শুরু হবে এবং ৩৯ অক্ষরের হবে।\n` +
+      `একাধিক key থাকলে limit শেষ হলে auto-switch হবে।`
     );
-    if (key?.trim()) {
-      const trimmed = key.trim();
-      if (typeof SecureStorage === 'undefined') {
-        if (typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key.', 'error');
-        return;
-      }
-      SecureStorage.setItem(slotKey, trimmed).catch(() => {
-        if (typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
-      });
-      document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
+    if (!key?.trim()) return; // user cancelled
+
+    const trimmed = key.trim();
+
+    // Format validation
+    if (!_validateGeminiKeyFormat(trimmed)) {
       if (typeof Utils !== 'undefined') {
-        Utils.toast(`✅ API Key (${slotLabel}) saved! আরো key যোগ করতে পারেন (slot 2-5)।`, 'success');
+        Utils.toast(
+          `❌ API Key ফরম্যাট ভুল! Key অবশ্যই "AIza" দিয়ে শুরু হবে এবং ঠিক ৩৯ অক্ষরের হতে হবে। (আপনার key: ${trimmed.length} অক্ষর)`,
+          'error', 6000
+        );
       }
+      return;
+    }
+
+    if (typeof SecureStorage === 'undefined') {
+      if (typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key.', 'error');
+      return;
+    }
+    SecureStorage.setItem(slotKey, trimmed).catch(() => {
+      if (typeof Utils !== 'undefined') Utils.toast('Failed to save API key securely.', 'error');
+    });
+    document.getElementById('ai-key-warning')?.style.setProperty('display', 'none');
+    if (typeof Utils !== 'undefined') {
+      Utils.toast(`✅ API Key (${slotLabel}) saved! আরো key যোগ করতে পারেন (slot 2-5)।`, 'success');
     }
   }
 

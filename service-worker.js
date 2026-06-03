@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ Bug #4 Fix: DEPLOY_ID updated — forces cache refresh for all clients
-const DEPLOY_ID = '20260603-bugfix-12-verified';
+const DEPLOY_ID = '20260603-audit-fixes-applied';
 
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
@@ -73,7 +73,9 @@ const STATIC_ASSETS = [
   './exam.html',
   './visitor-form.html',
   './idb-cleaner.html',
-  './version.json',
+  // ✅ Fix #5: version.json intentionally NOT pre-cached.
+  // auto-update.js fetches it with cache:'no-store'; SW fetch handler is 'network first'
+  // so a cached copy would never be served offline anyway. Removed to avoid confusion.
   // Vendor libs (offline CDN fallback)
   './js/lib/chart.umd.min.js',
   './js/lib/xlsx.full.min.js',
