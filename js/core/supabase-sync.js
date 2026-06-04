@@ -623,8 +623,10 @@ const SupabaseSync = (() => {
       }
 
       // Fallback: loan types বা balance-neutral entries-এর জন্য যেখানে
-      // updateAccountBalance() call নাও হতে পারে — 500ms পরে finalize করো
-      setTimeout(() => _finalizeMonitorSnapshot(_mid), 500);
+      // updateAccountBalance() call নাও হতে পারে — 2s পরে finalize করো
+      // ✅ Fix: was 500ms, raced with async balance update → false mismatch alerts.
+      // isFallback=true tells _finalizeMonitorSnapshot to skip mismatch comparison.
+      setTimeout(() => _finalizeMonitorSnapshot(_mid, true), 2000);
     } catch (err) {
       console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
     }
@@ -2300,7 +2302,8 @@ const SupabaseSync = (() => {
   // প্রতিটি transaction-এর balance update শেষে এই function-টি call হয়।
   // Pure screenshot: accounts.balance সরাসরি পড়া — কোনো calculation নেই।
   // Automatic mismatch alert: আগের snapshot-এর balance vs নতুন balance compare করে।
-  function _finalizeMonitorSnapshot(mid) {
+  // @param {boolean} isFallback — true = setTimeout fallback call, skip mismatch alert
+  function _finalizeMonitorSnapshot(mid, isFallback) {
     try {
       const arr = (() => {
         try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; }
@@ -2338,7 +2341,9 @@ const SupabaseSync = (() => {
 
           const mismatch = Math.abs(actualDelta - expectedDelta);
           // ৳1-এর বেশি পার্থক্য = mismatch (floating point tolerance)
-          if (mismatch > 1 && (prevTotal > 0 || newTotal > 0)) {
+          // ✅ Fix: isFallback=true মানে setTimeout fallback থেকে call — balance update
+          // শেষ না-ও হতে পারে, তাই mismatch alert দেওয়া হবে না (false positive এড়াতে)
+          if (!isFallback && mismatch > 1 && (prevTotal > 0 || newTotal > 0)) {
             try {
               typeof SyncGuard !== 'undefined' && SyncGuard && SyncGuard.report &&
                 SyncGuard.report('balance_mismatch', {
