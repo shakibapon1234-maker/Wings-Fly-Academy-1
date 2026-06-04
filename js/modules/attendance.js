@@ -442,7 +442,7 @@ const Attendance = (() => {
                 const status = existingRec?.status || '';
                 const eid = s.student_id || s.id;
                 return `
-                <tr data-entity-id="${eid}" data-name="${Utils.esc(s.name)}" data-batch="${s.batch || ''}">
+                <tr data-entity-id="${eid}" data-name="${Utils.escAttr(s.name)}" data-batch="${Utils.escAttr(s.batch || '')}">
                   <td style="text-align:center;color:var(--text-muted)">${i + 1}</td>
                   <td><span class="badge badge-primary">${eid}</span></td>
                   <td><strong>${Utils.esc(s.name)}</strong></td>
