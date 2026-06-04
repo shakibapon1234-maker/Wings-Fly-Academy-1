@@ -455,7 +455,7 @@ const Salary = (() => {
           '<div class="form-group"><label>Payment Method <span class="req">*</span></label>' +
             '<select id="pay-method" class="form-control" onchange="Utils.onPaymentMethodChange && Utils.onPaymentMethodChange(this,\'pay-bal-display\')">' + Utils.getPaymentMethodsHTML(r.method) + '</select>' +
             '<div id="pay-bal-display" style="display:none;"></div></div>' +
-          '<div class="form-group"><label>Note</label><input type="text" id="pay-note" class="form-control" placeholder="Optional remarks" value="' + (r.note || '') + '" /></div>' +
+          '<div class="form-group"><label>Note</label><input type="text" id="pay-note" class="form-control" placeholder="Optional remarks" value="' + Utils.escAttr(r.note || '') + '" /></div>' +
         '</div>' +
       '</div>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:10px;">' +
@@ -602,7 +602,7 @@ const Salary = (() => {
         '</div>' +
       '</div>' +
       '<div class="form-group full-width"><label>Notes</label>' +
-        '<textarea id="sal-note" class="form-control" rows="2" placeholder="Any remarks…">' + (r ? (r.note || '') : '') + '</textarea></div>' +
+        '<textarea id="sal-note" class="form-control" rows="2" placeholder="Any remarks…">' + Utils.esc(r ? (r.note || '') : '') + '</textarea></div>' +
       '<div class="form-actions" style="justify-content:flex-end; margin-top:10px;">' +
         '<button class="btn-secondary" style="border-radius:24px; padding:10px 24px; font-weight:700; color:#fff; background:rgba(255,255,255,0.1); border:none;" onclick="Utils.closeModal()">CANCEL</button>' +
         '<button class="btn-primary" style="border-radius:24px; padding:10px 24px; font-weight:700; border:none; color:#fff; background:linear-gradient(135deg,#00d4ff,#7c3aed);" onclick="Salary.saveRecord()"><i class="fa fa-floppy-disk"></i> SAVE RECORD</button>' +

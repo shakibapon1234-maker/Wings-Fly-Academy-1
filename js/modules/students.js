@@ -561,7 +561,7 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Student ID</label>
-          <input id="sf-sid" class="form-control" value="${s.student_id||''}" readonly style="background:var(--bg-surface)" />
+          <input id="sf-sid" class="form-control" value="${Utils.escAttr(s.student_id||'')}" readonly style="background:var(--bg-surface)" />
         </div>
         <div class="form-group">
           <label>Admission Date</label>
@@ -571,21 +571,21 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Full Name <span class="req">*</span></label>
-          <input id="sf-name" class="form-control" value="${s.name||''}" maxlength="100" />
+          <input id="sf-name" class="form-control" value="${Utils.escAttr(s.name||'')}" maxlength="100" />
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${s.phone||''}" maxlength="20" pattern="[0-9+() -]{7,20}" />
+          <input id="sf-phone" class="form-control" value="${Utils.escAttr(s.phone||'')}" maxlength="20" pattern="[0-9+() -]{7,20}" />
         </div>
       </div>
       <div class="form-row">
         <div class="form-group">
           <label>Email</label>
-          <input id="sf-email" type="email" class="form-control" value="${s.email||''}" />
+          <input id="sf-email" type="email" class="form-control" value="${Utils.escAttr(s.email||'')}" />
         </div>
         <div class="form-group">
           <label>Father Name</label>
-          <input id="sf-father" class="form-control" value="${s.father_name||''}" />
+          <input id="sf-father" class="form-control" value="${Utils.escAttr(s.father_name||'')}" />
         </div>
       </div>
       <div class="form-row-3">
@@ -598,11 +598,11 @@ const Students = (() => {
         </div>
         <div class="form-group">
           <label>Batch</label>
-          <input id="sf-batch" class="form-control" value="${s.batch||''}" />
+          <input id="sf-batch" class="form-control" value="${Utils.escAttr(s.batch||'')}" />
         </div>
         <div class="form-group">
           <label>Session</label>
-          <input id="sf-session" class="form-control" value="${s.session||''}" />
+          <input id="sf-session" class="form-control" value="${Utils.escAttr(s.session||'')}" />
         </div>
       </div>
       <div class="form-row-3">
@@ -638,7 +638,7 @@ const Students = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Address</label>
-          <input id="sf-address" class="form-control" value="${s.address||''}" maxlength="300" />
+          <input id="sf-address" class="form-control" value="${Utils.escAttr(s.address||'')}" maxlength="300" />
         </div>
         <div class="form-group">
           <label>Status</label>

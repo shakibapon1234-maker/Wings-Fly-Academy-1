@@ -371,10 +371,11 @@ const SyncGuard = (() => {
                     const meta  = typeLabel[e.type] || { label: e.type, color: '#aaa' };
                     const time  = new Date(e.at).toLocaleString('en-BD', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
                     const det   = typeof e.detail === 'object' ? Object.entries(e.detail).map(([k,v])=>`${k}: ${typeof v==='object'?JSON.stringify(v):v}`).join(' | ') : String(e.detail);
+                    const detSafe = typeof Utils !== 'undefined' && Utils.esc ? Utils.esc(det.slice(0,200)) : det.slice(0,200).replace(/</g,'&lt;').replace(/>/g,'&gt;');
                     return `<tr style="border-top:1px solid rgba(255,255,255,0.05)">
                       <td style="padding:8px 12px;color:#666;white-space:nowrap">${time}</td>
                       <td style="padding:8px 12px"><span style="background:${meta.color}18;color:${meta.color};border:1px solid ${meta.color}44;padding:2px 8px;border-radius:20px;font-size:.73rem;white-space:nowrap">${meta.label}</span></td>
-                      <td style="padding:8px 12px;color:#888;word-break:break-word;max-width:300px">${det.slice(0,200)}</td>
+                      <td style="padding:8px 12px;color:#888;word-break:break-word;max-width:300px">${detSafe}</td>
                     </tr>`;
                   }).join('')
               }

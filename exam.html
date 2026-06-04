@@ -1228,14 +1228,14 @@ function showResults() {
           <span>প্রশ্ন ${i+1}</span>
           <span>মান: ${mark} ${userAns !== undefined ? (isCorrect ? "(প্রাপ্ত: " + mark + ")" : "(প্রাপ্ত: 0)") : "(প্রাপ্ত: 0)"}</span>
         </div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${q.question}</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:8px;">${Utils.esc(q.question)}</div>
         ${userAns !== undefined
           ? `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:${isCorrect?'#e8f5e9':'#fdecea'};color:${isCorrect?'var(--success)':'var(--danger)'};">
-              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${q._shuffledOpts ? q._shuffledOpts[userAns]?.opt : q.options[userAns]}
+              ${isCorrect ? '✅' : '❌'} আপনার উত্তর: ${Utils.esc(q._shuffledOpts ? q._shuffledOpts[userAns]?.opt : q.options[userAns])}
             </div>`
           : `<div style="font-size:13px;padding:6px 10px;border-radius:8px;background:#fff3e0;color:#e65100;">⏭️ উত্তর দেননি</div>`
         }
-        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${q._shuffledOpts ? q._shuffledOpts.find(item => item.isCorrect)?.opt : q.options[q.answer]}</div>` : ''}
+        ${!isCorrect ? `<div style="font-size:13px;margin-top:6px;padding:6px 10px;border-radius:8px;background:#e8f5e9;color:var(--success);">✅ সঠিক উত্তর: ${Utils.esc(q._shuffledOpts ? q._shuffledOpts.find(item => item.isCorrect)?.opt : q.options[q.answer])}</div>` : ''}
       </div>
     `;
   }).join('');
