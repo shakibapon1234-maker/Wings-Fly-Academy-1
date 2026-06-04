@@ -816,8 +816,8 @@ const SupabaseSync = (() => {
       const totalDue  = students.reduce((s, r) => s + Number(r.due  || 0), 0);
       // ✅ Fix: Exclude phantom categories from finance totals in snapshot
       const _isPhantomEntry = f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment';
-      const totalIncome  = finance.filter(f => INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
-      const totalExpense = finance.filter(f => EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalIncome  = finance.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalExpense = finance.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
 
       // Account balances — read DIRECTLY from accounts.balance (same as dashboard)
       // No recalculation. Whatever is stored is what's shown.
@@ -846,7 +846,7 @@ const SupabaseSync = (() => {
       const today = new Date().toISOString().split('T')[0];
       const batchExpense = expStart
         ? finance.filter(f => {
-            if (!EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
+            if (!_MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
             const fd = normDate(f.date);
             return fd && fd >= expStart && fd <= today;
           }).reduce((s, f) => s + Number(f.amount || 0), 0)
@@ -2519,6 +2519,7 @@ const SyncEngine = (() => {
   let realtimeChannels = [];
   let _lastSyncTime = 0;
   let _lastPullTimestamp = null;
+  let _syncInProgress = false;
   const missingTables = new Set();
 
   // —— Storage Size Guard (IndexedDB-aware) ——
