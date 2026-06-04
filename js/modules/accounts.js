@@ -625,16 +625,16 @@ const Accounts = (() => {
     Utils.openModal(`<i class="fa fa-building-columns"></i> ${isEdit ? 'Edit Bank Account' : 'Add New Bank Account'}`, `
       <div class="form-group">
         <label>Account Name <span class="req">*</span></label>
-        <input type="text" id="bm-name" class="form-control" placeholder="e.g. CITY BANK" value="${b.name||''}" />
+        <input type="text" id="bm-name" class="form-control" placeholder="e.g. CITY BANK" value="${Utils.escAttr(b.name||'')}" />
       </div>
       <div class="form-row">
         <div class="form-group">
            <label>Bank Name</label>
-           <input type="text" id="bm-bank" class="form-control" placeholder="City Bank Ltd." value="${b.bankName||''}" />
+           <input type="text" id="bm-bank" class="form-control" placeholder="City Bank Ltd." value="${Utils.escAttr(b.bankName||'')}" />
         </div>
         <div class="form-group">
            <label>Branch</label>
-           <input type="text" id="bm-branch" class="form-control" placeholder="Bonosree" value="${b.branch||''}" />
+           <input type="text" id="bm-branch" class="form-control" placeholder="Bonosree" value="${Utils.escAttr(b.branch||'')}" />
         </div>
       </div>
       <div class="form-row">
@@ -721,7 +721,7 @@ const Accounts = (() => {
     Utils.openModal(`<i class="fa fa-mobile-screen"></i> ${isEdit ? 'Edit Mobile Account' : 'Add Mobile Account'}`, `
       <div class="form-group">
         <label>Account Name <span class="req">*</span></label>
-        <input type="text" id="mm-name" class="form-control" placeholder="e.g. Bikash, Nagad" value="${m.name||''}" />
+        <input type="text" id="mm-name" class="form-control" placeholder="e.g. Bikash, Nagad" value="${Utils.escAttr(m.name||'')}" />
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -824,7 +824,7 @@ const Accounts = (() => {
         .filter(a => a.type === 'Mobile_Detail' && a.name)
         .map(a => ({ value: a.name, label: `📱 ${a.name}${a.accountNo ? ' (' + a.accountNo + ')' : ''}` })),
     ];
-    const _optHTML = _transferOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+    const _optHTML = _transferOptions.map(o => `<option value="${Utils.escAttr(o.value)}">${Utils.esc(o.label)}</option>`).join('');
 
     Utils.openModal(`<i class="fa fa-arrow-right-arrow-left"></i> Internal Balance Transfer`, `
       <div class="form-row">

@@ -239,7 +239,7 @@ const DashboardModule = (() => {
       if (!displayDesc) displayDesc = r.category || '—';
       return `<tr>
       <td style="font-size:.82rem">${Utils.formatDateDMY(r.date)}</td>
-      <td>${Utils.truncate(displayDesc, 28)}</td>
+      <td>${Utils.esc(Utils.truncate(displayDesc, 28))}</td>
       <td>${r.type==='Income' ? Utils.badge('Income','success') : Utils.badge('Expense','danger')}</td>
       <td>${Utils.methodBadge(r.method||'Cash')}</td>
       <td class="text-right font-bold ${r.type==='Income'?'text-success':'text-error'}" style="font-family:var(--font-ui)">${Utils.takaEn(r.amount)}</td>
@@ -381,7 +381,7 @@ const DashboardModule = (() => {
       <th>Person</th><th class="text-right">Given</th><th class="text-right">Received</th><th class="text-right">Balance</th>
     </tr></thead><tbody>
     ${rows.map(r => `<tr>
-      <td class="font-bold">${r.person}</td>
+      <td class="font-bold">${Utils.esc(r.person)}</td>
       <td class="text-right text-error" style="font-family:var(--font-ui)">${Utils.takaEn(r.given)}</td>
       <td class="text-right text-success" style="font-family:var(--font-ui)">${Utils.takaEn(r.received)}</td>
       <td class="text-right ${r.due > 0 ? 'text-info' : r.due < 0 ? 'text-warning' : ''}" style="font-family:var(--font-ui); font-weight:700">

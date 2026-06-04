@@ -76,7 +76,7 @@ const HRStaff = (() => {
         <input type="text" id="staff-search" placeholder="🔍 Name / Phone / Search ID..." oninput="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff; min-width:200px;" />
         <select id="staff-role-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Roles</option>
-          ${getRoles().map(r => `<option value="${r}">${r}</option>`).join('')}
+          ${getRoles().map(r => `<option value="${Utils.escAttr(r)}">${Utils.esc(r)}</option>`).join('')}
         </select>
         <select id="staff-status-filter" onchange="HRStaff.applyFilter()" style="padding:8px; border-radius:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.1); color:#fff;">
           <option value="">All Status</option>

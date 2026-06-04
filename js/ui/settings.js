@@ -6461,7 +6461,13 @@ ${expenseEntries.length > 0 ? `
   function panelAIAssistant() {
     const rawKey = localStorage.getItem('wfa_gemini_key') || '';
     const isEncrypted = rawKey.startsWith('wfa_enc::');
-    const displayKey = isEncrypted ? '•••••••• (Encrypted)' : rawKey;
+    const displayKey = isEncrypted ? '•••••••• (Encrypted)' : (rawKey ? '•••••••• (Legacy)' : '');
+    // ✅ Bug #5 Fix: Auto-migrate plaintext key → SecureStorage (one-time)
+    if (rawKey && !isEncrypted && typeof SecureStorage !== 'undefined' && SecureStorage.setItem) {
+      SecureStorage.setItem('wfa_gemini_key', rawKey).then(() => {
+        console.info('[Security] Migrated plaintext Gemini key to SecureStorage.');
+      }).catch(() => {});
+    }
     const hasBackup2 = !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
     const hasBackup3 = !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
     const localOnly = localStorage.getItem('wfa_ai_local_only') === 'true';
