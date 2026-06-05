@@ -28,7 +28,7 @@ const SyncGuard = (() => {
   // ── Public: report an issue ───────────────────────────────
   /**
    * @param {'merge_conflict'|'negative_balance'|'balance_lock_error'|'balance_update_error'|
-   *         'loan_as_income'|'transfer_as_income'|'advance_as_income'|'balance_mismatch'} type
+   *         'loan_as_income'|'investment_as_income'|'transfer_as_income'|'advance_as_income'|'balance_mismatch'} type
    * @param {object} detail
    */
   function report(type, detail = {}) {
@@ -58,9 +58,10 @@ const SyncGuard = (() => {
       balance_lock_error:   '⚠️ Balance Lock Error: account balance update করতে সমস্যা হয়েছে।',
       balance_update_error: '⚠️ Balance Error: account balance সঠিকভাবে আপডেট হয়নি।',
       loan_as_income:       '🔴 Data Error: Loan entry income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
+      investment_as_income: '🔴 Data Error: Investment entry income/expense হিসেবে type করা হয়েছে — এটা শুধু account balance move করে।',
       transfer_as_income:   '🔴 Data Error: Transfer entry income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
       advance_as_income:    '🔴 Data Error: Advance Payment income হিসেবে count হওয়ার চেষ্টা হয়েছে — আটকানো হয়েছে।',
-      balance_mismatch:     '🔴 Balance Mismatch: Transaction-এর পরে expected balance মিলছে না! মানুয়ালী ব্যালেন্স পরিবর্তন বা sync সমস্যা হয়ে থাকতে পারে। Data Monitor চেক করুন।'
+      balance_mismatch:     '🔴 Balance Mismatch: Transaction-এর পরে expected balance মিলছে না! মানুয়ালী ব্যালেন্স পরিবর্তন বা sync সমস্যা হয়ে থাকতে পারে। Data Monitor চেক করুন।'
     };
 
     const msg = msgs[entry.type] || `⚠️ SyncGuard: ${entry.type}`;
@@ -145,7 +146,8 @@ const SyncGuard = (() => {
   // ── Audit: verify finance ledger integrity ────────────────
   /**
    * Finance ledger-এ সব entries scan করে:
-   * — Loan type (_isLoan=true) যদি income/expense calculate করতে যায়
+   * — Loan type (_isLoan=true) যদি income/expense হিসেবে count হয়
+   * — Investment In/Out যদি Income/Expense type-এ ভুলভাবে save হয়
    * — Transfer In/Out যদি net profit-এ ঢুকে যায়
    * — Advance payment (wfa_advance_payments) finance ledger-এ আছে কিনা
    *
@@ -159,28 +161,36 @@ const SyncGuard = (() => {
       const finance = window.SupabaseSync ? window.SupabaseSync.getAll('finance_ledger') : [];
 
       finance.forEach(f => {
-        // Loan entries income/expense হিসেবে count হওয়া উচিত নয়
+        // ── Loan entries income/expense হিসেবে count হওয়া উচিত নয় ──
         if (f._isLoan && (f.type === 'Income' || f.type === 'Expense')) {
           issues.push(`Loan entry (id: ${f.id}) has type="${f.type}" — should be "Loan Giving" or "Loan Receiving".`);
           report('loan_as_income', { id: f.id, type: f.type, amount: f.amount });
         }
 
-        // Transfer entries — these touch balances but not income/expense
-        // They're allowed in finance_ledger as type Transfer In/Out — just flag if mislabelled
+        // ── Investment In/Out যদি ভুলভাবে Income/Expense type-এ save হয় ──
+        // Investment শুধু account balance move করে — income বা expense নয়।
+        // সঠিক type: "Investment In" বা "Investment Out"
+        if ((f.type === 'Income' || f.type === 'Expense') &&
+            (f.category === 'Investment' || f.category === 'Investment In' || f.category === 'Investment Out')) {
+          issues.push(`Investment entry (id: ${f.id}) has type="${f.type}" — should be "Investment In" or "Investment Out" to exclude from P&L.`);
+          report('investment_as_income', { id: f.id, type: f.type, category: f.category, amount: f.amount });
+        }
+
+        // ── Transfer entries incorrectly flagged ──
         if ((f.type === 'Transfer In' || f.type === 'Transfer Out') && f._isLoan) {
           issues.push(`Transfer entry (id: ${f.id}) is incorrectly flagged as a loan.`);
         }
 
-        // Amount must be positive
+        // ── Amount must be positive ──
         if (f.amount != null && Number(f.amount) < 0) {
           issues.push(`Negative amount in finance_ledger (id: ${f.id}, amount: ${f.amount}).`);
         }
       });
 
-      // Advance payments should NOT be in finance_ledger
+      // ── Advance payments should NOT be in finance_ledger as Income/Expense ──
       const advances = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch { return []; } })();
       if (advances.length > 0) {
-        advances.forEach((a, _i) => {
+        advances.forEach((a) => {
           const linked = finance.filter(f =>
             f.category === 'Advance Payment' && f.person_name === a.person && !f._isLoan
           );
@@ -309,38 +319,30 @@ const SyncGuard = (() => {
     markAllSeen();
 
     const auditF = auditFinance();
-    const auditB = auditBalances();
 
     const typeLabel = {
-      merge_conflict:       { label: 'Sync Conflict',     color: '#ffd700' },
-      negative_balance:     { label: 'Negative Balance',  color: '#ff4757' },
-      balance_lock_error:   { label: 'Balance Lock Err',  color: '#ff4757' },
-      balance_update_error: { label: 'Balance Update Err',color: '#ff4757' },
-      loan_as_income:       { label: 'Loan Count Error',  color: '#ff4757' },
-      transfer_as_income:   { label: 'Transfer Count Err',color: '#ff4757' },
-      advance_as_income:    { label: 'Advance Count Err', color: '#ff4757' },
-      balance_mismatch:     { label: 'Balance Mismatch',  color: '#ff4757' },
+      merge_conflict:       { label: 'Sync Conflict',        color: '#ffd700' },
+      negative_balance:     { label: 'Negative Balance',     color: '#ff4757' },
+      balance_lock_error:   { label: 'Balance Lock Err',     color: '#ff4757' },
+      balance_update_error: { label: 'Balance Update Err',   color: '#ff4757' },
+      loan_as_income:       { label: 'Loan Type Error',      color: '#ff4757' },
+      investment_as_income: { label: 'Investment Type Err',  color: '#ff6b35' },
+      transfer_as_income:   { label: 'Transfer Count Err',   color: '#ff4757' },
+      advance_as_income:    { label: 'Advance Count Err',    color: '#ff4757' },
+      balance_mismatch:     { label: 'Balance Mismatch',     color: '#ff4757' },
     };
 
     container.innerHTML = `
       <div style="padding:0 0 12px">
 
-        <!-- Audit Summary -->
-        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px">
-          <div style="flex:1;min-width:200px;background:${auditF.ok?'rgba(0,255,136,0.07)':'rgba(255,71,87,0.09)'};border:1px solid ${auditF.ok?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.4)'};border-radius:10px;padding:14px">
+        <!-- Finance Ledger Audit Summary -->
+        <div style="margin-bottom:18px">
+          <div style="background:${auditF.ok?'rgba(0,255,136,0.07)':'rgba(255,71,87,0.09)'};border:1px solid ${auditF.ok?'rgba(0,255,136,0.3)':'rgba(255,71,87,0.4)'};border-radius:10px;padding:14px">
             <div style="font-size:.75rem;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Finance Ledger Audit</div>
             <div style="font-size:1.05rem;font-weight:700;color:${auditF.ok?'#00ff88':'#ff4757'}">
-              ${auditF.ok ? '✅ Clean' : `❌ ${auditF.issues.length} issue(s)`}
+              ${auditF.ok ? '✅ Clean — Ledger integrity OK' : `❌ ${auditF.issues.length} issue(s) found`}
             </div>
             ${!auditF.ok ? `<div style="margin-top:8px;font-size:.75rem;color:#ff4757">${auditF.issues.slice(0,3).map(i=>`• ${i}`).join('<br>')}</div>` : ''}
-          </div>
-          <div style="flex:1;min-width:200px;background:rgba(100,100,100,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:14px">
-            <div style="font-size:.75rem;color:#aaa;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Account Balance Audit</div>
-            <div style="font-size:1.05rem;font-weight:700;color:#888">⏸ Disabled</div>
-            <div style="margin-top:8px;font-size:.72rem;color:#666;line-height:1.5">
-              Finance ledger-এ সব historical transaction নেই (app চালু হওয়ার আগের)। তাই এই audit সবসময় mismatch দেখায়।<br>
-              Account balance সবসময় সঠিক — প্রতিটা real transaction-এ সরাসরি update হয়।
-            </div>
           </div>
         </div>
 
@@ -389,11 +391,6 @@ const SyncGuard = (() => {
   // ── Full audit runner ─────────────────────────────────────
   function runFullAudit() {
     const f = auditFinance();
-    // NOTE: auditBalances() is intentionally NOT called here.
-    // The finance_ledger does not contain complete historical transaction data
-    // (many pre-app transactions are missing), so the balance recalculation
-    // will always diverge from stored balances. Stored balances are the
-    // source of truth, updated live by updateAccountBalance() on each transaction.
 
     if (f.ok) {
       typeof Utils !== 'undefined' && Utils.toast && Utils.toast('✅ Finance audit passed — ledger is clean', 'success');
@@ -402,32 +399,7 @@ const SyncGuard = (() => {
     }
 
     _updateBadge();
-    return { finance: f, balances: { ok: true, discrepancies: [] } };
-  }
-
-  // ── Auto Fix logic ───────────────────────────────────────
-  // Design principle (REVISED):
-  //   finance_ledger sum (calculated) = SOURCE OF TRUTH
-  //   accounts.balance (stored) = should be corrected to match calculated
-  //
-  //   ❌ OLD (BROKEN): created fake "Opening Balance" entries in finance_ledger
-  //      → This INFLATED balances and created phantom transactions
-  // ── Auto Fix — PERMANENTLY DISABLED ─────────────────────
-  // This feature has been disabled because it was the ROOT CAUSE of
-  // recurring balance corruption. It corrected stored account balances
-  // to match an unreliable ledger recalculation (which was always wrong
-  // because finance_ledger does not contain complete historical data).
-  //
-  // Account balances are the SOURCE OF TRUTH. They are correctly updated
-  // live by updateAccountBalance() on every real transaction (student fees,
-  // salary, loans, transfers). DO NOT recalculate from ledger.
-  function autoFix() {
-    typeof Utils !== 'undefined' && Utils.toast &&
-      Utils.toast(
-        '⛔ Auto Fix নিষ্ক্রিয় করা হয়েছে — এটি balance নষ্ট করে দিত। Account balance সবসময় সঠিক থাকে।',
-        'warning', 6000
-      );
-    console.warn('[SyncGuard] autoFix() is permanently disabled. Account balances are the source of truth.');
+    return { finance: f };
   }
 
   // ── Clean Stale Data ─────────────────────────────────────
@@ -515,7 +487,6 @@ const SyncGuard = (() => {
     auditBalances,
     runFullAudit,
     renderPanel,
-    autoFix,
     cleanStaleData,
     init,
   };

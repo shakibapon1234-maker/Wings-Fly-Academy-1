@@ -78,7 +78,7 @@ const IntegrityGuard = (() => {
       'SyncGuard': {
         required: ['report', 'getLog', 'markAllSeen', 'clearLog',
                    'auditFinance', 'auditBalances', 'runFullAudit',
-                   'renderPanel', 'autoFix', 'init'],
+                   'renderPanel', 'cleanStaleData', 'init'],
         critical: true,
         desc: 'Payment integrity guard',
       },
