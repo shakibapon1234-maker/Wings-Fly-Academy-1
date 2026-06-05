@@ -114,8 +114,58 @@
     .dot.green { background: #00e676; box-shadow: 0 0 6px #00e676; }
     .dot.red { background: #ff4d6d; box-shadow: 0 0 6px #ff4d6d; }
   </style>
+
+  <style>
+    /* ── C-1 Auth Gate ── */
+    #auth-gate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: #050a15;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    #auth-gate .auth-card {
+      background: #0d1a2d;
+      border: 1px solid rgba(255,30,80,0.4);
+      border-radius: 16px;
+      padding: 36px 40px;
+      max-width: 400px; width: 100%;
+      box-shadow: 0 0 40px rgba(255,30,80,0.12);
+      text-align: center;
+    }
+    #auth-gate h2 { color: #ff4d6d; font-size: 1.2rem; margin-bottom: 6px; }
+    #auth-gate p  { color: #888; font-size: 0.82rem; margin-bottom: 20px; }
+    #auth-pw {
+      width: 100%; padding: 10px 14px;
+      background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; color: #fff; font-size: 0.95rem;
+      margin-bottom: 12px; outline: none; box-sizing: border-box;
+    }
+    #auth-err { color: #ff4d6d; font-size: 0.8rem; min-height: 20px; margin-bottom: 8px; }
+    #auth-submit {
+      width: 100%; padding: 10px;
+      background: rgba(255,30,80,0.2); border: 1px solid rgba(255,30,80,0.5);
+      border-radius: 8px; color: #ff4d6d; font-weight: 700;
+      cursor: pointer; font-size: 0.88rem;
+    }
+    #auth-submit:hover { background: rgba(255,30,80,0.35); }
+    .tool-locked { pointer-events: none; opacity: 0.35; }
+  </style>
 </head>
 <body>
+
+<!-- ── C-1 Auth Gate — must pass before any destructive action ── -->
+<div id="auth-gate">
+  <div class="auth-card">
+    <div style="font-size:2rem;margin-bottom:8px">🔐</div>
+    <h2>Admin Verification Required</h2>
+    <p>এই Emergency Tool ব্যবহারের আগে Admin পাসওয়ার্ড দিন।<br>ভুল পাসওয়ার্ড দিলে access পাবেন না।</p>
+    <input type="password" id="auth-pw" placeholder="Admin password" onkeydown="if(event.key==='Enter')authVerify()" autofocus />
+    <div id="auth-err"></div>
+    <button id="auth-submit" onclick="authVerify()">🔓 Verify &amp; Unlock</button>
+  </div>
+</div>
+
+<div id="tool-body" class="tool-locked">
 <div class="card">
   <div class="logo">🛠️</div>
   <h1>WFA IndexedDB Cleaner</h1>
@@ -168,9 +218,67 @@
   <div id="log"><span class="log-info">Ready. Connecting to WFA IndexedDB...</span></div>
 </div>
 
+</div><!-- /tool-body -->
+
 <script>
 const DB_NAME = 'WingsAcademyDB';
 const LOG = document.getElementById('log');
+
+/* ── C-1 Auth Gate Logic ───────────────────────────────────── */
+async function _sha256(str) {
+  try {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  } catch { return null; }
+}
+
+function _getStoredHash() {
+  // Read admin_password from any wfa_ localStorage key (same logic as login.js)
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!k || !k.startsWith('wfa_')) continue;
+    try {
+      const parsed = JSON.parse(localStorage.getItem(k));
+      const rows = Array.isArray(parsed) ? parsed : [parsed];
+      for (const r of rows) {
+        if (r && r.admin_password) return r.admin_password;
+      }
+    } catch { /* skip */ }
+  }
+  return null;
+}
+
+async function authVerify() {
+  const pw    = document.getElementById('auth-pw').value.trim();
+  const errEl = document.getElementById('auth-err');
+  if (!pw) { errEl.textContent = 'পাসওয়ার্ড দিন।'; return; }
+
+  const stored = _getStoredHash();
+  if (!stored) {
+    // No password set yet — allow access only if user types the default 'admin'
+    if (pw === 'admin') { _unlockTool(); return; }
+    errEl.textContent = 'Settings-এ password সেট নেই। Default password ব্যবহার করুন।';
+    return;
+  }
+
+  const isHashed = /^[0-9a-f]{64}$/.test(stored);
+  if (isHashed) {
+    const hash = await _sha256(pw);
+    if (hash && hash === stored) { _unlockTool(); return; }
+  } else {
+    if (pw === stored) { _unlockTool(); return; }
+  }
+  errEl.textContent = 'ভুল পাসওয়ার্ড। আবার চেষ্টা করুন।';
+  document.getElementById('auth-pw').value = '';
+  document.getElementById('auth-pw').focus();
+}
+
+function _unlockTool() {
+  document.getElementById('auth-gate').style.display = 'none';
+  const body = document.getElementById('tool-body');
+  body.classList.remove('tool-locked');
+  init(); // now safe to connect
+}
 
 function addLog(msg, type = 'info') {
   const line = document.createElement('div');
@@ -353,7 +461,7 @@ async function resetLocalCache() {
   }
 }
 
-init();
+// init() is called only from _unlockTool() after successful admin auth (C-1 fix)
 </script>
 </body>
 </html>

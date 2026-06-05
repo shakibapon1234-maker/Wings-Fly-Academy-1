@@ -6637,9 +6637,9 @@ ${expenseEntries.length > 0 ? `
   };
 })();
 
-window.SettingsModule = SettingsModule;
-
-// ── Restore saved theme + sidebar + colors on page load ──────────────
+// ── S2 Fix: Restore saved theme + sidebar + colors BEFORE exporting the module ──
+// CSS injections (document.head.appendChild) must complete before any other page
+// code accesses window.SettingsModule, to avoid dark/neon theme conflicts.
 (function restoreThemeOnLoad() {
   const savedTheme = localStorage.getItem('wfa_theme') || 'neon-space';
   const allThemeIds = ['neon-space','aurora','nebula','neon-grid','molten','emerald','aurora-wave'];

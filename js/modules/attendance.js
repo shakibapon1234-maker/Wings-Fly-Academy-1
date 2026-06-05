@@ -839,7 +839,7 @@ const Attendance = (() => {
         <tbody>${Object.entries(months).sort().map(([m, d]) => {
           const total = d.Present + d.Absent + d.Late + d.Leave;
           return `<tr>
-            <td><strong>${m}</strong></td>
+            <td><strong>${Utils.esc(m)}</strong></td>
             <td style="color:#00ff88;font-weight:700">${d.Present}</td>
             <td style="color:#ff4757;font-weight:700">${d.Absent}</td>
             <td style="color:#ffd700;font-weight:700">${d.Late}</td>
@@ -964,7 +964,7 @@ const Attendance = (() => {
           <div style="font-weight:800;color:#00d4ff;font-size:0.95rem;">${academyName}</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">
             Batch: <strong>${batch}</strong>
-            ${sessionLabel ? ` &nbsp;|&nbsp; ${sessionLabel}` : ''}
+            ${sessionLabel ? ` &nbsp;|&nbsp; ${Utils.esc(sessionLabel)}` : ''}
             &nbsp;|&nbsp; দিন: <strong>${daysCount}</strong>
             &nbsp;|&nbsp; ছাত্র: <strong>${students.length}</strong>
           </div>
@@ -1230,7 +1230,7 @@ const Attendance = (() => {
     </div>
     <div class="header-meta">
       <div class="meta-label">Batch: ${batch}</div>
-      ${sessionLabel ? `<div>${sessionLabel}</div>` : ''}
+      ${sessionLabel ? `<div>${Utils.esc(sessionLabel)}</div>` : ''}
       <div>দিন: ${daysCount} | ছাত্র: ${students.length}</div>
       <div>Print: ${printDate}</div>
     </div>

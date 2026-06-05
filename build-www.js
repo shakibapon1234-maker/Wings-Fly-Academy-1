@@ -125,12 +125,25 @@ console.log(`   ⚠️  Missing : ${missing} item(s)`);
 console.log(`   ❌ Failed  : ${failed} item(s)`);
 console.log('═'.repeat(50));
 
+// ── C1 Security Fix: Remove live credentials from build output ──────────────
+// supabase-secrets.js contains real URL + anonKey. It must NEVER ship in the
+// www/ bundle (APK / ZIP). Only the .stub.js (safe placeholder) is kept.
+const secretsInBuild = path.join(destDir, 'js', 'core', 'supabase-secrets.js');
+try {
+  if (fs.existsSync(secretsInBuild)) {
+    fs.rmSync(secretsInBuild);
+    console.log('🔒 Removed js/core/supabase-secrets.js from build (credentials must not ship)');
+  }
+} catch (e) {
+  console.error(`❌ Failed to remove supabase-secrets.js from build: ${e.message}`);
+}
+
 if (failed > 0) {
   console.error(`\n❌ Build completed WITH ERRORS. Check the log above.`);
   process.exitCode = 1;
 } else if (missing > 0) {
   console.warn(`\n⚠️  Build completed with warnings (${missing} missing file(s)).`);
 } else {
-  console.log(`\n🚀 Build to www/ successful!`);
+  console.log(`\n🚀 Build to www/ successful! (credentials stripped ✅)`);
 }
 

@@ -348,7 +348,7 @@ const LoginUI = (() => {
       }, 2500);
 
     } catch (e) {
-      resultEl.innerHTML = `<span style="color:#ff6b7a">Error saving password: ${e.message}</span>`;
+      resultEl.innerHTML = `<span style="color:#ff6b7a">Error saving password: ${typeof Utils !== 'undefined' ? Utils.esc(e.message) : String(e.message).replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
     }
   }
 
