@@ -725,9 +725,13 @@ const SupabaseSync = (() => {
       // Opening Balance and Balance Adjustment entries were never real money movements.
       const _isPhantom = f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment';
 
-      const snapIncome  = upTo.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantom(f))
+      // ✅ Fix: Income/Expense reporting matches finance tab summary cards:
+      // Only true 'Income' and 'Expense' types count — not Investment, Transfer, or Loan.
+      // These other types affect account balance (handled by _accountBalancesAtCutoff),
+      // but are not P&L income or expense (same as finance.js lines 54-55).
+      const snapIncome  = upTo.filter(f => String(f.type).toLowerCase() === 'income' && !_isPhantom(f))
         .reduce((s, r) => s + Number(r.amount || 0), 0);
-      const snapExpense = upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantom(f))
+      const snapExpense = upTo.filter(f => String(f.type).toLowerCase() === 'expense' && !_isPhantom(f))
         .reduce((s, r) => s + Number(r.amount || 0), 0);
 
       const balanceMap = _accountBalancesAtCutoff(sorted, cutoffIndex, baseAccounts);
@@ -816,10 +820,12 @@ const SupabaseSync = (() => {
       const totalFee  = students.reduce((s, r) => s + Number(r.total_fee || 0), 0);
       const totalPaid = students.reduce((s, r) => s + Number(r.paid || 0), 0);
       const totalDue  = students.reduce((s, r) => s + Number(r.due  || 0), 0);
-      // ✅ Fix: Exclude phantom categories from finance totals in snapshot
+      // ✅ Fix: Income/Expense reporting matches finance tab summary cards:
+      // Only true 'Income' and 'Expense' types count — not Investment, Transfer, or Loan.
+      // These other types affect account balance but are not P&L income or expense.
       const _isPhantomEntry = f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment';
-      const totalIncome  = finance.filter(f => _MONITOR_INCOME_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
-      const totalExpense = finance.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()) && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalIncome  = finance.filter(f => String(f.type).toLowerCase() === 'income'  && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
+      const totalExpense = finance.filter(f => String(f.type).toLowerCase() === 'expense' && !_isPhantomEntry(f)).reduce((s, r) => s + Number(r.amount || 0), 0);
 
       // Account balances — read DIRECTLY from accounts.balance (same as dashboard)
       // No recalculation. Whatever is stored is what's shown.
@@ -846,9 +852,10 @@ const SupabaseSync = (() => {
       };
       const expStart = normDate(cfg.expense_start_date);
       const today = new Date().toISOString().split('T')[0];
+      // batchExpense also uses only 'expense' type for P&L consistency
       const batchExpense = expStart
         ? finance.filter(f => {
-            if (!_MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
+            if (String(f.type).toLowerCase() !== 'expense') return false;
             const fd = normDate(f.date);
             return fd && fd >= expStart && fd <= today;
           }).reduce((s, f) => s + Number(f.amount || 0), 0)

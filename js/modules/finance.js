@@ -222,11 +222,12 @@ const Finance = (() => {
     const map = {
       'Income':         ['Income',           'success'],
       'Expense':        ['Expense',          'danger'],
-      'Loan Giving':    ['Loan Given',    'warning'],
-      'Loan Receiving': ['Loan Taken',    'info'],
-      'Transfer In':    ['Transfer In',   'primary'],
-      'Transfer Out':   ['Transfer Out',  'muted'],
-      'Investment Out': ['Investment Out', 'muted'],
+      'Loan Giving':    ['Loan Given',        'warning'],
+      'Loan Receiving': ['Loan Taken',        'info'],
+      'Transfer In':    ['Transfer In',       'primary'],
+      'Transfer Out':   ['Transfer Out',      'muted'],
+      'Investment In':  ['Investment In',     'primary'],
+      'Investment Out': ['Investment Out',    'muted'],
     };
     const [label, type2] = map[type]||[type,'primary'];
     return Utils.badge(label, type2);
@@ -344,6 +345,8 @@ const Finance = (() => {
                 <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>Loan Taken</option>
                 <option value="Transfer In"    ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
                 <option value="Transfer Out"   ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
+                <option value="Investment In"  ${d.type==='Investment In'?'selected':''}>Investment In ↗️</option>
+                <option value="Investment Out" ${d.type==='Investment Out'?'selected':''}>Investment Out ↘️</option>
               </select>
             </div>
             <div class="ff-field">

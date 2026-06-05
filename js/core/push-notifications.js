@@ -255,25 +255,26 @@ const PushNotificationModule = (() => {
   }
 
   // ── Manual notification send (for testing) ──
+  // ✅ S-1 Fix: Placeholder endpoint 'your-api.example.com' removed — was never functional.
+  // To enable: replace with your real backend/Supabase Edge Function endpoint that
+  // accepts { token, title, body } and sends FCM via server-side private key.
   async function sendTestNotification() {
-    try {
-      const _response = await fetch('https://your-api.example.com/send-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: fcmToken,
-          title: 'Test Notification',
-          body: 'This is a test notification from Wings Fly Academy'
-        })
-      });
-
-      console.log('[Push] Test notification sent');
-      if (typeof Utils !== 'undefined') {
-        Utils.toast('টেস্ট নোটিফিকেশন পাঠানো হয়েছে', 'success');
+    // No real backend endpoint configured yet — show clear guidance instead of failing silently
+    const hasToken = !!fcmToken;
+    if (typeof Utils !== 'undefined') {
+      if (!hasToken) {
+        Utils.toast('⚠️ Push notification endpoint এখনো configure হয়নি । Supabase Edge Function যোগ করুন অথবা FCM ব্যবহার করুন।', 'warning', 6000);
+      } else {
+        Utils.toast('⚠️ Backend endpoint configure করা নেই — push send করা যাচ্ছে না। js/core/push-notifications.js-এ sendTestNotification() দেখুন।', 'warning', 6000);
       }
-    } catch (e) {
-      console.error('[Push] Failed to send test:', e);
     }
+    // TODO: Replace this stub with a real backend call:
+    // const response = await fetch('https://YOUR-ACTUAL-BACKEND.com/send-notification', {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({ token: fcmToken, title: 'Test', body: 'Test notification' })
+    // });
+    console.warn('[Push] sendTestNotification(): No backend endpoint configured. Set a real URL to enable push sending.');
   }
 
   // ── Auto-initialize on app start ──
