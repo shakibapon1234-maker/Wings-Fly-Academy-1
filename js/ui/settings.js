@@ -6755,3 +6755,6 @@ ${expenseEntries.length > 0 ? `
   document.head.appendChild(styleTag);
 
 })();
+
+// ✅ S-2 Fix: Export after theme CSS injections are complete (regression fix — export was accidentally removed)
+window.SettingsModule = SettingsModule;

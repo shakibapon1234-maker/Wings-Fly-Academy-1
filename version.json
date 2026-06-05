@@ -1,7 +1,7 @@
 {
   "version": "4.9.5",
   "deploy_id": "20260603-bugfix-12-verified",
-  "changelog": "Fixed 4 confirmed audit bugs: C-2 integrity-guard.js missing from admin.html, C-3 cert-v2.css relative path broken in print blob URL, S-2 manifest.json wide screenshot invalid aspect ratio, W-3 version.json date inconsistency. Previous: Verified and resolved 8 true bugs from audit report including Gemini API key deletion, dropdown XSS vulnerabilities, Service Worker CDN font fallbacks, sub-account lockout session resets, and bootstrap SyncEngine checks.",
+  "changelog": "Security Audit Fixes (2026-06-05): C-1 idb-cleaner.html auth gate added (SHA-256 admin password required before destructive ops); C-2 login.js e.message XSS fixed (Utils.esc applied); S-1 service-worker.js DEPLOY_ID synced with version.json; S-2 manifest.json wide screenshot removed (invalid 1:1 ratio caused PWA install warning); S-3 build-www.js now strips supabase-secrets.js from ZIP/APK output; attendance.js sessionLabel + month key XSS fixed; settings.js window.SettingsModule export regression fixed. Previous: Fixed 4 confirmed audit bugs: C-2 integrity-guard.js missing from admin.html, C-3 cert-v2.css relative path broken in print blob URL, S-2 manifest.json wide screenshot invalid aspect ratio, W-3 version.json date inconsistency.",
   "size": "~2MB",
-  "released": "2026-06-03"
+  "released": "2026-06-05"
 }
