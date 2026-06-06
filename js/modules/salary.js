@@ -548,12 +548,12 @@ const Salary = (() => {
 
     var staffOpts = '<option value="">-- HR থেকে Staff বেছে নিন --</option>' +
       allStaff.map(function(s) {
-        return '<option value="' + s.staffId + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
-          ' data-name="' + Utils.esc(s.name) + '"' +
+        return '<option value="' + Utils.escAttr(s.staffId) + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
+          ' data-name="' + Utils.escAttr(s.name) + '"' +
           ' data-role="' + Utils.escAttr(s.role || '') + '"' +
           ' data-phone="' + Utils.escAttr(s.phone || '') + '"' +
           ' data-salary="' + Utils.safeNum(s.salary) + '">' +
-          s.staffId + ' — ' + s.name + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')' +
+          Utils.esc(s.staffId) + ' — ' + Utils.esc(s.name) + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')' +
           '</option>';
       }).join('');
 

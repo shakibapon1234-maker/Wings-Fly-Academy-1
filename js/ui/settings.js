@@ -2331,7 +2331,7 @@ const SettingsModule = (() => {
 <div class="header">
   ${logoHtml}
   <div class="header-info">
-    <h1>${academyName}</h1>
+    <h1>${Utils.esc(academyName)}</h1>
     <div class="sub">BATCH WISE PROFIT &amp; LOSS REPORT</div>
   </div>
   <div class="header-meta">
@@ -2462,7 +2462,7 @@ ${expenseEntries.length > 0 ? `
 
 <!-- Footer -->
 <div class="footer">
-  <div style="font-size:8px;color:#888;">${academyName}<br/>এটি একটি অফিসিয়াল আর্থিক রিপোর্ট।</div>
+  <div style="font-size:8px;color:#888;">${Utils.esc(academyName)}<br/>এটি একটি অফিসিয়াল আর্থিক রিপোর্ট।</div>
   <div style="display:flex;gap:40px;">
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">হিসাবরক্ষক</div></div>
     <div class="sig-box"><div class="sig-line"></div><div class="sig-label">অধ্যক্ষ / কর্তৃপক্ষ</div></div>

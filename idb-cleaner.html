@@ -255,9 +255,8 @@ async function authVerify() {
 
   const stored = _getStoredHash();
   if (!stored) {
-    // No password set yet — allow access only if user types the default 'admin'
-    if (pw === 'admin') { _unlockTool(); return; }
-    errEl.textContent = 'Settings-এ password সেট নেই। Default password ব্যবহার করুন।';
+    // W-1 Fix: No default password bypass — force user to set a password first
+    errEl.textContent = 'Settings-এ Admin Password সেট করুন, তারপর এই টুল ব্যবহার করুন।';
     return;
   }
 

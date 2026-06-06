@@ -2,6 +2,12 @@
 // Push Notifications Module — Firebase Cloud Messaging (FCM)
 // Wings Fly Aviation Academy
 // ============================================================
+// ⚠️  STATUS: INCOMPLETE — FCM token generation works but no backend
+// server exists to store tokens or send notifications. This module
+// initializes silently and does nothing harmful, but push notifications
+// will not be delivered until a server-side component is built.
+// TODO: Add server endpoint to save FCM tokens + send notifications.
+// ============================================================
 
 const PushNotificationModule = (() => {
   let fcmToken = null;

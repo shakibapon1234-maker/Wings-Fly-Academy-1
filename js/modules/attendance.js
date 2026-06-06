@@ -961,7 +961,7 @@ const Attendance = (() => {
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding:10px 14px;background:rgba(0,212,255,0.07);border-radius:8px;border:1px solid rgba(0,212,255,0.15);">
         ${logoHtml}
         <div style="flex:1;">
-          <div style="font-weight:800;color:#00d4ff;font-size:0.95rem;">${academyName}</div>
+          <div style="font-weight:800;color:#00d4ff;font-size:0.95rem;">${Utils.esc(academyName)}</div>
           <div style="font-size:0.78rem;color:var(--text-muted);">
             Batch: <strong>${batch}</strong>
             ${sessionLabel ? ` &nbsp;|&nbsp; ${Utils.esc(sessionLabel)}` : ''}
@@ -1225,7 +1225,7 @@ const Attendance = (() => {
   <div class="sheet-header">
     <div class="header-logo">${logoHtml}</div>
     <div class="header-info">
-      <h1>${academyName}</h1>
+      <h1>${Utils.esc(academyName)}</h1>
       <div class="sub">ATTENDANCE REGISTER</div>
     </div>
     <div class="header-meta">
@@ -1263,7 +1263,7 @@ const Attendance = (() => {
   <div class="sheet-footer">
     <div class="footer-note">
       এটি একটি অফিসিয়াল উপস্থিতি রেজিস্টার।<br/>
-      ${academyName}
+      ${Utils.esc(academyName)}
     </div>
     <div style="display:flex;gap:40px;">
       <div class="sig-box">
@@ -1412,7 +1412,7 @@ const Attendance = (() => {
   <div class="header">
     ${logoHtml}
     <div class="header-info">
-      <h1>${academyName}</h1>
+      <h1>${Utils.esc(academyName)}</h1>
       <div class="sub">DAILY ATTENDANCE REGISTER</div>
     </div>
     <div class="header-meta">
@@ -1489,7 +1489,7 @@ const Attendance = (() => {
 
     const html = `<!DOCTYPE html>
 <html><head><meta charset="UTF-8"/>
-<title>${type} Report — ${academyName}</title>
+<title>${Utils.esc(type)} Report — ${Utils.esc(academyName)}</title>
 <style>
   @page { size: A4 portrait; margin: 0; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -1505,7 +1505,7 @@ const Attendance = (() => {
 </style>
 </head>
 <body>
-  <h1>${academyName}</h1>
+  <h1>${Utils.esc(academyName)}</h1>
   <div class="sub">${type.charAt(0).toUpperCase() + type.slice(1)} Attendance Report &nbsp;—&nbsp; Printed: ${new Date().toLocaleDateString('en-GB')}</div>
   ${el.innerHTML}
 </body></html>`;
