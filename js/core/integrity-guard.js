@@ -460,6 +460,67 @@ const IntegrityGuard = (() => {
     ],
   };
 
+  // ✅ Fix: Page-specific MANIFEST adjustment to prevent false positives on standalone pages (e.g., admin.html)
+  {
+    const path = window.location.pathname;
+    const pageName = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    const isAdminPage = pageName === 'admin.html';
+
+    if (isAdminPage) {
+      // Keep only globals relevant to admin.html
+      const allowedGlobals = [
+        'window.supabase',
+        'window.SUPABASE_CONFIG',
+        'window.DB',
+        'window.WFA_IDB',
+        'window.SupabaseSync',
+        'window.SyncEngine',
+        'window.SyncGuard',
+        'window.Utils'
+      ];
+      for (const key of Object.keys(MANIFEST.globals)) {
+        if (!allowedGlobals.includes(key)) {
+          delete MANIFEST.globals[key];
+        }
+      }
+
+      // Keep only modules relevant to admin.html
+      const allowedModules = [
+        'Utils',
+        'WFA_IDB',
+        'SupabaseSync',
+        'SyncEngine',
+        'SyncGuard'
+      ];
+      for (const key of Object.keys(MANIFEST.modules)) {
+        if (!allowedModules.includes(key)) {
+          delete MANIFEST.modules[key];
+        }
+      }
+
+      // Replace DOM checks with admin-specific DOM checks
+      MANIFEST.dom = {
+        'adminPass':    { desc: 'Admin password input',        critical: true  },
+        'loginSection': { desc: 'Login section container',     critical: true  },
+        'dashSection':  { desc: 'Dashboard section container',   critical: true  },
+      };
+
+      // Filter out data checks that depend on missing modules/elements
+      const adminAllowedDataChecks = [
+        'IDB Ready State',
+        'DB Table Constants',
+        'SupabaseSync CRUD',
+        'Utils.toast',
+        'Supabase Client',
+        'Students Data Schema',
+        'RecycleBin IDB Storage',
+        'Finance calcPaid/Due consistency',
+        'Vital Links & Assets (Exam, Cert, Visitor)'
+      ];
+      MANIFEST.data_checks = MANIFEST.data_checks.filter(c => adminAllowedDataChecks.includes(c.name));
+    }
+  }
+
 
   // ══════════════════════════════════════════════════════════
   // RUNNER — সব check execute করে
@@ -1013,10 +1074,16 @@ const IntegrityGuard = (() => {
     // ✅ Fix: Poll for critical modules instead of fixed 8s delay.
     // On slow devices or large scripts (settings.js = 394KB), 8s may not be enough.
     // Poll every 2s for up to 30s — run as soon as all critical modules are on window.
-    const criticalModules = ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine', 'App',
-                              'Students', 'HRStaff', 'Salary', 'Finance', 'Accounts',
-                              'Loans', 'Attendance', 'Visitors', 'NoticeBoard',
-                              'DashboardModule', 'LoginUI'];
+    const path = window.location.pathname;
+    const pageName = path.substring(path.lastIndexOf('/') + 1) || 'index.html';
+    const isAdmin = pageName === 'admin.html';
+
+    const criticalModules = isAdmin
+      ? ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine']
+      : ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine', 'App',
+         'Students', 'HRStaff', 'Salary', 'Finance', 'Accounts',
+         'Loans', 'Attendance', 'Visitors', 'NoticeBoard',
+         'DashboardModule', 'LoginUI'];
     let pollCount = 0;
     const maxPolls = 15; // 15 × 2s = 30s max wait
 
