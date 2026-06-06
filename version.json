@@ -1,7 +1,7 @@
 {
-  "version": "4.9.7",
-  "deploy_id": "20260606-cert-login-fix",
-  "changelog": "Fixed certificate.html syntax error where printCert function was not wrapped properly, causing all JS logic (including verifyStudent) to break on the page; bumped DEPLOY_ID.",
+  "version": "4.9.8",
+  "deploy_id": "20260606-security-audit-fixes",
+  "changelog": "Security audit fixes: cleared live credentials from supabase-secrets.js in zip; migrated Gemini backup key slots 2&3 to SecureStorage; notice-board type field whitelist sanitization; exam.html added missing i18n.js and loading-state.js; certificates.js uses SUPABASE_CONFIG.client getter; app.js logout guards SyncEngine with typeof check; salary.js data-salary explicit String() cast.",
   "size": "~2MB",
   "released": "2026-06-06"
 }

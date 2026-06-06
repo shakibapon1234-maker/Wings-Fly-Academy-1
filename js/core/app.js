@@ -563,7 +563,10 @@ const App = (() => {
     }
     sessionStorage.removeItem('wfa_greeted'); // clear greeting state so next login triggers it
     showLogin();
-    SyncEngine.stopAutoSync();
+    // ✅ Fix: guard against early logout before SyncEngine is initialized
+    if (typeof SyncEngine !== 'undefined' && typeof SyncEngine.stopAutoSync === 'function') {
+      SyncEngine.stopAutoSync();
+    }
   }
 
   // ── Show/Hide ─────────────────────────────────────────────

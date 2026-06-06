@@ -116,7 +116,9 @@ const CertificatesModule = (() => {
   // ══════════════════════════════════════════════════════════
 
   async function generateQRToken(studentDbId) {
-    if (!window.supabaseClient) { Utils.toast('Supabase connection নেই।', 'error'); return null; }
+    // ✅ Fix: use SUPABASE_CONFIG.client getter to avoid frozen-reference race condition
+    const sbClient = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client) || window.supabaseClient;
+    if (!sbClient) { Utils.toast('Supabase connection নেই।', 'error'); return null; }
     const students = SupabaseSync.getAll(DB.students);
     const s = students.find(st => st.id === studentDbId);
     if (!s) { Utils.toast('Student পাওয়া যায়নি।', 'error'); return null; }
@@ -127,13 +129,13 @@ const CertificatesModule = (() => {
     }
 
     // Check existing token
-    const { data: existing, error: existingErr } = await window.supabaseClient
+    const { data: existing, error: existingErr } = await sbClient
       .from('certificate_tokens').select('token').eq('student_id', s.student_id || s.id).eq('is_active', true).maybeSingle();
     if (existing) return existing.token;
     if (existingErr && window.__WFA_DEV__) console.debug('[Certs] Query existing token:', existingErr);
 
     // Create new token
-    const { data, error } = await window.supabaseClient
+    const { data, error } = await sbClient
       .from('certificate_tokens')
       .insert({ student_id: s.student_id || s.id, student_db_id: s.id, phone_hash: phone.slice(-4) })
       .select('token').single();

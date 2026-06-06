@@ -552,7 +552,7 @@ const Salary = (() => {
           ' data-name="' + Utils.escAttr(s.name) + '"' +
           ' data-role="' + Utils.escAttr(s.role || '') + '"' +
           ' data-phone="' + Utils.escAttr(s.phone || '') + '"' +
-          ' data-salary="' + Utils.safeNum(s.salary) + '">' +
+          ' data-salary="' + String(Utils.safeNum(s.salary)) + '">' +
           Utils.esc(s.staffId) + ' — ' + Utils.esc(s.name) + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')' +
           '</option>';
       }).join('');

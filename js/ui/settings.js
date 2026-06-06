@@ -6468,8 +6468,30 @@ ${expenseEntries.length > 0 ? `
         console.info('[Security] Migrated plaintext Gemini key to SecureStorage.');
       }).catch(() => {});
     }
-    const hasBackup2 = !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
-    const hasBackup3 = !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
+    // ✅ Security Fix: Auto-migrate plaintext backup keys → SecureStorage (one-time, same as slot 1)
+    ['wfa_gemini_key_2', 'wfa_gemini_key_3'].forEach(async slot => {
+      const raw = localStorage.getItem(slot) || '';
+      if (raw && !raw.startsWith('wfa_enc::') && typeof SecureStorage !== 'undefined' && SecureStorage.setItem) {
+        try {
+          await SecureStorage.setItem(slot, raw);
+          localStorage.removeItem(slot);
+          console.info('[Security] Migrated plaintext backup Gemini key to SecureStorage:', slot);
+        } catch { /* ignore */ }
+      }
+    });
+    // Check presence via SecureStorage first, fallback to localStorage (pre-migration)
+    const hasBackup2 = await (async () => {
+      if (typeof SecureStorage !== 'undefined') {
+        try { const v = await SecureStorage.getItem('wfa_gemini_key_2'); if (v) return true; } catch { /* ignore */ }
+      }
+      return !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
+    })();
+    const hasBackup3 = await (async () => {
+      if (typeof SecureStorage !== 'undefined') {
+        try { const v = await SecureStorage.getItem('wfa_gemini_key_3'); if (v) return true; } catch { /* ignore */ }
+      }
+      return !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
+    })();
     const localOnly = localStorage.getItem('wfa_ai_local_only') === 'true';
     
     return `
