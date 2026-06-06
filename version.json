@@ -1,7 +1,7 @@
 {
-  "version": "4.9.6",
-  "deploy_id": "20260606-admin-integrity-fix",
-  "changelog": "Fixed WFA Integrity Guard false positives on admin.html by customizing module and DOM checklist dynamically based on the active page; bumped DEPLOY_ID to invalidate old caches.",
+  "version": "4.9.7",
+  "deploy_id": "20260606-cert-login-fix",
+  "changelog": "Fixed certificate.html syntax error where printCert function was not wrapped properly, causing all JS logic (including verifyStudent) to break on the page; bumped DEPLOY_ID.",
   "size": "~2MB",
   "released": "2026-06-06"
 }
