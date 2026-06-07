@@ -677,7 +677,7 @@ const Accounts = (() => {
        // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
-           `ব্যাংক একাউন্ট আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.bankName ? ' (' + record.bankName + ')' : ''}`
+           `ব্যাংক একাউন্ট আপডেট: ${name} — ব্যালেন্স ৳${oldBal.toLocaleString()} → ৳${record.balance.toLocaleString()}${record.bankName ? ' (' + record.bankName + ')' : ''}`
          );
        }
        Utils.toast('Bank account updated','success');
@@ -761,7 +761,7 @@ const Accounts = (() => {
        // Opening balance entry removed — direct balance tracking only
        if (typeof SupabaseSync.logActivity === 'function') {
          SupabaseSync.logActivity('edit', 'accounts',
-           `মোবাইল ব্যাংকিং আপডেট: ${name} — ব্যালেন্স ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
+           `মোবাইল ব্যাংকিং আপডেট: ${name} — ব্যালেন্স ৳${oldBal.toLocaleString()} → ৳${record.balance.toLocaleString()}${record.accountNo ? ' — নং: ' + record.accountNo : ''}`
          );
        }
        Utils.toast('Mobile account updated','success');
@@ -969,14 +969,14 @@ const Accounts = (() => {
 
   // 🆕 BUG #5 FIX: Verify account balance against finance records
   // ✅ Updated: Permanently bypassed to avoid false-positives and misleading mismatch warnings
-  function verifyAccountBalance(accountName, storedBalance) {
+  function verifyAccountBalance(_accountName, _storedBalance) {
     console.warn('[Accounts] verifyAccountBalance() is bypassed. Stored balances are the source of truth.');
     return true; // Always return true to prevent misleading mismatch reports
   }
 
   // 🆕 BUG #5 FIX: Recalculate balance from finance records
   // ✅ Updated: Permanently disabled. Ledger data is incomplete/unreliable.
-  function recalculateBalance(accountName) {
+  function recalculateBalance(_accountName) {
     if (typeof Utils !== 'undefined' && Utils.toast) {
       Utils.toast(
         '⛔ Recalculate নিষ্ক্রিয় করা হয়েছে — এটি balance নষ্ট করে দেয়। Stored balance-ই সঠিক।',

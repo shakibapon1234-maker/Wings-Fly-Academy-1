@@ -1050,7 +1050,6 @@ const SystemDiagnostics = (() => {
 
       await _wait(400);
       _log('Delete installment #1 (first)', 'header');
-      const p0 = SupabaseSync.getById(DB.finance, payIds[0]);
       SupabaseSync.remove(DB.finance, payIds[0], { bypassLog: true });
       // ✅ সরাসরি sumFees() দিয়ে recalculate — _syncPaidDueAfterLedgerChange-এর উপর নির্ভর করা হবে না
       // কারণ diagnostic context-এ সেই function পুরানো state থেকে হিসাব করে ভুল paid দিতে পারে
@@ -1065,8 +1064,6 @@ const SystemDiagnostics = (() => {
 
       await _wait(400);
       _log('Delete installment #3 (৳2500) — 1 left', 'header');
-      const pInst3 = SupabaseSync.getById(DB.finance, payIds[2]);
-      const s3 = SupabaseSync.getById(DB.students, studentId);
       SupabaseSync.remove(DB.finance, payIds[2], { bypassLog: true });
       // ✅ সরাসরি sumFees() দিয়ে recalculate
       const leftSum3 = sumFees();

@@ -6479,19 +6479,9 @@ ${expenseEntries.length > 0 ? `
         } catch { /* ignore */ }
       }
     });
-    // Check presence via SecureStorage first, fallback to localStorage (pre-migration)
-    const hasBackup2 = await (async () => {
-      if (typeof SecureStorage !== 'undefined') {
-        try { const v = await SecureStorage.getItem('wfa_gemini_key_2'); if (v) return true; } catch { /* ignore */ }
-      }
-      return !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
-    })();
-    const hasBackup3 = await (async () => {
-      if (typeof SecureStorage !== 'undefined') {
-        try { const v = await SecureStorage.getItem('wfa_gemini_key_3'); if (v) return true; } catch { /* ignore */ }
-      }
-      return !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
-    })();
+    // Check presence via localStorage/SecureStorage (sensitive keys are written to localStorage under their names)
+    const hasBackup2 = !!(localStorage.getItem('wfa_gemini_key_2') || '').trim();
+    const hasBackup3 = !!(localStorage.getItem('wfa_gemini_key_3') || '').trim();
     const localOnly = localStorage.getItem('wfa_ai_local_only') === 'true';
     
     return `
