@@ -155,3 +155,4 @@ IntegrityGuard.run()           // modules, DOM, vital URLs
 ---
 
 *Maintainer: update “Changelog” when you fix audit-related regressions.*
+| 2026-06-08 | **XSS + security fixes (v4.9.9):** `salary.js` `r.method` wrapped with `Utils.esc()` in both salary cards (line ~322) and history table (line ~843); `dashboard.js` `runningBatch` and `expenseMonth` wrapped with `Utils.esc()` in 3 innerHTML interpolation points; `certificate.html` missing `i18n.js` and `loading-state.js` added; `vercel.json` HTTP security headers added (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-XSS-Protection`); `manifest.json` screenshot `form_factor` changed from `narrow` to `wide` (square 512×512 is not valid narrow); bumped SW `DEPLOY_ID` to `20260608-xss-security-fixes` |

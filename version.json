@@ -1,7 +1,7 @@
 {
-  "version": "4.9.8",
-  "deploy_id": "20260606-security-audit-fixes",
-  "changelog": "Security audit fixes: cleared live credentials from supabase-secrets.js in zip; migrated Gemini backup key slots 2&3 to SecureStorage; notice-board type field whitelist sanitization; exam.html added missing i18n.js and loading-state.js; certificates.js uses SUPABASE_CONFIG.client getter; app.js logout guards SyncEngine with typeof check; salary.js data-salary explicit String() cast.",
+  "version": "4.9.9",
+  "deploy_id": "20260608-xss-security-fixes",
+  "changelog": "XSS security fixes: salary.js r.method escaped in cards and history table; dashboard.js runningBatch and expenseMonth escaped in innerHTML; certificate.html i18n.js + loading-state.js added; vercel.json security headers added; manifest.json screenshot form_factor corrected to wide.",
   "size": "~2MB",
-  "released": "2026-06-06"
+  "released": "2026-06-08"
 }

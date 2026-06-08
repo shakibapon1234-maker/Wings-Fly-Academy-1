@@ -319,7 +319,7 @@ const Salary = (() => {
             '<div style="text-align:center; background:' + (due_amt > 0 ? 'rgba(255,170,0,0.12)' : 'rgba(255,255,255,0.06)') + '; border:1px solid ' + (due_amt > 0 ? 'rgba(255,170,0,0.18)' : 'rgba(255,255,255,0.07)') + '; padding:10px 6px; border-radius:8px;"><div style="font-size:.62rem; color:' + (due_amt > 0 ? '#ffb703' : 'var(--text-muted)') + '; text-transform:uppercase; margin-bottom:4px;">DUE</div><div style="font-weight:700; color:' + (due_amt > 0 ? '#ffb703' : '#fff') + '; font-size:.95rem;">৳' + Utils.formatMoneyPlain(due_amt) + '</div></div>' +
           '</div>' +
           '<div style="font-size:.75rem; color:var(--text-muted); display:flex; justify-content:space-between; margin-bottom:6px;">' +
-            '<span><i class="fa fa-wallet" style="margin-right:4px; opacity:.6;"></i>' + (r.method || '—') + '</span>' +
+            '<span><i class="fa fa-wallet" style="margin-right:4px; opacity:.6;"></i>' + Utils.esc(r.method || '—') + '</span>' +
             '<span><i class="fa fa-calendar" style="margin-right:4px; opacity:.6;"></i>' + dateLabel + '</span>' +
           '</div>' +
           bonusDedRow +
@@ -840,7 +840,7 @@ const Salary = (() => {
           '<td style="font-weight:700; color:#00ff88;">৳' + Utils.formatMoneyPlain(paid_amt) + '</td>' +
           '<td style="font-weight:700; color:' + (due_amt > 0 ? '#ffb703' : 'var(--text-muted)') + ';">' + (due_amt > 0 ? '৳' + Utils.formatMoneyPlain(due_amt) : '—') + '</td>' +
           '<td><span class="badge ' + statusCls + '" style="font-size:.72rem;"><i class="fa ' + statusIcon + '"></i> ' + statusLabel + '</span></td>' +
-          '<td style="font-size:.8rem;">' + (r.method || '—') + '</td>' +
+          '<td style="font-size:.8rem;">' + Utils.esc(r.method || '—') + '</td>' +
           '<td>' + actionBtn + '</td>' +
           '</tr>';
       }).join('');

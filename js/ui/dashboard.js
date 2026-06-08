@@ -408,7 +408,7 @@ const DashboardModule = (() => {
     container.innerHTML = `
       <!-- Running Batch Overview — with compact Pending Advances pill on the right -->
       <div class="dash-section-title" style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-        <span><i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW${runningBatch ? ` <span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${runningBatch})</span>` : ''}</span>
+        <span><i class="fa fa-rocket"></i> RUNNING BATCH OVERVIEW${runningBatch ? ` <span style="font-size:.75rem;color:var(--text-muted);margin-left:8px">(${Utils.esc(runningBatch)})</span>` : ''}</span>
         <span onclick="App.navigateTo('settings');setTimeout(()=>{if(typeof SettingsModule!=='undefined'){SettingsModule.showAccountsSubTab&&SettingsModule.showAccountsSubTab('advance');}},400)"
           title="Click to manage advances"
           style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;
@@ -438,7 +438,7 @@ const DashboardModule = (() => {
           <div class="stat-header">TOTAL STUDENTS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-users"></i></div>
           <div class="stat-value counter-val" data-target="${rTotalStudents}">0</div>
-          <div class="stat-subtext">${runningBatch ? `${runningBatch} Enrollment` : 'Active Enrollment'}</div>
+          <div class="stat-subtext">${runningBatch ? `${Utils.esc(runningBatch)} Enrollment` : 'Active Enrollment'}</div>
           <div class="stat-badge" style="background:rgba(0,229,255,.12);color:#00e5ff;border-color:rgba(0,229,255,.35);box-shadow:0 0 8px rgba(0,229,255,0.2)">↑ +12%</div>
         </div>
 
@@ -456,7 +456,7 @@ const DashboardModule = (() => {
           <div class="stat-header">TOTAL EXPENSE</div>
           <div class="stat-icon-wrapper"><i class="fa fa-arrow-trend-down"></i></div>
           <div class="stat-value counter-val" data-target="${Utils.takaEn(rTotalExpense)}">0</div>
-          <div class="stat-subtext">${expenseMonth ? `Cost for ${expenseMonth}` : 'Operating Costs'}</div>
+          <div class="stat-subtext">${expenseMonth ? `Cost for ${Utils.esc(expenseMonth)}` : 'Operating Costs'}</div>
           <div class="stat-badge" style="background:rgba(255,107,53,.12);color:#ff6b35;border-color:rgba(255,107,53,.35);box-shadow:0 0 8px rgba(255,107,53,0.2)">↓ -3%</div>
         </div>
 
