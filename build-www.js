@@ -4,6 +4,11 @@ const path = require('path');
 const srcDir = __dirname;
 const destDir = path.join(__dirname, 'www');
 
+// ⚠️  IMPORTANT: Android assets are managed via 'npm run build:mobile' (node build-www.js + npx cap sync)
+// Do NOT manually edit files in android/app/src/main/assets/public/
+// Manual edits will be overwritten on the next 'npm run build:mobile' run.
+// All changes must be made in root js/, css/, or HTML files, then run build:mobile.
+
 // List of folders and files to copy
 const itemsToCopy = [
   'assets',
