@@ -23,7 +23,8 @@ const itemsToCopy = [
   'migrate.html',
   'visitor-form.html',
   'manifest.json',
-  'service-worker.js'
+  'service-worker.js',
+  'version.json'
 ];
 
 function copyRecursiveSync(src, dest) {

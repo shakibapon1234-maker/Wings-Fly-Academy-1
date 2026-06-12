@@ -16,6 +16,11 @@
     console.log   = _noop;
     console.debug = _noop;
     console.info  = _noop;
+    // ✅ Fix #11 (2026-06): Mute warn/error in production to prevent
+    // sensitive error details (Supabase keys, stack traces) from leaking
+    // in the browser console. Enable wfa_debug_logs=1 or ?wfa_debug to restore.
+    console.warn  = _noop;
+    console.error = _noop;
   }
   window.__WFA_DEV__ = isDev || debugLogs;
 })();

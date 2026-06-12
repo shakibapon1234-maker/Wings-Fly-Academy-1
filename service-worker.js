@@ -143,6 +143,12 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
 
+  // ── Fix #7: version.json must always come from network (auto-update needs fresh data) ──
+  if (url.pathname.endsWith('/version.json')) {
+    e.respondWith(fetch(e.request).catch(() => new Response('{}', { status: 503, headers: { 'Content-Type': 'application/json' } })));
+    return;
+  }
+
   // ── Supabase API: Network first, cache fallback (offline support) ──
   if (url.hostname.includes('supabase')) {
     // Exam/settings must always be fresh — never serve stale cached questions or results
