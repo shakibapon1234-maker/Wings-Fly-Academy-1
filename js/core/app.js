@@ -615,22 +615,24 @@ const App = (() => {
     
     // ✅ Lazy-load Voice Assistant to prevent Out of Memory crash on slow devices
     if (!document.getElementById('voice-assistant-script')) {
+      const _loadVoiceAssistant = () => {
+        const script = document.createElement('script');
+        script.id = 'voice-assistant-script';
+        script.src = 'js/modules/voice-assistant.js';
+        script.defer = true;
+        // ✅ BUG-13 Fix: onerror handler — offline-এ voice assistant load fail হলে user-কে জানানো
+        script.onerror = () => {
+          console.warn('[App] voice-assistant.js failed to load (offline or missing file). Voice features unavailable.');
+          if (typeof Utils !== 'undefined' && Utils.toast) {
+            Utils.toast('Voice Assistant offline-এ পাওয়া যাচ্ছে না। Internet সংযোগ প্রয়োজন।', 'warning', 4000);
+          }
+        };
+        document.body.appendChild(script);
+      };
       if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => {
-          const script = document.createElement('script');
-          script.id = 'voice-assistant-script';
-          script.src = 'js/modules/voice-assistant.js';
-          script.defer = true;
-          document.body.appendChild(script);
-        }, { timeout: 5000 });
+        requestIdleCallback(_loadVoiceAssistant, { timeout: 5000 });
       } else {
-        setTimeout(() => {
-          const script = document.createElement('script');
-          script.id = 'voice-assistant-script';
-          script.src = 'js/modules/voice-assistant.js';
-          script.defer = true;
-          document.body.appendChild(script);
-        }, 3000);
+        setTimeout(_loadVoiceAssistant, 3000);
       }
     }
   }

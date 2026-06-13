@@ -311,6 +311,8 @@
   <!-- ✅ Fix: i18n.js + loading-state.js added — prevents runtime errors if called from shared code -->
   <script src="js/core/i18n.js"></script>
   <script src="js/core/loading-state.js"></script>
+  <!-- ✅ BUG-09 Fix: supabase-config.js added — initializes SUPABASE_URL/SUPABASE_ANON_KEY & window.supabase client -->
+  <script src="js/core/supabase-config.js"></script>
 
   <script>
     // ✅ Fix #2: Null-check WFA_STANDALONE_SUPABASE before accessing — guards against CDN/404 failures

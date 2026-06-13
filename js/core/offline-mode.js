@@ -29,6 +29,10 @@ const OfflineModeModule = (() => {
 
       request.onupgradeneeded = (event) => {
         const database = event.target.result;
+        // ✅ BUG-06 Verified: Migration chain v1→v3 is safe.
+        // This handler only creates offline-specific stores if they don't exist.
+        // The main 'tables' store (owned by supabase-sync.js) is never touched here.
+        // old_version → new_version upgrade path: IndexedDB calls this once for any version gap.
         
         // Create object stores
         if (!database.objectStoreNames.contains('api-cache')) {

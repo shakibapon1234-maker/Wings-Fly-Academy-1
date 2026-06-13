@@ -153,3 +153,25 @@ if (failed > 0) {
   console.log(`\n🚀 Build to www/ successful! (credentials stripped ✅)`);
 }
 
+// ── BUG-01/02 Fix: Auto-sync version.json + manifest.json to Android assets ──
+// These two files are NOT updated by 'npx cap sync' (it only copies www/).
+// We sync them here so Android assets always match root after build:mobile.
+const androidAssetsDir = path.join(__dirname, 'android', 'app', 'src', 'main', 'assets', 'public');
+if (fs.existsSync(androidAssetsDir)) {
+  const filesToAndroidSync = ['version.json', 'manifest.json'];
+  filesToAndroidSync.forEach(fname => {
+    const srcFile  = path.join(srcDir, fname);
+    const destFile = path.join(androidAssetsDir, fname);
+    try {
+      if (fs.existsSync(srcFile)) {
+        fs.copyFileSync(srcFile, destFile);
+        console.log(`🤖 Android sync: ${fname}`);
+      }
+    } catch (e) {
+      console.warn(`⚠️  Android sync failed for ${fname}: ${e.message}`);
+    }
+  });
+} else {
+  console.warn('⚠️  Android assets folder not found — skipping Android sync (run npx cap add android first).');
+}
+

@@ -24,6 +24,11 @@ const FaceIDModule = (() => {
   function _loadLibrary() {
     return new Promise((resolve, reject) => {
       if (typeof faceapi !== 'undefined') { resolve(); return; }
+      // ✅ BUG-11 Fix: offline check — face-api is NOT precached; warn user before failing silently
+      if (!navigator.onLine) {
+        reject(new Error('face-api not available offline (not precached). Please connect to internet for first-time Face ID setup.'));
+        return;
+      }
       if (isLibraryLoading) {
         // already loading — poll until ready
         // ✅ Bug #11 Fix: added 15s timeout to prevent infinite poll if script load fails
