@@ -84,9 +84,8 @@ const SystemDiagnostics = (() => {
       const amt = typeof Utils !== 'undefined' ? Utils.safeNum(f.amount) : (parseFloat(f.amount) || 0);
       SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
       const method = f.method || r.method;
-      // ✅ BUG-05 Fix: double-guard — note check + _isDiagnosticRecord to prevent balance corruption
-      const isDiagEntry = f.note === DIAG_SALARY_PAY_NOTE || r.note === DIAG_SALARY_NOTE || r.note === (DIAG_SALARY_NOTE + ' [UPDATED]') ||
-        (typeof _isDiagnosticRecord === 'function' && (_isDiagnosticRecord(DB.finance, f) || _isDiagnosticRecord(DB.salary, r)));
+      // ✅ Diagnostic salary payment-এ balance update skip — নইলে cleanup-এ extra 'in' হয়ে balance বাড়ে
+      const isDiagEntry = f.note === DIAG_SALARY_PAY_NOTE || r.note === DIAG_SALARY_NOTE || r.note === (DIAG_SALARY_NOTE + ' [UPDATED]');
       if (!isDiagEntry && amt > 0 && method && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(method, amt, 'in', true);
       }
@@ -218,9 +217,8 @@ const SystemDiagnostics = (() => {
 
   function _loanDeleteLikeApp(r) {
     const method = r.method || 'Cash';
-    // ✅ BUG-05 Fix: double-guard — note check + _isDiagnosticRecord
-    const isDiagLoan = r.note === DIAG_LOAN_NOTE || r.note === (DIAG_LOAN_NOTE + ' [UPDATED]') ||
-      (typeof _isDiagnosticRecord === 'function' && _isDiagnosticRecord(DB.loans, r));
+    // ✅ Diagnostic loan delete-এ balance update skip করো
+    const isDiagLoan = r.note === DIAG_LOAN_NOTE || r.note === (DIAG_LOAN_NOTE + ' [UPDATED]');
     if (!isDiagLoan && Utils.safeNum(r.amount) > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
       const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
       SupabaseSync.updateAccountBalance(method, Utils.safeNum(r.amount), wasGiven ? 'in' : 'out', true);
@@ -232,11 +230,10 @@ const SystemDiagnostics = (() => {
 
   function _examReverseFinance(exam) {
     if (!exam || !exam.fee_paid || Utils.safeNum(exam.exam_fee) <= 0) return;
-    // ✅ BUG-05 Fix: double-guard — multiple checks + _isDiagnosticRecord
+    // ✅ Diagnostic exam-এ balance update skip করো
     const isDiagExam = String(exam.student_id || '').startsWith('DIAG-EXAM-') ||
       String(exam.student_name || '').includes('Diagnostic Exam Student') ||
-      exam.note === DIAG_EXAM_NOTE ||
-      (typeof _isDiagnosticRecord === 'function' && _isDiagnosticRecord(DB.exams, exam));
+      exam.note === DIAG_EXAM_NOTE;
     SupabaseSync.getAll(DB.finance).filter(f => _matchesExamFinance(f, exam)).forEach((fin) => {
       if (!isDiagExam && fin.method && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(fin.method, Utils.safeNum(fin.amount), 'out', true);

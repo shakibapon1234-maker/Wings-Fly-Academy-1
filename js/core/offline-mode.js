@@ -4,13 +4,12 @@
 // ============================================================
 
 const OfflineModeModule = (() => {
-  // ✅ Fix #1 (2026-06): DB_NAME corrected to 'WingsAcademyDB' (matches supabase-sync.js / WFA_IDB).
-  //   DB_VERSION bumped to 3 to match the main database version so both
-  //   modules open the SAME database at the SAME version — no downgrade conflict.
-  //   onupgradeneeded only creates the offline-specific stores if missing;
-  //   it never touches the main 'tables' store owned by supabase-sync.js.
-  const DB_NAME    = 'WingsAcademyDB';
-  const DB_VERSION = 3;
+  // ✅ Bug #2 Fix: Use same DB as main app (WFA_IDB) so offline queue
+  //   and main sync are in a single IndexedDB — no more split data.
+  //   DB_VERSION bumped to 2 so onupgradeneeded runs on existing installs
+  //   and adds the offline stores without touching existing data stores.
+  const DB_NAME    = 'WFA_IDB';
+  const DB_VERSION = 2;
 
   let db = null;
   let isOnline = navigator.onLine;
@@ -29,10 +28,6 @@ const OfflineModeModule = (() => {
 
       request.onupgradeneeded = (event) => {
         const database = event.target.result;
-        // ✅ BUG-06 Verified: Migration chain v1→v3 is safe.
-        // This handler only creates offline-specific stores if they don't exist.
-        // The main 'tables' store (owned by supabase-sync.js) is never touched here.
-        // old_version → new_version upgrade path: IndexedDB calls this once for any version gap.
         
         // Create object stores
         if (!database.objectStoreNames.contains('api-cache')) {

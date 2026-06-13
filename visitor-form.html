@@ -491,11 +491,6 @@
         const client = getSupabaseClient();
         if (!client) throw new Error('Supabase not initialized');
 
-        // ✅ BUG-08 Fix: offline check — visitor form has no offline queue; warn user clearly
-        if (!navigator.onLine) {
-          throw new Error('আপনি এখন offline আছেন। Internet সংযোগ করে আবার try করুন।');
-        }
-
         const { error } = await client
           .from('visitors')
           .insert([data]);

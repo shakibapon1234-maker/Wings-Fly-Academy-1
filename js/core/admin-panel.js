@@ -10,20 +10,9 @@ async function _adminHashPw(pw) {
     const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   } catch {
-    // ✅ Fix #8 (2026-06): FNV-1a 32-bit 3-round + salt — matches app.js fallback
-    const salt = 'wfa_2026_';
-    const salted = salt + pw + pw.length.toString(16);
-    let h = 0x811c9dc5;
-    for (let round = 0; round < 3; round++) {
-      const input = round === 0 ? salted : salted + (h >>> 0).toString(16);
-      for (let i = 0; i < input.length; i++) {
-        h ^= input.charCodeAt(i);
-        h = Math.imul(h, 0x01000193);
-      }
-    }
-    const h1 = (h >>> 0).toString(16).padStart(8, '0');
-    const h2 = ((h >>> 0) ^ 0x9e3779b9 >>> 0).toString(16).padStart(8, '0');
-    return 'fb_' + h1 + h2;
+    let hash = 0;
+    for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
+    return 'fb_' + Math.abs(hash).toString(16);
   }
 }
 

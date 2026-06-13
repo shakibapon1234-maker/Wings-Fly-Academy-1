@@ -3,7 +3,6 @@
   "appName": "Wings Fly Academy",
   "webDir": "www",
   "android": {
-    "allowMixedContent": true,
     "captureInput": true,
     "webContentsDebuggingEnabled": false
   },
