@@ -85,6 +85,7 @@ const NoticeBoardModule = (() => {
     startCountdown(notice.expires_at || notice.expiresAt);
   }
 
+  // ── HIDE BANNER ─────────────────────────────────────────
   function hideBanner() {
     const b = document.getElementById('noticeBoardBanner');
     if (b) b.style.display = 'none';
@@ -129,7 +130,7 @@ const NoticeBoardModule = (() => {
       ? (SupabaseSync.getAll(DB.notices) || []).sort((a,b) => new Date(b.created_at||b.createdAt||b.date||0) - new Date(a.created_at||a.createdAt||a.date||0))
       : [];
     const isRunning = activeNotice && new Date(activeNotice.expires_at || activeNotice.expiresAt).getTime() > Date.now();
-    const activeCfg = isRunning ? (TYPE_CFG[activeNotice.type] || TYPE_CFG.warning) : null;
+    const activeCfg = isRunning ? (Object.prototype.hasOwnProperty.call(TYPE_CFG, activeNotice.type) ? TYPE_CFG[activeNotice.type] : TYPE_CFG.warning) : null;
 
     container.innerHTML = `
       <div style="max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:20px; padding-bottom:32px;">
@@ -304,7 +305,7 @@ const NoticeBoardModule = (() => {
           <div style="display:flex; flex-direction:column; gap:10px;">
             ${allNotices.map(n => {
               const expired = new Date(n.expires_at || n.expiresAt).getTime() < Date.now();
-              const cfg = TYPE_CFG[n.type||'warning'] || TYPE_CFG.warning;
+              const cfg = Object.prototype.hasOwnProperty.call(TYPE_CFG, n.type) ? TYPE_CFG[n.type] : TYPE_CFG.warning;
               return `
               <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;
                           background:rgba(255,255,255,0.04); border:1px solid ${expired ? 'rgba(255,255,255,0.07)' : cfg.border};
@@ -370,7 +371,7 @@ const NoticeBoardModule = (() => {
     const text = document.getElementById('noticeTextInput')?.value.trim();
     if (!text) return Utils.toast('প্রিভিউ করতে নোটিশ লিখুন', 'error');
     const type = document.getElementById('noticeTypeSelect')?.value || 'warning';
-    const cfg = TYPE_CFG[type] || TYPE_CFG.warning;
+    const cfg = Object.prototype.hasOwnProperty.call(TYPE_CFG, type) ? TYPE_CFG[type] : TYPE_CFG.warning;
     const area   = document.getElementById('noticePreviewArea');
     const banner = document.getElementById('noticePreviewBanner');
     const textEl = document.getElementById('noticePreviewText');

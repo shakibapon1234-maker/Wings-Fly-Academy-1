@@ -1736,6 +1736,37 @@ const SupabaseSync = (() => {
           if (realIdx !== -1) freshBin.splice(realIdx, 1);
           setAll('recycle_bin', freshBin);
         }
+
+        // ✅ S-1 Fix: After all installments restored, recalculate student paid/due from ledger
+        // (covers both bin-restored and already-existing finance entries)
+        try {
+          const students = getAll('students');
+          const sIdx = students.findIndex(s => s.id === record.id);
+          if (sIdx !== -1) {
+            const allFinance = getAll('finance_ledger');
+            const studentPayments = allFinance.filter(f =>
+              f.ref_id === record.id &&
+              f.category === 'Student Fee' &&
+              !f._isLoan
+            );
+            const ledgerSum = studentPayments.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
+            const totalFee = parseFloat(students[sIdx].total_fee) || 0;
+            // Preserve any unrecorded initial paid amount (legacy/migrated students)
+            const prevPaid = parseFloat(record.paid) || 0;
+            const unrecordedInitial = Math.max(0, prevPaid - ledgerSum);
+            const newTotalPaid = ledgerSum + unrecordedInitial;
+            students[sIdx] = {
+              ...students[sIdx],
+              paid: newTotalPaid,
+              due: Math.max(0, totalFee - newTotalPaid),
+              updated_at: new Date().toISOString(),
+            };
+            setAll('students', students);
+            await _pushRecord('students', students[sIdx]);
+          }
+        } catch (e) {
+          console.warn('[Restore] Student paid/due recalculate failed:', e);
+        }
       } catch (e) {
         console.warn('[Restore] Student linked finance restore failed:', e);
       }

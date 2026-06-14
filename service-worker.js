@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260606-cert-login-fix)
-const DEPLOY_ID = '20260608-xss-security-fixes';
+const DEPLOY_ID = '20260614-security-restore-fixes';
 
 const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
