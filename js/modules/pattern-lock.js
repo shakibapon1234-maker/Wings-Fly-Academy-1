@@ -15,6 +15,61 @@ const PatternLockModule = (() => {
   let _confirmedPattern = null;
   let _registerStep = 'pattern'; // 'pattern' | 'question' | 'pin'
 
+  // ── Secure storage helpers ────────────────────────────────
+  // Pattern, security answer, and backup PIN are stored as salted
+  // SHA-256 hashes (not plaintext) so they can't be read or replayed
+  // directly from localStorage / devtools.
+  const SALT_KEY = 'wfa_lock_salt';
+
+  function _getSalt() {
+    let salt = localStorage.getItem(SALT_KEY);
+    if (!salt) {
+      salt = (crypto.randomUUID && crypto.randomUUID()) ||
+        Array.from(crypto.getRandomValues(new Uint8Array(16))).map(b => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(SALT_KEY, salt);
+    }
+    return salt;
+  }
+
+  async function _hash(value) {
+    const salt = _getSalt();
+    const str = salt + ':' + String(value);
+    if (!window.crypto || !window.crypto.subtle) {
+      // Extremely old WebView fallback — not cryptographically strong,
+      // but still avoids storing the raw pattern/PIN/answer verbatim.
+      if (window.__WFA_DEV__) console.warn('[PatternLock] crypto.subtle unavailable — using weak fallback hash.');
+      let h = 0;
+      for (let i = 0; i < str.length; i++) {
+        h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+      }
+      return 'fb_' + (h >>> 0).toString(16);
+    }
+    const data = new TextEncoder().encode(str);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Migrate a legacy plaintext value (if present) to a hash, and return
+  // whether `value` matches the stored credential under `key`.
+  async function _verifyAndMigrate(key, value) {
+    const stored = localStorage.getItem(key);
+    if (stored === null) return false;
+
+    const inputHash = await _hash(value);
+    if (stored === inputHash) return true;
+
+    // Legacy plaintext match — migrate to hash on successful verify
+    if (stored === String(value)) {
+      localStorage.setItem(key, inputHash);
+      return true;
+    }
+    return false;
+  }
+
+  async function _store(key, value) {
+    localStorage.setItem(key, await _hash(value));
+  }
+
   // ── Styles ───────────────────────────────────────────────
   function initStyles() {
     if (document.getElementById('pattern-lock-styles')) return;
@@ -400,7 +455,7 @@ const PatternLockModule = (() => {
     }
   }
 
-  function _processRecoveryPattern() {
+  async function _processRecoveryPattern() {
     const statusEl = document.getElementById('pl-status-recovery');
     if (_recoveryNodes.length < 4) {
       statusEl.textContent = 'কমপক্ষে ৪ ডট সংযুক্ত করুন।';
@@ -416,7 +471,7 @@ const PatternLockModule = (() => {
       setTimeout(_resetRecoveryGrid, 800);
     } else {
       if (_recoveryFirstPattern === pattern) {
-        localStorage.setItem('wfa_admin_pattern', pattern);
+        await _store('wfa_admin_pattern', pattern);
         _recoveryFirstPattern = null;
         statusEl.textContent = 'নতুন প্যাটার্ন সেভ হয়েছে! ✅';
         statusEl.style.color = '#00ff88';
@@ -469,7 +524,7 @@ const PatternLockModule = (() => {
   }
 
   // ── Process pattern (main grid) ───────────────────────────
-  function processPattern() {
+  async function processPattern() {
     const statusEl = document.getElementById('pl-status');
     if (activeNodes.length < 4) {
       statusEl.textContent = 'কমপক্ষে ৪ ডট সংযুক্ত করুন!';
@@ -506,8 +561,8 @@ const PatternLockModule = (() => {
       }
     }
     else if (currentMode === 'login') {
-      const savedPattern = localStorage.getItem('wfa_admin_pattern');
-      if (savedPattern === patternString) {
+      const ok = await _verifyAndMigrate('wfa_admin_pattern', patternString);
+      if (ok) {
         statusEl.textContent = 'প্যাটার্ন মিলেছে! ✅';
         statusEl.style.color = '#00ff88';
         setTimeout(() => { close(); triggerLoginSuccess(); }, 500);
@@ -529,7 +584,7 @@ const PatternLockModule = (() => {
     document.getElementById('pl-sq-custom').style.display = 'none';
   }
 
-  function _saveSecurityQuestion() {
+  async function _saveSecurityQuestion() {
     const select = document.getElementById('pl-sq-select');
     const customInput = document.getElementById('pl-sq-custom');
     const answerInput = document.getElementById('pl-sq-answer');
@@ -542,7 +597,7 @@ const PatternLockModule = (() => {
     if (!answer) { errEl.textContent = 'উত্তর লিখতে হবে।'; return; }
 
     localStorage.setItem('wfa_security_question', question);
-    localStorage.setItem('wfa_security_answer', answer.toLowerCase());
+    await _store('wfa_security_answer', answer.toLowerCase());
 
     errEl.textContent = '';
     _showSetupPin();
@@ -556,7 +611,7 @@ const PatternLockModule = (() => {
     document.getElementById('pl-pin-setup-error').textContent = '';
   }
 
-  function _saveBackupPin() {
+  async function _saveBackupPin() {
     const pin = document.getElementById('pl-new-pin').value.trim();
     const pinConfirm = document.getElementById('pl-new-pin-confirm').value.trim();
     const errEl = document.getElementById('pl-pin-setup-error');
@@ -564,8 +619,8 @@ const PatternLockModule = (() => {
     if (!/^\d{4,6}$/.test(pin)) { errEl.textContent = 'PIN অবশ্যই ৪–৬ ডিজিটের সংখ্যা হতে হবে।'; return; }
     if (pin !== pinConfirm) { errEl.textContent = 'PIN দুটো মিলছে না!'; return; }
 
-    localStorage.setItem('wfa_admin_pattern', _confirmedPattern);
-    localStorage.setItem('wfa_backup_pin', pin);
+    await _store('wfa_admin_pattern', _confirmedPattern);
+    await _store('wfa_backup_pin', pin);
     _confirmedPattern = null;
 
     errEl.textContent = '';
@@ -593,11 +648,11 @@ const PatternLockModule = (() => {
     }
   }
 
-  function _verifySecurityQuestion() {
+  async function _verifySecurityQuestion() {
     const input = document.getElementById('pl-sq-answer-input').value.trim().toLowerCase();
-    const saved = localStorage.getItem('wfa_security_answer');
     const errEl = document.getElementById('pl-sq-error');
-    if (input === saved) {
+    const ok = await _verifyAndMigrate('wfa_security_answer', input);
+    if (ok) {
       _showRecoveryNewPattern();
     } else {
       errEl.textContent = 'উত্তর সঠিক নয়। আবার চেষ্টা করুন।';
@@ -605,11 +660,11 @@ const PatternLockModule = (() => {
     }
   }
 
-  function _verifyBackupPin() {
+  async function _verifyBackupPin() {
     const input = document.getElementById('pl-pin-input').value.trim();
-    const saved = localStorage.getItem('wfa_backup_pin');
     const errEl = document.getElementById('pl-pin-error');
-    if (input === saved) {
+    const ok = await _verifyAndMigrate('wfa_backup_pin', input);
+    if (ok) {
       _showRecoveryNewPattern();
     } else {
       errEl.textContent = 'PIN সঠিক নয়। আবার চেষ্টা করুন।';

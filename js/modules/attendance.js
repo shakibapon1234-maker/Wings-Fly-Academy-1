@@ -335,10 +335,10 @@ const Attendance = (() => {
                   <td style="font-family:var(--font-en);font-weight:600">${Utils.formatDateDMY(r.date)}</td>
                   <td><strong>${Utils.esc(r.entityName || r.person_name || '—')}</strong></td>
                   <td><span class="badge badge-muted">${Utils.esc(r.batch || '—')}</span></td>
-                  <td><span style="color:${statusColor[r.status]||'#fff'};font-weight:700">${r.status || '—'}</span></td>
+                  <td><span style="color:${statusColor[r.status]||'#fff'};font-weight:700">${Utils.esc(r.status) || '—'}</span></td>
                   <td>
                     <button class="btn btn-ghost btn-xs" style="color:#ff4757" title="Delete → Recycle Bin"
-                      onclick="Attendance.deleteRecord('${r.id}')">
+                      onclick="Attendance.deleteRecord('${Utils.esc(r.id)}')">
                       <i class="fa fa-trash"></i>
                     </button>
                   </td>

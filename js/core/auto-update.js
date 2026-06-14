@@ -6,7 +6,7 @@
 const AutoUpdateModule = (() => {
   const VERSION_FILE_URL = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json'; // GitHub Pages hosted version
   const LOCAL_VERSION_KEY = 'wfa_app_version';
-  const LOCAL_VERSION_FALLBACK = '4.9.9';
+  const LOCAL_VERSION_FALLBACK = '4.9.11';
   const LAST_CHECK_KEY = 'wfa_last_update_check';
   const CHECK_INTERVAL_HOURS = 24; // Check once per day to avoid 503 spam
 

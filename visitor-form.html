@@ -18,7 +18,7 @@
 
   <!-- Core Scripts — all deferred so they don't block rendering -->
   <!-- ✅ Bug #5 Fix: All scripts consolidated in <head> with defer for correct load order -->
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
   <script defer src="js/core/supabase-secrets.stub.js"></script>
   <script defer src="js/core/secure-storage.js"></script>
   <script defer src="js/core/session-store.js"></script>
