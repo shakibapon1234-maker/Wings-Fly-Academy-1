@@ -1,6 +1,6 @@
 {
   "name": "wings-fly-academy-1",
-  "version": "4.9.5",
+  "version": "4.9.10",
   "description": "Aviation Academy-র জন্য সম্পূর্ণ ম্যানেজমেন্ট সিস্টেম।",
   "scripts": {
     "test": "vitest run",

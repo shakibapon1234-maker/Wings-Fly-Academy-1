@@ -1,7 +1,7 @@
 {
-  "version": "4.9.9",
-  "deploy_id": "20260608-xss-security-fixes",
-  "changelog": "XSS security fixes: salary.js r.method escaped in cards and history table; dashboard.js runningBatch and expenseMonth escaped in innerHTML; certificate.html i18n.js + loading-state.js added; vercel.json security headers added; manifest.json screenshot form_factor corrected to wide.",
+  "version": "4.9.10",
+  "deploy_id": "20260613-security-fixes-vapid-pattern-hash",
+  "changelog": "Security fixes: rotated leaked VAPID private key (new public key in push-notifications.js, private key removed from VAPID_KEYS.md and moved to gitignored VAPID_PRIVATE_KEY.local.md); added send-push Supabase Edge Function + push_subscriptions table so Web Push actually delivers; pattern-lock.js now stores admin pattern, security-question answer, and backup PIN as salted SHA-256 hashes instead of plaintext in localStorage (with legacy plaintext migration on first successful login/recovery); package.json version synced to version.json (4.9.10).",
   "size": "~2MB",
-  "released": "2026-06-08"
+  "released": "2026-06-13"
 }

@@ -1,12 +1,13 @@
 // ============================================================
-// Push Notifications Module — Firebase Cloud Messaging (FCM)
+// Push Notifications Module — Web Push (VAPID) + Capacitor FCM
 // Wings Fly Aviation Academy
 // ============================================================
-// ⚠️  STATUS: INCOMPLETE — FCM token generation works but no backend
-// server exists to store tokens or send notifications. This module
-// initializes silently and does nothing harmful, but push notifications
-// will not be delivered until a server-side component is built.
-// TODO: Add server endpoint to save FCM tokens + send notifications.
+// STATUS: Web Push backend wired up — `send-push` Supabase Edge Function
+// (supabase/functions/send-push) delivers notifications using the VAPID
+// private key (server secret, see VAPID_KEYS.md). Subscriptions are stored
+// in the `push_subscriptions` table (supabase/push_subscriptions_setup.sql).
+// Capacitor/FCM path (Android native) still requires a server component for
+// FCM token delivery — see saveFCMTokenToDatabase().
 // ============================================================
 
 const PushNotificationModule = (() => {
@@ -104,7 +105,7 @@ const PushNotificationModule = (() => {
     //   1. Generate VAPID keys: npx web-push generate-vapid-keys
     //   2. Replace the empty string below with your Base64 public key.
     //   3. Configure the private key on your backend/Supabase Edge Function.
-    const VAPID_PUBLIC_KEY = 'BO_Oq5KZrZSghWf1rG-i1Bb5GnFBsMDmUkZNWREiWJyh9X9g8wOsMPMc6PimQq4XsMEtaxC-Qeu_9rwFWyDtAs0'; // VAPID public key — generated 2026-06-13
+    const VAPID_PUBLIC_KEY = 'BMR3mMp_lKvOnYNrr8C2LSIm0-DdDVOQYGgQb39XDrnKH-oqcvBmNr2-A9OZND-TU_J9pJ4EFzNJrJKyvLPHpvI'; // VAPID public key — rotated 2026-06-13 (private key was exposed in VAPID_KEYS.md)
     // ✅ Bug #7 Fix: Empty VAPID key guard — push subscription will silently skip
     if (!VAPID_PUBLIC_KEY) {
       console.warn('[PushNotifications] VAPID_PUBLIC_KEY is empty — web push disabled. Set a valid VAPID key to enable push notifications.');
@@ -125,9 +126,42 @@ const PushNotificationModule = (() => {
       });
 
       if (window.__WFA_DEV__) console.log('[Push] Web Push subscription:', subscription);
-      // TODO: send subscription to your backend to store for push delivery
+      await saveWebPushSubscription(subscription);
     } catch (e) {
       console.warn('[Push] Web Push subscribe failed:', e.message);
+    }
+  }
+
+  // ── Save Web Push subscription to Supabase (push_subscriptions table) ──
+  async function saveWebPushSubscription(subscription) {
+    try {
+      const sbClient = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client) || window.supabaseClient;
+      if (!sbClient) {
+        if (window.__WFA_DEV__) console.info('[Push] Supabase client unavailable — subscription not saved (will retry next init).');
+        return;
+      }
+
+      const json = subscription.toJSON();
+      const userRole = localStorage.getItem('wfa_user_role') || null;
+
+      const { error } = await sbClient
+        .from('push_subscriptions')
+        .upsert({
+          endpoint: json.endpoint,
+          p256dh: json.keys.p256dh,
+          auth: json.keys.auth,
+          user_role: userRole,
+          user_agent: navigator.userAgent,
+          last_seen: new Date().toISOString()
+        }, { onConflict: 'endpoint' });
+
+      if (error) {
+        if (window.__WFA_DEV__) console.warn('[Push] Failed to save subscription:', error.message);
+        return;
+      }
+      if (window.__WFA_DEV__) console.log('[Push] Web Push subscription saved to Supabase.');
+    } catch (e) {
+      if (window.__WFA_DEV__) console.warn('[Push] Error saving subscription:', e.message);
     }
   }
 
@@ -261,26 +295,43 @@ const PushNotificationModule = (() => {
   }
 
   // ── Manual notification send (for testing) ──
-  // ✅ S-1 Fix: Placeholder endpoint 'your-api.example.com' removed — was never functional.
-  // To enable: replace with your real backend/Supabase Edge Function endpoint that
-  // accepts { token, title, body } and sends FCM via server-side private key.
-  async function sendTestNotification() {
-    // No real backend endpoint configured yet — show clear guidance instead of failing silently
-    const hasToken = !!fcmToken;
-    if (typeof Utils !== 'undefined') {
-      if (!hasToken) {
-        Utils.toast('⚠️ Push notification endpoint এখনো configure হয়নি । Supabase Edge Function যোগ করুন অথবা FCM ব্যবহার করুন।', 'warning', 6000);
-      } else {
-        Utils.toast('⚠️ Backend endpoint configure করা নেই — push send করা যাচ্ছে না। js/core/push-notifications.js-এ sendTestNotification() দেখুন।', 'warning', 6000);
+  // Calls the `send-push` Supabase Edge Function, which uses the VAPID
+  // private key (server secret) to deliver a real Web Push notification
+  // to all subscribers in push_subscriptions.
+  async function sendTestNotification(title, body) {
+    const sbClient = (window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client) || window.supabaseClient;
+    if (!sbClient) {
+      if (typeof Utils !== 'undefined') {
+        Utils.toast('⚠️ Supabase client unavailable — test push পাঠানো যাচ্ছে না।', 'warning', 6000);
+      }
+      return;
+    }
+
+    try {
+      const { data, error } = await sbClient.functions.invoke('send-push', {
+        body: {
+          title: title || 'টেস্ট নোটিফিকেশন',
+          body: body || 'এটি একটি টেস্ট পুশ নোটিফিকেশন — Wings Fly Academy',
+          url: '/'
+        }
+      });
+
+      if (error) throw error;
+
+      if (typeof Utils !== 'undefined') {
+        const sentCount = data?.sent ?? 0;
+        if (sentCount > 0) {
+          Utils.toast(`✅ ${sentCount} টি ডিভাইসে নোটিফিকেশন পাঠানো হয়েছে।`, 'success');
+        } else {
+          Utils.toast('⚠️ কোনো সাবস্ক্রাইবার পাওয়া যায়নি। প্রথমে এই ব্রাউজারে নোটিফিকেশন অনুমতি দিন।', 'warning', 6000);
+        }
+      }
+    } catch (e) {
+      console.warn('[Push] sendTestNotification failed:', e.message);
+      if (typeof Utils !== 'undefined') {
+        Utils.toast('⚠️ Push পাঠাতে ব্যর্থ: ' + e.message, 'error', 6000);
       }
     }
-    // TODO: Replace this stub with a real backend call:
-    // const response = await fetch('https://YOUR-ACTUAL-BACKEND.com/send-notification', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ token: fcmToken, title: 'Test', body: 'Test notification' })
-    // });
-    console.warn('[Push] sendTestNotification(): No backend endpoint configured. Set a real URL to enable push sending.');
   }
 
   // ── Auto-initialize on app start ──
