@@ -439,7 +439,7 @@ const Students = (() => {
             </div>
             <div class="sf-field">
               <label class="sf-label">Phone Number <span class="req">*</span></label>
-              <input id="sf-phone" class="sf-input" placeholder="01XXXXXXXXX" maxlength="20" pattern="[0-9+() -]{7,20}" />
+              <input id="sf-phone" class="sf-input" placeholder="e.g. 01XXXXXXXXX or +1 555-123-4567" maxlength="25" pattern="[0-9+() -]{7,25}" />
             </div>
           </div>
           <div class="sf-grid-2">
@@ -575,7 +575,7 @@ const Students = (() => {
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${Utils.escAttr(s.phone||'')}" maxlength="20" pattern="[0-9+() -]{7,20}" />
+          <input id="sf-phone" class="form-control" value="${Utils.escAttr(s.phone||'')}" maxlength="25" pattern="[0-9+() -]{7,25}" />
         </div>
       </div>
       <div class="form-row">
@@ -976,9 +976,14 @@ const Students = (() => {
     if (name.length < 2) { errEl.textContent='Name must be at least 2 characters'; errEl.classList.remove('hidden'); return; }
     if (!sid && !editingId) { errEl.textContent='Student ID Required'; errEl.classList.remove('hidden'); return; }
 
-    // Phone validation: BD format (01X-XXXXXXXX) — 11 digits starting with 01
-    if (phone && !/^01[3-9]\d{8}$/.test(phone.replace(/[\s\-()]/g, ''))) {
-      errEl.textContent='Invalid phone number. BD format: 01XXXXXXXXX (11 digits)';
+    // Phone validation: mandatory, accepts any international format (min 7 digits)
+    if (!phone) {
+      errEl.textContent = 'Phone number is required.';
+      errEl.classList.remove('hidden'); return;
+    }
+    const _phoneDigits = phone.replace(/[^0-9]/g, '');
+    if (_phoneDigits.length < 7) {
+      errEl.textContent = 'Phone number must contain at least 7 digits (any country format allowed).';
       errEl.classList.remove('hidden'); return;
     }
 
