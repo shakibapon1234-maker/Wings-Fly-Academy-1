@@ -85,7 +85,7 @@ const SystemDiagnostics = (() => {
       SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
       const method = f.method || r.method;
       // ✅ Diagnostic salary payment-এ balance update skip — নইলে cleanup-এ extra 'in' হয়ে balance বাড়ে
-      const isDiagEntry = f.note === DIAG_SALARY_PAY_NOTE || r.note === DIAG_SALARY_NOTE || r.note === (DIAG_SALARY_NOTE + ' [UPDATED]');
+      const isDiagEntry = f.note === DIAG_SALARY_PAY_NOTE || _isDiagSalaryRecord(r);
       if (!isDiagEntry && amt > 0 && method && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(method, amt, 'in', true);
       }
