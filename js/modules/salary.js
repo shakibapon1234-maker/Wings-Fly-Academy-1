@@ -711,7 +711,6 @@ const Salary = (() => {
 
     /* timing bug fix: update এর আগে existing পড়ো */
     var existingRecord = editingId ? SupabaseSync.getById(DB.salary, editingId) : null;
-    var prevPaidAmt    = Utils.safeNum(existingRecord && existingRecord.paidAmount);
 
     var autoFullyPaid = (payAmount >= net && net > 0);
 
@@ -745,49 +744,60 @@ const Salary = (() => {
     }
     var currentId = editingId || entry.id;
 
-    var diff = isNew ? payAmount : (payAmount - prevPaidAmt);
     var financeCtx = Object.assign({}, entry, { id: currentId });
 
-    if (diff > 0) {
-      const success = await _logToFinance(financeCtx, diff, payDate, method);
-      if (!success) {
-        return; // Abort saving the salary record!
-      }
-    } else if (diff < 0 && !isNew && financeCtx.id) {
-      var reversalAmt = Math.abs(diff);
-      var linkedFin = SupabaseSync.getAll(DB.finance).filter(function(f) {
-        return _matchesSalaryFinance(f, financeCtx);
-      });
-      var reversed = 0;
-      linkedFin.sort(function(a, b) {
-        return String(b.date || '').localeCompare(String(a.date || ''));
-      }).forEach(function(f) {
-        if (reversed >= reversalAmt) return;
-        var amt = Utils.safeNum(f.amount);
-        if (amt <= 0) return;
-        SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
-        reversed += amt;
+    // Transactional Revert-All-Old, Apply-New Pattern
+    const linkedFin = SupabaseSync.getAll(DB.finance).filter(function(f) {
+      return _matchesSalaryFinance(f, financeCtx);
+    });
+
+    // 1. Revert/Refund all matching old finance entries (increases balance, force=true)
+    if (!isNew) {
+      for (var i = 0; i < linkedFin.length; i++) {
+        var f = linkedFin[i];
         if (typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(f.method || method, amt, 'in', true);
+          await SupabaseSync.updateAccountBalance(f.method || method, Utils.safeNum(f.amount), 'in', true);
         }
-      });
-      var remainder = reversalAmt - reversed;
-      if (remainder > 0) {
-        if (typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(method, remainder, 'in', true);
-        }
-        SupabaseSync.insert(DB.finance, {
-          type:        'Income',
-          category:    'Salary Adjustment',
-          method:      method,
-          description: 'Salary Adjustment (reduced): ' + entry.staffName + ' (' + monthLabel(entry.month) + ')',
-          amount:      remainder,
-          date:        payDate || Utils.today(),
-          note:        'Auto-reversal: paidAmount reduced from ৳' + Utils.formatMoneyPlain(prevPaidAmt) + ' to ৳' + Utils.formatMoneyPlain(payAmount),
-          person_name: entry.staffName,
-          ref_id:      financeCtx.id,
-        }, { bypassLog: true });
       }
+    }
+
+    // 2. Try to apply the new payment amount (decreases balance, can fail negative block)
+    if (payAmount > 0) {
+      if (typeof SupabaseSync.updateAccountBalance === 'function') {
+        const success = await SupabaseSync.updateAccountBalance(method, payAmount, 'out');
+        if (!success) {
+          // Balance check failed! Rollback the old reversals
+          if (!isNew) {
+            for (var i = 0; i < linkedFin.length; i++) {
+              var f = linkedFin[i];
+              await SupabaseSync.updateAccountBalance(f.method || method, Utils.safeNum(f.amount), 'out', true);
+            }
+          }
+          return; // Abort saving the salary record!
+        }
+      }
+    }
+
+    // All balance updates succeeded. Now clean up old finance entries and insert new ones!
+    if (!isNew) {
+      for (var i = 0; i < linkedFin.length; i++) {
+        SupabaseSync.remove(DB.finance, linkedFin[i].id, { bypassLog: true });
+      }
+    }
+
+    // Insert new single finance entry if payAmount > 0
+    if (payAmount > 0) {
+      SupabaseSync.insert(DB.finance, {
+        type:        'Expense',
+        category:    'Salary',
+        method:      method,
+        description: 'Salary: ' + entry.staffName + ' (' + monthLabel(entry.month) + ')',
+        amount:      payAmount,
+        date:        payDate,
+        note:        entry.note || '',
+        person_name: entry.staffName,
+        ref_id:      financeCtx.id,
+      }, { bypassLog: true });
     }
 
     if (editingId) {
