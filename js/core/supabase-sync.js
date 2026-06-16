@@ -1086,7 +1086,8 @@ const SupabaseSync = (() => {
     const loansTable = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
     if (table === loansTable) {
       if (String(r.person_name || '').includes('Diagnostic Loan Person') ||
-          r.note === 'Auto-generated diagnostic loan') return true;
+          r.note === 'Auto-generated diagnostic loan' ||
+          r.note === 'Auto-generated diagnostic loan [UPDATED]') return true;
     }
     if (table === financeTable) {
       if (r.note === 'Auto-generated diagnostic payment') return true;
@@ -1592,7 +1593,7 @@ const SupabaseSync = (() => {
           }
          } else if (table === 'loans') {
           // ✅ Diagnostic loan restore-এ balance update করা হবে না
-          if (r.note === 'Auto-generated diagnostic loan') {
+          if (r.note === 'Auto-generated diagnostic loan' || r.note === 'Auto-generated diagnostic loan [UPDATED]') {
             // skip — diagnostic test data, balance touch করবো না
           } else {
           const wasGiven = r.type === 'Loan Giving' || r.direction === 'given';
@@ -1660,10 +1661,8 @@ const SupabaseSync = (() => {
       console.warn('[Restore] Balance update failed:', e);
     }
 
-    // Remove from recycle bin array
-    const updatedBin = getAll('recycle_bin').filter((_, i) => i !== index);
-    setAll('recycle_bin', updatedBin);
-    _syncRecycleBinToSettings();
+    // Removed index-based filtering here because it causes index shift issues when linked records are spliced out.
+    // The main record is safely removed by ID and table in the Final cleanup block at the end of this function.
     if (!_isDiagnosticRecord(table, record)) {
       _logActivity('restore', table, _humanReadableLog('restore', table, record));
     }
