@@ -1099,6 +1099,10 @@ const SupabaseSync = (() => {
         if (st && _isDiagnosticRecord(studentsTable, st)) return true;
         const sal = getAll(salaryTable).find(s => s.id === ref);
         if (sal && _isDiagnosticRecord(salaryTable, sal)) return true;
+        const ex = getAll(examsTable).find(e => e.id === ref);
+        if (ex && _isDiagnosticRecord(examsTable, ex)) return true;
+        const ln = getAll(loansTable).find(l => l.id === ref);
+        if (ln && _isDiagnosticRecord(loansTable, ln)) return true;
       }
     }
     return false;
@@ -2529,6 +2533,7 @@ const SupabaseSync = (() => {
     logActivity: _logActivity,  // ✅ লজিক ৫: modules থেকে specific log লিখতে পারবে
     beginActivityLogSuppress: _beginActivityLogSuppress,
     runWithoutActivityLog: _runWithoutActivityLog,
+    isDiagnosticRecord: _isDiagnosticRecord,
     isDiagnosticActivity: _isDiagnosticActivity,
     filterActivityLogs: (logs) => (Array.isArray(logs) ? logs.filter(l => !_shouldHideActivity(l)) : []),
     isVagueSettingsActivity: _isVagueSettingsActivity,

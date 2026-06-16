@@ -792,10 +792,11 @@ const Salary = (() => {
       var finEntries = SupabaseSync.getAll(DB.finance).filter(function(f) {
         return _matchesSalaryFinance(f, r);
       });
+      var isDiagSalary = r.staffId === 'DIAG-SAL-STAFF' || (r.staffName && r.staffName.includes('Diagnostic Test Staff')) || r.note === 'Auto-generated diagnostic salary';
       finEntries.forEach(function(f) {
         var amt = Utils.safeNum(f.amount);
         SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
-        if (amt > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+        if (!isDiagSalary && amt > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
           SupabaseSync.updateAccountBalance(f.method || r.method, amt, 'in', true);
         }
       });

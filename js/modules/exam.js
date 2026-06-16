@@ -31,8 +31,11 @@ const Exam = (() => {
 
   function _reverseExamFinance(exam) {
     if (!exam || !exam.fee_paid || Utils.safeNum(exam.exam_fee) <= 0) return;
+    const isDiagExam = (exam.student_id && String(exam.student_id).startsWith('DIAG-EXAM-')) ||
+      (exam.student_name && String(exam.student_name).includes('Diagnostic Exam Student')) ||
+      exam.note === 'Auto-generated diagnostic exam';
     SupabaseSync.getAll(DB.finance).filter(f => _matchesExamFinance(f, exam)).forEach((fin) => {
-      if (fin.method && typeof SupabaseSync.updateAccountBalance === 'function') {
+      if (!isDiagExam && fin.method && typeof SupabaseSync.updateAccountBalance === 'function') {
         SupabaseSync.updateAccountBalance(fin.method, Utils.safeNum(fin.amount), 'out', true);
       }
       SupabaseSync.remove(DB.finance, fin.id, { bypassLog: true });

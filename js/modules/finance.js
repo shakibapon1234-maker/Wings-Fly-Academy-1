@@ -605,7 +605,8 @@ const Finance = (() => {
     if (!ok) return;
     // Balance reverse করো — RecycleBin-এ যাওয়ার আগে
     const entry = SupabaseSync.getById(DB.finance, id);
-    if (entry && entry.method && !entry._isLoan) {
+    const isDiag = entry && typeof SupabaseSync.isDiagnosticRecord === 'function' && SupabaseSync.isDiagnosticRecord(DB.finance, entry);
+    if (entry && entry.method && !entry._isLoan && !isDiag) {
       // Reverse direction: Income→out, Expense→in, etc.
       const _entryDir = _balanceDir(entry.type);
       const reverseDir = _entryDir === 'in' ? 'out' : _entryDir === 'out' ? 'in' : null;

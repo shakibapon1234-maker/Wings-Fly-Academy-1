@@ -893,23 +893,38 @@ const SystemDiagnostics = (() => {
 
       for (const p of leftoverFinance) {
         SupabaseSync.remove(financeTable, p.id, { bypassLog: true });
+        if (typeof SupabaseSync._deleteFromCloud === 'function') {
+          SupabaseSync._deleteFromCloud(financeTable, p.id);
+        }
         removedCount++;
       }
       for (const s of leftoverStudents) {
         SupabaseSync.remove(studentsTable, s.id, { bypassLog: true });
+        if (typeof SupabaseSync._deleteFromCloud === 'function') {
+          SupabaseSync._deleteFromCloud(studentsTable, s.id);
+        }
         removedCount++;
       }
       for (const s of leftoverSalary) {
         _salaryDeleteLikeApp(s);
+        if (typeof SupabaseSync._deleteFromCloud === 'function') {
+          SupabaseSync._deleteFromCloud(salaryTable, s.id);
+        }
         removedCount++;
       }
       for (const e of leftoverExams) {
         _examReverseFinance(e);
         SupabaseSync.remove(examsTable, e.id, { bypassLog: true });
+        if (typeof SupabaseSync._deleteFromCloud === 'function') {
+          SupabaseSync._deleteFromCloud(examsTable, e.id);
+        }
         removedCount++;
       }
       for (const l of leftoverLoans) {
         _loanDeleteLikeApp(l);
+        if (typeof SupabaseSync._deleteFromCloud === 'function') {
+          SupabaseSync._deleteFromCloud(loansTable, l.id);
+        }
         removedCount++;
       }
 
@@ -1119,3 +1134,22 @@ const SystemDiagnostics = (() => {
   };
 })();
 window.SystemDiagnostics = SystemDiagnostics;
+
+// Run cleanup immediately on script load to remove any leftover diagnostic records (both locally and cloud)
+try {
+  if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+    SystemDiagnostics.cleanupLeftovers();
+  } else {
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.SupabaseSync && window.WFA_IDB && typeof WFA_IDB.onReady === 'function') {
+        WFA_IDB.onReady(() => {
+          SystemDiagnostics.cleanupLeftovers();
+        });
+      } else {
+        SystemDiagnostics.cleanupLeftovers();
+      }
+    });
+  }
+} catch (e) {
+  console.warn('[Diagnostics] Auto cleanup failed on script load:', e);
+}
