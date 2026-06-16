@@ -80,15 +80,17 @@ const Salary = (() => {
   ══════════════════════════════════════════ */
   function syncFromHR(staffId) {
     if (typeof HRStaff === 'undefined') return;
-    const staffMember = HRStaff.getAll().find(function(s){ return s.staffId === staffId; });
+    const staffMember = HRStaff.getAll().find(function(s){ return s.id === staffId || s.staffId === staffId; });
     if (!staffMember) return;
     SupabaseSync.getAll(DB.salary).forEach(function(r) {
-      const matchById   = r.staffId   && r.staffId   === staffMember.staffId;
+      const matchById   = r.staffId   && (r.staffId === staffMember.id || r.staffId === staffMember.staffId);
       const matchByName = !r.staffId  && r.staffName && r.staffName === staffMember.name;
       if ((matchById || matchByName) && !r.paid) {
         SupabaseSync.update(DB.salary, r.id, {
-          staffId:    staffMember.staffId,
+          staffId:    staffMember.id,
+          staff_id:   staffMember.id,
           staffName:  staffMember.name,
+          staff_name: staffMember.name,
           role:       staffMember.role  || '',
           phone:      staffMember.phone || '',
           baseSalary: Utils.safeNum(staffMember.salary),
@@ -99,7 +101,7 @@ const Salary = (() => {
 
   function syncAllFromHR() {
     if (typeof HRStaff === 'undefined') return;
-    HRStaff.getAll().forEach(function(s){ syncFromHR(s.staffId); });
+    HRStaff.getAll().forEach(function(s){ syncFromHR(s.id); });
     renderContent();
   }
 
@@ -112,7 +114,34 @@ const Salary = (() => {
     if (typeof SupabaseSync === 'undefined') return;
     var salaryRecords = SupabaseSync.getAll(DB.salary);
     var financeRecords = SupabaseSync.getAll(DB.finance);
-    if (!salaryRecords.length || !financeRecords.length) return;
+    if (!salaryRecords.length) return;
+
+    // --- Staff ID Auto-Repair ---
+    var allStaff = (typeof HRStaff !== 'undefined') ? HRStaff.getAll() : [];
+    if (allStaff.length) {
+      var repairedStaffCount = 0;
+      salaryRecords.forEach(function(r) {
+        if (!r.staffId || r.staffId === 'undefined') {
+          var matchingStaff = allStaff.find(function(s) {
+            return (s.name && r.staffName && s.name.trim().toLowerCase() === r.staffName.trim().toLowerCase()) ||
+                   (s.phone && r.phone && s.phone.trim() === r.phone.trim());
+          });
+          if (matchingStaff) {
+            SupabaseSync.update(DB.salary, r.id, {
+              staffId: matchingStaff.id,
+              staff_id: matchingStaff.id
+            }, { bypassLog: true });
+            repairedStaffCount++;
+          }
+        }
+      });
+      if (repairedStaffCount > 0) {
+        console.log('[Salary] Auto-mapped ' + repairedStaffCount + ' salary record(s) to staff ID');
+      }
+    }
+    // ----------------------------
+
+    if (!financeRecords.length) return;
 
     var repaired = 0;
     salaryRecords.forEach(function(r) {
@@ -381,7 +410,7 @@ const Salary = (() => {
     var records     = getRecords();
     var existingIds = records.filter(function(r){ return r.month === month; }).map(function(r){ return r.staffId; });
     var allStaff    = (typeof HRStaff !== 'undefined') ? HRStaff.getAll() : [];
-    var activeStaff = allStaff.filter(function(s){ return s.status === 'Active' && existingIds.indexOf(s.staffId) === -1; });
+    var activeStaff = allStaff.filter(function(s){ return s.status === 'Active' && existingIds.indexOf(s.id) === -1; });
 
     if (!activeStaff.length) {
       Utils.toast(existingIds.length ? 'All active staff sheets already created ✓' : 'No active staff found in HR', 'info');
@@ -390,7 +419,7 @@ const Salary = (() => {
     activeStaff.forEach(function(s) {
       var base = Utils.safeNum(s.salary);
       SupabaseSync.insert(DB.salary, {
-        staffId: s.staffId,   staff_id:   s.staffId,
+        staffId: s.id,        staff_id:   s.id,
         staffName: s.name,    staff_name: s.name,
         role: s.role || '', phone: s.phone || '',
         month: month,
@@ -548,12 +577,14 @@ const Salary = (() => {
 
     var staffOpts = '<option value="">-- HR থেকে Staff বেছে নিন --</option>' +
       allStaff.map(function(s) {
-        return '<option value="' + Utils.escAttr(s.staffId) + '"' + (r && r.staffId === s.staffId ? ' selected' : '') +
+        var isSelected = r && (r.staffId === s.id || r.staffName === s.name);
+        var label = (s.staffId ? s.staffId + ' — ' : '') + s.name + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')';
+        return '<option value="' + Utils.escAttr(s.id) + '"' + (isSelected ? ' selected' : '') +
           ' data-name="' + Utils.escAttr(s.name) + '"' +
           ' data-role="' + Utils.escAttr(s.role || '') + '"' +
           ' data-phone="' + Utils.escAttr(s.phone || '') + '"' +
           ' data-salary="' + String(Utils.safeNum(s.salary)) + '">' +
-          Utils.esc(s.staffId) + ' — ' + Utils.esc(s.name) + ' (৳' + Utils.formatMoneyPlain(s.salary) + ')' +
+          Utils.esc(label) +
           '</option>';
       }).join('');
 
@@ -561,7 +592,7 @@ const Salary = (() => {
         '<div class="form-row">' +
           '<div class="form-group"><label>Select Staff <span class="req">*</span></label>' +
             '<select id="sal-staff" class="form-control" onchange="Salary.onStaffSelect()">' + staffOpts + '</select>' +
-            '<div id="sal-staff-info" style="display:' + (r && r.staffId ? 'block' : 'none') + '; margin-top:8px; background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:8px; padding:10px; font-size:.8rem; color:#00d4ff;">' +
+            '<div id="sal-staff-info" style="display:' + (r && (r.staffId || r.staffName) ? 'block' : 'none') + '; margin-top:8px; background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:8px; padding:10px; font-size:.8rem; color:#00d4ff;">' +
               '<i class="fa fa-circle-check" style="margin-right:6px;"></i><strong id="sal-info-name">' + (r ? (r.staffName || '') : '') + '</strong> — Basic Salary: <strong id="sal-info-salary">৳' + Utils.formatMoneyPlain(r ? (r.baseSalary || 0) : 0) + '</strong>' +
             '</div>' +
           '</div>' +

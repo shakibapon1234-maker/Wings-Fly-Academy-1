@@ -348,7 +348,7 @@ const TABLE_COLUMNS = {
   loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
   exams:         ['id','reg_id','student_id','student_name','batch','session','subject','exam_date','exam_fee','fee_paid','grade','marks','status','note'],
   attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
-  staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
+  staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note','staffId','staff_id'],
   visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
   notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
   advance_payments: ['id','person','amount','method','date','note','returns','created_at','updated_at'],
@@ -1933,7 +1933,7 @@ const SupabaseSync = (() => {
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
     exams:         ['id','reg_id','student_id','student_name','batch','session','subject', 'exam_date','exam_fee','fee_paid','grade','marks','status','note'],
     attendance:    ['id','person_id','person_name','type','date','status','note','entityId','entityName','batch'],
-    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note'],
+    staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note','staffId','staff_id'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
     notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
   };
