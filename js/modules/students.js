@@ -1011,7 +1011,8 @@ const Students = (() => {
         const sNameMatch  = s.name?.trim().toLowerCase() === nameLower;
         const sPhoneClean = (s.phone || '').trim().replace(/\D/g, '');
         const sPhoneMatch = phoneClean && sPhoneClean && sPhoneClean === phoneClean;
-        return sNameMatch || sPhoneMatch;
+        // ✅ Warning শুধু তখনই — নাম AND ফোন দুটোই মিললে
+        return sNameMatch && sPhoneMatch;
       });
 
       if (duplicate) {
