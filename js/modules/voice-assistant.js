@@ -2000,40 +2000,11 @@ const VoiceAssistant = (() => {
       handled=true;
     }
 
-    // ── UNRECOGNIZED (FALLBACK TO GEMINI AI) ──────────────────────
+    // ── UNRECOGNIZED (Bypassed Gemini to prevent background noise chatter) ──
     if (!handled) {
-      if (typeof AIAssistant !== 'undefined' && AIAssistant.chat) {
-        showBubble('Thinking...', false);
-        AIAssistant.chat(raw).then(reply => {
-          if (!reply) {
-            hideBubble();
-            return;
-          }
-          // If the reply is the local help message, do not speak or show the bubble to avoid disturbing the user
-          if (reply.includes('Academy Assistant') || reply.includes('API লাগে না') || reply.includes('📋')) {
-            hideBubble();
-            return;
-          }
-          if (reply.startsWith('❌') || reply.startsWith('⏳')) {
-            // Quota or API key errors: do not speak or show bubble to avoid repeating it on room noise
-            hideBubble();
-            if (typeof Utils !== 'undefined') {
-              Utils.toast('Gemini API Quota Exceeded / Key Invalid.', 'error', 3000);
-            }
-            return;
-          }
-          // Remove Markdown bold/stars from speech
-          const cleanSpeech = reply.replace(/\*/g, '').replace(/_/g, '').trim();
-          speak(cleanSpeech);
-          showBubble(cleanSpeech, true);
-        }).catch(_err => {
-          // Silent catch on unrecognized voice command failures to avoid disturbance
-          hideBubble();
-        });
-      } else {
-        // If AIAssistant is not available, remain silent
-        hideBubble();
-      }
+      const sorryMsg = currentLang === 'bn-IN' ? 'দুঃখিত স্যার, আমি বুঝতে পারিনি।' : 'Sorry sir, I didn\'t understand.';
+      speak(sorryMsg);
+      showBubble(sorryMsg, true);
     }
   }
 
