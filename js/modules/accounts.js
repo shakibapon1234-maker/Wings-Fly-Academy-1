@@ -884,7 +884,7 @@ const Accounts = (() => {
     }
   }
 
-  function doTransfer() {
+  async function doTransfer() {
     const from   = Utils.formVal('tr-from');
     const to     = Utils.formVal('tr-to');
     const amount = Utils.safeNum(Utils.formVal('tr-amount'));
@@ -905,17 +905,26 @@ const Accounts = (() => {
     }
     errEl.classList.add('hidden');
 
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      const success = await SupabaseSync.updateAccountBalance(from, amount, 'out');
+      if (!success) {
+        return; // Abort transfer if balance update failed
+      }
+    }
+
     SupabaseSync.insert(DB.finance, {
       type:'Transfer Out', method:from, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
     }, { bypassLog: true });
-    SupabaseSync.updateAccountBalance(from, amount, 'out');
+
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      await SupabaseSync.updateAccountBalance(to, amount, 'in');
+    }
 
     SupabaseSync.insert(DB.finance, {
       type:'Transfer In', method:to, category:'Transfer',
       description:`${from} → ${to}`, amount, date, note: notes
     }, { bypassLog: true });
-    SupabaseSync.updateAccountBalance(to, amount, 'in');
 
     // ✅ লজিক ৬: Transfer specific activity log
     if (typeof SupabaseSync.logActivity === 'function') {

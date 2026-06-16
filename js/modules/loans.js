@@ -405,7 +405,7 @@ const Loans = (() => {
     if (h) h.value = (yyyy && mm && dd) ? `${yyyy}-${mm}-${dd}` : '';
   }
 
-  function saveLoan() {
+  async function saveLoan() {
     const person = (document.getElementById('lf-person')?.value || '').trim();
     const amount = Utils.safeNum(Utils.formVal('lf-amount'));
     const type   = Utils.formVal('lf-direction') || 'Loan Giving';
@@ -448,11 +448,27 @@ const Loans = (() => {
         const wasGiven  = oldType === 'Loan Giving' || oldType === 'given';
 
         // 1. Reverse old account balance (force=true to allow negative)
+        let reversedOld = false;
         if (oldAmount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(oldMethod, oldAmount, wasGiven ? 'in' : 'out', true);
+          await SupabaseSync.updateAccountBalance(oldMethod, oldAmount, wasGiven ? 'in' : 'out', true);
+          reversedOld = true;
         }
 
-        // 2. Find and update linked finance entry
+        // 2. Try to apply new account balance
+        const isGiving = type === 'Loan Giving';
+        if (amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+          const success = await SupabaseSync.updateAccountBalance(method, amount, isGiving ? 'out' : 'in');
+          if (!success) {
+            // Rollback old balance if reversed
+            if (reversedOld) {
+              await SupabaseSync.updateAccountBalance(oldMethod, oldAmount, wasGiven ? 'out' : 'in', true);
+            }
+            return; // Abort saving the record
+          }
+        }
+
+        // Both updates succeeded, now update database records
+        // Find and update linked finance entry
         const allFinance = SupabaseSync.getAll(DB.finance);
         const linkedFin = allFinance.find(f => _matchesLoanFinance(f, oldRecord));
         if (linkedFin) {
@@ -468,21 +484,24 @@ const Loans = (() => {
           }, { bypassLog: true });
         }
 
-        // 3. Apply new account balance
-        const isGiving = type === 'Loan Giving';
-        if (amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(method, amount, isGiving ? 'out' : 'in');
+        SupabaseSync.update(DB.loans, editingId, record, { bypassLog: true });
+        if (typeof SupabaseSync.logActivity === 'function') {
+          SupabaseSync.logActivity('edit', 'loans',
+            `লোন আপডেট: ${record.person_name} — ${record.type} ৳${Utils.formatMoneyPlain(record.amount)} (${record.method || '—'}) — তারিখ: ${record.date || '—'}`
+          );
+        }
+        Utils.toast('Loan updated ✓', 'success');
+      }
+    } else {
+      // ── Try applying new account balance first ──────────────────────────────────────
+      const isGiving = type === 'Loan Giving';
+      if (amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
+        const success = await SupabaseSync.updateAccountBalance(method, amount, isGiving ? 'out' : 'in');
+        if (!success) {
+          return; // Abort saving the record
         }
       }
 
-      SupabaseSync.update(DB.loans, editingId, record, { bypassLog: true });
-      if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'loans',
-          `লোন আপডেট: ${record.person_name} — ${record.type} ৳${Utils.formatMoneyPlain(record.amount)} (${record.method || '—'}) — তারিখ: ${record.date || '—'}`
-        );
-      }
-      Utils.toast('Loan updated ✓', 'success');
-    } else {
       const createdLoan = SupabaseSync.insert(DB.loans, record, { bypassLog: true });
 
       SupabaseSync.insert(DB.finance, {
@@ -497,15 +516,6 @@ const Loans = (() => {
         ref_id:      createdLoan && createdLoan.id ? createdLoan.id : '',
         _isLoan:     true,
       }, { bypassLog: true });
-
-      // ── Account balance আপডেট ──────────────────────────────────────
-      // Loan Given (আমি দিলাম) → account থেকে টাকা বের হয় = 'out'
-      // Loan Received (আমি নিলাম) → account-এ টাকা আসে = 'in'
-      if (type === 'Loan Giving') {
-        SupabaseSync.updateAccountBalance(method, amount, 'out');
-      } else {
-        SupabaseSync.updateAccountBalance(method, amount, 'in');
-      }
 
       // ✅ লজিক ৬: Loan specific activity log
       if (typeof SupabaseSync.logActivity === 'function') {

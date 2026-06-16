@@ -191,8 +191,8 @@ const Salary = (() => {
     return desc.indexOf(staff) !== -1 && desc.indexOf(monthLabel(month)) !== -1;
   }
 
-  function _logToFinance(record, payAmount, payDate, method) {
-    if (!payAmount || payAmount <= 0) return;
+  async function _logToFinance(record, payAmount, payDate, method) {
+    if (!payAmount || payAmount <= 0) return true;
     var entry = {
       type:        'Expense',
       category:    'Salary',
@@ -205,12 +205,14 @@ const Salary = (() => {
       ref_id:      record.id || '',
     };
     if (typeof Finance !== 'undefined' && typeof Finance.addExternalTransaction === 'function') {
-      Finance.addExternalTransaction(entry);
+      return await Finance.addExternalTransaction(entry);
     } else {
-      SupabaseSync.insert(DB.finance, entry, { bypassLog: true });
       if (typeof SupabaseSync.updateAccountBalance === 'function') {
-        SupabaseSync.updateAccountBalance(method, payAmount, 'out');
+        const success = await SupabaseSync.updateAccountBalance(method, payAmount, 'out');
+        if (!success) return false;
       }
+      SupabaseSync.insert(DB.finance, entry, { bypassLog: true });
+      return true;
     }
   }
 
@@ -496,7 +498,7 @@ const Salary = (() => {
     Utils.openModal('<i class="fa fa-sack-dollar" style="color:#00d4ff;"></i> Pay Salary — ' + r.staffName, html);
   }
 
-  function confirmPay(id) {
+  async function confirmPay(id) {
     var r = SupabaseSync.getById(DB.salary, id);
     if (!r) return;
 
@@ -516,6 +518,11 @@ const Salary = (() => {
       return;
     }
 
+    const success = await _logToFinance(r, payAmount, payDate, method);
+    if (!success) {
+      return;
+    }
+
     var net        = calcNet(r);
     var prevPaid   = Utils.safeNum(r.paidAmount);
     var totalPaid  = prevPaid + payAmount;
@@ -532,8 +539,6 @@ const Salary = (() => {
       amount:     net,
       net_salary: net,
     }, { bypassLog: true });
-
-    _logToFinance(r, payAmount, payDate, method);
 
     Utils.closeModal();
     renderContent();
@@ -677,7 +682,7 @@ const Salary = (() => {
      - Bonus → baseSalary কম মনে করে না
      - Finance diff = এই বারের নতুন amount মাত্র
   ══════════════════════════════════════════ */
-  function saveRecord() {
+  async function saveRecord() {
     var staffSel = document.getElementById('sal-staff');
     var staffId  = staffSel && staffSel.value;
     var staffOpt = staffSel && staffSel.options[staffSel.selectedIndex];
@@ -735,28 +740,19 @@ const Salary = (() => {
     };
 
     var isNew = !editingId;
-    if (editingId) {
-      SupabaseSync.update(DB.salary, editingId, entry, { bypassLog: true });
-      if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('edit', 'salary',
-          `বেতন রেকর্ড আপডেট: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()}, পরিশোধ: ৳${payAmount.toLocaleString()})`
-        );
-      }
-      Utils.toast('Salary record updated ✓', 'success');
-    } else {
-      SupabaseSync.insert(DB.salary, entry, { bypassLog: true });
-      if (typeof SupabaseSync.logActivity === 'function') {
-        SupabaseSync.logActivity('add', 'salary',
-          `বেতন রেকর্ড যোগ: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()})`
-        );
-      }
-      Utils.toast('Salary record saved ✓', 'success');
+    if (isNew) {
+      entry.id = SupabaseSync.generateId();
     }
+    var currentId = editingId || entry.id;
 
     var diff = isNew ? payAmount : (payAmount - prevPaidAmt);
-    var financeCtx = Object.assign({}, entry, { id: editingId || entry.id || (existingRecord && existingRecord.id) });
+    var financeCtx = Object.assign({}, entry, { id: currentId });
+
     if (diff > 0) {
-      _logToFinance(financeCtx, diff, payDate, method);
+      const success = await _logToFinance(financeCtx, diff, payDate, method);
+      if (!success) {
+        return; // Abort saving the salary record!
+      }
     } else if (diff < 0 && !isNew && financeCtx.id) {
       var reversalAmt = Math.abs(diff);
       var linkedFin = SupabaseSync.getAll(DB.finance).filter(function(f) {
@@ -792,6 +788,24 @@ const Salary = (() => {
           ref_id:      financeCtx.id,
         }, { bypassLog: true });
       }
+    }
+
+    if (editingId) {
+      SupabaseSync.update(DB.salary, editingId, entry, { bypassLog: true });
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'salary',
+          `বেতন রেকর্ড আপডেট: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()}, পরিশোধ: ৳${payAmount.toLocaleString()})`
+        );
+      }
+      Utils.toast('Salary record updated ✓', 'success');
+    } else {
+      SupabaseSync.insert(DB.salary, entry, { bypassLog: true });
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'salary',
+          `বেতন রেকর্ড যোগ: ${entry.staffName} — ${entry.month} (নেট: ৳${net.toLocaleString()})`
+        );
+      }
+      Utils.toast('Salary record saved ✓', 'success');
     }
 
     Utils.closeModal();

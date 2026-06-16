@@ -424,7 +424,7 @@ const Finance = (() => {
   /* ══════════════════════════════════════════
      SAVE
   ══════════════════════════════════════════ */
-  function saveEntry() {
+  async function saveEntry() {
     const amount = Math.abs(Utils.safeNum(Utils.formVal('ff-amount'))); // ✅ Fix M-06: Force positive amount
     const type   = Utils.formVal('ff-type');
     const method = Utils.formVal('ff-method');
@@ -516,14 +516,33 @@ const Finance = (() => {
 
     if (editingId) {
       const oldEntry = SupabaseSync.getById(DB.finance, editingId);
+      let reversedOld = false;
+      let oldDir = null;
+
       if (oldEntry && oldEntry.method && !oldEntry._isLoan) {
-        const oldDir = _balanceDir(oldEntry.type);
+        oldDir = _balanceDir(oldEntry.type);
         const reverseDir = oldDir === 'in' ? 'out' : oldDir === 'out' ? 'in' : null;
         if (reverseDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-          // ✅ No force=true — validation above already confirmed this won't go negative
-          SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
+          // Revert old balance
+          await SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), reverseDir);
+          reversedOld = true;
         }
       }
+
+      if (!isLoanType) {
+        const newDir = _balanceDir(type);
+        if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
+          const success = await SupabaseSync.updateAccountBalance(method, amount, newDir);
+          if (!success) {
+            // Rollback the old reversal if it was applied
+            if (reversedOld && oldDir) {
+              await SupabaseSync.updateAccountBalance(oldEntry.method, Utils.safeNum(oldEntry.amount), oldDir, true);
+            }
+            return; // Abort saving the transaction
+          }
+        }
+      }
+
       SupabaseSync.update(DB.finance, editingId, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         const desc = record.description || record.person_name || record.category || '—';
@@ -531,26 +550,24 @@ const Finance = (() => {
           `আয়-ব্যয় লেজার আপডেট: ${record.category || type} — ${type} ৳${Utils.formatMoneyPlain(amount)} (${method}) — ${desc}${record.date ? ' — তারিখ: ' + record.date : ''}`
         );
       }
+      Utils.toast('Transaction updated ✓','success');
+    } else {
       if (!isLoanType) {
         const newDir = _balanceDir(type);
         if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(method, amount, newDir);
+          const success = await SupabaseSync.updateAccountBalance(method, amount, newDir);
+          if (!success) {
+            return; // Abort saving the transaction
+          }
         }
       }
-      Utils.toast('Transaction updated ✓','success');
-    } else {
+
       SupabaseSync.insert(DB.finance, record, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         const desc = record.description || record.person_name || '—';
         SupabaseSync.logActivity('add', 'finance',
           `আয়-ব্যয় লেজারে যোগ: ${record.category || type} — ${type} ৳${Utils.formatMoneyPlain(amount)} (${method}) — ${desc}${record.date ? ' — তারিখ: ' + record.date : ''}`
         );
-      }
-      if (!isLoanType) {
-        const newDir = _balanceDir(type);
-        if (newDir && typeof SupabaseSync.updateAccountBalance === 'function') {
-          SupabaseSync.updateAccountBalance(method, amount, newDir);
-        }
       }
       Utils.toast('Transaction added ✓','success');
     }
@@ -563,8 +580,8 @@ const Finance = (() => {
      EXTERNAL TRANSACTION (Salary, Loans etc.)
      Other modules এই function call করে Finance-এ entry দেয়
   ══════════════════════════════════════════ */
-  function addExternalTransaction(entry) {
-    if (!entry || !entry.type || !entry.amount) return;
+  async function addExternalTransaction(entry) {
+    if (!entry || !entry.type || !entry.amount) return false;
     const record = {
       type:        entry.type        || 'Expense',
       category:    entry.category    || 'Other',
@@ -576,7 +593,6 @@ const Finance = (() => {
       person_name: entry.person_name || '',
       ref_id:      entry.ref_id      || '',
     };
-    SupabaseSync.insert(DB.finance, record, { bypassLog: true });
 
     // ── Account balance স্বয়ংক্রিয় আপডেট ──────────────────────────
     // Expense → balance কমে (out), Income → বাড়ে (in)
@@ -590,11 +606,17 @@ const Finance = (() => {
     };
     const dir = dirMap[record.type];
     if (dir && record.method && record.amount > 0 && typeof SupabaseSync.updateAccountBalance === 'function') {
-      SupabaseSync.updateAccountBalance(record.method, record.amount, dir);
+      const success = await SupabaseSync.updateAccountBalance(record.method, record.amount, dir);
+      if (!success) {
+        return false;
+      }
     }
+
+    SupabaseSync.insert(DB.finance, record, { bypassLog: true });
 
     // If Finance tab is currently visible, re-render
     try { render(); } catch(e) { if (window.__WFA_DEV__) console.warn('[Finance] render error:', e); }
+    return true;
   }
 
   /* ══════════════════════════════════════════
