@@ -781,7 +781,8 @@ const Utils = (() => {
        // Deduplicate by name — একই নামে একাধিক entry থাকলে শুধু প্রথমটা নেওয়া হবে
        const seenNames = new Set();
 
-       const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim());
+       // Skip numeric-only names (e.g. phone numbers entered as account names by mistake)
+       const banks = accounts.filter(a => a.type === 'Bank_Detail' && a.name && a.name.trim() && !/^\d+$/.test(a.name.trim()));
        banks.forEach(b => {
          const name = b.name.trim();
          if (!seenNames.has(name.toLowerCase())) {
@@ -790,7 +791,7 @@ const Utils = (() => {
          }
        });
 
-       const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim());
+       const mobiles = accounts.filter(a => a.type === 'Mobile_Detail' && a.name && a.name.trim() && !/^\d+$/.test(a.name.trim()));
        mobiles.forEach(m => {
          const name = m.name.trim();
          if (!seenNames.has(name.toLowerCase())) {

@@ -36,10 +36,11 @@ const Accounts = (() => {
       const name = String(a.name || '').trim();
       if (a.type === 'Cash' && name !== 'Cash') return;
       if (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') {
-        // ✅ Bug #9 Fix: শুধু সত্যিকারের empty/numeric placeholder drop করুন।
-        // "Bank 1", "Mobile Banking 1" user-created account হতে পারে — এগুলো drop করা যাবে না।
-        const invalid = !name || /^\d+$/.test(name);
-        if (invalid) return;
+        // ✅ Bug #9 Fix (revised): Only drop truly empty/nameless accounts.
+        // Numeric-only names (e.g. phone numbers entered by mistake) must still
+        // appear in management so the user CAN delete them. The payment dropdown
+        // separately filters these out via getPaymentMethods().
+        if (!name) return; // drop only if completely empty
       }
       const key = `${a.type}||${name}`;
       if (seen.has(key)) return;
@@ -48,6 +49,7 @@ const Accounts = (() => {
     });
     return normalized;
   }
+
 
   function render() {
     const container = document.getElementById('accounts-content');
