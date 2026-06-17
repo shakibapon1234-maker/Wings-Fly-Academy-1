@@ -846,6 +846,18 @@ const SettingsModule = (() => {
         </div>
       </div>
 
+      <div class="settings-card glow-cyan">
+        <div class="settings-card-title"><i class="fa fa-language"></i> Language Settings (ভাষা সেটিংস)</div>
+        <div class="form-group mb-12">
+          <label class="settings-label">APP LANGUAGE</label>
+          <small class="settings-sublabel">Select the primary language for the application interface (অ্যাপের ভাষা নির্ধারণ করুন)।</small>
+          <select id="set-language" class="form-control" style="max-width:500px">
+            <option value="default" ${cfg.language === 'default' || !cfg.language ? 'selected' : ''}>Default (বাই ডিফল্ট)</option>
+            <option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English (ইংলিশ)</option>
+          </select>
+        </div>
+      </div>
+
       <div style="display:flex;justify-content:flex-end;margin-bottom:20px;margin-top:10px;">
         <button class="settings-save-btn" onclick="SettingsModule.saveAllChanges()" style="background:linear-gradient(135deg, rgba(0,217,255,0.8), rgba(181,55,242,0.8));color:#fff;border:none;padding:10px 20px;border-radius:8px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:8px;box-shadow:0 6px 15px rgba(0,217,255,0.25);transition:all 0.3s ease">
           <i class="fa fa-floppy-disk"></i> Save General Settings
@@ -4928,6 +4940,13 @@ ${expenseEntries.length > 0 ? `
     const _now = new Date();
     cfg.expense_end_date = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-${String(_now.getDate()).padStart(2,'0')}`;
     _healConfigDateFields(cfg);
+
+    // Read and save language settings
+    const prevLang = prev.language || 'default';
+    const newLang = document.getElementById('set-language')?.value || 'default';
+    cfg.language = newLang;
+    localStorage.setItem('wfa_language', newLang);
+
     saveConfig(cfg);
     const changes = [];
     if (String(prev.academy_name || '') !== String(cfg.academy_name || '')) {
@@ -4942,10 +4961,20 @@ ${expenseEntries.length > 0 ? `
     if (String(prev.expense_start_date || '') !== String(cfg.expense_start_date || '')) {
       changes.push(`ব্যয় শুরুর তারিখ: "${prev.expense_start_date || '(খালি)'}" → "${cfg.expense_start_date || '(খালি)'}"`);
     }
+    if (prevLang !== newLang) {
+      changes.push(`ভাষা: "${prevLang === 'en' ? 'English' : 'Default'}" → "${newLang === 'en' ? 'English' : 'Default'}"`);
+    }
     logActivity('edit', 'settings', changes.length
       ? 'একাডেমি সেটিংস আপডেট — ' + changes.join('; ')
       : 'একাডেমি সেটিংস সংরক্ষণ (কোনো মান পরিবর্তন হয়নি)');
     Utils.toast('Academy info saved ✅', 'success');
+
+    // Trigger reload if language changed so new language assets are cleanly loaded
+    if (prevLang !== newLang) {
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    }
   }
 
 
