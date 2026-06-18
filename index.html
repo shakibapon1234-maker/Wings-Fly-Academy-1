@@ -56,38 +56,11 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="assets/favicon.ico" />
 
-  <!-- Google Fonts — non-blocking (display=swap in URL) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" /></noscript>
-
   <!-- LCP image -->
   <link rel="preload" as="image" href="assets/logo.webp" type="image/webp" fetchpriority="high" />
 
-  <!-- Icons — deferred (login works without icons briefly) -->
-  <link rel="preload" as="style" href="css/lib/font-awesome.min.css" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="css/lib/font-awesome.min.css" /></noscript>
-
-  <!-- Critical CSS for login first paint; full app styles load async -->
+  <!-- Only login-critical CSS blocks first paint; app styles load after auth -->
   <link rel="stylesheet" href="css/login-critical.css" />
-  <link rel="stylesheet" href="css/main.css" media="print" onload="this.media='all'" />
-  <noscript><link rel="stylesheet" href="css/main.css" /></noscript>
-  <link rel="stylesheet" href="css/print.css" media="print" />
-
-  <!-- Module CSS — load after first paint -->
-  <link rel="stylesheet" href="css/attendance.css" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="css/exam.css" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="css/cert-v2.css" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="css/ai-assistant.css" media="print" onload="this.media='all'" />
-  <link rel="stylesheet" href="css/mobile.css" media="print" onload="this.media='all'" />
-  <noscript>
-    <link rel="stylesheet" href="css/attendance.css" />
-    <link rel="stylesheet" href="css/exam.css" />
-    <link rel="stylesheet" href="css/cert-v2.css" />
-    <link rel="stylesheet" href="css/ai-assistant.css" />
-    <link rel="stylesheet" href="css/mobile.css" />
-  </noscript>
 </head>
 <body>
 
@@ -112,7 +85,7 @@
       <div class="login-logo-ring">
         <picture>
           <source srcset="assets/logo.webp" type="image/webp" />
-          <img src="assets/logo.jpg" alt="Wings Fly" width="80" height="80" decoding="async" fetchpriority="high" onerror="this.style.display='none'" />
+          <img src="assets/logo.jpg" alt="Wings Fly" width="80" height="80" decoding="sync" fetchpriority="high" onerror="this.style.display='none'" />
         </picture>
       </div>
 

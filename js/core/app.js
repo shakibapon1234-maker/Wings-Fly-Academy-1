@@ -615,43 +615,49 @@ const App = (() => {
         setTimeout(prefetchLoginModules, 2500);
       }
     }
+
+    if (window.LazyLibs && typeof window.LazyLibs.prefetchAppStyles === 'function') {
+      window.LazyLibs.prefetchAppStyles();
+    }
   }
 
   function showApp(fromLogin = false) {
     const loginEl = document.getElementById('login-screen');
     const appEl = document.getElementById('app-wrapper');
-    if (loginEl) loginEl.style.display = 'none';
-    if (appEl) appEl.style.display = 'flex';
-    // Fresh login → always go to dashboard; refresh → restore last section
-    const lastSection = sessionStorage.getItem('wfa_last_section');
-    const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;
-    navigateTo(target);
-    SyncEngine.startAutoSync();
-    
-    // ✅ Lazy-load Voice Assistant to prevent Out of Memory crash on slow devices
-    if (!document.getElementById('voice-assistant-script')) {
-      if (typeof requestIdleCallback === 'function') {
-        requestIdleCallback(() => {
-          const script = document.createElement('script');
-          script.id = 'voice-assistant-script';
-          script.src = 'js/modules/voice-assistant.js';
-          script.defer = true;
-          document.body.appendChild(script);
-        }, { timeout: 5000 });
-      } else {
-        setTimeout(() => {
-          const script = document.createElement('script');
-          script.id = 'voice-assistant-script';
-          script.src = 'js/modules/voice-assistant.js';
-          script.defer = true;
-          document.body.appendChild(script);
-        }, 3000);
-      }
-    }
+    const revealApp = () => {
+      if (loginEl) loginEl.style.display = 'none';
+      if (appEl) appEl.style.display = 'flex';
+      document.body.classList.add('app-loaded');
+      const lastSection = sessionStorage.getItem('wfa_last_section');
+      const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;
+      navigateTo(target);
+      SyncEngine.startAutoSync();
+    };
 
-    if (window.LazyModules) window.LazyModules.prefetchAfterLogin();
-    else if (window.LazyLibs) window.LazyLibs.prefetchAfterLogin();
-  }
+    const afterReveal = () => {
+      if (!document.getElementById('voice-assistant-script')) {
+        const loadVoice = () => {
+          const script = document.createElement('script');
+          script.id = 'voice-assistant-script';
+          script.src = 'js/modules/voice-assistant.js';
+          script.defer = true;
+          document.body.appendChild(script);
+        };
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(loadVoice, { timeout: 5000 });
+        } else {
+          setTimeout(loadVoice, 3000);
+        }
+      }
+      if (window.LazyModules) window.LazyModules.prefetchAfterLogin();
+      else if (window.LazyLibs) window.LazyLibs.prefetchAfterLogin();
+    };
+
+    const loadStyles = (window.LazyLibs && window.LazyLibs.loadAppStyles)
+      ? window.LazyLibs.loadAppStyles()
+      : Promise.resolve();
+
+    loadStyles.then(revealApp).catch(revealApp).finally(afterReveal);
 
   // ── Navigation ────────────────────────────────────────────
   function navigateTo(section) {

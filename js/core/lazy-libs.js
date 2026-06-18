@@ -42,14 +42,15 @@ const LazyLibs = (() => {
     return _pending[key];
   }
 
-  function _loadStylesheet(local, cdn) {
-    const key = 'css:' + local;
+  function _loadStylesheet(local, cdn, media) {
+    const key = 'css:' + local + (media ? ':' + media : '');
     if (_done[key]) return Promise.resolve();
     if (_pending[key]) return _pending[key];
 
     _pending[key] = new Promise((resolve, reject) => {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
+      if (media) link.media = media;
       let triedCdn = false;
       link.href = _resolve(local);
       link.onload = () => {
@@ -145,6 +146,7 @@ const LazyLibs = (() => {
 
   function prefetchAfterLogin() {
     const run = () => {
+      loadAppStyles().catch(() => {});
       ['chart', 'flatpickr', 'xlsx'].forEach((name) => {
         load(name).catch(() => {});
       });
@@ -156,7 +158,43 @@ const LazyLibs = (() => {
     }
   }
 
-  return { load, loadPdfKit, prefetchAfterLogin, ready: (name) => !!(DEFS[name] && DEFS[name].ready && DEFS[name].ready()) };
+  const APP_STYLES = [
+    { href: 'css/lib/font-awesome.min.css', cdn: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css' },
+    { href: 'https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap' },
+    { href: 'css/main.css' },
+    { href: 'css/attendance.css' },
+    { href: 'css/exam.css' },
+    { href: 'css/cert-v2.css' },
+    { href: 'css/ai-assistant.css' },
+    { href: 'css/mobile.css' },
+    { href: 'css/lib/flatpickr-dark.css', cdn: 'https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css' },
+    { href: 'css/print.css', media: 'print' },
+  ];
+
+  let _stylesPromise = null;
+
+  function loadAppStyles() {
+    if (_stylesPromise) return _stylesPromise;
+    _stylesPromise = APP_STYLES.reduce(
+      (chain, item) => chain.then(() => _loadStylesheet(item.href, item.cdn, item.media)),
+      Promise.resolve()
+    ).catch((err) => {
+      _stylesPromise = null;
+      throw err;
+    });
+    return _stylesPromise;
+  }
+
+  function prefetchAppStyles() {
+    const run = () => loadAppStyles().catch(() => {});
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 5000 });
+    } else {
+      setTimeout(run, 2000);
+    }
+  }
+
+  return { load, loadPdfKit, loadAppStyles, prefetchAppStyles, prefetchAfterLogin, ready: (name) => !!(DEFS[name] && DEFS[name].ready && DEFS[name].ready()) };
 })();
 
 window.LazyLibs = LazyLibs;
