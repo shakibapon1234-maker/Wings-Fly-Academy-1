@@ -628,6 +628,8 @@ const App = (() => {
         }, 3000);
       }
     }
+
+    if (window.LazyLibs) window.LazyLibs.prefetchAfterLogin();
   }
 
   // ── Navigation ────────────────────────────────────────────

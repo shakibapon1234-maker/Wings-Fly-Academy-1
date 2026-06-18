@@ -2539,16 +2539,22 @@ ${expenseEntries.length > 0 ? `
       { 'বিবরণ': netProfit >= 0 ? 'নিট মুনাফা' : 'নিট ক্ষতি', 'পরিমাণ (৳)': netProfit },
     ];
 
-    if (typeof XLSX !== 'undefined') {
+    const run = () => {
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), 'ছাত্র বিবরণ');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows), 'খরচের বিবরণ');
       XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'P&L সারাংশ');
       XLSX.writeFile(wb, `batch-profit-${batch}-${new Date().toISOString().split('T')[0]}.xlsx`);
       if (typeof Utils !== 'undefined') Utils.toast('Excel Export সম্পন্ন ✓', 'success');
-    } else {
-      if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
+    };
+    if (typeof XLSX !== 'undefined') { run(); return; }
+    if (window.LazyLibs) {
+      window.LazyLibs.load('xlsx').then(run).catch(() => {
+        if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
+      });
+      return;
     }
+    if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
   }
 
   // ════════════════════════════════════════════════════════════════

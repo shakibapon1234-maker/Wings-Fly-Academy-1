@@ -670,7 +670,9 @@ const DashboardModule = (() => {
 
     setTimeout(() => {
       animateCounters();
-      initCharts(monthly, students);
+      const draw = () => initCharts(monthly, students);
+      if (window.Chart) draw();
+      else if (window.LazyLibs) window.LazyLibs.load('chart').then(draw).catch(() => {});
     }, 50);
   }
 

@@ -196,6 +196,17 @@ const CertificatesModule = (() => {
         text: certUrl, width: 200, height: 200,
         colorDark: '#1a1a2e', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H,
       });
+    } else if (window.LazyLibs) {
+      try {
+        await window.LazyLibs.load('qrcode');
+        new QRCode(document.getElementById('qr-render-target'), {
+          text: certUrl, width: 200, height: 200,
+          colorDark: '#1a1a2e', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H,
+        });
+      } catch {
+        document.getElementById('qr-render-target').innerHTML =
+          `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(certUrl)}" width="200" height="200" style="border-radius:8px;" id="qr-img-fallback">`;
+      }
     } else {
       document.getElementById('qr-render-target').innerHTML =
         `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(certUrl)}" width="200" height="200" style="border-radius:8px;" id="qr-img-fallback">`;

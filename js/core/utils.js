@@ -214,8 +214,10 @@ const Utils = (() => {
 
   /** Init Flatpickr with sanitized value; never throws on bad stored dates. */
   function initFlatpickrOnElement(el, options) {
-    if (!el || typeof flatpickr === 'undefined') return null;
-    sanitizeDateInputElement(el);
+    if (!el) return null;
+    const run = () => {
+      if (typeof flatpickr === 'undefined') return null;
+      sanitizeDateInputElement(el);
     if (el._flatpickr) {
       try { el._flatpickr.destroy(); } catch { /* ignore */ }
       el._flatpickr = null;
@@ -262,6 +264,12 @@ const Utils = (() => {
       if (window.__WFA_DEV__) console.warn('[Flatpickr] init skipped:', e?.message || e);
       return null;
     }
+    };
+    if (typeof flatpickr !== 'undefined') return run();
+    if (window.LazyLibs) {
+      window.LazyLibs.load('flatpickr').then(run).catch(() => {});
+    }
+    return null;
   }
 
 
@@ -592,23 +600,30 @@ const Utils = (() => {
   // ── Excel Export (SheetJS) ────────────────────────────────
   function exportExcel(rows, filename, sheetName) {
     if (!rows || !rows.length) { toast('No data available', 'warn'); return; }
-    if (typeof XLSX === 'undefined') { toast('Excel library Not loaded', 'error'); return; }
-    const ws = XLSX.utils.json_to_sheet(rows);
+    const run = () => {
+      const ws = XLSX.utils.json_to_sheet(rows);
 
-    // Auto-size columns to prevent visual truncation in Excel/LibreOffice
-    const cols = Object.keys(rows[0]).map(key => {
-      const maxLen = Math.max(
-        key.length,
-        ...rows.map(r => r[key] ? r[key].toString().length : 0)
-      );
-      return { wch: Math.min(maxLen + 2, 50) }; // cap width at 50
-    });
-    ws['!cols'] = cols;
+      // Auto-size columns to prevent visual truncation in Excel/LibreOffice
+      const cols = Object.keys(rows[0]).map(key => {
+        const maxLen = Math.max(
+          key.length,
+          ...rows.map(r => r[key] ? r[key].toString().length : 0)
+        );
+        return { wch: Math.min(maxLen + 2, 50) }; // cap width at 50
+      });
+      ws['!cols'] = cols;
 
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
-    XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
-    toast('Excel Downloaded ✓', 'success');
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
+      XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
+      toast('Excel Downloaded ✓', 'success');
+    };
+    if (typeof XLSX !== 'undefined') { run(); return; }
+    if (window.LazyLibs) {
+      window.LazyLibs.load('xlsx').then(run).catch(() => toast('Excel library not loaded', 'error'));
+      return;
+    }
+    toast('Excel library Not loaded', 'error');
   }
 
   // ── CSV Export ────────────────────────────────────────────
@@ -644,19 +659,19 @@ const Utils = (() => {
   // underlying value stays YYYY-MM-DD for filter logic, but the
   // user sees DD/MM/YYYY.
   function initFilterDatePickers(containerSelectorOrEl) {
-    if (typeof flatpickr === 'undefined') return;
-    let container;
-    if (!containerSelectorOrEl) {
-      container = document.body;
-    } else if (typeof containerSelectorOrEl === 'string') {
-      container = document.querySelector(containerSelectorOrEl);
-    } else {
-      container = containerSelectorOrEl;
-    }
-    if (!container) return;
-    // Only target inputs OUTSIDE modals (filter bars)
-    container.querySelectorAll('input[type="date"]').forEach(el => {
-      if (el._flatpickr) return;
+    const run = () => {
+      let container;
+      if (!containerSelectorOrEl) {
+        container = document.body;
+      } else if (typeof containerSelectorOrEl === 'string') {
+        container = document.querySelector(containerSelectorOrEl);
+      } else {
+        container = containerSelectorOrEl;
+      }
+      if (!container) return;
+      // Only target inputs OUTSIDE modals (filter bars)
+      container.querySelectorAll('input[type="date"]').forEach(el => {
+        if (el._flatpickr) return;
       if (el.closest('#modal-backdrop') || el.closest('.modal-backdrop')) return;
       initFlatpickrOnElement(el, {
         dateFormat:  'Y-m-d',
@@ -670,6 +685,9 @@ const Utils = (() => {
         },
       });
     });
+    };
+    if (typeof flatpickr !== 'undefined') { run(); return; }
+    if (window.LazyLibs) window.LazyLibs.load('flatpickr').then(run).catch(() => {});
   }
 
   // ── Pagination ────────────────────────────────────────────

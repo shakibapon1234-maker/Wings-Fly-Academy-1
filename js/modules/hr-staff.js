@@ -406,10 +406,15 @@ const HRStaff = (() => {
       'Phone': s.phone, 'Email': s.email, 'Salary': s.salary,
       'Join': s.joiningDate, 'Status': s.status
     }));
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Staff');
-    XLSX.writeFile(wb, 'hr-staff.xlsx');
+    const run = () => {
+      const ws = XLSX.utils.json_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff');
+      XLSX.writeFile(wb, 'hr-staff.xlsx');
+    };
+    if (typeof XLSX !== 'undefined') { run(); return; }
+    if (window.LazyLibs) window.LazyLibs.load('xlsx').then(run).catch(() => Utils.toast('Excel library not loaded', 'error'));
+    else Utils.toast('Excel library not loaded', 'error');
   }
 
   /* ─── Print ─── */

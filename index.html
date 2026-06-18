@@ -56,42 +56,33 @@
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="assets/favicon.ico" />
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts — non-blocking (display=swap in URL) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;500;600;700;800&family=Hind+Siliguri:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" /></noscript>
 
-  <!-- Icons (local + CDN fallback) -->
-  <link rel="stylesheet" href="css/lib/font-awesome.min.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'" />
+  <!-- Icons — deferred (login works without icons briefly) -->
+  <link rel="preload" as="style" href="css/lib/font-awesome.min.css" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="css/lib/font-awesome.min.css" /></noscript>
 
-  <!-- Chart.js -->
-  <script src="js/lib/chart.umd.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js'"></script>
-
-  <!-- SheetJS (Excel export) -->
-  <script src="js/lib/xlsx.full.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'"></script>
-
-  <!-- Supabase JS v2 -->
-  <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
-  <!-- QR Code Generator -->
-  <script src="js/lib/qrcode.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'"></script>
-
-  <!-- CSS -->
+  <!-- Critical CSS for login + app shell -->
   <link rel="stylesheet" href="css/main.css" />
-  <link rel="stylesheet" href="css/attendance.css" />
-  <link rel="stylesheet" href="css/exam.css" />
-  <link rel="stylesheet" href="css/cert-v2.css" />
   <link rel="stylesheet" href="css/print.css" media="print" />
-  <!-- AI Assistant CSS Re-enabled -->
-  <link rel="stylesheet" href="css/ai-assistant.css" />
-  <link rel="stylesheet" href="css/mobile.css" />
 
-  <!-- Flatpickr — DD/MM/YYYY date picker (Req 4) -->
-  <link rel="stylesheet" href="css/lib/flatpickr-dark.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/dark.css'" />
-  <script src="js/lib/flatpickr.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/flatpickr'"></script>
-
-  <!-- ✅ Bug #1 Fix: html2canvas + jsPDF — required for ID card & certificate PDF generation -->
-  <script src="js/lib/html2canvas.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'"></script>
-  <script src="js/lib/jspdf.umd.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'"></script>
+  <!-- Module CSS — load after first paint -->
+  <link rel="stylesheet" href="css/attendance.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/exam.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/cert-v2.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/ai-assistant.css" media="print" onload="this.media='all'" />
+  <link rel="stylesheet" href="css/mobile.css" media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet" href="css/attendance.css" />
+    <link rel="stylesheet" href="css/exam.css" />
+    <link rel="stylesheet" href="css/cert-v2.css" />
+    <link rel="stylesheet" href="css/ai-assistant.css" />
+    <link rel="stylesheet" href="css/mobile.css" />
+  </noscript>
 </head>
 <body>
 
@@ -114,7 +105,10 @@
     <div class="login-box">
       <div class="login-box-inner-top"></div>
       <div class="login-logo-ring">
-        <img src="assets/logo.jpg" alt="Wings Fly" onerror="this.style.display='none'" />
+        <picture>
+          <source srcset="assets/logo.webp" type="image/webp" />
+          <img src="assets/logo.jpg" alt="Wings Fly" width="80" height="80" decoding="async" fetchpriority="high" onerror="this.style.display='none'" />
+        </picture>
       </div>
 
       <h1 class="login-title">Wings Fly <span class="login-title-accent">Admin</span></h1>
@@ -516,6 +510,7 @@
        JS — Load Order Matters
   ════════════════════════════════════════ -->
   <!-- Core (defer: page render block হয় না, order preserved) -->
+  <script src="js/core/lazy-libs.js" defer></script>
   <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
   <script src="js/core/utils.js" defer></script>
   <!-- ✅ Bug #1 Fix: loading-state.js must load before app.js/modules so WFA_Loading is available -->
@@ -530,6 +525,8 @@
   <script src="js/core/i18n.js" defer></script>
   <script src="js/core/translations-en.js" defer></script>
   <script src="js/core/language.js" defer></script>
+  <!-- Supabase SDK — defer (lazy-libs also loads on demand; this keeps init order) -->
+  <script src="js/lib/supabase.min.js" defer onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
   <script src="js/core/supabase-config.js" defer></script>
   <script src="js/core/supabase-sync.js" defer></script>
   <script src="js/core/sync-guard.js" defer></script>

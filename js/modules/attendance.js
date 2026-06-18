@@ -1536,12 +1536,14 @@ const Attendance = (() => {
       Date: r.date, ID: r.entityId, Name: r.entityName,
       Batch: r.batch || '', Status: r.status,
     }));
-    if (typeof XLSX !== 'undefined') {
+    const run = () => {
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
       XLSX.writeFile(wb, `attendance-export.xlsx`);
-    }
+    };
+    if (typeof XLSX !== 'undefined') { run(); return; }
+    if (window.LazyLibs) window.LazyLibs.load('xlsx').then(run).catch(() => {});
   }
 
   /* ─── Monthly stats for dashboard ─── */
