@@ -47,13 +47,20 @@ if ('serviceWorker' in navigator && !window.Capacitor) {
   ];
 
   let resizeTimer = null;
+  let pendingResize = false;
   function resize() {
-    W = Math.max(1, window.innerWidth  || 1);
-    H = Math.max(1, window.innerHeight || 1);
-    canvas.width  = W;
+    pendingResize = false;
+    const w = window.innerWidth || 1;
+    const h = window.innerHeight || 1;
+    if (w === W && h === H) return;
+    W = Math.max(1, w);
+    H = Math.max(1, h);
+    canvas.width = W;
     canvas.height = H;
   }
   function debouncedResize() {
+    if (pendingResize) return;
+    pendingResize = true;
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(resize, 150);
   }
@@ -133,13 +140,21 @@ if ('serviceWorker' in navigator && !window.Capacitor) {
     animFrameId = requestAnimationFrame(draw);
   }
 
-  resize();
-  window.addEventListener('resize', debouncedResize);
-  document.addEventListener('visibilitychange', () => {
-    isVisible = !document.hidden;
-    if (isVisible && !animFrameId) animFrameId = requestAnimationFrame(draw);
-  });
-  draw();
+  function startAnimation() {
+    resize();
+    window.addEventListener('resize', debouncedResize);
+    document.addEventListener('visibilitychange', () => {
+      isVisible = !document.hidden;
+      if (isVisible && !animFrameId) animFrameId = requestAnimationFrame(draw);
+    });
+    draw();
+  }
+
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(startAnimation, { timeout: 2000 });
+  } else {
+    setTimeout(startAnimation, 300);
+  }
 })();
 
 /* ══════════════════════════════════════════════════════

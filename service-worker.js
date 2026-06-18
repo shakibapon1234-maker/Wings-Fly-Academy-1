@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   './index.html',
   './manifest.json',
   './css/main.css',
+  './css/login-critical.css',
   './css/mobile.css',
   './css/attendance.css',
   './css/exam.css',
@@ -31,6 +32,8 @@ const STATIC_ASSETS = [
   './js/core/integrity-guard.js',
   './js/core/app.js',
   './js/core/utils.js',
+  './js/core/lazy-libs.js',
+  './js/core/lazy-modules.js',
   './js/core/inline-handlers.js',
   './js/core/i18n.js',
   // BUG-S5 fix: language.js and translations-en.js were missing from SW cache

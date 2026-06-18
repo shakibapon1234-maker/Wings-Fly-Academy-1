@@ -6726,13 +6726,18 @@ ${expenseEntries.length > 0 ? `
   const savedSidebar = localStorage.getItem(`wfa_sidebar_${savedTheme}`) || 'glass';
   const allSidebarStyles = ['glass','crystal','aurora-glow','tinted','carbon','neonstrip','velvet'];
   
-  document.addEventListener('DOMContentLoaded', () => {
+  function _applySavedSidebarStyle() {
     const sidebar = document.getElementById('sidebar');
     if (sidebar) {
       allSidebarStyles.forEach(s => sidebar.classList.remove(`sidebar-${s}`));
       sidebar.classList.add(`sidebar-${savedSidebar}`);
     }
-  });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _applySavedSidebarStyle);
+  } else {
+    _applySavedSidebarStyle();
+  }
 
   // Inject colors immediately
   const sideSavedJSON = localStorage.getItem(`wfa_sidebar_custom_${savedTheme}_${savedSidebar}`);

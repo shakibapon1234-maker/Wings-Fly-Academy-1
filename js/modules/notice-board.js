@@ -470,4 +470,11 @@ const NoticeBoardModule = (() => {
 window.NoticeBoard = NoticeBoardModule;
 window.NoticeBoardModule = NoticeBoardModule;
 
-document.addEventListener('DOMContentLoaded', () => { setTimeout(NoticeBoardModule.init, 1000); });
+function _bootNoticeBoard() {
+  setTimeout(NoticeBoardModule.init, 1000);
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootNoticeBoard);
+} else {
+  _bootNoticeBoard();
+}

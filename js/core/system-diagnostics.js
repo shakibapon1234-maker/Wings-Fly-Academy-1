@@ -1140,7 +1140,7 @@ try {
   if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
     SystemDiagnostics.cleanupLeftovers();
   } else {
-    document.addEventListener('DOMContentLoaded', () => {
+    const runCleanup = () => {
       if (window.SupabaseSync && window.WFA_IDB && typeof WFA_IDB.onReady === 'function') {
         WFA_IDB.onReady(() => {
           SystemDiagnostics.cleanupLeftovers();
@@ -1148,7 +1148,12 @@ try {
       } else {
         SystemDiagnostics.cleanupLeftovers();
       }
-    });
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runCleanup);
+    } else {
+      runCleanup();
+    }
   }
 } catch (e) {
   console.warn('[Diagnostics] Auto cleanup failed on script load:', e);

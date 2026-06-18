@@ -595,6 +595,26 @@ const App = (() => {
       }
       patBtn.style.display = hasPat ? 'flex' : 'none';
     }
+
+    if (window.LazyModules) {
+      const prefetchLoginModules = () => {
+        window.LazyModules.prefetchLoginExtras().then(() => {
+          const faceBtn2 = document.getElementById('face-id-login-btn');
+          if (faceBtn2 && faceBtn2.style.display === 'none' && localStorage.getItem('wfa_admin_face_descriptor')) {
+            faceBtn2.style.display = 'flex';
+          }
+          const patBtn2 = document.getElementById('pattern-lock-login-btn');
+          if (patBtn2 && patBtn2.style.display === 'none' && localStorage.getItem('wfa_admin_pattern')) {
+            patBtn2.style.display = 'flex';
+          }
+        }).catch(() => {});
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(prefetchLoginModules, { timeout: 10000 });
+      } else {
+        setTimeout(prefetchLoginModules, 2500);
+      }
+    }
   }
 
   function showApp(fromLogin = false) {
@@ -629,7 +649,8 @@ const App = (() => {
       }
     }
 
-    if (window.LazyLibs) window.LazyLibs.prefetchAfterLogin();
+    if (window.LazyModules) window.LazyModules.prefetchAfterLogin();
+    else if (window.LazyLibs) window.LazyLibs.prefetchAfterLogin();
   }
 
   // ── Navigation ────────────────────────────────────────────
@@ -642,7 +663,11 @@ const App = (() => {
         if (typeof Utils !== 'undefined') Utils.toast('Access denied: settings are admin only', 'error');
         return;
       }
-      if (typeof SettingsModule !== 'undefined') SettingsModule.openModal();
+      const openSettings = () => {
+        if (typeof SettingsModule !== 'undefined') SettingsModule.openModal();
+      };
+      if (window.LazyModules) window.LazyModules.ensure('settings').then(openSettings);
+      else openSettings();
       return;
     }
 
@@ -651,7 +676,11 @@ const App = (() => {
       currentSection = section;
       sessionStorage.setItem('wfa_last_section', section);
       setTimeout(() => {
-        if (typeof Attendance !== 'undefined') Attendance.openModal();
+        const openAttendance = () => {
+          if (typeof Attendance !== 'undefined') Attendance.openModal();
+        };
+        if (window.LazyModules) window.LazyModules.ensure('attendance').then(openAttendance);
+        else openAttendance();
       }, 80);
       return;
     }
@@ -700,8 +729,13 @@ const App = (() => {
       if (sidebar) sidebar.classList.remove('open');
     }
 
-    // Trigger module render
-    renderModule(section);
+    // Trigger module render (lazy-load script bundle on first visit)
+    const doRender = () => renderModule(section);
+    if (window.LazyModules) {
+      window.LazyModules.ensureSection(section).then(doRender).catch(doRender);
+    } else {
+      doRender();
+    }
     window.dispatchEvent(new CustomEvent('wfa:navigate', { detail: { section } }));
   }
 
@@ -815,7 +849,11 @@ const App = (() => {
     switch (type) {
       case 'student':
         // ✅ Mobile fix: Open modal directly without navigating to heavy students tab
-        if (typeof Students !== 'undefined') Students.openAddModal();
+        const openStudentModal = () => {
+          if (typeof Students !== 'undefined') Students.openAddModal();
+        };
+        if (window.LazyModules) window.LazyModules.ensure('students').then(openStudentModal);
+        else openStudentModal();
         break;
       case 'transaction':
         // ✅ Fix #2: navigate to Finance first, then open modal after render

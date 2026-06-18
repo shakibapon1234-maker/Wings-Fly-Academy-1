@@ -62,12 +62,17 @@
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" /></noscript>
 
+  <!-- LCP image -->
+  <link rel="preload" as="image" href="assets/logo.webp" type="image/webp" fetchpriority="high" />
+
   <!-- Icons — deferred (login works without icons briefly) -->
   <link rel="preload" as="style" href="css/lib/font-awesome.min.css" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="css/lib/font-awesome.min.css" /></noscript>
 
-  <!-- Critical CSS for login + app shell -->
-  <link rel="stylesheet" href="css/main.css" />
+  <!-- Critical CSS for login first paint; full app styles load async -->
+  <link rel="stylesheet" href="css/login-critical.css" />
+  <link rel="stylesheet" href="css/main.css" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="css/main.css" /></noscript>
   <link rel="stylesheet" href="css/print.css" media="print" />
 
   <!-- Module CSS — load after first paint -->
@@ -511,6 +516,7 @@
   ════════════════════════════════════════ -->
   <!-- Core (defer: page render block হয় না, order preserved) -->
   <script src="js/core/lazy-libs.js" defer></script>
+  <script src="js/core/lazy-modules.js" defer></script>
   <!-- ✅ utils.js FIRST — supabase-sync.js uses Utils.safeJSON/esc at init time -->
   <script src="js/core/utils.js" defer></script>
   <!-- ✅ Bug #1 Fix: loading-state.js must load before app.js/modules so WFA_Loading is available -->
@@ -530,55 +536,14 @@
   <script src="js/core/supabase-config.js" defer></script>
   <script src="js/core/supabase-sync.js" defer></script>
   <script src="js/core/sync-guard.js" defer></script>
-  <script src="js/core/integrity-guard.js" defer></script>
-  <script src="js/core/system-diagnostics.js" defer></script>
-  <script src="js/core/settings-diagnostics.js" defer></script>
-  <script src="js/core/backup-restore.js" defer></script>
   <script src="js/core/app.js" defer></script>
 
-  <!-- ✨ NEW: Premium Features (Free) -->
-  <script src="js/core/auto-update.js" defer></script>
-  <script src="js/core/push-notifications.js" defer></script>
-  <script src="js/core/offline-mode.js" defer></script>
-
-  <!-- Admin Panel (CSP-compliant version) -->
-  <!-- ✅ Bug #2 Fix: admin-panel.js extracted from admin.html for CSP compliance -->
-  <script src="js/core/admin-panel.js" defer></script>
-
-  <!-- UI -->
+  <!-- UI — login only; dashboard/settings/modules lazy-loaded via lazy-modules.js -->
   <script src="js/ui/login.js" defer></script>
-  <script src="js/ui/dashboard.js" defer></script>
-  <script src="js/ui/settings.js" defer></script>
-
-  <!-- Modules -->
-  <script src="js/modules/students.js" defer></script>
-  <script src="js/modules/finance.js" defer></script>
-  <script src="js/modules/accounts.js" defer></script>
-  <script src="js/modules/loans.js" defer></script>
-  <script src="js/modules/exam.js" defer></script>
-  <script src="js/modules/attendance.js" defer></script>
-  <script src="js/modules/hr-staff.js" defer></script>
-  <script src="js/modules/salary.js" defer></script>
-  <script src="js/modules/visitors.js" defer></script>
-  <script src="js/modules/id-cards.js" defer></script>
-  <script src="js/modules/certificates.js" defer></script>
-  <script src="js/modules/notice-board.js" defer></script>
-  <!-- voice-assistant.js: lazy-loaded AFTER login to prevent Out-of-Memory crash -->
-
-  <!-- Face Recognition: lazy-loaded on demand by face-id.js -->
-  <script src="js/modules/face-id.js" defer></script>
-
-  <!-- Wow Features (Phase 4) -->
-  <script src="js/modules/command-palette.js" defer></script>
-  <script src="js/modules/pattern-lock.js" defer></script>
 
   <!-- PWA + Background Animation + Inline Handlers (external — CSP compliant) -->
-  <!-- ✅ Bug Fix: Added defer — both scripts use DOMContentLoaded internally, safe to defer -->
   <script src="js/core/inline-handlers.js" defer></script>
   <script src="js/core/mobile-nav.js" defer></script>
-  <!-- ✅ FIXED: Removed app-updater.js (duplicate) — auto-update.js is the single update checker -->
-  <!-- AI Assistant Re-enabled -->
-  <script src="js/modules/ai-assistant.js" defer></script>
 
 
 </body>

@@ -233,9 +233,14 @@ const CommandPalette = (() => {
   return { init, open, close };
 })();
 
-document.addEventListener('DOMContentLoaded', () => {
+function _bootCommandPalette() {
   setTimeout(() => CommandPalette.init(), 1200);
-});
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _bootCommandPalette);
+} else {
+  _bootCommandPalette();
+}
 
 // Bug #2 fix: export to window so other modules can access CommandPalette
 window.CommandPalette = CommandPalette;

@@ -2,8 +2,7 @@
    Wings Fly Aviation Academy — Global Styles (main.css)
    ============================================================ */
 
-/* ── Fonts ─────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Exo+2:wght@400;500;600;700;800&display=swap');
+/* Fonts loaded non-blocking from index.html (avoid render-blocking @import) */
 
 /* ── CSS Variables ──────────────────────────────────────────── */
 :root {
