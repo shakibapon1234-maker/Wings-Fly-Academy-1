@@ -464,17 +464,17 @@ body {
 .login-btn:active { transform: translateY(1px); }
 .login-btn-shimmer {
   position: absolute;
-  top: 0; left: -90%;
+  inset: 0 auto 0 -90%;
   width: 55%;
-  height: 100%;
   background: linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent);
   animation: loginBtnShimmer 2.8s ease-in-out infinite;
   pointer-events: none;
+  will-change: transform;
 }
 @keyframes loginBtnShimmer {
-  0%   { left: -90%; }
-  55%  { left: 140%; }
-  100% { left: 140%; }
+  0%   { transform: translateX(0); }
+  55%  { transform: translateX(260%); }
+  100% { transform: translateX(260%); }
 }
 .login-btn:disabled {
   opacity: 0.60;
