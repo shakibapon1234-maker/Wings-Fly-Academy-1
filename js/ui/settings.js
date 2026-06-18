@@ -2160,10 +2160,10 @@ const SettingsModule = (() => {
                   const pct  = fee > 0 ? Math.round((paid / fee) * 100) : 0;
                   return `<tr>
                     <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
-                    <td><strong>${s.name || '—'}</strong></td>
-                    <td><span class="badge badge-primary">${s.student_id || '—'}</span></td>
-                    <td>${s.batch || '—'}</td>
-                    <td style="font-size:0.82rem;color:var(--text-secondary);">${s.course || '—'}</td>
+                    <td><strong>${Utils.esc(s.name) || '—'}</strong></td>
+                    <td><span class="badge badge-primary">${Utils.esc(s.student_id) || '—'}</span></td>
+                    <td>${Utils.esc(s.batch) || '—'}</td>
+                    <td style="font-size:0.82rem;color:var(--text-secondary);">${Utils.esc(s.course) || '—'}</td>
                     <td style="font-weight:700;color:var(--brand-primary);">৳${fee.toLocaleString('en-IN')}</td>
                     <td style="font-weight:700;color:#00ff88;">৳${paid.toLocaleString('en-IN')}</td>
                     <td style="font-weight:700;color:${due > 0 ? '#ff4757' : 'var(--text-muted)'};">৳${due.toLocaleString('en-IN')}</td>
@@ -2208,14 +2208,14 @@ const SettingsModule = (() => {
             </thead>
             <tbody>
               ${expenseEntries.sort((a,b) => a.date > b.date ? 1 : -1).map((f, i) => {
-                const personStr = (f.person_name || f.person) ? `<strong style="color:var(--brand-primary)">[${f.person_name || f.person}]</strong> ` : '';
+                const personStr = (f.person_name || f.person) ? `<strong style="color:var(--brand-primary)">[${Utils.esc(f.person_name || f.person)}]</strong> ` : '';
                 return `
                 <tr>
                   <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
                   <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || '—'}</td>
-                  <td>${personStr}${f.description || '—'}</td>
-                  <td><span class="badge badge-secondary">${f.category || 'General'}</span></td>
-                  <td>${f.method || '—'}</td>
+                  <td>${personStr}${Utils.esc(f.description) || '—'}</td>
+                  <td><span class="badge badge-secondary">${Utils.esc(f.category) || 'General'}</span></td>
+                  <td>${Utils.esc(f.method) || '—'}</td>
                   <td style="text-align:right;font-weight:700;color:#ff9a00;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
                 </tr>
               `}).join('')}
@@ -2418,10 +2418,10 @@ const SettingsModule = (() => {
       const due  = parseFloat(s.due) || Math.max(0, fee - paid);
       return `<tr>
         <td style="text-align:center;color:#777;">${i + 1}</td>
-        <td style="font-weight:700;">${s.name || '—'}</td>
-        <td><span class="badge badge-blue">${s.student_id || '—'}</span></td>
-        <td>${s.batch || '—'}</td>
-        <td style="color:#555;">${s.course || '—'}</td>
+        <td style="font-weight:700;">${Utils.esc(s.name) || '—'}</td>
+        <td><span class="badge badge-blue">${Utils.esc(s.student_id) || '—'}</span></td>
+        <td>${Utils.esc(s.batch) || '—'}</td>
+        <td style="color:#555;">${Utils.esc(s.course) || '—'}</td>
         <td style="text-align:right;font-weight:700;color:#1d4ed8;">৳${fee.toLocaleString('en-IN')}</td>
         <td style="text-align:right;font-weight:700;color:#15803d;">৳${paid.toLocaleString('en-IN')}</td>
         <td style="text-align:right;font-weight:700;color:${due > 0 ? '#b91c1c' : '#555'};">৳${due.toLocaleString('en-IN')}</td>
@@ -2636,13 +2636,13 @@ ${expenseEntries.length > 0 ? `
                     return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
                       <td style="padding:10px 8px;color:var(--text-muted)">${a._idx + 1}</td>
-                      <td style="padding:10px 8px;font-weight:700">${a.person || '—'}</td>
+                      <td style="padding:10px 8px;font-weight:700">${Utils.esc(a.person) || '—'}</td>
                       <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
                       <td style="padding:10px 8px;text-align:right;color:#00d4ff">৳${a._totalReturned.toLocaleString()}</td>
                       <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ff4757'};font-weight:700">৳${a._remaining.toLocaleString()}</td>
-                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${a.method || '—'}</span></td>
+                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${Utils.esc(a.method) || '—'}</span></td>
                       <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${a.date || '—'}</td>
-                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${a.note || '—'}</td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${Utils.esc(a.note) || '—'}</td>
                       <td style="padding:10px 8px">
                         <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;border:1px solid ${statusColor}44">${statusText}</span>
                         ${!isFullyReturned && pct > 0 ? `<div style="margin-top:4px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px"><div style="width:${pct}%;height:100%;background:#00d4ff;border-radius:2px"></div></div>` : ''}
@@ -4080,7 +4080,7 @@ ${expenseEntries.length > 0 ? `
     const returns = a.returns || [];
     const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
     const remaining = (parseFloat(a.amount) || 0) - totalReturned;
-    openSettingsInternalModal(`↩️ Return Advance — ${a.person}`, `
+    openSettingsInternalModal(`↩️ Return Advance — ${Utils.esc(a.person)}`, `
       <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:14px;margin-bottom:16px">
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Original Amount</span><span style="color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</span></div>
         <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">৳${totalReturned.toLocaleString()}</span></div>
@@ -4150,19 +4150,19 @@ ${expenseEntries.length > 0 ? `
         <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.date}</td>
         <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Advance Given</span></td>
         <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
-        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.method}</td>
-        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.note||'—'}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(a.method)}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(a.note)||'—'}</td>
       </tr>`,
       ...returns.map((r, ri) => `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
           <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
           <td style="padding:10px 8px"><span style="background:rgba(0,255,136,0.15);color:#00ff88;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
           <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">+৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.method||'—'}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.note||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'—'}</td>
         </tr>`)
     ].join('');
-    openSettingsInternalModal(`📋 Advance Ledger — ${a.person}`, `
+    openSettingsInternalModal(`📋 Advance Ledger — ${Utils.esc(a.person)}`, `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
         <div style="flex:1;min-width:100px;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Advanced</div><div style="color:#ff4757;font-weight:800">৳${(parseFloat(a.amount)||0).toLocaleString()}</div></div>
         <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
@@ -4391,11 +4391,11 @@ ${expenseEntries.length > 0 ? `
           <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
           <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
           <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.method||'—'}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.note||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'—'}</td>
         </tr>`)
     ].join('');
-    openSettingsInternalModal(`📋 Investment Ledger — ${inv.source}`, `
+    openSettingsInternalModal(`📋 Investment Ledger — ${Utils.esc(inv.source)}`, `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
         <div style="flex:1;min-width:100px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Invested</div><div style="color:#a855f7;font-weight:800">৳${(parseFloat(inv.amount)||0).toLocaleString()}</div></div>
         <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
@@ -6073,9 +6073,9 @@ ${expenseEntries.length > 0 ? `
            <tbody>
              ${subs.map((s, idx) => `
                <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
-                  <td style="padding:8px 0; color:var(--brand-cyan)">@${s.username}</td>
-                  <td style="padding:8px 0; color:var(--text-muted); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="${s.permissions.join(', ')}">
-                    ${s.permissions.length ? s.permissions.join(', ') : '<span style="color:var(--error)">No Access</span>'}
+                  <td style="padding:8px 0; color:var(--brand-cyan)">@${Utils.esc(s.username)}</td>
+                  <td style="padding:8px 0; color:var(--text-muted); max-width:180px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="${Utils.escAttr(s.permissions.join(', '))}">
+                    ${s.permissions.length ? Utils.esc(s.permissions.join(', ')) : '<span style="color:var(--error)">No Access</span>'}
                   </td>
                   <td style="padding:8px 0; text-align:right">
                     <button class="btn btn-xs" style="background:rgba(255,0,85,0.1); border:1px solid rgba(255,0,85,0.3); color:var(--error); padding:2px 8px; border-radius:4px" onclick="SettingsModule.deleteSubAccount(${idx})"><i class="fa fa-trash"></i> DELETE</button>

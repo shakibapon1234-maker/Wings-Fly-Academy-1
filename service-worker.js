@@ -5,7 +5,7 @@
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260606-cert-login-fix)
 const DEPLOY_ID = '20260614-security-restore-fixes';
 
-const CACHE_NAME = `wfa-v9-${DEPLOY_ID}`;
+const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
 
 // js/core/types.js is intentionally NOT listed (JSDoc only — never load in browser or SW cache).
@@ -33,6 +33,9 @@ const STATIC_ASSETS = [
   './js/core/utils.js',
   './js/core/inline-handlers.js',
   './js/core/i18n.js',
+  // BUG-S5 fix: language.js and translations-en.js were missing from SW cache
+  './js/core/language.js',
+  './js/core/translations-en.js',
   './js/core/mobile-nav.js',
   './js/ui/dashboard.js',
   './js/ui/login.js',

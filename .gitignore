@@ -18,6 +18,7 @@ yarn-error.log*
 
 # Supabase credentials — NEVER commit live keys
 js/core/supabase-secrets.js
+android/app/src/main/assets/public/js/core/supabase-secrets.js
 
 # VAPID private key — NEVER commit (see VAPID_KEYS.md)
 VAPID_PRIVATE_KEY.local.md

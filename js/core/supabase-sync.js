@@ -2857,6 +2857,8 @@ const SyncEngine = (() => {
         const localTime = new Date(row.updated_at || 0).getTime();
         if (latestCloudTime > 0 && localTime < latestCloudTime - 300000) {
           // Cloud এ ৫ মিনিটের বেশি আগের record এর চেয়েও পুরনো local row — skip (stale data)
+          // BUG-S4 fix: warn instead of silently dropping, so data loss is traceable
+          if (window.__WFA_DEV__) console.warn('[SyncMerge] Dropping stale local-only record (id=%s, table implied by caller, localTime=%s, latestCloudTime=%s). If this is unexpected, check offline sync.', row.id, new Date(localTime).toISOString(), new Date(latestCloudTime).toISOString());
           return;
         }
         merged.set(row.id, row);

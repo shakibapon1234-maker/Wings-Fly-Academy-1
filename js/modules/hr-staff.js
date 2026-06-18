@@ -342,7 +342,7 @@ const HRStaff = (() => {
       SupabaseSync.update(DB.staff, editingId, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('edit', 'hr-staff',
-          `স্টাফ আপডেট: ${entry.name} (${entry.staffId || entry.staff_id || ''}) — ${entry.role}${entry.department ? ' — ' + entry.department : ''}`
+          `স্টাফ আপডেট: ${Utils.esc(entry.name)} (${Utils.esc(entry.staffId || entry.staff_id || '')}) — ${Utils.esc(entry.role)}${entry.department ? ' — ' + Utils.esc(entry.department) : ''}`
         );
       }
       Utils.toast('Staff Info Updated ✓', 'success');
@@ -350,7 +350,7 @@ const HRStaff = (() => {
       SupabaseSync.insert(DB.staff, entry, { bypassLog: true });
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'hr-staff',
-          `স্টাফ যোগ: ${entry.name} (${entry.staffId || entry.staff_id || ''}) — ${entry.role}${entry.department ? ' — ' + entry.department : ''}`
+          `স্টাফ যোগ: ${Utils.esc(entry.name)} (${Utils.esc(entry.staffId || entry.staff_id || '')}) — ${Utils.esc(entry.role)}${entry.department ? ' — ' + Utils.esc(entry.department) : ''}`
         );
       }
       Utils.toast('New Staff Added ✓', 'success');
@@ -374,7 +374,7 @@ const HRStaff = (() => {
     // ✅ লজিক ৬: Status update specific activity log
     if (typeof SupabaseSync.logActivity === 'function') {
       SupabaseSync.logActivity('update', 'hr-staff',
-        `স্টাফ স্ট্যাটাস: ${s.name} — ${s.status} → ${newStatus}`);
+        `স্টাফ স্ট্যাটাস: ${Utils.esc(s.name)} — ${Utils.esc(s.status)} → ${Utils.esc(newStatus)}`);
     }
 
     render();

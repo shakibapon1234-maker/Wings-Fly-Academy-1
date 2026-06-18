@@ -52,6 +52,10 @@ const AutoUpdateModule = (() => {
       if (!response || !response.ok) return { available: false, reason: 'fetch-failed' };
 
       const remoteVersion = await response.json();
+      // BUG-C3/S7 fix: validate remote JSON schema before using
+      if (!remoteVersion || typeof remoteVersion.version !== 'string' || !remoteVersion.version.trim()) {
+        return { available: false, reason: 'invalid-version-json' };
+      }
       let localVersion = localStorage.getItem(LOCAL_VERSION_KEY) || LOCAL_VERSION_FALLBACK;
       if (localVersion === '1.0.0') {
         localVersion = LOCAL_VERSION_FALLBACK;
@@ -164,8 +168,8 @@ const AutoUpdateModule = (() => {
 
       <div class="update-title">✨ নতুন আপডেট পাওয়া গেছে!</div>
       <div class="update-info">
-        <strong>Version ${updateInfo.version}</strong><br>
-        ${updateInfo.changelog}
+        <strong>Version ${Utils.esc(updateInfo.version)}</strong><br>
+        ${Utils.esc(updateInfo.changelog).replace(/\n/g, '<br>')}
       </div>
       <div class="update-actions">
         <button class="update-btn update-btn-accept" onclick="AutoUpdateModule.applyUpdate()">

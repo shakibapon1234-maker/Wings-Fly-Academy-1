@@ -495,7 +495,7 @@ const Salary = (() => {
           '<i class="fa fa-sack-dollar"></i> CONFIRM PAYMENT</button>' +
       '</div>';
 
-    Utils.openModal('<i class="fa fa-sack-dollar" style="color:#00d4ff;"></i> Pay Salary — ' + r.staffName, html);
+    Utils.openModal('<i class="fa fa-sack-dollar" style="color:#00d4ff;"></i> Pay Salary — ' + Utils.esc(r.staffName), html);
   }
 
   async function confirmPay(id) {
