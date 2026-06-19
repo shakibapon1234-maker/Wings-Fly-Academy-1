@@ -412,10 +412,18 @@ const LoginUI = (() => {
   function init() {
     spawnParticles();
     initEyeToggle();
+
+    // ✅ Fix: Browser password manager delay-এ autofill করে — তাই 50ms পরে fields clear করো
+    // এটা logout-এর পরে পুরানো username/password দেখা যাওয়া বন্ধ করে
     setTimeout(() => {
       const u = document.getElementById('login-username');
+      const p = document.getElementById('login-password');
+      if (u && u.value) u.value = '';
+      if (p && p.value) p.value = '';
+      // Focus করো username-এ
       if (u) u.focus();
-    }, 350);
+    }, 80);
+
     const modal = document.getElementById('forgot-pw-modal');
     if (modal) modal.addEventListener('click', (e) => {
       if (e.target === modal) closeForgotModal();

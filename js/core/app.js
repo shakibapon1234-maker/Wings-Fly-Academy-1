@@ -335,11 +335,42 @@ const App = (() => {
 
     // ── Sub-account login: hashed password compare ────────────────────
     const inputHash = await _hashPw(password);
-    const sub = getSubAccounts().find((s) => {
+
+    // ✅ Fix: নতুন browser বা incognito-তে IDB খালি থাকে, তাই Supabase থেকেও fetch করো
+    let subAccounts = getSubAccounts();
+
+    // যদি local-এ কোনো sub account না থাকে এবং Supabase client আছে,
+    // তাহলে Supabase থেকে directly fetch করো
+    if (subAccounts.length === 0 && window.supabaseClient) {
+      try {
+        const { data, error } = await window.supabaseClient
+          .from('sub_accounts')
+          .select('id,username,password,permissions')
+          .eq('username', normalizedUsername)
+          .limit(1);
+        if (!error && data && data.length > 0) {
+          subAccounts = data;
+          // Local cache-এও save করো যাতে পরে কাজে লাগে
+          try {
+            if (typeof SupabaseSync !== 'undefined') {
+              const existing = SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts') || [];
+              const merged = [...existing];
+              data.forEach(row => {
+                if (!merged.find(r => r.id === row.id)) merged.push(row);
+              });
+              SupabaseSync.setAll(DB.sub_accounts || 'sub_accounts', merged);
+            }
+          } catch { /* ignore cache error */ }
+        }
+      } catch { /* offline বা Supabase unavailable — local-only তেই চলো */ }
+    }
+
+    const sub = subAccounts.find((s) => {
       if (s.username !== normalizedUsername) return false;
       const isHashed = /^[0-9a-f]{64}$/.test(s.password) || s.password?.startsWith('fb_');
       return isHashed ? s.password === inputHash : s.password === password;
     });
+
     if (sub) {
       // ✅ Bug #5 + Fix C-01: Reset attempt counter in both storages
       localStorage.removeItem(attemptKey);
@@ -575,6 +606,15 @@ const App = (() => {
     const appEl = document.getElementById('app-wrapper');
     if (loginEl) loginEl.style.display = 'flex';
     if (appEl) appEl.style.display = 'none';
+
+    // ✅ Fix: Logout করার পরে username/password fields এবং error clear করো
+    // Browser autocomplete থেকে পুরানো credentials দেখা যাওয়া বন্ধ করতে
+    const uField = document.getElementById('login-username');
+    const pField = document.getElementById('login-password');
+    const errEl  = document.getElementById('login-error');
+    if (uField) { uField.value = ''; }
+    if (pField) { pField.value = ''; }
+    if (errEl)  { errEl.textContent = ''; errEl.classList.add('hidden'); }
     
     // Face ID button visibility
     const faceBtn = document.getElementById('face-id-login-btn');
