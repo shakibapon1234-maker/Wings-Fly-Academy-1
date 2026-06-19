@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260606-cert-login-fix)
-const DEPLOY_ID = '20260618-login-syntax-fix';
+const DEPLOY_ID = '20260619-audit-fixes';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
@@ -70,6 +70,10 @@ const STATIC_ASSETS = [
   './js/modules/face-id.js',
   './js/modules/pattern-lock.js',
   './assets/logo.jpg',
+  // ✅ Fix S-2: logo.webp and logo-80.webp added to precache — index.html preloads logo.webp
+  // as fetchpriority="high" LCP image; without this it fails offline on the login screen.
+  './assets/logo.webp',
+  './assets/logo-80.webp',
   './assets/favicon.ico',
   './assets/icon-192.png',
   './assets/icon-512.png',

@@ -159,7 +159,8 @@ const LazyLibs = (() => {
   }
 
   const APP_STYLES = [
-    { href: 'css/lib/font-awesome.min.css', cdn: 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css' },
+    // ✅ Fix S-1: Font Awesome moved out of APP_STYLES — loaded immediately via loadLoginIcons()
+    // so login screen icons render correctly before the user authenticates.
     { href: 'https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap' },
     { href: 'css/main.css' },
     { href: 'css/attendance.css' },
@@ -172,12 +173,27 @@ const LazyLibs = (() => {
   ];
 
   let _stylesPromise = null;
+  let _faPromise = null;
+
+  // ✅ Fix S-1: Load only Font Awesome immediately — keeps login icons visible on first paint.
+  // Called from lazy-libs.js init (below) so it runs as soon as this script is parsed.
+  function loadLoginIcons() {
+    if (_faPromise) return _faPromise;
+    _faPromise = _loadStylesheet(
+      'css/lib/font-awesome.min.css',
+      'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css'
+    );
+    return _faPromise;
+  }
 
   function loadAppStyles() {
     if (_stylesPromise) return _stylesPromise;
-    _stylesPromise = APP_STYLES.reduce(
-      (chain, item) => chain.then(() => _loadStylesheet(item.href, item.cdn, item.media)),
-      Promise.resolve()
+    // Ensure FA is included in the chain (loadLoginIcons may have already resolved it)
+    _stylesPromise = loadLoginIcons().then(() =>
+      APP_STYLES.reduce(
+        (chain, item) => chain.then(() => _loadStylesheet(item.href, item.cdn, item.media)),
+        Promise.resolve()
+      )
     ).catch((err) => {
       _stylesPromise = null;
       throw err;
@@ -194,7 +210,9 @@ const LazyLibs = (() => {
     }
   }
 
-  return { load, loadPdfKit, loadAppStyles, prefetchAppStyles, prefetchAfterLogin, ready: (name) => !!(DEFS[name] && DEFS[name].ready && DEFS[name].ready()) };
+  return { load, loadPdfKit, loadAppStyles, loadLoginIcons, prefetchAppStyles, prefetchAfterLogin, ready: (name) => !!(DEFS[name] && DEFS[name].ready && DEFS[name].ready()) };
 })();
 
 window.LazyLibs = LazyLibs;
+// ✅ Fix S-1: Auto-load Font Awesome immediately so login screen icons work on first paint
+LazyLibs.loadLoginIcons().catch(() => {});

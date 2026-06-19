@@ -1,7 +1,7 @@
 {
-  "version": "4.9.12",
-  "deploy_id": "20260618-login-syntax-fix",
-  "changelog": "Login syntax error fix.",
+  "version": "4.9.13",
+  "deploy_id": "20260619-audit-fixes",
+  "changelog": "PWA audit and bug fixes.",
   "size": "~2MB",
-  "released": "2026-06-18"
+  "released": "2026-06-19"
 }

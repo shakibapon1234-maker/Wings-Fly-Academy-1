@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <!-- ✅ Fix C-03: Content Security Policy -->
   <meta http-equiv="Content-Security-Policy" content="
-    default-src 'self' https://fznhiqzrslldybhmgopk.supabase.co;
+    default-src 'self' https://*.supabase.co;
     script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data: blob:;
@@ -24,6 +24,8 @@
   <script defer src="js/core/session-store.js"></script>
   <script defer src="js/core/supabase-standalone-creds.js"></script>
   <script defer src="js/core/utils.js"></script>
+  <!-- ✅ Fix S-5: i18n.js was missing — required for i18n.t() and language switching -->
+  <script defer src="js/core/i18n.js"></script>
   <script defer src="js/core/translations-en.js"></script>
   <script defer src="js/core/language.js"></script>
   <script defer src="js/core/supabase-config.js"></script>

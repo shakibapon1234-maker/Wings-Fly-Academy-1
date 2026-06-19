@@ -56,7 +56,7 @@ const PushNotificationModule = (() => {
     if (permResult.receive !== 'granted') {
       console.warn('[Push] Notification permission not granted');
       if (typeof Utils !== 'undefined') {
-        Utils.toast('নোটিফিকেশন অনুমতি দেওয়ার জন্য সেটিংস চেক করুন', 'info');
+        Utils.toast('নোটিফিকেশন অনুমতি দেওয়ার জন্য সেটিিংস চেক করুন', 'info');
       }
       return;
     }
@@ -100,15 +100,26 @@ const PushNotificationModule = (() => {
 
   // ── Web Push API (Fallback) ──
   async function initWebPush() {
-    // ✅ Bug #7 Fix: VAPID key config placeholder.
-    // To enable Web Push on browsers:
-    //   1. Generate VAPID keys: npx web-push generate-vapid-keys
-    //   2. Replace the empty string below with your Base64 public key.
-    //   3. Configure the private key on your backend/Supabase Edge Function.
-    const VAPID_PUBLIC_KEY = 'BNtOuAHb4Bd_FmxeFxrOw_Lst6ZYMKDcJDOYP-KSKbOYA2Q9kw6I9jGkUeS0CapJ0Xy_9WMRu0ciXgvXBcDaRlM'; // VAPID public key — rotated 2026-06-18 (previous key leaked)
-    // ✅ Bug #7 Fix: Empty VAPID key guard — push subscription will silently skip
+    // ✅ Fix C-2: VAPID public key is no longer hardcoded in source.
+    // Set it via Settings → Push Notifications → VAPID Public Key, stored in SecureStorage.
+    // To generate: npx web-push generate-vapid-keys
+    // The private key stays on the server (Supabase Edge Function / backend only).
+    let VAPID_PUBLIC_KEY = '';
+    try {
+      if (window.SecureStorage) {
+        VAPID_PUBLIC_KEY = (await window.SecureStorage.getItem('wfa_vapid_public_key')) || '';
+      }
+      if (!VAPID_PUBLIC_KEY) {
+        // Fallback: read from IDB settings row (set via Settings UI)
+        if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+          const settings = SupabaseSync.getAll(DB.settings || 'settings')[0];
+          VAPID_PUBLIC_KEY = (settings && settings.vapid_public_key) || '';
+        }
+      }
+    } catch { /* storage not available */ }
+
     if (!VAPID_PUBLIC_KEY) {
-      console.warn('[PushNotifications] VAPID_PUBLIC_KEY is empty — web push disabled. Set a valid VAPID key to enable push notifications.');
+      if (window.__WFA_DEV__) console.info('[Push] VAPID_PUBLIC_KEY not set — web push disabled. Configure via Settings → Push Notifications.');
       return;
     }
 
