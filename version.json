@@ -1,7 +1,7 @@
 {
-  "version": "4.9.11",
-  "deploy_id": "20260614-security-restore-fixes",
-  "changelog": "Restore + Security fixes (v4.9.11): notice-board.js TYPE_CFG lookup hardened with Object.prototype.hasOwnProperty (prototype pollution prevention); visitor-form.html session-store.js added; supabase-sync.js student restore recalculates paid/due from full ledger; vercel.json Content-Security-Policy HTTP header updated; manifest.json icon entries deduplicated (any+maskable combined) and narrow screenshot added; AUDIT.md changelog table structure fixed; jsconfig.json excludes types.js and js/lib explicitly; rotated leaked VAPID private key; added send-push Edge Function + subscriptions; pattern-lock stores credentials as salted SHA-256 hashes instead of plaintext.",
+  "version": "4.9.12",
+  "deploy_id": "20260618-login-syntax-fix",
+  "changelog": "Login syntax error fix.",
   "size": "~2MB",
-  "released": "2026-06-14"
+  "released": "2026-06-18"
 }
