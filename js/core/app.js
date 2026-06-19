@@ -658,6 +658,7 @@ const App = (() => {
       : Promise.resolve();
 
     loadStyles.then(revealApp).catch(revealApp).finally(afterReveal);
+  }
 
   // ── Navigation ────────────────────────────────────────────
   function navigateTo(section) {
@@ -853,7 +854,7 @@ const App = (() => {
     }
 
     switch (type) {
-      case 'student':
+      case 'student': {
         // ✅ Mobile fix: Open modal directly without navigating to heavy students tab
         const openStudentModal = () => {
           if (typeof Students !== 'undefined') Students.openAddModal();
@@ -861,6 +862,7 @@ const App = (() => {
         if (window.LazyModules) window.LazyModules.ensure('students').then(openStudentModal);
         else openStudentModal();
         break;
+      }
       case 'transaction':
         // ✅ Fix #2: navigate to Finance first, then open modal after render
         waitAndOpen('finance', 'finance-content', () => {
