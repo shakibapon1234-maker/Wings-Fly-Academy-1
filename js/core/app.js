@@ -220,21 +220,34 @@ const App = (() => {
     const permissions = getUserPermissions();
     if (permissions.includes('*')) return true;
 
+    // ✅ Fix: সব ট্যাব এখানে map করা — map-এ না থাকলে sub-account সেটা দেখতে পেত (ফাঁকফোকর)
     const map = {
-      students: 'Students',
-      finance: 'Finance/Ledger',
-      accounts: 'Accounts',
-      loans: 'Loans',
-      exam: 'Exams',
-      'hr-staff': 'HR / Staff',
-      salary: 'Salary Hub',
-      visitors: 'Visitors',
+      students:       'Students',
+      finance:        'Finance/Ledger',
+      accounts:       'Accounts',
+      loans:          'Loans',
+      exam:           'Exams',
+      'hr-staff':     'HR / Staff',
+      salary:         'Salary Hub',
+      visitors:       'Visitors',
+      attendance:     'Attendance',
+      'id-cards':     'ID Cards',
+      certificates:   'Certificates',
+      'notice-board': 'Notice Board',
+      settings:       'Settings',
+      // dashboard সবসময় দেখা যাবে
+      // settings শুধু admin দেখবে (navigateTo()-এ আলাদা block আছে)
     };
 
-    const required = map[section];
-    if (!required) return true; // allow sections without explicit sub-account controls
+    // dashboard সব sub-account দেখতে পাবে
+    if (section === 'dashboard') return true;
 
-    return permissions.includes(required);
+    const required = map[section];
+    // map-এ আছে কিন্তু permission নেই → deny
+    if (required !== undefined) return permissions.includes(required);
+
+    // map-এ নেই (unknown section) → deny by default (secure)
+    return false;
   }
 
   async function login(username, password) {
@@ -698,6 +711,31 @@ const App = (() => {
       : Promise.resolve();
 
     loadStyles.then(revealApp).catch(revealApp).finally(afterReveal);
+
+    // ✅ Sub ID nav hide: permission নেই এমন ট্যাব hide করো
+    // revealApp-এর পরে DOM ready হলে চালাও
+    setTimeout(_applyNavPermissions, 200);
+  }
+
+  // ── Sub ID Nav Permissions ────────────────────────────────
+  function _applyNavPermissions() {
+    // Admin সব দেখে
+    if (isAdmin()) {
+      document.querySelectorAll('.nav-item, .more-item, .bottom-nav-item').forEach(el => {
+        el.style.removeProperty('display');
+      });
+      return;
+    }
+    // Sub ID — permission-ছাড়া items hide করো
+    document.querySelectorAll('.nav-item[data-section], .more-item[data-section], .bottom-nav-item[data-section]').forEach(el => {
+      const section = el.dataset.section;
+      if (!section || section === 'dashboard') return;
+      if (hasPermission(section)) {
+        el.style.removeProperty('display');
+      } else {
+        el.style.display = 'none';
+      }
+    });
   }
 
   // ── Navigation ────────────────────────────────────────────
@@ -706,8 +744,8 @@ const App = (() => {
 
     // Settings opens as a modal overlay instead of navigating
     if (section === 'settings') {
-      if (!isAdmin()) {
-        if (typeof Utils !== 'undefined') Utils.toast('Access denied: settings are admin only', 'error');
+      if (!hasPermission('settings')) {
+        if (typeof Utils !== 'undefined') Utils.toast('⛔ Settings অ্যাক্সেসের অনুমতি নেই', 'error');
         return;
       }
       const openSettings = () => {
@@ -718,8 +756,12 @@ const App = (() => {
       return;
     }
 
-    // Attendance opens as a modal overlay
+    // Attendance opens as a modal overlay — permission চেক আগে
     if (section === 'attendance') {
+      if (!hasPermission('attendance')) {
+        if (typeof Utils !== 'undefined') Utils.toast('⛔ Attendance অ্যাক্সেসের অনুমতি নেই', 'error');
+        return;
+      }
       currentSection = section;
       sessionStorage.setItem('wfa_last_section', section);
       setTimeout(() => {

@@ -1533,8 +1533,9 @@ const SettingsModule = (() => {
             <style>
                .custom-chk { accent-color: var(--brand-primary); width: 16px; height: 16px; cursor: pointer; }
             </style>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; font-size:0.85rem; background:rgba(0,0,0,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05)">
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-students" checked class="custom-chk"> <span>🏆 Students</span></label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem; background:rgba(0,0,0,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05)">
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-students" checked class="custom-chk"> <span>🎓 Students</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-attendance" class="custom-chk"> <span>📋 Attendance</span></label>
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-finance" class="custom-chk"> <span>💰 Finance/Ledger</span></label>
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-accounts" class="custom-chk"> <span>📊 Accounts</span></label>
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-loans" class="custom-chk"> <span>💳 Loans</span></label>
@@ -1542,6 +1543,10 @@ const SettingsModule = (() => {
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-hr" class="custom-chk"> <span>👥 HR / Staff</span></label>
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-salary" class="custom-chk"> <span>💵 Salary Hub</span></label>
                <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-visitors" class="custom-chk"> <span>👤 Visitors</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-idcards" class="custom-chk"> <span>🪪 ID Cards</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-certificates" class="custom-chk"> <span>🏆 Certificates</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-noticeboard" class="custom-chk"> <span>📢 Notice Board</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-settings" class="custom-chk"> <span>⚙️ Settings</span></label>
             </div>
 
          </div>
@@ -6114,14 +6119,19 @@ ${expenseEntries.length > 0 ? `
 
      const permissions = [];
      const permsMap = {
-        'perm-students': 'Students',
-        'perm-finance': 'Finance/Ledger',
-        'perm-accounts': 'Accounts',
-        'perm-loans': 'Loans',
-        'perm-exams': 'Exams',
-        'perm-hr': 'HR / Staff',
-        'perm-salary': 'Salary Hub',
-        'perm-visitors': 'Visitors'
+        'perm-students':     'Students',
+        'perm-finance':      'Finance/Ledger',
+        'perm-accounts':     'Accounts',
+        'perm-loans':        'Loans',
+        'perm-exams':        'Exams',
+        'perm-hr':           'HR / Staff',
+        'perm-salary':       'Salary Hub',
+        'perm-visitors':     'Visitors',
+        'perm-attendance':   'Attendance',
+        'perm-idcards':      'ID Cards',
+        'perm-certificates': 'Certificates',
+        'perm-noticeboard':  'Notice Board',
+        'perm-settings':     'Settings',
      };
 
      for(const [id, label] of Object.entries(permsMap)) {
