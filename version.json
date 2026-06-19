@@ -1,6 +1,6 @@
 {
-  "version": "4.9.14",
-  "deploy_id": "20260619-integrity-lazy-loading-fix",
+  "version": "4.9.15",
+  "deploy_id": "20260619-integrity-hr-staff-fix",
   "changelog": "PWA audit and bug fixes.",
   "size": "~2MB",
   "released": "2026-06-19"

@@ -532,6 +532,7 @@ const IntegrityGuard = (() => {
     // Preload lazy modules if LazyModules is available before performing checks
     if (window.LazyModules && typeof window.LazyModules.ensure === 'function') {
       const getLazyModuleKey = (modName) => {
+        if (modName === 'HRStaff') return 'hr-staff';
         if (modName === 'ExamModule') return 'exam';
         if (modName === 'IDCardsModule') return 'id-cards';
         if (modName === 'CertificatesModule') return 'certificates';
