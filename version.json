@@ -1,6 +1,6 @@
 {
-  "version": "4.9.13",
-  "deploy_id": "20260619-audit-fixes",
+  "version": "4.9.14",
+  "deploy_id": "20260619-integrity-lazy-loading-fix",
   "changelog": "PWA audit and bug fixes.",
   "size": "~2MB",
   "released": "2026-06-19"

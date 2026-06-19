@@ -529,6 +529,29 @@ const IntegrityGuard = (() => {
   let _lastResult = null;
 
   async function run() {
+    // Preload lazy modules if LazyModules is available before performing checks
+    if (window.LazyModules && typeof window.LazyModules.ensure === 'function') {
+      const getLazyModuleKey = (modName) => {
+        if (modName === 'ExamModule') return 'exam';
+        if (modName === 'IDCardsModule') return 'id-cards';
+        if (modName === 'CertificatesModule') return 'certificates';
+        if (modName === 'DashboardModule') return 'dashboard';
+        if (modName === 'SettingsModule') return 'settings';
+        return modName.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      };
+
+      const promises = [];
+      for (const modName of Object.keys(MANIFEST.modules)) {
+        if (window[modName] === undefined || window[modName] === null) {
+          const key = getLazyModuleKey(modName);
+          promises.push(window.LazyModules.ensure(key).catch(() => {}));
+        }
+      }
+      if (promises.length > 0) {
+        await Promise.all(promises);
+      }
+    }
+
     const results = {
       timestamp: new Date().toISOString(),
       globals:   _checkGlobals(),
@@ -1080,10 +1103,7 @@ const IntegrityGuard = (() => {
 
     const criticalModules = isAdmin
       ? ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine']
-      : ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine', 'App',
-         'Students', 'HRStaff', 'Salary', 'Finance', 'Accounts',
-         'Loans', 'Attendance', 'Visitors', 'NoticeBoard',
-         'DashboardModule', 'LoginUI'];
+      : ['Utils', 'WFA_IDB', 'SupabaseSync', 'SyncEngine', 'App', 'LoginUI'];
     let pollCount = 0;
     const maxPolls = 15; // 15 × 2s = 30s max wait
 
