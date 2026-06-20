@@ -43,12 +43,15 @@ const LicenseEngine = (() => {
 
     const year = expDate.getFullYear();
     const month = String(expDate.getMonth() + 1).padStart(2, '0');
-    const day = String(expDate.getDate()).padStart(2, '0');
+
+    // Expire date = last day of expiry month (consistent with validate())
+    const lastDay = new Date(year, expDate.getMonth() + 1, 0).getDate();
+    const day = String(lastDay).padStart(2, '0');
 
     // random part
     const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
 
-    // encode expiry into payload
+    // encode expiry into payload — day NOT included (validate() derives it from YEARMONTH)
     const payload = `${year}${month}${code}${rand}${_SALT}`;
     const cs = _checksum(payload);
 
@@ -115,7 +118,7 @@ const LicenseEngine = (() => {
 
   // ── Save key to localStorage
   function save(key) {
-    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch { /* ignore */ }
+    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch {}
   }
 
   // ── Load saved key
