@@ -49,7 +49,7 @@ const LicenseEngine = (() => {
     const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
 
     // encode expiry into payload
-    const payload = `${year}${month}${day}${code}${rand}${_SALT}`;
+    const payload = `${year}${month}${code}${rand}${_SALT}`;
     const cs = _checksum(payload);
 
     // KEY = WFA-RAND-CODE-YEARMONTH-CS
@@ -83,7 +83,7 @@ const LicenseEngine = (() => {
     const monthStr = String(month).padStart(2, '0');
 
     // Verify checksum
-    const payload = `${year}${monthStr}${day}${code}${rand}${_SALT}`;
+    const payload = `${year}${monthStr}${code}${rand}${_SALT}`;
     const expectedCs = _checksum(payload);
 
     if (cs !== expectedCs) {
@@ -115,7 +115,7 @@ const LicenseEngine = (() => {
 
   // ── Save key to localStorage
   function save(key) {
-    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch {}
+    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch { /* ignore */ }
   }
 
   // ── Load saved key

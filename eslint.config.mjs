@@ -53,6 +53,7 @@ export default [
         // ── Core Guards & Diagnostics ──
         IntegrityGuard: "readonly",
         WfaSettingsDiagnostics: "readonly",
+        LicenseEngine: "readonly",
         // ── Capacitor / Mobile ──
         Capacitor: "readonly",
         cordova: "readonly",

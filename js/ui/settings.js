@@ -6670,7 +6670,7 @@ ${expenseEntries.length > 0 ? `
       try { return JSON.parse(localStorage.getItem(_CLIENTS_KEY) || '[]'); } catch { return []; }
     }
     function _saveClients(arr) {
-      try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(arr)); } catch {}
+      try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(arr)); } catch { /* ignore */ }
     }
 
     const clients = _loadClients();
