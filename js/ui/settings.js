@@ -1,5 +1,5 @@
-﻿// ============================================================
-// Wings Fly Aviation Academy â€” Settings Module (Full Parity)
+// ============================================================
+// Wings Fly Aviation Academy — Settings Module (Full Parity)
 // 11 Tabs matching legacy app design
 // ============================================================
 
@@ -7,11 +7,11 @@ const SettingsModule = (() => {
 
   let activeTab = 'general';
   let isOpen = false;
-  let _syncListener = null; // wfa:synced listener reference â€” closeModal-à¦ remove à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯
-  let _suppressSyncRebuild = false; // âœ… FIX: keep record save à¦•à¦°à¦¾à¦° à¦ªà¦°à§‡à¦‡ wfa:synced fire à¦¹à¦¯à¦¼, à¦¤à¦–à¦¨ modal rebuild à¦°à§‹à¦–à¦¾à¦° à¦œà¦¨à§à¦¯
-  let _syncRefreshTimer = null;    // âœ… FIX: debounced partial refresh â€” full modal rebuild UI hang à¦•à¦°à¦¤
+  let _syncListener = null; // wfa:synced listener reference — closeModal-এ remove করার জন্য
+  let _suppressSyncRebuild = false; // ✅ FIX: keep record save করার পরেই wfa:synced fire হয়, তখন modal rebuild রোখার জন্য
+  let _syncRefreshTimer = null;    // ✅ FIX: debounced partial refresh — full modal rebuild UI hang করত
 
-  // CSP-à¦¸à§‡à¦‡à¦«: index.html script-src-attr à¦›à¦¾à¦¡à¦¼à¦¾ inline onclick à¦¬à§à¦²à¦• à¦¹à¦¯à¦¼ â€” delegation à¦¦à¦¿à¦¯à¦¼à§‡ tab/close à¦šà¦¾à¦²à§
+  // CSP-সেইফ: index.html script-src-attr ছাড়া inline onclick ব্লক হয় — delegation দিয়ে tab/close চালু
   function _onSettingsOverlayClick(e) {
     const closeBtn = e.target.closest('.settings-close-btn');
     if (closeBtn) { e.preventDefault(); closeModal(); return; }
@@ -29,7 +29,7 @@ const SettingsModule = (() => {
     overlay.addEventListener('click', _onSettingsOverlayClick);
   }
 
-  // â”€â”€â”€ MODAL OPEN / CLOSE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── MODAL OPEN / CLOSE ───────────────────────────────────────
   function openModal() {
     if (isOpen) return;
     isOpen = true;
@@ -52,9 +52,9 @@ const SettingsModule = (() => {
     }, 10);
     
     document.body.style.overflow = 'hidden';
-    // â”€â”€ Real-time Activity Log refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Settings panel à¦–à§‹à¦²à¦¾ à¦¥à¦¾à¦•à¦²à§‡ à¦¯à§‡à¦•à§‹à¦¨à§‹ à¦•à¦¾à¦œ à¦•à¦°à¦²à§‡ activity log à¦“
-    // à¦…à¦¨à§à¦¯à¦¾à¦¨à§à¦¯ tabs real-time-à¦ à¦†à¦ªà¦¡à§‡à¦Ÿ à¦¹à¦¬à§‡
+    // ── Real-time Activity Log refresh ────────────────────────────
+    // Settings panel খোলা থাকলে যেকোনো কাজ করলে activity log ও
+    // অন্যান্য tabs real-time-এ আপডেট হবে
     if (_syncListener) {
       window.removeEventListener('wfa:synced', _syncListener);
     }
@@ -62,11 +62,11 @@ const SettingsModule = (() => {
       const panel = document.getElementById('settings-overlay');
       if (!panel) return;
 
-      // keeprecord: à¦¨à§‹à¦Ÿ save/delete-à¦ _refreshKeepRecordGrid() à¦¸à¦°à¦¾à¦¸à¦°à¦¿ call à¦¹à¦¯à¦¼
+      // keeprecord: নোট save/delete-এ _refreshKeepRecordGrid() সরাসরি call হয়
       if (activeTab === 'keeprecord') return;
       if (_suppressSyncRebuild) return;
 
-      // âœ… FIX: à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ realtime event-à¦ à¦ªà§à¦°à§‹ modal rebuild â†’ main thread block â†’ tab/close à¦•à¦¾à¦œ à¦•à¦°à§‡ à¦¨à¦¾
+      // ✅ FIX: প্রতিটি realtime event-এ পুরো modal rebuild → main thread block → tab/close কাজ করে না
       clearTimeout(_syncRefreshTimer);
       _syncRefreshTimer = setTimeout(_refreshSettingsOnSync, 600);
     };
@@ -79,7 +79,7 @@ const SettingsModule = (() => {
     if (!overlay) return;
     clearTimeout(_syncRefreshTimer);
     overlay.classList.add('closing');
-    // sync listener à¦¸à¦°à¦¿à¦¯à¦¼à§‡ à¦¦à¦¾à¦“ â€” modal à¦¬à¦¨à§à¦§ à¦¹à¦²à§‡ à¦†à¦° à¦¦à¦°à¦•à¦¾à¦° à¦¨à§‡à¦‡
+    // sync listener সরিয়ে দাও — modal বন্ধ হলে আর দরকার নেই
     if (_syncListener) {
       window.removeEventListener('wfa:synced', _syncListener);
       _syncListener = null;
@@ -91,12 +91,12 @@ const SettingsModule = (() => {
     }, 200);
   }
 
-  // â”€â”€â”€ RENDER (inline fallback for section) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── RENDER (inline fallback for section) ─────────────────────
   function render() {
     openModal();
   }
 
-  // â”€â”€â”€ BUILD MODAL HTML â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── BUILD MODAL HTML ─────────────────────────────────────────
   function buildModalHTML() {
     return `
       <div class="settings-modal">
@@ -107,7 +107,7 @@ const SettingsModule = (() => {
             </button>
             <h2><i class="fa fa-gear"></i> System Settings</h2>
           </div>
-          <button type="button" class="settings-close-btn" aria-label="Close settings">âœ•</button>
+          <button type="button" class="settings-close-btn" aria-label="Close settings">✕</button>
         </div>
         <div class="settings-modal-body">
           <div class="settings-sidebar" id="settings-sidebar-drawer">
@@ -129,7 +129,7 @@ const SettingsModule = (() => {
     if (sidebar) sidebar.classList.toggle('mobile-open');
   }
 
-  // â”€â”€â”€ SIDEBAR TABS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── SIDEBAR TABS ─────────────────────────────────────────────
   function buildSidebarTabs() {
     const tabs = [
       { id: 'general',        icon: 'fa-sliders',             label: 'General Settings' },
@@ -156,7 +156,7 @@ const SettingsModule = (() => {
     `).join('');
   }
 
-  // â”€â”€â”€ ALL PANELS â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── ALL PANELS ───────────────────────────────────────────────
   function buildAllPanels() {
     return `
       ${panelGeneral()}
@@ -177,12 +177,12 @@ const SettingsModule = (() => {
     `;
   }
 
-  // â”€â”€â”€ TAB SWITCH â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── TAB SWITCH ───────────────────────────────────────────────
   function switchTab(tab) {
     activeTab = tab;
     const overlay = document.getElementById('settings-overlay');
     const scope = overlay || document;
-    // Update sidebar (scope to settings modal â€” à¦…à¦¨à§à¦¯ .settings-tab à¦¥à¦¾à¦•à¦²à§‡ clash à¦à¦¡à¦¼à¦¾à¦¯à¦¼)
+    // Update sidebar (scope to settings modal — অন্য .settings-tab থাকলে clash এড়ায়)
     scope.querySelectorAll('.settings-tab').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tab);
     });
@@ -203,11 +203,11 @@ const SettingsModule = (() => {
         .then(() => refreshActivityPanel())
         .catch(() => refreshActivityPanel());
     }
-    // âœ… Req 4: re-init date pickers whenever a tab is switched
+    // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
   }
 
-  // âœ… FIX: sync-à¦ à¦¶à§à¦§à§ active tab-à¦à¦° à¦¡à§‡à¦Ÿà¦¾ à¦†à¦ªà¦¡à§‡à¦Ÿ â€” à¦ªà§à¦°à§‹ modal rebuild à¦¨à¦¯à¦¼
+  // ✅ FIX: sync-এ শুধু active tab-এর ডেটা আপডেট — পুরো modal rebuild নয়
   function _refreshSettingsOnSync() {
     if (!document.getElementById('settings-overlay')) return;
     switch (activeTab) {
@@ -231,15 +231,15 @@ const SettingsModule = (() => {
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB: THEME / APPEARANCE
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   const THEMES = [
     {
       id: 'neon-space',
       name: 'Default Theme (Neon)',
-      desc: 'Deep navy + Cyan + Purple â€” Default app cyberpunk theme',
-      emoji: 'ðŸš€',
+      desc: 'Deep navy + Cyan + Purple — Default app cyberpunk theme',
+      emoji: '🚀',
       colors: ['#0a0e27', '#00d9ff', '#b537f2', '#00ff88'],
       bg: 'linear-gradient(135deg, #0a0e27 0%, #0f0a28 100%)',
     },
@@ -247,7 +247,7 @@ const SettingsModule = (() => {
       id: 'aurora',
       name: 'Deep Ocean Aurora',
       desc: 'Deep navy + flowing aurora teal & electric blue',
-      emoji: 'ðŸŒŠ',
+      emoji: '🌊',
       colors: ['#050d1e', '#00e5ff', '#00b4d8', '#48cae4'],
       bg: 'linear-gradient(135deg, #050d1e 0%, #0a192f 50%, #072a4a 100%)',
     },
@@ -255,7 +255,7 @@ const SettingsModule = (() => {
       id: 'nebula',
       name: 'Nebula Purple Haze',
       desc: 'Dark cosmic black + swirling galaxy purple & magenta',
-      emoji: 'ðŸŒŒ',
+      emoji: '🌌',
       colors: ['#0d0010', '#c77dff', '#e040fb', '#7b2d8b'],
       bg: 'linear-gradient(135deg, #0d0010 0%, #1a0030 50%, #0d0020 100%)',
     },
@@ -263,15 +263,15 @@ const SettingsModule = (() => {
       id: 'neon-grid',
       name: 'Neon City Grid',
       desc: 'Midnight black + electric green + hot pink cyberpunk',
-      emoji: 'âš¡',
+      emoji: '⚡',
       colors: ['#080808', '#39ff14', '#ff006e', '#00f5d4'],
       bg: 'linear-gradient(135deg, #080808 0%, #0d1117 100%)',
     },
     {
       id: 'molten',
       name: 'Molten Gold & Obsidian',
-      desc: 'Volcanic black + glowing gold veins â€” Luxury premium',
-      emoji: 'ðŸ”¥',
+      desc: 'Volcanic black + glowing gold veins — Luxury premium',
+      emoji: '🔥',
       colors: ['#0a0800', '#ffd700', '#ff6b00', '#ff9900'],
       bg: 'linear-gradient(135deg, #0a0800 0%, #1a1000 50%, #0d0900 100%)',
     },
@@ -279,15 +279,15 @@ const SettingsModule = (() => {
       id: 'emerald',
       name: 'Quantum Emerald',
       desc: 'Forest black + bioluminescent emerald circuit glow',
-      emoji: 'ðŸ’š',
+      emoji: '💚',
       colors: ['#030d06', '#00ff88', '#00e676', '#69f0ae'],
       bg: 'linear-gradient(135deg, #030d06 0%, #071a0a 50%, #030d06 100%)',
     },
     {
       id: 'aurora-wave',
       name: 'Aurora Wave',
-      desc: 'Northern lights â€” animated color waves on dark starry sky',
-      emoji: 'ðŸŒŒ',
+      desc: 'Northern lights — animated color waves on dark starry sky',
+      emoji: '🌌',
       colors: ['#050510', '#00f0ff', '#0077b6', '#00e5cc'],
       bg: 'linear-gradient(135deg, #050510 0%, #07091a 50%, #0a1030 100%)',
     },
@@ -297,51 +297,51 @@ const SettingsModule = (() => {
     {
       id: 'glass',
       name: 'Frosted Glass',
-      icon: 'ðŸ§Š',
-      desc: 'Master style â€” Semi-transparent blur, background glows through',
+      icon: '🧊',
+      desc: 'Master style — Semi-transparent blur, background glows through',
       preview: 'background:rgba(10,14,39,0.42);border-right:1px solid rgba(255,255,255,0.13)',
       master: true,
     },
     {
       id: 'aurora-glow',
       name: 'Aurora Wave Match',
-      icon: 'ðŸŒŒ',
+      icon: '🌌',
       desc: 'Matches exactly the cyan Dashboard theme background gradient',
       preview: 'background:linear-gradient(135deg, #050510, #0077b6); border-right:1px solid #00f0ff',
     },
     {
       id: 'crystal',
       name: 'Ultra Crystal (Aurora)',
-      icon: 'âœ¨',
-      desc: 'Maximum transparency â€” Best for Aurora & Background images',
+      icon: '✨',
+      desc: 'Maximum transparency — Best for Aurora & Background images',
       preview: 'background:rgba(0,0,10,0.15); border-right:1px solid rgba(255,255,255,0.1)',
     },
     {
       id: 'tinted',
       name: 'Tinted Glow',
-      icon: 'ðŸŒŠ',
-      desc: 'Theme-color tinted glass â€” subtle accent wash',
+      icon: '🌊',
+      desc: 'Theme-color tinted glass — subtle accent wash',
       preview: 'background:rgba(0,25,50,0.6);border-right:1px solid rgba(0,217,255,0.3)',
     },
     {
       id: 'carbon',
       name: 'Carbon Dark',
-      icon: 'â¬›',
-      desc: 'Pure matte black â€” maximum contrast, ultra bold',
+      icon: '⬛',
+      desc: 'Pure matte black — maximum contrast, ultra bold',
       preview: 'background:#050507;border-right:1px solid rgba(255,255,255,0.06)',
     },
     {
       id: 'neonstrip',
       name: 'Neon Strip',
-      icon: 'ðŸ“Œ',
+      icon: '📌',
       desc: 'Dark glass + glowing top neon strip accent',
       preview: 'background:rgba(8,10,25,0.88);border-top:2px solid rgba(0,217,255,0.8)',
     },
     {
       id: 'velvet',
       name: 'Velvet Deep',
-      icon: 'ðŸŸ£',
-      desc: 'Rich deep purple-navy matte â€” premium luxury feel',
+      icon: '🟣',
+      desc: 'Rich deep purple-navy matte — premium luxury feel',
       preview: 'background:linear-gradient(180deg,rgba(14,8,35,0.98) 0%,rgba(8,5,22,0.98) 100%)',
     },
   ];
@@ -353,12 +353,12 @@ const SettingsModule = (() => {
     return `
     <div class="settings-panel ${activeTab === 'theme' ? 'active' : ''}" data-panel="theme">
 
-      <!-- â”€â”€ Background Theme â”€â”€ -->
+      <!-- ── Background Theme ── -->
       <div class="settings-card-title" style="color:var(--brand-primary);font-size:1.05rem;margin-bottom:6px">
         <i class="fa fa-image"></i> BACKGROUND THEME
       </div>
       <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
-        Click à¦•à¦°à§à¦¨ â€” à¦¸à¦¾à¦¥à§‡ à¦¸à¦¾à¦¥à§‡ apply à¦¹à¦¬à§‡à¥¤ à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦¥à¦¿à¦®à§‡ à¦†à¦²à¦¾à¦¦à¦¾ à¦¸à¦¾à¦‡à¦¡à¦¬à¦¾à¦° à¦¸à§‡à¦Ÿà¦¿à¦‚ à¦¸à§‡à¦­ à¦¥à¦¾à¦•à¦¬à§‡à¥¤
+        Click করুন — সাথে সাথে apply হবে। প্রতিটি থিমে আলাদা সাইডবার সেটিং সেভ থাকবে।
       </p>
 
       <div class="theme-grid" style="margin-bottom:30px">
@@ -385,14 +385,14 @@ const SettingsModule = (() => {
         `).join('')}
       </div>
 
-      <!-- â”€â”€ Sidebar / Menu Bar Style â”€â”€ -->
+      <!-- ── Sidebar / Menu Bar Style ── -->
       <div class="settings-card-title" style="color:var(--brand-accent);font-size:1.05rem;margin-bottom:6px">
         <i class="fa fa-sidebar"></i> SIDEBAR / MENU BAR STYLE
       </div>
       <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
-        à¦à¦‡ à¦¥à¦¿à¦®à§‡à¦° à¦œà¦¨à§à¦¯ à¦¸à¦¾à¦‡à¦¡à¦¬à¦¾à¦° à¦¡à¦¿à¦œà¦¾à¦‡à¦¨ à¦¬à§‡à¦›à§‡ à¦¨à¦¿à¦¨à¥¤ à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦¥à¦¿à¦®à§‡ à¦†à¦²à¦¾à¦¦à¦¾ à¦¸à§‡à¦Ÿà¦¿à¦‚ à¦¸à§‡à¦­ à¦¹à¦¬à§‡à¥¤
+        এই থিমের জন্য সাইডবার ডিজাইন বেছে নিন। প্রতিটি থিমে আলাদা সেটিং সেভ হবে।
         <span style="color:var(--brand-primary);font-weight:600">
-          (à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ à¦¥à¦¿à¦®: <i class="fa fa-circle" style="font-size:.6rem"></i> ${_getAllThemes().find(t=>t.id===currentTheme)?.emoji} ${_getAllThemes().find(t=>t.id===currentTheme)?.name})
+          (বর্তমান থিম: <i class="fa fa-circle" style="font-size:.6rem"></i> ${_getAllThemes().find(t=>t.id===currentTheme)?.emoji} ${_getAllThemes().find(t=>t.id===currentTheme)?.name})
         </span>
       </p>
 
@@ -413,44 +413,44 @@ const SettingsModule = (() => {
               <div style="padding:5px 10px;margin:2px 6px;font-size:.55rem;color:rgba(255,255,255,0.4);display:flex;align-items:center;gap:5px">
                 <span style="width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.3)"></span> Settings
               </div>
-              ${currentSidebar === s.id ? `<div style="position:absolute;top:6px;right:6px;background:var(--brand-primary);border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:.55rem">âœ“</div>` : ''}
+              ${currentSidebar === s.id ? `<div style="position:absolute;top:6px;right:6px;background:var(--brand-primary);border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;font-size:.55rem">✓</div>` : ''}
             </div>
             <div class="sidebar-style-info">
               <div class="sidebar-style-name">${s.icon} ${s.name} ${s.master ? '<span style="font-size:.6rem;background:rgba(0,217,255,0.2);color:#00d9ff;padding:1px 6px;border-radius:10px;margin-left:4px">MASTER</span>' : ''}</div>
               <div class="sidebar-style-desc">${s.desc}</div>
               <button class="customize-btn" onclick="event.stopPropagation();SettingsModule.openColorCustomizer('${s.id}')"
                 style="margin-top:6px;padding:3px 10px;font-size:.68rem;border:1px solid rgba(0,217,255,0.3);background:rgba(0,217,255,0.08);color:#00d9ff;border-radius:6px;cursor:pointer;transition:.2s">
-                âš™ï¸ Customize Colors
+                ⚙️ Customize Colors
               </button>
             </div>
           </div>
         `).join('')}
       </div>
 
-      <!-- â”€â”€ Color Customizer Panel â”€â”€ -->
+      <!-- ── Color Customizer Panel ── -->
       <div id="color-customizer-panel" style="display:none;margin-top:24px">
         ${buildColorCustomizerHTML(currentTheme, currentSidebar)}
       </div>
 
-      <!-- â”€â”€ Dashboard Card Colors â”€â”€ -->
+      <!-- ── Dashboard Card Colors ── -->
       <div style="margin-top:28px">
         <div class="settings-card-title" style="color:var(--brand-gold);font-size:1.05rem;margin-bottom:6px">
           <i class="fa fa-layer-group"></i> DASHBOARD CARD & ANALYTICS COLORS
         </div>
         <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
-          Dashboard cards à¦à¦¬à¦‚ Analytics section à¦à¦° background color customize à¦•à¦°à§à¦¨à¥¤
-          <span style="color:var(--brand-primary);font-weight:600">à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ à¦¥à¦¿à¦®à§‡ à¦†à¦²à¦¾à¦¦à¦¾ à¦¸à§‡à¦­ à¦¹à¦¬à§‡à¥¤</span>
+          Dashboard cards এবং Analytics section এর background color customize করুন।
+          <span style="color:var(--brand-primary);font-weight:600">প্রতিটি থিমে আলাদা সেভ হবে।</span>
         </p>
         ${buildCardColorsHTML(currentTheme)}
       </div>
 
-      <!-- â”€â”€ Custom Theme Builder â”€â”€ -->
+      <!-- ── Custom Theme Builder ── -->
       <div style="margin-top:28px;padding-top:28px;border-top:1px solid rgba(255,255,255,0.08)">
         <div class="settings-card-title" style="color:var(--brand-primary);font-size:1.05rem;margin-bottom:6px">
           <i class="fa fa-paint-roller"></i> CUSTOM THEME BUILDER
         </div>
         <p style="font-size:.83rem;color:var(--text-muted);margin-bottom:16px">
-          à¦¨à¦¿à¦œà§‡à¦° à¦ªà¦›à¦¨à§à¦¦à¦®à¦¤à§‹ à¦•à¦¾à¦²à¦¾à¦° à¦¦à¦¿à§Ÿà§‡ à¦¥à¦¿à¦® à¦¤à§ˆà¦°à¦¿ à¦•à¦°à§à¦¨à¥¤ à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§«à¦Ÿà¦¿ à¦¥à¦¿à¦® à¦¸à§‡à¦­ à¦°à¦¾à¦–à¦¤à§‡ à¦ªà¦¾à¦°à¦¬à§‡à¦¨à¥¤
+          নিজের পছন্দমতো কালার দিয়ে থিম তৈরি করুন। সর্বোচ্চ ৫টি থিম সেভ রাখতে পারবেন।
         </p>
         <button class="settings-save-btn" onclick="SettingsModule.openThemeBuilderModal()" style="background:linear-gradient(135deg, rgba(0,217,255,0.8), rgba(181,55,242,0.8));color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;">
           <i class="fa fa-plus"></i> CREATE CUSTOM THEME
@@ -467,7 +467,7 @@ const SettingsModule = (() => {
     return `
       <div style="background:rgba(0,217,255,0.05);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:16px" id="color-customizer-inner">
         <div style="font-size:.9rem;font-weight:700;color:var(--brand-primary);margin-bottom:12px">
-          âš™ï¸ Sidebar Custom Colors â€” <span style="color:rgba(255,255,255,0.5);font-weight:400;font-size:.8rem">changes apply live</span>
+          ⚙️ Sidebar Custom Colors — <span style="color:rgba(255,255,255,0.5);font-weight:400;font-size:.8rem">changes apply live</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
           <div>
@@ -505,19 +505,19 @@ const SettingsModule = (() => {
           </div>
         </div>
         <div style="display:flex;gap:8px;margin-top:14px">
-          <button onclick="SettingsModule.saveCustomSidebarColors()" class="btn btn-primary btn-sm">ðŸ’¾ Save Colors</button>
-          <button onclick="SettingsModule.resetCustomSidebarColors()" class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)">â†º Reset</button>
+          <button onclick="SettingsModule.saveCustomSidebarColors()" class="btn btn-primary btn-sm">💾 Save Colors</button>
+          <button onclick="SettingsModule.resetCustomSidebarColors()" class="btn btn-outline btn-sm" style="color:var(--error);border-color:var(--error)">↺ Reset</button>
         </div>
       </div>`;
   }
 
   const CARD_PRESETS = [
-    { id: 'navy',   name: 'ðŸŒ‘ Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
-    { id: 'obsidian',name: 'ðŸŒŒ Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
-    { id: 'maroon', name: 'ðŸ”¥ Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
-    { id: 'purple', name: 'ðŸ’œ Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
-    { id: 'emerald',name: 'ðŸŒ¿ Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' },
-    { id: 'glass',  name: 'ðŸ§Š Aurora Glass', cardBg: 'rgba(5,10,25,0.30)', border: 'rgba(0,240,255,0.25)', inner: 'rgba(4,6,18,0.45)', anaBg: 'rgba(2,4,12,0.35)' }
+    { id: 'navy',   name: '🌑 Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
+    { id: 'obsidian',name: '🌌 Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
+    { id: 'maroon', name: '🔥 Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
+    { id: 'purple', name: '💜 Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
+    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' },
+    { id: 'glass',  name: '🧊 Aurora Glass', cardBg: 'rgba(5,10,25,0.30)', border: 'rgba(0,240,255,0.25)', inner: 'rgba(4,6,18,0.45)', anaBg: 'rgba(2,4,12,0.35)' }
   ];
 
   function buildCardColorsHTML(themeId) {
@@ -536,7 +536,7 @@ const SettingsModule = (() => {
         `).join('')}
       </div>
       <div style="font-size:.72rem;color:var(--text-muted);text-align:center;margin-top:10px">
-        ðŸ‘† à¦•à¦¾à¦°à§à¦¡à§‡à¦° à¦¬à§à¦¯à¦¾à¦•à¦—à§à¦°à¦¾à¦‰à¦¨à§à¦¡ à¦•à¦¾à¦²à¦¾à¦° à¦¸à¦¿à¦²à§‡à¦•à§à¦Ÿ à¦•à¦°à§à¦¨ (à¦à¦Ÿà¦¿ à¦¸à¦¾à¦¥à§‡ à¦¸à¦¾à¦¥à§‡ à¦¸à§‡à¦­ à¦¹à§Ÿà§‡ à¦¯à¦¾à¦¬à§‡)à¥¤
+        👆 কার্ডের ব্যাকগ্রাউন্ড কালার সিলেক্ট করুন (এটি সাথে সাথে সেভ হয়ে যাবে)।
       </div>`;
   }
 
@@ -564,7 +564,7 @@ const SettingsModule = (() => {
     // Refresh panel
     refreshModal();
     switchTab('theme');
-    Utils.toast(`âœ¨ Theme: ${theme.name}`, 'success');
+    Utils.toast(`✨ Theme: ${theme.name}`, 'success');
   }
 
   function applySidebarStyle(styleId) {
@@ -575,7 +575,7 @@ const SettingsModule = (() => {
     refreshModal();
     switchTab('theme');
     const style = SIDEBAR_STYLES.find(s => s.id === styleId);
-    Utils.toast(`ðŸŽ¨ Sidebar: ${style?.name || styleId}`, 'info');
+    Utils.toast(`🎨 Sidebar: ${style?.name || styleId}`, 'info');
   }
 
   function _applySidebarClass(styleId) {
@@ -590,7 +590,7 @@ const SettingsModule = (() => {
     _applyColorOverrides();
   }
 
-  // â”€â”€ Color Customizer Logic â”€â”€
+  // ── Color Customizer Logic ──
 
   function openColorCustomizer(styleId) {
     const panel = document.getElementById('color-customizer-panel');
@@ -652,7 +652,7 @@ const SettingsModule = (() => {
     Utils.toast(`Cards set to ${p?.name}`, 'success');
   }
 
-  // â”€â”€ Inject globally custom style block â”€â”€
+  // ── Inject globally custom style block ──
   
   function _applyColorOverrides() {
     const themeId = localStorage.getItem('wfa_theme') || 'neon-space';
@@ -779,19 +779,19 @@ const SettingsModule = (() => {
 
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 1: GENERAL SETTINGS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
 
   function panelGeneral() {
     const cfg = getConfig();
     const students = SupabaseSync.getAll(DB.students);
     const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
-    // âœ… FIX: Use local timezone date (not UTC) â€” Bangladesh is UTC+6
+    // ✅ FIX: Use local timezone date (not UTC) — Bangladesh is UTC+6
     const _d = new Date();
     const today = `${_d.getFullYear()}-${String(_d.getMonth()+1).padStart(2,'0')}-${String(_d.getDate()).padStart(2,'0')}`;
-    // âœ… FIX: Don't default to today â€” empty means "show all expenses"
-    // âœ… SANITIZE: if the stored value is not a valid date (e.g. "admin"), clear it
+    // ✅ FIX: Don't default to today — empty means "show all expenses"
+    // ✅ SANITIZE: if the stored value is not a valid date (e.g. "admin"), clear it
     const _rawExpStart = cfg.expense_start_date || '';
     const expStart = /^\d{4}-\d{2}-\d{2}$/.test(_rawExpStart.trim()) ? _rawExpStart.trim() : '';
     const _rawExpEnd = cfg.expense_end_date || '';
@@ -827,14 +827,14 @@ const SettingsModule = (() => {
 
         <div class="form-group mb-12">
           <label class="settings-label" style="color:var(--error)">EXPENSE DATE RANGE</label>
-          <small class="settings-sublabel">à¦¶à§à¦§à§ Start Date à¦¸à§‡à¦Ÿ à¦•à¦°à§à¦¨à¥¤ End Date à¦¸à¦¬à¦¸à¦®à¦¯à¦¼ à¦†à¦œà¦•à§‡à¦° à¦¤à¦¾à¦°à¦¿à¦– à¦ªà¦°à§à¦¯à¦¨à§à¦¤ à¦…à¦Ÿà§‹-à¦†à¦ªà¦¡à§‡à¦Ÿ à¦¹à¦¬à§‡à¥¤</small>
+          <small class="settings-sublabel">শুধু Start Date সেট করুন। End Date সবসময় আজকের তারিখ পর্যন্ত অটো-আপডেট হবে।</small>
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
             <div class="form-group" style="flex:1;min-width:160px">
-              <label style="font-size:.78rem;color:var(--text-muted)">From (à¦¶à§à¦°à§)</label>
+              <label style="font-size:.78rem;color:var(--text-muted)">From (শুরু)</label>
               <input id="set-expense-start" type="date" class="form-control" value="${expStart}" />
             </div>
             <div class="form-group" style="flex:1;min-width:160px">
-              <label style="font-size:.78rem;color:var(--text-muted)">To (à¦†à¦œ à¦ªà¦°à§à¦¯à¦¨à§à¦¤) <span class="auto-badge">AUTO</span></label>
+              <label style="font-size:.78rem;color:var(--text-muted)">To (আজ পর্যন্ত) <span class="auto-badge">AUTO</span></label>
               <div class="form-control" style="color:var(--success);display:flex;align-items:center;gap:6px;cursor:default;opacity:.75">
                 <i class="fa fa-calendar-check" style="font-size:.8rem"></i>
                 ${Utils.formatDateDMY(expEnd)}
@@ -843,19 +843,19 @@ const SettingsModule = (() => {
           </div>
           <div style="margin-top:8px;padding:10px 14px;background:var(--bg-base);border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
             <i class="fa fa-info-circle" style="color:var(--brand-primary)"></i>
-            Start Date à¦¸à§‡à¦Ÿ à¦•à¦°à¦²à§‡ à¦¸à§‡à¦‡ à¦¤à¦¾à¦°à¦¿à¦– à¦¥à§‡à¦•à§‡ à¦†à¦œ à¦ªà¦°à§à¦¯à¦¨à§à¦¤ expense à¦¦à§‡à¦–à¦¾à¦¬à§‡à¥¤ Start Date à¦–à¦¾à¦²à¦¿ à¦°à¦¾à¦–à¦²à§‡ à¦¸à¦¬ expense à¦¦à§‡à¦–à¦¾à¦¬à§‡à¥¤
+            Start Date সেট করলে সেই তারিখ থেকে আজ পর্যন্ত expense দেখাবে। Start Date খালি রাখলে সব expense দেখাবে।
           </div>
         </div>
       </div>
 
       <div class="settings-card glow-cyan">
-        <div class="settings-card-title"><i class="fa fa-language"></i> Language Settings (à¦­à¦¾à¦·à¦¾ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸)</div>
+        <div class="settings-card-title"><i class="fa fa-language"></i> Language Settings (ভাষা সেটিংস)</div>
         <div class="form-group mb-12">
           <label class="settings-label">APP LANGUAGE</label>
-          <small class="settings-sublabel">Select the primary language for the application interface (à¦…à§à¦¯à¦¾à¦ªà§‡à¦° à¦­à¦¾à¦·à¦¾ à¦¨à¦¿à¦°à§à¦§à¦¾à¦°à¦£ à¦•à¦°à§à¦¨)à¥¤</small>
+          <small class="settings-sublabel">Select the primary language for the application interface (অ্যাপের ভাষা নির্ধারণ করুন)।</small>
           <select id="set-language" class="form-control" style="max-width:500px">
-            <option value="default" ${cfg.language === 'default' || !cfg.language ? 'selected' : ''}>Default (à¦¬à¦¾à¦‡ à¦¡à¦¿à¦«à¦²à§à¦Ÿ)</option>
-            <option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English (à¦‡à¦‚à¦²à¦¿à¦¶)</option>
+            <option value="default" ${cfg.language === 'default' || !cfg.language ? 'selected' : ''}>Default (বাই ডিফল্ট)</option>
+            <option value="en" ${cfg.language === 'en' ? 'selected' : ''}>English (ইংলিশ)</option>
           </select>
         </div>
       </div>
@@ -871,11 +871,11 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 2: CATEGORIES & COURSES
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
 
-  // â”€â”€ Silent auto-detect: merges student course names into cfg without UI interruption â”€â”€
+  // ── Silent auto-detect: merges student course names into cfg without UI interruption ──
   function _silentAutoDetect() {
     try {
       const cfg      = getConfig();
@@ -891,12 +891,12 @@ const SettingsModule = (() => {
     } catch { /* silent */ }
   }
 
-  // â”€â”€ Listen for Supabase pull events â†’ re-run auto-detect silently â”€â”€
+  // ── Listen for Supabase pull events → re-run auto-detect silently ──
   (function _initSettingsSyncListener() {
     window.addEventListener('wfa:synced', (e) => {
       if (e.detail?.direction === 'pull' || e.detail?.direction === 'realtime') {
         _silentAutoDetect();
-        // Settings modal à¦–à§‹à¦²à¦¾ à¦¥à¦¾à¦•à¦²à§‡ merge skip â€” saveConfig/rebuild loop à¦“ UI hang à¦à¦¡à¦¼à¦¾à¦¯à¦¼
+        // Settings modal খোলা থাকলে merge skip — saveConfig/rebuild loop ও UI hang এড়ায়
         if (document.getElementById('settings-overlay')) return;
         _mergeRemoteKeepRecords();
         _mergeRemoteRecycleBin();
@@ -937,8 +937,8 @@ const SettingsModule = (() => {
             <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
               <span class="cat-item-label">${item}</span>
               <div class="cat-item-actions">
-                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">âœï¸</button>
-                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">âœ•</button>
+                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
+                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
               </div>
             </div>
           `).join('')}
@@ -954,8 +954,8 @@ const SettingsModule = (() => {
           <span>${title.toUpperCase()}</span>
           <button onclick="SettingsModule.autoDetectCourses()"
             style="font-size:0.7rem;padding:3px 9px;border-radius:6px;border:1px solid rgba(0,212,255,0.4);background:rgba(0,212,255,0.08);color:var(--brand-primary);cursor:pointer;font-weight:700;"
-            title="Existing students à¦¥à§‡à¦•à§‡ à¦¸à¦¬ course à¦¨à¦¾à¦® à¦à¦¨à§‡ list-à¦ à¦¯à§‹à¦— à¦•à¦°à§à¦¨">
-            ðŸ” Auto-detect
+            title="Existing students থেকে সব course নাম এনে list-এ যোগ করুন">
+            🔍 Auto-detect
           </button>
         </div>
         <div class="category-add-row">
@@ -963,13 +963,13 @@ const SettingsModule = (() => {
           <button class="category-add-btn ${colorClass}" onclick="SettingsModule.addCategory('${key}')">+ ADD</button>
         </div>
         <div class="category-list" id="cat-list-${key}">
-          ${items.length === 0 ? `<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 4px;">à¦•à§‹à¦¨à§‹ course à¦¨à§‡à¦‡à¥¤ "+ ADD" à¦¬à¦¾ "ðŸ” Auto-detect" à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§à¦¨à¥¤</div>` : ''}
+          ${items.length === 0 ? `<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 4px;">কোনো course নেই। "+ ADD" বা "🔍 Auto-detect" ব্যবহার করুন।</div>` : ''}
           ${items.map(item => `
             <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
               <span class="cat-item-label">${item}</span>
               <div class="cat-item-actions">
-                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">âœï¸</button>
-                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">âœ•</button>
+                <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
+                <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
               </div>
             </div>
           `).join('')}
@@ -982,15 +982,15 @@ const SettingsModule = (() => {
     const cfg      = getConfig();
     const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
 
-    // à¦¸à¦¬ students à¦¥à§‡à¦•à§‡ unique course à¦¨à¦¾à¦® à¦¬à§‡à¦° à¦•à¦°à§‹
+    // সব students থেকে unique course নাম বের করো
     const allStudents  = SupabaseSync.getAll(DB.students) || [];
     const fromStudents = [...new Set(allStudents.map(s => s.course).filter(Boolean))];
 
-    // à¦¯à§‡à¦—à§à¦²à§‹ already list-à¦ à¦¨à§‡à¦‡ à¦¸à§‡à¦—à§à¦²à§‹à¦‡ à¦¯à§‹à¦— à¦¹à¦¬à§‡
+    // যেগুলো already list-এ নেই সেগুলোই যোগ হবে
     const toAdd = fromStudents.filter(c => !existing.includes(c));
 
     if (toAdd.length === 0) {
-      Utils.toast('à¦¸à¦¬ course à¦‡à¦¤à¦¿à¦®à¦§à§à¦¯à§‡ list-à¦ à¦†à¦›à§‡!', 'info');
+      Utils.toast('সব course ইতিমধ্যে list-এ আছে!', 'info');
       return;
     }
 
@@ -998,7 +998,7 @@ const SettingsModule = (() => {
     cfg.courses = JSON.stringify(merged);
     saveConfig(cfg);
     logActivity('edit', 'settings', `Auto-detected ${toAdd.length} course(s): ${toAdd.join(', ')}`);
-    Utils.toast(`âœ… ${toAdd.length}à¦Ÿà¦¿ course à¦¯à§‹à¦— à¦¹à¦¯à¦¼à§‡à¦›à§‡: ${toAdd.join(', ')}`, 'success');
+    Utils.toast(`✅ ${toAdd.length}টি course যোগ হয়েছে: ${toAdd.join(', ')}`, 'success');
     refreshModal();
   }
 
@@ -1014,16 +1014,16 @@ const SettingsModule = (() => {
     saveConfig(cfg);
     input.value = '';
     refreshModal();
-    logActivity('add', 'category', `à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿ à¦¯à§‹à¦—: "${newItem}" â€” ${key}`);
+    logActivity('add', 'category', `ক্যাটাগরি যোগ: "${newItem}" — ${key}`);
   }
 
   function removeCategory(key, item) {
-    // âœ… Req 2: Push to recycle_bin (restorable) instead of Keep Record
+    // ✅ Req 2: Push to recycle_bin (restorable) instead of Keep Record
     const recycleBin = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll('recycle_bin') || []) : [];
     recycleBin.unshift({
       id:        SupabaseSync.generateId(),
       table:     'settings_category',
-      tableLabel: `Settings â†’ ${key}`,
+      tableLabel: `Settings → ${key}`,
       type:      'category',
       name:      item,
       data:      { key, item },
@@ -1039,13 +1039,13 @@ const SettingsModule = (() => {
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
     refreshModal();
-    Utils.toast(`"${item}" deleted â†’ Recycle Bin-à¦ à¦†à¦›à§‡à¥¤ Restore à¦•à¦°à¦¤à§‡ Recycle Bin à¦¦à§‡à¦–à§à¦¨à¥¤ ðŸ—‘ï¸`, 'info');
-    logActivity('delete', 'category', `à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿ à¦®à§à¦›à§‡ à¦«à§‡à¦²à¦¾: "${item}" â€” ${key}`);
+    Utils.toast(`"${item}" deleted → Recycle Bin-এ আছে। Restore করতে Recycle Bin দেখুন। 🗑️`, 'info');
+    logActivity('delete', 'category', `ক্যাটাগরি মুছে ফেলা: "${item}" — ${key}`);
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // RENAME CATEGORY â€” inline edit with student/staff auto-update
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
+  // RENAME CATEGORY — inline edit with student/staff auto-update
+  // ════════════════════════════════════════════════════════════════
   function startRenameCategory(key, oldName) {
     const safeId = oldName.replace(/[^a-z0-9]/gi, '_');
     const row = document.getElementById(`cat-item-${key}-${safeId}`);
@@ -1066,8 +1066,8 @@ const SettingsModule = (() => {
       style="flex:1;padding:3px 8px;font-size:0.85rem;border-radius:6px;"
     />`;
     actions.innerHTML = `
-      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">âœ”</button>
-      <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory()">âœ•</button>
+      <button class="cat-rename-save" title="Save" onclick="SettingsModule.confirmRenameCategory('${key}','${oldName.replace(/'/g, "\\'")}')">✔</button>
+      <button class="cat-rename-cancel" title="Cancel" onclick="SettingsModule.cancelRenameCategory()">✕</button>
     `;
 
     const inp = document.getElementById(`rename-input-${key}-${safeId}`);
@@ -1087,7 +1087,7 @@ const SettingsModule = (() => {
   }
 
   function confirmRenameCategory(key, oldName) {
-    // Read from global tracker â€” reliable across all browsers/click events
+    // Read from global tracker — reliable across all browsers/click events
     const newName = (window._wfaRename && window._wfaRename.val
       ? window._wfaRename.val
       : (document.querySelector('.cat-rename-input') || {}).value || ''
@@ -1096,7 +1096,7 @@ const SettingsModule = (() => {
     window._wfaRename = null;
 
     if (!newName) {
-      Utils.toast('à¦¨à¦¾à¦® à¦–à¦¾à¦²à¦¿ à¦°à¦¾à¦–à¦¾ à¦¯à¦¾à¦¬à§‡ à¦¨à¦¾!', 'error');
+      Utils.toast('নাম খালি রাখা যাবে না!', 'error');
       refreshModal();
       return;
     }
@@ -1105,11 +1105,11 @@ const SettingsModule = (() => {
       return;
     }
 
-    // â”€â”€ 1. Settings list à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§‹ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 1. Settings list আপডেট করো ──────────────────────────────
     const cfg   = getConfig();
     const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
     if (items.includes(newName)) {
-      Utils.toast(`"${newName}" à¦‡à¦¤à¦¿à¦®à¦§à§à¦¯à§‡ à¦†à¦›à§‡!`, 'error');
+      Utils.toast(`"${newName}" ইতিমধ্যে আছে!`, 'error');
       refreshModal();
       return;
     }
@@ -1122,7 +1122,7 @@ const SettingsModule = (() => {
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
 
-    // â”€â”€ 2. à¦¯à¦¦à¦¿ course rename à¦¹à¦¯à¦¼ â†’ à¦¸à¦¬ Students à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§‹ â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 2. যদি course rename হয় → সব Students আপডেট করো ────────
     let updatedCount = 0;
     if (key === 'courses') {
       const allStudents = SupabaseSync.getAll(DB.students) || [];
@@ -1134,7 +1134,7 @@ const SettingsModule = (() => {
       });
     }
 
-    // â”€â”€ 3. à¦¯à¦¦à¦¿ employee_roles rename à¦¹à¦¯à¦¼ â†’ à¦¸à¦¬ Staff à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§‹ â”€â”€
+    // ── 3. যদি employee_roles rename হয় → সব Staff আপডেট করো ──
     if (key === 'employee_roles') {
       const allStaff = SupabaseSync.getAll(DB.staff) || [];
       allStaff.forEach(st => {
@@ -1145,24 +1145,24 @@ const SettingsModule = (() => {
       });
     }
 
-    // â”€â”€ 4. Activity log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    logActivity('edit', 'category', `à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿ à¦¨à¦¾à¦® à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨: "${oldName}" â†’ "${newName}" (${key})${updatedCount > 0 ? ` â€” ${updatedCount}à¦Ÿà¦¿ à¦°à§‡à¦•à¦°à§à¦¡ à¦†à¦ªà¦¡à§‡à¦Ÿ` : ''}`);
+    // ── 4. Activity log ────────────────────────────────────────────
+    logActivity('edit', 'category', `ক্যাটাগরি নাম পরিবর্তন: "${oldName}" → "${newName}" (${key})${updatedCount > 0 ? ` — ${updatedCount}টি রেকর্ড আপডেট` : ''}`);
 
-    // â”€â”€ 5. Toast & refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 5. Toast & refresh ───────────────────────────────────────
     const msg = updatedCount > 0
-      ? `âœ… "${oldName}" â†’ "${newName}" â€” ${updatedCount}à¦Ÿà¦¿ à¦°à§‡à¦•à¦°à§à¦¡ à¦†à¦ªà¦¡à§‡à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡!`
-      : `âœ… "${oldName}" â†’ "${newName}" renamed!`;
+      ? `✅ "${oldName}" → "${newName}" — ${updatedCount}টি রেকর্ড আপডেট হয়েছে!`
+      : `✅ "${oldName}" → "${newName}" renamed!`;
     Utils.toast(msg, 'success');
     refreshModal();
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 3: DATA MANAGEMENT
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelData() {
     return `
     <div class="settings-panel ${activeTab === 'data' ? 'active' : ''}" data-panel="data">
-      <!-- â”€â”€ Storage Usage Indicator (Enhanced) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+      <!-- ── Storage Usage Indicator (Enhanced) ───────────────────── -->
       <div class="settings-card" style="border-color:rgba(0,212,255,0.25);margin-bottom:14px" id="storage-usage-card">
         <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
           <span><i class="fa fa-hard-drive"></i> Local Storage Usage</span>
@@ -1176,7 +1176,7 @@ const SettingsModule = (() => {
         (function() {
           try {
             const usedKB  = typeof SyncEngine !== 'undefined' ? SyncEngine.getStorageUsageKB() : 0;
-            const limitKB = 512000; // IndexedDB â€” ~500 MB
+            const limitKB = 512000; // IndexedDB — ~500 MB
             const pct     = Math.min(100, Math.round(usedKB / limitKB * 100));
             const color   = pct >= 90 ? '#ff4757' : pct >= 70 ? '#ffa502' : pct >= 50 ? '#00d9ff' : '#00ff88';
             const status  = pct >= 90 ? 'Critical' : pct >= 70 ? 'Warning' : 'Healthy';
@@ -1198,20 +1198,20 @@ const SettingsModule = (() => {
             document.getElementById('storage-usage-content').innerHTML =
               '<div style="display:flex;justify-content:space-between;margin-bottom:4px">' +
                 '<span>Used: <strong style="color:' + color + '">' + usedKB.toLocaleString() + ' KB</strong></span>' +
-                '<span style="color:' + color + ';font-size:.78rem">' + status + ' â€” ' + pct + '% of ~500 MB</span>' +
+                '<span style="color:' + color + ';font-size:.78rem">' + status + ' — ' + pct + '% of ~500 MB</span>' +
               '</div>' +
               '<div style="background:rgba(255,255,255,0.06);border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px;border:1px solid rgba(255,255,255,0.08)">' +
                 '<div style="height:100%;width:' + pct + '%;background:linear-gradient(90deg,' + color + ',' + color + '88);border-radius:8px;transition:width .4s ease"></div>' +
               '</div>' +
               (pct >= 70 ? '<div style="background:rgba(255,165,0,0.09);border:1px solid rgba(255,165,0,0.25);border-radius:6px;padding:8px 12px;font-size:.80rem;color:#ffa502;margin-bottom:10px"><i class="fa fa-triangle-exclamation"></i> ' +
-                (pct >= 90 ? '<strong>Critical!</strong> Storage ' + pct + '% à¦ªà§‚à¦°à§à¦£à¥¤ à¦ªà§à¦°à¦¨à§‹ data Supabase-à¦ safe à¦†à¦›à§‡à¥¤' :
-                             'Storage ' + pct + '% à¦ªà§‚à¦°à§à¦£à¥¤ à¦¶à§€à¦˜à§à¦°à¦‡ à¦ªà§à¦°à¦¨à§‹ data archive à¦•à¦°à§à¦¨à¥¤') +
+                (pct >= 90 ? '<strong>Critical!</strong> Storage ' + pct + '% পূর্ণ। পুরনো data Supabase-এ safe আছে।' :
+                             'Storage ' + pct + '% পূর্ণ। শীঘ্রই পুরনো data archive করুন।') +
               '</div>' : '') +
               '<div style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;font-weight:600;letter-spacing:.5px">TABLE BREAKDOWN</div>' +
-              (tableRows || '<div style="color:var(--text-muted);font-size:.78rem">Data à¦à¦–à¦¨à§‹ à¦¯à§‹à¦— à¦¹à¦¯à¦¼à¦¨à¦¿à¥¤</div>');
+              (tableRows || '<div style="color:var(--text-muted);font-size:.78rem">Data এখনো যোগ হয়নি।</div>');
           } catch(e) {
             var el = document.getElementById('storage-usage-content');
-            if (el) el.textContent = 'Storage info à¦¦à§‡à¦–à¦¾ à¦¯à¦¾à¦šà§à¦›à§‡ à¦¨à¦¾à¥¤';
+            if (el) el.textContent = 'Storage info দেখা যাচ্ছে না।';
           }
         })();
       </script>
@@ -1234,13 +1234,13 @@ const SettingsModule = (() => {
             b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Syncing...';
             r.style.display='none';
             SyncEngine.syncAll({ forcePush:true, forceFull:true, silent:true }).then(res=>{
-              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (à¦¸à¦¬ data)';
+              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)';
               r.style.display='block';
-              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='âœ… Full Sync à¦¸à¦«à¦²! à¦¸à¦¬ à¦¡à§‡à¦Ÿà¦¾ Cloud à¦¥à§‡à¦•à§‡ à¦¨à¦¾à¦®à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤'; Utils.toast('Full Sync à¦¸à¦«à¦² âœ…','success'); }
-              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='âš ï¸ Sync à¦†à¦‚à¦¶à¦¿à¦• à¦¸à¦®à§à¦ªà¦¨à§à¦¨à¥¤ Supabase credentials à¦šà§‡à¦• à¦•à¦°à§à¦¨à¥¤'; Utils.toast('Sync â€” à¦•à¦¿à¦›à§ à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (à¦¸à¦¬ data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='âŒ Sync à¦¬à§à¦¯à¦°à§à¦¥: '+(err.message||''); Utils.toast('Sync à¦¬à§à¦¯à¦°à§à¦¥','error'); });
+              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Full Sync সফল! সব ডেটা Cloud থেকে নামানো হয়েছে।'; Utils.toast('Full Sync সফল ✅','success'); }
+              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ Sync আংশিক সম্পন্ন। Supabase credentials চেক করুন।'; Utils.toast('Sync — কিছু সমস্যা হয়েছে','warn'); }
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-down&quot;></i> FULL SYNC (সব data)'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='❌ Sync ব্যর্থ: '+(err.message||''); Utils.toast('Sync ব্যর্থ','error'); });
           ">
-            <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (à¦¸à¦¬ data)
+            <i class="fa fa-cloud-arrow-down"></i> FULL SYNC (সব data)
           </button>
           <button id="btn-push-cloud-dm" class="settings-btn-lg btn-sync-cloud" style="flex:1;background:rgba(0,255,136,0.08);border-color:rgba(0,255,136,0.3);color:#00ff88" onclick="
             const b=document.getElementById('btn-push-cloud-dm');
@@ -1248,17 +1248,17 @@ const SettingsModule = (() => {
             b.disabled=true; b.innerHTML='<i class=&quot;fa fa-spinner fa-spin&quot;></i> Pushing...';
             r.style.display='none';
             SyncEngine.push({ silent:true, forcePush:true }).then(res=>{
-              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH â†’ CLOUD';
+              b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD';
               const sc=res?.successCount||0; const errs=res?.errors||[];
-              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='âœ… Push à¦¸à¦«à¦²! '+sc+' à¦Ÿà§‡à¦¬à¦¿à¦² Supabase-à¦ à¦†à¦ªà¦²à§‹à¦¡ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤'; Utils.toast('Push à¦¸à¦«à¦² âœ… '+sc+' à¦Ÿà§‡à¦¬à¦¿à¦² à¦†à¦ªà¦²à§‹à¦¡','success'); }
-              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='âš ï¸ à¦†à¦‚à¦¶à¦¿à¦• Push: '+sc+' à¦¸à¦«à¦², '+errs.length+' à¦¸à¦®à¦¸à§à¦¯à¦¾à¥¤ Security & Access-à¦ credentials à¦šà§‡à¦• à¦•à¦°à§à¦¨à¥¤'; Utils.toast('Push â€” à¦•à¦¿à¦›à§ à¦¸à¦®à¦¸à§à¦¯à¦¾','warn'); }
-            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH â†’ CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='âŒ Push à¦¬à§à¦¯à¦°à§à¦¥: '+(err.message||''); Utils.toast('Push à¦¬à§à¦¯à¦°à§à¦¥','error'); });
+              if(res && res.ok){ r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.3);color:#00ff88'; r.innerHTML='✅ Push সফল! '+sc+' টেবিল Supabase-এ আপলোড হয়েছে।'; Utils.toast('Push সফল ✅ '+sc+' টেবিল আপলোড','success'); }
+              else { r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,165,0,0.08);border:1px solid rgba(255,165,0,0.3);color:#ffa502'; r.innerHTML='⚠️ আংশিক Push: '+sc+' সফল, '+errs.length+' সমস্যা। Security & Access-এ credentials চেক করুন।'; Utils.toast('Push — কিছু সমস্যা','warn'); }
+            }).catch(err=>{ b.disabled=false; b.innerHTML='<i class=&quot;fa fa-cloud-arrow-up&quot;></i> PUSH → CLOUD'; r.style.cssText='display:block;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.3);color:#ff4757'; r.textContent='❌ Push ব্যর্থ: '+(err.message||''); Utils.toast('Push ব্যর্থ','error'); });
           ">
-            <i class="fa fa-cloud-arrow-up"></i> PUSH â†’ CLOUD
+            <i class="fa fa-cloud-arrow-up"></i> PUSH → CLOUD
           </button>
         </div>
         <small style="display:block;text-align:center;margin-top:6px;color:var(--text-muted);font-size:.78rem">
-          Full Sync = Supabase à¦¥à§‡à¦•à§‡ à¦¸à¦¬ data à¦¨à¦¾à¦®à¦¾à¦¯à¦¼ | Auto incremental sync à¦šà¦²à§‡ à¦ªà§à¦°à¦¤à¦¿ à§©à§¦ à¦¸à§‡.
+          Full Sync = Supabase থেকে সব data নামায় | Auto incremental sync চলে প্রতি ৩০ সে.
         </small>
       </div>
 
@@ -1278,7 +1278,7 @@ const SettingsModule = (() => {
       </div>
 
       <div class="settings-card glow-cyan" style="margin-top:12px">
-        <div class="settings-card-title"><i class="fa fa-file-import"></i> Data Migration (Old â†’ New)</div>
+        <div class="settings-card-title"><i class="fa fa-file-import"></i> Data Migration (Old → New)</div>
         <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
           Import data from your old Supabase project or a JSON backup file.
         </p>
@@ -1294,8 +1294,8 @@ const SettingsModule = (() => {
         </div>
         <div id="mig-status" style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;display:none"></div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary btn-sm" onclick="SettingsModule.startMigration()">ðŸ“¥ Start Import</button>
-          <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">ðŸ“„ Import from JSON</button>
+          <button class="btn btn-primary btn-sm" onclick="SettingsModule.startMigration()">📥 Start Import</button>
+          <button class="btn btn-outline btn-sm" onclick="SettingsModule.importFromJSON()">📄 Import from JSON</button>
         </div>
       </div>
       <!-- REQ 1: Date-Based Import Option -->
@@ -1309,15 +1309,15 @@ const SettingsModule = (() => {
           ${Utils.dateSelectHTML('imp-date', Utils.today(), 'form-control')}
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-primary btn-sm" onclick="SettingsModule.importFromJSONWithDate()">ðŸ“… Import with Date</button>
+          <button class="btn btn-primary btn-sm" onclick="SettingsModule.importFromJSONWithDate()">📅 Import with Date</button>
         </div>
       </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
-          à¦¯à¦¦à¦¿ à¦•à§‹à¦¨à§‹ Student-à¦à¦° <strong style="color:#00ff88">Paid</strong> à¦¬à¦¾ <strong style="color:#ff4757">Due</strong>
-          amount Finance Ledger-à¦à¦° à¦¸à¦¾à¦¥à§‡ à¦®à¦¿à¦²à¦›à§‡ à¦¨à¦¾ â€” à¦à¦‡ à¦¬à¦¾à¦Ÿà¦¨à¦Ÿà¦¿ à¦¸à¦¬ à¦ à¦¿à¦• à¦•à¦°à§‡ à¦¦à§‡à¦¬à§‡à¥¤<br/>
-          <span style="font-size:.78rem;color:var(--text-muted);">âš ï¸ à¦¶à§à¦§à§ mismatch fix à¦•à¦°à§‡ â€” à¦•à§‹à¦¨à§‹ payment delete à¦¬à¦¾ add à¦•à¦°à§‡ à¦¨à¦¾à¥¤</span>
+          যদি কোনো Student-এর <strong style="color:#00ff88">Paid</strong> বা <strong style="color:#ff4757">Due</strong>
+          amount Finance Ledger-এর সাথে মিলছে না — এই বাটনটি সব ঠিক করে দেবে।<br/>
+          <span style="font-size:.78rem;color:var(--text-muted);">⚠️ শুধু mismatch fix করে — কোনো payment delete বা add করে না।</span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm"
@@ -1333,9 +1333,9 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 4: SECURITY & ACCESS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelSecurity() {
     const subs = getSubAccounts();
     const cfg = getConfig();
@@ -1357,14 +1357,14 @@ const SettingsModule = (() => {
             <input type="password" id="set-confirm-pw" class="form-control" placeholder="Retype" />
           </div>
         </div>
-        <button class="btn btn-accent" onclick="SettingsModule.changePassword()">ðŸ”‘ Change Password</button>
+        <button class="btn btn-accent" onclick="SettingsModule.changePassword()">🔑 Change Password</button>
       </div>
 
       <!-- Supabase Project API (URL + anon key) -->
       <div class="settings-card" style="margin-top:16px; border: 1px solid rgba(0,212,255,0.15)">
-        <div style="font-weight:700; font-size:1.05rem; color:#fff; margin-bottom:12px">â˜ï¸ Cloud API (Project URL &amp; Anon Key)</div>
+        <div style="font-weight:700; font-size:1.05rem; color:#fff; margin-bottom:12px">☁️ Cloud API (Project URL &amp; Anon Key)</div>
         <div style="font-size:0.8rem; color:#aaa; margin-bottom:12px; line-height:1.5">
-          Stored encrypted on this device. Use Supabase Dashboard â†’ Settings â†’ API, or copy from <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px">supabase-secrets.example.js</code>.
+          Stored encrypted on this device. Use Supabase Dashboard → Settings → API, or copy from <code style="background:rgba(255,255,255,0.08);padding:1px 6px;border-radius:4px">supabase-secrets.example.js</code>.
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
           <div class="form-group" style="flex:1;min-width:220px">
@@ -1376,7 +1376,7 @@ const SettingsModule = (() => {
             <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" />
           </div>
         </div>
-        <button class="btn btn-accent" onclick="SettingsModule.saveCloudApiCredentials()">ðŸ’¾ Save API Credentials</button>
+        <button class="btn btn-accent" onclick="SettingsModule.saveCloudApiCredentials()">💾 Save API Credentials</button>
       </div>
 
       <!-- Supabase Cloud Auth -->
@@ -1387,19 +1387,19 @@ const SettingsModule = (() => {
               <i class="fa fa-cloud-arrow-up" style="color:#00d4ff"></i>
             </div>
             <div>
-              <div style="font-weight:700; font-size:1.05rem; color:#fff">ðŸ” Supabase Cloud Login</div>
-              <div style="font-size:0.8rem; color:#00d4ff">Secure sync-à¦à¦° à¦œà¦¨à§à¦¯ Supabase account credentials</div>
+              <div style="font-weight:700; font-size:1.05rem; color:#fff">🔐 Supabase Cloud Login</div>
+              <div style="font-size:0.8rem; color:#00d4ff">Secure sync-এর জন্য Supabase account credentials</div>
             </div>
           </div>
           <i class="fa fa-caret-down" style="color:#00d4ff"></i>
         </div>
         <div id="supabase-auth-body" class="hidden" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px">
           <div style="background:rgba(0,212,255,0.07); border:1px solid rgba(0,212,255,0.2); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:.82rem; color:#aaa; line-height:1.6">
-            <strong style="color:#00d4ff">à¦¸à§‡à¦Ÿà¦†à¦ª à¦—à¦¾à¦‡à¦¡:</strong><br>
-            à§§. Supabase Dashboard â†’ Authentication â†’ Users â†’ Add user à¦•à¦°à§à¦¨<br>
-            à§¨. à¦¸à§‡à¦‡ email à¦“ password à¦à¦–à¦¾à¦¨à§‡ à¦¸à¦‚à¦°à¦•à§à¦·à¦£ à¦•à¦°à§à¦¨<br>
-            à§©. <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px">supabase/rls_policies_secure.sql</code> SQL Editor-à¦ run à¦•à¦°à§à¦¨<br>
-            à§ª. à¦ªà¦°à¦¬à¦°à§à¦¤à§€ login à¦¥à§‡à¦•à§‡ RLS-secure sync à¦šà¦¾à¦²à§ à¦¹à¦¬à§‡ âœ…
+            <strong style="color:#00d4ff">সেটআপ গাইড:</strong><br>
+            ১. Supabase Dashboard → Authentication → Users → Add user করুন<br>
+            ২. সেই email ও password এখানে সংরক্ষণ করুন<br>
+            ৩. <code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:3px">supabase/rls_policies_secure.sql</code> SQL Editor-এ run করুন<br>
+            ৪. পরবর্তী login থেকে RLS-secure sync চালু হবে ✅
           </div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
             <div class="form-group" style="flex:1;min-width:200px">
@@ -1413,9 +1413,9 @@ const SettingsModule = (() => {
           </div>
           <div style="display:flex; align-items:center; gap:12px; justify-content:space-between">
             <span style="font-size:.78rem; color:${cfg.supabase_email ? '#00ff88' : '#666'}">
-              ${cfg.supabase_email ? 'âœ… Configured: ' + cfg.supabase_email : 'âš ï¸ Not configured â€” running in open-access mode'}
+              ${cfg.supabase_email ? '✅ Configured: ' + cfg.supabase_email : '⚠️ Not configured — running in open-access mode'}
             </span>
-            <button class="btn btn-accent" onclick="SettingsModule.saveSupabaseAuth()">ðŸ’¾ Save & Connect</button>
+            <button class="btn btn-accent" onclick="SettingsModule.saveSupabaseAuth()">💾 Save & Connect</button>
           </div>
         </div>
       </div>
@@ -1429,7 +1429,7 @@ const SettingsModule = (() => {
                </div>
                <div>
                   <div style="font-weight:700; font-size:1.05rem; color:#fff">Secret Recovery Question</div>
-                  <div style="font-size:0.8rem; color:var(--brand-primary)">à¦ªà¦¾à¦¸à¦“à§Ÿà¦¾à¦°à§à¦¡ à¦­à§à¦²à§‡ à¦—à§‡à¦²à§‡ à¦à¦‡ à¦ªà§à¦°à¦¶à§à¦¨ à¦¦à¦¿à§Ÿà§‡ reset à¦•à¦°à¦¤à§‡ à¦ªà¦¾à¦°à¦¬à§‡à¦¨</div>
+                  <div style="font-size:0.8rem; color:var(--brand-primary)">পাসওয়ার্ড ভুলে গেলে এই প্রশ্ন দিয়ে reset করতে পারবেন</div>
                </div>
             </div>
             <i class="fa fa-caret-down" style="color:var(--brand-primary)"></i>
@@ -1452,7 +1452,7 @@ const SettingsModule = (() => {
             </div>
             <div style="display:flex; justify-content:flex-end">
                <button class="btn" style="background:linear-gradient(135deg, rgba(181,55,242,0.8), rgba(0,217,255,0.8)); color:#fff; border:none; padding:8px 20px; border-radius:8px; box-shadow:0 0 10px rgba(181,55,242,0.3)" onclick="SettingsModule.saveRecoverySettings()">
-                  ðŸ’¾ Save Security Settings
+                  💾 Save Security Settings
                </button>
             </div>
          </div>
@@ -1467,7 +1467,7 @@ const SettingsModule = (() => {
                </div>
                <div>
                   <div style="font-weight:700; font-size:1.05rem; color:#fff">Face ID Login</div>
-                  <div style="font-size:0.8rem; color:#00ff88">à¦•à§à¦¯à¦¾à¦®à§‡à¦°à¦¾ à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§‡ à¦¦à§à¦°à§à¦¤ à¦²à¦—à¦‡à¦¨ à¦•à¦°à§à¦¨</div>
+                  <div style="font-size:0.8rem; color:#00ff88">ক্যামেরা ব্যবহার করে দ্রুত লগইন করুন</div>
                </div>
             </div>
             <button class="btn" style="background:linear-gradient(135deg, #00b09b, #96c93d); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof FaceIDModule !== 'undefined') FaceIDModule.openScannerModal('register'); else Utils.toast('Face ID module not loaded.', 'error')">
@@ -1485,7 +1485,7 @@ const SettingsModule = (() => {
                </div>
                <div>
                   <div style="font-weight:700; font-size:1.05rem; color:#fff">Pattern Lock</div>
-                  <div style="font-size:0.8rem; color:#00d4ff">à¦¡à¦Ÿ à¦®à¦¿à¦²à¦¿à§Ÿà§‡ à¦¸à¦¿à¦•à§à¦°à§‡à¦Ÿ à¦ªà§à¦¯à¦¾à¦Ÿà¦¾à¦°à§à¦¨ à¦¤à§ˆà¦°à¦¿ à¦•à¦°à§à¦¨</div>
+                  <div style="font-size:0.8rem; color:#00d4ff">ডট মিলিয়ে সিক্রেট প্যাটার্ন তৈরি করুন</div>
                </div>
             </div>
             <button class="btn" style="background:linear-gradient(135deg, #00d4ff, #0066ff); color:#fff; border:none; padding:8px 16px; border-radius:8px; font-weight:700;" onclick="if(typeof PatternLockModule !== 'undefined') PatternLockModule.open('register'); else Utils.toast('Pattern Lock module not loaded.', 'error')">
@@ -1503,7 +1503,7 @@ const SettingsModule = (() => {
                </div>
                <div>
                   <div style="font-weight:700; font-size:1.05rem; color:#fff">Staff / Sub-account Access</div>
-                  <div style="font-size:0.8rem; color:var(--brand-cyan)">à¦¸à§€à¦®à¦¿à¦¤ à¦à¦•à§à¦¸à§‡à¦¸ à¦¸à¦®à§à¦ªà¦¨à§à¦¨ à¦¸à¦¾à¦¬ à¦†à¦‡à¦¡à¦¿ à¦¤à§ˆà¦°à¦¿ à¦•à¦°à§à¦¨</div>
+                  <div style="font-size:0.8rem; color:var(--brand-cyan)">সীমিত এক্সেস সম্পন্ন সাব আইডি তৈরি করুন</div>
                </div>
             </div>
             <i class="fa fa-caret-up" style="color:var(--brand-cyan)"></i>
@@ -1512,7 +1512,7 @@ const SettingsModule = (() => {
          <div id="sub-account-body" style="margin-top:16px; border-top:1px solid rgba(255,255,255,0.1); padding-top:16px">
             
             <div style="background:rgba(0,0,0,0.2); padding:16px; border-radius:8px; text-align:center; color:var(--text-muted); font-size:0.9rem; margin-bottom:20px; min-height:50px">
-               ${subs.length === 0 ? 'à¦•à§‹à¦¨à§‹ à¦¸à¦¾à¦¬ à¦†à¦‡à¦¡à¦¿ à¦¨à§‡à¦‡' : buildSubAccountsList(subs)}
+               ${subs.length === 0 ? 'কোনো সাব আইডি নেই' : buildSubAccountsList(subs)}
             </div>
 
             <div style="font-size:0.8rem; font-weight:700; color:var(--brand-primary); letter-spacing:1px; margin-bottom:12px; text-transform:uppercase">Create New Sub ID</div>
@@ -1536,19 +1536,19 @@ const SettingsModule = (() => {
                .custom-chk { accent-color: var(--brand-primary); width: 16px; height: 16px; cursor: pointer; }
             </style>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; font-size:0.85rem; background:rgba(0,0,0,0.1); padding:15px; border-radius:8px; border:1px solid rgba(255,255,255,0.05)">
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-students" checked class="custom-chk"> <span>ðŸŽ“ Students</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-attendance" class="custom-chk"> <span>ðŸ“‹ Attendance</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-finance" class="custom-chk"> <span>ðŸ’° Finance/Ledger</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-accounts" class="custom-chk"> <span>ðŸ“Š Accounts</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-loans" class="custom-chk"> <span>ðŸ’³ Loans</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-exams" class="custom-chk"> <span>ðŸ“ Exams</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-hr" class="custom-chk"> <span>ðŸ‘¥ HR / Staff</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-salary" class="custom-chk"> <span>ðŸ’µ Salary Hub</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-visitors" class="custom-chk"> <span>ðŸ‘¤ Visitors</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-idcards" class="custom-chk"> <span>ðŸªª ID Cards</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-certificates" class="custom-chk"> <span>ðŸ† Certificates</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-noticeboard" class="custom-chk"> <span>ðŸ“¢ Notice Board</span></label>
-               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-settings" class="custom-chk"> <span>âš™ï¸ Settings</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-students" checked class="custom-chk"> <span>🎓 Students</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-attendance" class="custom-chk"> <span>📋 Attendance</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-finance" class="custom-chk"> <span>💰 Finance/Ledger</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-accounts" class="custom-chk"> <span>📊 Accounts</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-loans" class="custom-chk"> <span>💳 Loans</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-exams" class="custom-chk"> <span>📝 Exams</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-hr" class="custom-chk"> <span>👥 HR / Staff</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-salary" class="custom-chk"> <span>💵 Salary Hub</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-visitors" class="custom-chk"> <span>👤 Visitors</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-idcards" class="custom-chk"> <span>🪪 ID Cards</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-certificates" class="custom-chk"> <span>🏆 Certificates</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-noticeboard" class="custom-chk"> <span>📢 Notice Board</span></label>
+               <label style="display:flex; align-items:center; gap:8px; cursor:pointer"><input type="checkbox" id="perm-settings" class="custom-chk"> <span>⚙️ Settings</span></label>
             </div>
 
          </div>
@@ -1558,9 +1558,9 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 5: ACTIVITY LOG
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelActivity() {
     const logs = getActivityLogs();
     const addCount    = logs.filter(l => l.action === 'add').length;
@@ -1574,7 +1574,7 @@ const SettingsModule = (() => {
         <div style="display:flex;gap:8px;align-items:center">
           <button class="settings-top-action"
             style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
-            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncingâ€¦';const me=this;SupabaseSync.pullActivityLog().then(()=>{SettingsModule.refreshActivityPanel();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced âœ…','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
+            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{SettingsModule.refreshActivityPanel();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
             <i class="fa fa-rotate"></i> SYNC
           </button>
           <button class="settings-top-action" onclick="SettingsModule.clearActivityLog()">
@@ -1584,47 +1584,47 @@ const SettingsModule = (() => {
       </div>
 
       <div class="activity-stats">
-        <span class="activity-stat-badge" id="astat-total" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-primary)">à¦®à§‹à¦Ÿ: ${logs.length}</span>
-        <span class="activity-stat-badge" id="astat-add" style="background:rgba(0,255,136,0.10);color:#00ff88;border:1px solid rgba(0,255,136,0.25)">+ à¦¯à§‹à¦— ${addCount}</span>
-        <span class="activity-stat-badge" id="astat-edit" style="background:rgba(0,217,255,0.10);color:#00d9ff;border:1px solid rgba(0,217,255,0.25)">âœ à¦à¦¡à¦¿à¦Ÿ ${editCount}</span>
-        <span class="activity-stat-badge" id="astat-del" style="background:rgba(255,71,87,0.10);color:#ff4757;border:1px solid rgba(255,71,87,0.25)">ðŸ—‘ à¦¡à¦¿à¦²à¦¿à¦Ÿ ${deleteCount}</span>
+        <span class="activity-stat-badge" id="astat-total" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-primary)">মোট: ${logs.length}</span>
+        <span class="activity-stat-badge" id="astat-add" style="background:rgba(0,255,136,0.10);color:#00ff88;border:1px solid rgba(0,255,136,0.25)">+ যোগ ${addCount}</span>
+        <span class="activity-stat-badge" id="astat-edit" style="background:rgba(0,217,255,0.10);color:#00d9ff;border:1px solid rgba(0,217,255,0.25)">✏ এডিট ${editCount}</span>
+        <span class="activity-stat-badge" id="astat-del" style="background:rgba(255,71,87,0.10);color:#ff4757;border:1px solid rgba(255,71,87,0.25)">🗑 ডিলিট ${deleteCount}</span>
         <span class="activity-stat-badge" style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);color:#00d4ff;font-size:.74rem">
-          <i class="fa fa-wifi"></i> à¦¸à¦¬ device sync
+          <i class="fa fa-wifi"></i> সব device sync
         </span>
       </div>
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.07)">
         <i class="fa fa-filter" style="color:var(--brand-primary);font-size:.82rem"></i>
         <select id="alog-filter-action" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="SettingsModule.filterActivityLog()">
-          <option value="all">à¦¸à¦¬ Action</option>
-          <option value="add">âž• ADD</option>
-          <option value="edit">âœï¸ EDIT</option>
-          <option value="delete">ðŸ—‘ DELETE</option>
-          <option value="restore">â†© RESTORE</option>
-          <option value="system">âš™ SYSTEM</option>
-          <option value="export">ðŸ“¤ EXPORT</option>
+          <option value="all">সব Action</option>
+          <option value="add">➕ ADD</option>
+          <option value="edit">✏️ EDIT</option>
+          <option value="delete">🗑 DELETE</option>
+          <option value="restore">↩ RESTORE</option>
+          <option value="system">⚙ SYSTEM</option>
+          <option value="export">📤 EXPORT</option>
         </select>
         <select id="alog-filter-type" class="form-control" style="width:160px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="SettingsModule.filterActivityLog()">
-          <option value="all">à¦¸à¦¬ Module</option>
-          <option value="students">ðŸ‘¨â€ðŸŽ“ à¦›à¦¾à¦¤à§à¦° à¦¤à¦¾à¦²à¦¿à¦•à¦¾</option>
-          <option value="finance_ledger">ðŸ’° à¦†à¦¯à¦¼-à¦¬à§à¦¯à¦¯à¦¼ à¦²à§‡à¦œà¦¾à¦°</option>
-          <option value="accounts">ðŸ¦ à¦à¦•à¦¾à¦‰à¦¨à§à¦Ÿ</option>
-          <option value="loans">ðŸ’³ à¦²à§‹à¦¨</option>
-          <option value="salary">ðŸ’µ à¦¬à§‡à¦¤à¦¨</option>
-          <option value="exams">ðŸ“ à¦ªà¦°à§€à¦•à§à¦·à¦¾</option>
-          <option value="attendance">ðŸ“‹ à¦‰à¦ªà¦¸à§à¦¥à¦¿à¦¤à¦¿</option>
-          <option value="staff">ðŸ‘¤ à¦¸à§à¦Ÿà¦¾à¦«</option>
-          <option value="settings">âš™ï¸ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸</option>
-          <option value="security">ðŸ” à¦¨à¦¿à¦°à¦¾à¦ªà¦¤à§à¦¤à¦¾</option>
-          <option value="certificates">ðŸŽ“ à¦¸à¦¾à¦°à§à¦Ÿà¦¿à¦«à¦¿à¦•à§‡à¦Ÿ</option>
-          <option value="visitors">ðŸš¶ à¦­à¦¿à¦œà¦¿à¦Ÿà¦°</option>
-          <option value="notices">ðŸ“¢ à¦¨à§‹à¦Ÿà¦¿à¦¶</option>
+          <option value="all">সব Module</option>
+          <option value="students">👨‍🎓 ছাত্র তালিকা</option>
+          <option value="finance_ledger">💰 আয়-ব্যয় লেজার</option>
+          <option value="accounts">🏦 একাউন্ট</option>
+          <option value="loans">💳 লোন</option>
+          <option value="salary">💵 বেতন</option>
+          <option value="exams">📝 পরীক্ষা</option>
+          <option value="attendance">📋 উপস্থিতি</option>
+          <option value="staff">👤 স্টাফ</option>
+          <option value="settings">⚙️ সেটিংস</option>
+          <option value="security">🔐 নিরাপত্তা</option>
+          <option value="certificates">🎓 সার্টিফিকেট</option>
+          <option value="visitors">🚶 ভিজিটর</option>
+          <option value="notices">📢 নোটিশ</option>
         </select>
         <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 10px">
           <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.78rem"></i>
-          <input type="text" id="alog-search" placeholder="à¦¸à¦¾à¦°à§à¦š à¦•à¦°à§à¦¨â€¦" style="background:none;border:none;outline:none;color:#fff;font-size:.82rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterActivityLog()" />
+          <input type="text" id="alog-search" placeholder="সার্চ করুন…" style="background:none;border:none;outline:none;color:#fff;font-size:.82rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterActivityLog()" />
         </div>
-        <button onclick="SettingsModule.clearActivityFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:.78rem">âœ• à¦•à§à¦²à¦¿à¦¯à¦¼à¦¾à¦°</button>
+        <button onclick="SettingsModule.clearActivityFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:.78rem">✕ ক্লিয়ার</button>
       </div>
 
       <div class="table-wrapper" style="max-height:480px;overflow:auto">
@@ -1634,10 +1634,10 @@ const SettingsModule = (() => {
               <th style="width:36px"></th>
               <th>Action</th>
               <th>Module</th>
-              <th>à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤</th>
+              <th>বিস্তারিত</th>
               <th>Status</th>
               <th>Device</th>
-              <th style="text-align:right">â± à¦¸à¦®à¦¯à¦¼</th>
+              <th style="text-align:right">⏱ সময়</th>
             </tr>
           </thead>
           <tbody id="alog-tbody">
@@ -1648,9 +1648,9 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 6: RECYCLE BIN
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelRecycle() {
     const deleted = getDeletedItems();
     return `
@@ -1672,11 +1672,11 @@ const SettingsModule = (() => {
               `<tr><td colspan="6" class="no-data" style="padding:40px"><i class="fa fa-trash-can" style="font-size:2rem;opacity:.3;display:block;margin-bottom:8px"></i>Recycle bin is empty.</td></tr>` :
               deleted.map((d, i) => `
                 <tr>
-                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : d.type === 'à¦¨à§‹à¦Ÿ' ? 'fa-bookmark' : 'fa-file'}"></i></td>
-                  <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || 'â€”'}</td>
+                  <td><i class="fa ${d.type === 'student' ? 'fa-user-graduate' : d.type === 'transaction' ? 'fa-money-bill' : d.type === 'staff' ? 'fa-user-tie' : d.type === 'visitor' ? 'fa-walking' : d.type === 'notice' ? 'fa-bullhorn' : d.type === 'account' ? 'fa-building-columns' : d.type === 'loan' ? 'fa-hand-holding-dollar' : d.type === 'exam' ? 'fa-file-lines' : d.type === 'category' ? 'fa-tags' : d.type === 'subaccount' ? 'fa-user-shield' : d.type === 'salary' ? 'fa-money-bill-wave' : d.type === 'নোট' ? 'fa-bookmark' : 'fa-file'}"></i></td>
+                  <td style="font-size:.78rem;color:var(--text-muted)">${d.tableLabel || d.table || '—'}</td>
                   <td><span class="badge badge-muted">${d.type || 'item'}</span></td>
-                  <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || 'â€”'}</td>
-                  <td style="font-size:.78rem;color:var(--text-muted)">${d.deletedAt ? new Date(d.deletedAt).toLocaleString() : 'â€”'}</td>
+                  <td style="font-size:.85rem">${d.name || d.data?.description || d.data?.id || '—'}</td>
+                  <td style="font-size:.78rem;color:var(--text-muted)">${d.deletedAt ? new Date(d.deletedAt).toLocaleString() : '—'}</td>
                   <td>
                     <button class="btn btn-outline btn-xs" onclick="SettingsModule.restoreItem(${i})" title="Restore"><i class="fa fa-rotate-left"></i></button>
                     <button class="btn btn-danger btn-xs" onclick="SettingsModule.permanentDelete(${i})" title="Delete Forever"><i class="fa fa-xmark"></i></button>
@@ -1690,9 +1690,9 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 7: SYNC DIAGNOSTIC
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelSync() {
     return `
     <div class="settings-panel ${activeTab === 'sync' ? 'active' : ''}" data-panel="sync">
@@ -1710,8 +1710,8 @@ const SettingsModule = (() => {
         <div class="diag-stats" id="diag-heal-stats">
           <div class="diag-stat-box green"><div class="label">Records scanned</div><div class="value" id="heal-total">0</div></div>
           <div class="diag-stat-box blue"><div class="label">Auto fix</div><div class="value" id="heal-fixed">0</div></div>
-          <div class="diag-stat-box blue"><div class="label">Last run</div><div class="value" id="heal-last">â€”</div></div>
-          <div class="diag-stat-box red"><div class="label">Last fix</div><div class="value" id="heal-lastfix">â€”</div></div>
+          <div class="diag-stat-box blue"><div class="label">Last run</div><div class="value" id="heal-last">—</div></div>
+          <div class="diag-stat-box red"><div class="label">Last fix</div><div class="value" id="heal-lastfix">—</div></div>
         </div>
         <div style="margin-top:10px">
           <div class="settings-label" style="font-size:.78rem"><i class="fa fa-wrench"></i> HEAL LOG</div>
@@ -1737,22 +1737,22 @@ const SettingsModule = (() => {
         </p>
         <div id="sync-diag-result" style="display:none;margin-bottom:10px;padding:10px 14px;border-radius:8px;font-size:.85rem;font-weight:600"></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-          <button id="btn-sync-pull" type="button" class="btn btn-primary btn-sm" onclick="SettingsModule.runCloudPullDiag()">â¬‡ Sync (retry + pull)</button>
-          <button id="btn-push-cloud" type="button" class="btn btn-accent btn-sm" onclick="SettingsModule.runCloudPushDiag()">â¬† Push to Cloud</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time à¦šà¦¾à¦²à§ âœ…','success')">ðŸŸ¢ Real-time On</button>
-          <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time à¦¬à¦¨à§à¦§','info')">ðŸ”´ Real-time Off</button>
+          <button id="btn-sync-pull" type="button" class="btn btn-primary btn-sm" onclick="SettingsModule.runCloudPullDiag()">⬇ Sync (retry + pull)</button>
+          <button id="btn-push-cloud" type="button" class="btn btn-accent btn-sm" onclick="SettingsModule.runCloudPushDiag()">⬆ Push to Cloud</button>
+          <button class="btn btn-outline btn-sm" onclick="SyncEngine.startRealtime(); Utils.toast('Real-time চালু ✅','success')">🟢 Real-time On</button>
+          <button class="btn btn-outline btn-sm" onclick="SyncEngine.stopRealtime(); Utils.toast('Real-time বন্ধ','info')">🔴 Real-time Off</button>
         </div>
         <div style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
-          <strong>Device ID:</strong> <code>${typeof SupabaseSync !== 'undefined' ? SupabaseSync._deviceId() : 'â€”'}</code>
+          <strong>Device ID:</strong> <code>${typeof SupabaseSync !== 'undefined' ? SupabaseSync._deviceId() : '—'}</code>
         </div>
       </div>
 
       <div class="settings-card glow-cyan">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> FEE RECONCILIATION</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
-          à¦¯à¦¦à¦¿ à¦•à§‹à¦¨à§‹ Student-à¦à¦° <strong style="color:#00ff88">Paid</strong> à¦¬à¦¾ <strong style="color:#ff4757">Due</strong> amount 
-          Finance Ledger-à¦à¦° à¦¸à¦¾à¦¥à§‡ à¦®à¦¿à¦²à¦›à§‡ à¦¨à¦¾, à¦à¦‡ à¦¬à¦¾à¦Ÿà¦¨à¦Ÿà¦¿ à¦¸à¦¬ à¦ à¦¿à¦• à¦•à¦°à§‡ à¦¦à§‡à¦¬à§‡à¥¤<br/>
-          <span style="font-size:.78rem;color:var(--text-muted);">âš ï¸ à¦à¦Ÿà¦¿ à¦¶à§à¦§à§ mismatch fix à¦•à¦°à§‡ â€” à¦•à§‹à¦¨à§‹ payment delete à¦¬à¦¾ add à¦•à¦°à§‡ à¦¨à¦¾à¥¤</span>
+          যদি কোনো Student-এর <strong style="color:#00ff88">Paid</strong> বা <strong style="color:#ff4757">Due</strong> amount 
+          Finance Ledger-এর সাথে মিলছে না, এই বাটনটি সব ঠিক করে দেবে।<br/>
+          <span style="font-size:.78rem;color:var(--text-muted);">⚠️ এটি শুধু mismatch fix করে — কোনো payment delete বা add করে না।</span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm"
@@ -1768,9 +1768,9 @@ const SettingsModule = (() => {
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 8: KEEP RECORD
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelKeepRecord() {
     const notes = getKeepRecords();
     const tags  = [...new Set(notes.flatMap(n => n.tags || []))].filter(Boolean);
@@ -1786,11 +1786,11 @@ const SettingsModule = (() => {
         <div style="padding:20px 22px 16px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
           <div>
             <div class="settings-card-title" style="margin-bottom:3px;color:#b537f2"><i class="fa fa-bookmark"></i> KEEP RECORD</div>
-            <div style="font-size:.78rem;color:var(--text-muted)">à¦¬à§à¦¯à¦•à§à¦¤à¦¿à¦—à¦¤ à¦¨à§‹à¦Ÿ à¦“ à¦°à§‡à¦•à¦°à§à¦¡ â€” à¦¤à¦¾à¦°à¦¿à¦– à¦…à¦¨à§à¦¯à¦¾à¦¯à¦¼à§€ à¦¸à§‡à¦­ à¦¥à¦¾à¦•à§‡</div>
+            <div style="font-size:.78rem;color:var(--text-muted)">ব্যক্তিগত নোট ও রেকর্ড — তারিখ অনুযায়ী সেভ থাকে</div>
           </div>
           <button class="btn btn-sm" onclick="SettingsModule.addNote()"
             style="background:linear-gradient(135deg,#b537f2,#7c3aed);color:#fff;border:none;padding:9px 18px;border-radius:25px;font-weight:700;font-size:.85rem;cursor:pointer;display:flex;align-items:center;gap:7px;box-shadow:0 0 16px rgba(181,55,242,0.4)">
-            <i class="fa fa-plus"></i> + à¦¨à¦¤à§à¦¨ à¦¨à§‹à¦Ÿ
+            <i class="fa fa-plus"></i> + নতুন নোট
           </button>
         </div>
 
@@ -1798,37 +1798,37 @@ const SettingsModule = (() => {
         <div style="padding:14px 22px;border-bottom:1px solid rgba(255,255,255,0.05);display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:rgba(0,0,0,0.15)">
           <!-- Date Range Filter -->
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">ðŸ“… à¦¥à§‡à¦•à§‡</span>
+            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">📅 থেকে</span>
             <input type="date" id="kr-date-from" class="form-control" style="width:145px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
-            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">à¦ªà¦°à§à¦¯à¦¨à§à¦¤</span>
+            <span style="font-size:.75rem;color:rgba(255,255,255,0.4);white-space:nowrap">পর্যন্ত</span>
             <input type="date" id="kr-date-to" class="form-control" style="width:145px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()" />
           </div>
           <select id="kr-tag-filter" class="form-control" style="width:140px;font-size:.82rem;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:8px;padding:7px 10px" onchange="SettingsModule.filterNotes()">
-            <option value="">à¦¸à¦¬ à¦Ÿà§à¦¯à¦¾à¦—</option>
+            <option value="">সব ট্যাগ</option>
             ${tags.map(t => `<option value="${t}">${t}</option>`).join('')}
           </select>
           <div style="flex:1;min-width:150px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:4px 10px">
             <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.82rem"></i>
-            <input type="text" id="kr-search" placeholder="à¦¸à¦¾à¦°à§à¦š à¦•à¦°à§à¦¨..." style="background:none;border:none;outline:none;color:#fff;font-size:.85rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterNotes()" />
+            <input type="text" id="kr-search" placeholder="সার্চ করুন..." style="background:none;border:none;outline:none;color:#fff;font-size:.85rem;width:100%;font-family:var(--font-ui)" oninput="SettingsModule.filterNotes()" />
           </div>
-          <button onclick="SettingsModule.clearNoteFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.55);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.8rem">âœ• à¦•à§à¦²à¦¿à¦¯à¦¼à¦¾à¦°</button>
+          <button onclick="SettingsModule.clearNoteFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.55);border-radius:8px;padding:7px 12px;cursor:pointer;font-size:.8rem">✕ ক্লিয়ার</button>
         </div>
         <!-- Notes Grid -->
         <div id="kr-notes-grid" style="padding:18px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;max-height:520px;overflow-y:auto">
           ${notes.length === 0
             ? `<div style="grid-column:1/-1;text-align:center;padding:60px 20px">
                 <i class="fa fa-flag" style="font-size:2.5rem;color:#b537f2;opacity:.4;display:block;margin-bottom:14px"></i>
-                <div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">à¦•à§‹à¦¨à§‹ à¦¨à§‹à¦Ÿ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿</div>
-                <div style="color:#00ff88;font-size:.82rem">à¦¨à¦¤à§à¦¨ à¦¨à§‹à¦Ÿ à¦¯à§‹à¦— à¦•à¦°à¦¤à§‡ à¦‰à¦ªà¦°à§‡à¦° à¦¬à¦¾à¦Ÿà¦¨à§‡ à¦•à§à¦²à¦¿à¦• à¦•à¦°à§à¦¨</div>
+                <div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">কোনো নোট পাওয়া যায়নি</div>
+                <div style="color:#00ff88;font-size:.82rem">নতুন নোট যোগ করতে উপরের বাটনে ক্লিক করুন</div>
               </div>`
             : notes.map((n, i) => {
                 const c = n.color || 'blue';
                 const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
                 return `
                 <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-                  ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">ðŸ“Œ</div>' : ''}
-                  <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">âœï¸</button>
-                  <button onclick="SettingsModule.deleteNote(${i})" title="Delete â†’ Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">âœ•</button>
+                  ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}
+                  <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button>
+                  <button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
                   <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
                   ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
                   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
@@ -1842,7 +1842,7 @@ const SettingsModule = (() => {
           }
         </div>
 
-        ${notes.length > 0 ? `<div style="padding:10px 22px 14px;border-top:1px solid rgba(255,255,255,0.05);text-align:right;font-size:.75rem;color:var(--text-muted)">${notes.length} à¦Ÿà¦¿ à¦¨à§‹à¦Ÿ à¦¸à¦‚à¦°à¦•à§à¦·à¦¿à¦¤</div>` : ''}
+        ${notes.length > 0 ? `<div style="padding:10px 22px 14px;border-top:1px solid rgba(255,255,255,0.05);text-align:right;font-size:.75rem;color:var(--text-muted)">${notes.length} টি নোট সংরক্ষিত</div>` : ''}
       </div>
     </div>`;
   }
@@ -1876,7 +1876,7 @@ const SettingsModule = (() => {
     const grid = document.getElementById('kr-notes-grid');
     if (!grid) return;
     if (notes.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fa fa-search" style="font-size:1.8rem;opacity:.3;display:block;margin-bottom:10px"></i>à¦•à§‹à¦¨à§‹ à¦¨à§‹à¦Ÿ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿</div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fa fa-search" style="font-size:1.8rem;opacity:.3;display:block;margin-bottom:10px"></i>কোনো নোট পাওয়া যায়নি</div>`;
       return;
     }
     const allNotes = getKeepRecords();
@@ -1886,9 +1886,9 @@ const SettingsModule = (() => {
       const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
       return `
         <div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-          ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700">ðŸ“Œ</div>' : ''}
-          <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">âœï¸</button>
-          <button onclick="SettingsModule.deleteNote(${i})" title="Delete â†’ Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">âœ•</button>
+          ${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700">📌</div>' : ''}
+          <button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button>
+          <button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button>
           <div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>
           ${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
@@ -1909,10 +1909,10 @@ const SettingsModule = (() => {
     filterNotes();
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // TAB 9: BATCH PROFIT  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
+  // TAB 9: BATCH PROFIT  // ════════════════════════════════════════════════════════════════
   // TAB 9: BATCH PROFIT REPORT
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelBatchProfit() {
     const students = SupabaseSync.getAll(DB.students);
     const _finance  = SupabaseSync.getAll(DB.finance);
@@ -1968,11 +1968,11 @@ const SettingsModule = (() => {
           <div class="form-group" style="margin:0">
             <label class="settings-label">PREVIOUS BALANCE / PROFIT / DUE (MANUAL)</label>
             <div style="display:flex;align-items:center;gap:0;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.12);border-radius:8px;overflow:hidden;">
-              <span style="padding:10px 14px;font-size:1rem;color:var(--brand-primary);font-weight:700;border-right:1px solid rgba(255,255,255,0.1);">à§³</span>
+              <span style="padding:10px 14px;font-size:1rem;color:var(--brand-primary);font-weight:700;border-right:1px solid rgba(255,255,255,0.1);">৳</span>
               <input type="number" id="bp-prev" class="form-control" value="0" placeholder="0.00"
                 style="border:none;background:transparent;border-radius:0;flex:1;" />
             </div>
-            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">à¦ªà§‚à¦°à§à¦¬à§‡à¦° à¦•à§‹à¦¨à§‹ à¦¡à¦¿à¦‰ à¦¬à¦¾ à¦œà¦®à¦¾à¦¨à§‹ à¦²à¦¾à¦­ à¦¥à¦¾à¦•à¦²à§‡ à¦²à¦¿à¦–à§à¦¨</div>
+            <div style="font-size:0.72rem;color:var(--text-muted);margin-top:4px;">পূর্বের কোনো ডিউ বা জমানো লাভ থাকলে লিখুন</div>
           </div>
           <div>
             <button onclick="SettingsModule.renderBatchReport()"
@@ -2012,7 +2012,7 @@ const SettingsModule = (() => {
   function buildBatchReport(students, finance, selectedBatch, startDate, endDate, prevBalance) {
     prevBalance = parseFloat(prevBalance) || 0;
 
-    // â”€â”€ Students filtered by batch â”€â”€
+    // ── Students filtered by batch ──
     const batchStudents = selectedBatch
       ? students.filter(s => s.batch === selectedBatch)
       : students;
@@ -2020,13 +2020,13 @@ const SettingsModule = (() => {
     // Get student IDs for finance lookup
     const _studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
 
-    // â”€â”€ Income: from student fees (finance entries for these students) â”€â”€
+    // ── Income: from student fees (finance entries for these students) ──
     // Also count direct paid from student records
     const totalStudentFee  = batchStudents.reduce((s, st) => s + (parseFloat(st.total_fee) || 0), 0);
     const totalCollected   = batchStudents.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
     const totalDue         = batchStudents.reduce((s, st) => s + (parseFloat(st.due) || 0), 0);
 
-    // â”€â”€ Expenses: by date range (batch-tagged or general) â”€â”€
+    // ── Expenses: by date range (batch-tagged or general) ──
     const expenseEntries = finance.filter(f => {
       if (f.type !== 'Expense') return false;
       if (f.category === 'Balance Adjustment') return false; // excluded from batch reports
@@ -2039,7 +2039,7 @@ const SettingsModule = (() => {
 
     const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);
 
-    // â”€â”€ Income = ALL collected fees from batch students (NO date filter) â”€â”€
+    // ── Income = ALL collected fees from batch students (NO date filter) ──
     // Date range applies to EXPENSES only, not income.
     // Students in a batch enroll at different times, so all-time collected is the correct income figure.
     const grossIncome = totalCollected;  // from batchStudents.reduce paid
@@ -2050,7 +2050,7 @@ const SettingsModule = (() => {
     const academyName = cfg.academy_name || 'Wings Fly Aviation Academy';
     const reportDate  = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' });
 
-    // â”€â”€ Expense breakdown by category â”€â”€
+    // ── Expense breakdown by category ──
     const expCats = {};
     expenseEntries.forEach(f => {
       const cat = f.category || 'General';
@@ -2058,7 +2058,7 @@ const SettingsModule = (() => {
       expCats[cat] += parseFloat(f.amount) || 0;
     });
 
-    // â”€â”€ Store data for export â”€â”€
+    // ── Store data for export ──
     window._bpReportData = {
       batch: selectedBatch || 'All Batches', startDate, endDate, prevBalance,
       batchStudents, expenseEntries,
@@ -2072,68 +2072,68 @@ const SettingsModule = (() => {
       <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
         <button onclick="SettingsModule.printBatchReport()"
           style="padding:9px 20px;background:linear-gradient(90deg,#1a3a6b,#0099cc);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
-          <i class="fa fa-print"></i> à¦ªà§à¦°à¦¿à¦¨à§à¦Ÿ à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ
+          <i class="fa fa-print"></i> প্রিন্ট রিপোর্ট
         </button>
         <button onclick="SettingsModule.exportBatchReportExcel()"
           style="padding:9px 20px;background:linear-gradient(90deg,#1a7a1a,#4caf50);color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:0.85rem;">
           <i class="fa fa-file-excel"></i> Excel Export
         </button>
         <span style="margin-left:auto;font-size:0.78rem;color:var(--text-muted);align-self:center;">
-          à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ à¦¤à§ˆà¦°à¦¿: ${reportDate} &nbsp;|&nbsp; ${selectedBatch || 'à¦¸à¦•à¦² Batch'}
-          ${startDate ? ` &nbsp;|&nbsp; ${Utils.formatDateEN(startDate)} â†’ ${Utils.formatDateEN(endDate)}` : ''}
+          রিপোর্ট তৈরি: ${reportDate} &nbsp;|&nbsp; ${selectedBatch || 'সকল Batch'}
+          ${startDate ? ` &nbsp;|&nbsp; ${Utils.formatDateEN(startDate)} → ${Utils.formatDateEN(endDate)}` : ''}
         </span>
       </div>
 
       <!-- KPI Summary Cards -->
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
-        ${bpCard('fa-users', '#00d9ff', 'à¦®à§‹à¦Ÿ à¦›à¦¾à¦¤à§à¦°', batchStudents.length, '')}
-        ${bpCard('fa-money-bill-wave', '#ffd700', 'à¦®à§‹à¦Ÿ à¦•à§‹à¦°à§à¦¸ à¦«à¦¿', 'à§³' + totalStudentFee.toLocaleString('en-IN'), '')}
-        ${bpCard('fa-circle-check', '#00ff88', 'à¦¸à¦‚à¦—à§ƒà¦¹à§€à¦¤ à¦«à¦¿', 'à§³' + totalCollected.toLocaleString('en-IN'), 'green')}
-        ${bpCard('fa-circle-xmark', '#ff4757', 'à¦¬à¦¾à¦•à¦¿ à¦¡à¦¿à¦‰', 'à§³' + totalDue.toLocaleString('en-IN'), 'red')}
-        ${bpCard('fa-receipt', '#ff9a00', 'à¦®à§‹à¦Ÿ à¦–à¦°à¦š', 'à§³' + totalExpense.toLocaleString('en-IN'), 'orange')}
+        ${bpCard('fa-users', '#00d9ff', 'মোট ছাত্র', batchStudents.length, '')}
+        ${bpCard('fa-money-bill-wave', '#ffd700', 'মোট কোর্স ফি', '৳' + totalStudentFee.toLocaleString('en-IN'), '')}
+        ${bpCard('fa-circle-check', '#00ff88', 'সংগৃহীত ফি', '৳' + totalCollected.toLocaleString('en-IN'), 'green')}
+        ${bpCard('fa-circle-xmark', '#ff4757', 'বাকি ডিউ', '৳' + totalDue.toLocaleString('en-IN'), 'red')}
+        ${bpCard('fa-receipt', '#ff9a00', 'মোট খরচ', '৳' + totalExpense.toLocaleString('en-IN'), 'orange')}
         ${bpCard(isProfit ? 'fa-trending-up' : 'fa-trending-down', isProfit ? '#00ff88' : '#ff4757',
-          isProfit ? 'à¦¨à¦¿à¦Ÿ à¦®à§à¦¨à¦¾à¦«à¦¾' : 'à¦¨à¦¿à¦Ÿ à¦•à§à¦·à¦¤à¦¿',
-          'à§³' + Math.abs(netProfit).toLocaleString('en-IN'),
+          isProfit ? 'নিট মুনাফা' : 'নিট ক্ষতি',
+          '৳' + Math.abs(netProfit).toLocaleString('en-IN'),
           isProfit ? 'green' : 'red')}
       </div>
 
       <!-- P&L Summary Box -->
       <div style="background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:18px;margin-bottom:20px;">
         <div style="font-weight:800;color:var(--brand-primary);font-size:0.9rem;letter-spacing:1px;margin-bottom:14px;border-left:4px solid var(--brand-primary);padding-left:10px;">
-          ðŸ“Š à¦²à¦¾à¦­-à¦•à§à¦·à¦¤à¦¿ à¦¹à¦¿à¦¸à¦¾à¦¬ à¦¸à¦¾à¦°à¦¾à¦‚à¦¶ (P&amp;L Statement)
+          📊 লাভ-ক্ষতি হিসাব সারাংশ (P&amp;L Statement)
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           <!-- Income Side -->
           <div>
             <div style="font-weight:700;color:#00ff88;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(0,255,136,0.2);padding-bottom:6px;">
-              âœ¦ à¦†à¦¯à¦¼ (Income)
+              ✦ আয় (Income)
             </div>
-            ${plRow('à¦¬à§à¦¯à¦¾à¦šà§‡à¦° à¦®à§‹à¦Ÿ à¦¸à¦‚à¦—à§ƒà¦¹à§€à¦¤ à¦«à¦¿ (à¦¸à¦®à§à¦ªà§‚à¦°à§à¦£)', totalCollected, '#00ff88')}
-            ${prevBalance !== 0 ? plRow('à¦ªà§‚à¦°à§à¦¬à¦¬à¦°à§à¦¤à§€ à¦¬à§à¦¯à¦¾à¦²à§‡à¦¨à§à¦¸', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
+            ${plRow('ব্যাচের মোট সংগৃহীত ফি (সম্পূর্ণ)', totalCollected, '#00ff88')}
+            ${prevBalance !== 0 ? plRow('পূর্ববর্তী ব্যালেন্স', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
             <div style="border-top:1.5px solid rgba(0,255,136,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
-              <span style="color:#fff;">à¦®à§‹à¦Ÿ à¦†à¦¯à¦¼</span>
-              <span style="color:#00ff88;">à§³${grossIncome.toLocaleString('en-IN')}</span>
+              <span style="color:#fff;">মোট আয়</span>
+              <span style="color:#00ff88;">৳${grossIncome.toLocaleString('en-IN')}</span>
             </div>
           </div>
           <!-- Expense Side -->
           <div>
             <div style="font-weight:700;color:#ff4757;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(255,71,87,0.2);padding-bottom:6px;">
-              âœ¦ à¦¬à§à¦¯à¦¯à¦¼ (Expense)
+              ✦ ব্যয় (Expense)
             </div>
             ${Object.entries(expCats).map(([cat, amt]) => plRow(cat, amt, '#ff9a00')).join('')}
-            ${Object.keys(expCats).length === 0 ? `<div style="color:var(--text-muted);font-size:0.8rem;padding:8px 0;">à¦à¦‡ à¦¤à¦¾à¦°à¦¿à¦– à¦¸à§€à¦®à¦¾à¦¯à¦¼ à¦•à§‹à¦¨à§‹ à¦¬à§à¦¯à¦¯à¦¼ à¦¨à§‡à¦‡</div>` : ''}
+            ${Object.keys(expCats).length === 0 ? `<div style="color:var(--text-muted);font-size:0.8rem;padding:8px 0;">এই তারিখ সীমায় কোনো ব্যয় নেই</div>` : ''}
             <div style="border-top:1.5px solid rgba(255,71,87,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
-              <span style="color:#fff;">à¦®à§‹à¦Ÿ à¦¬à§à¦¯à¦¯à¦¼</span>
-              <span style="color:#ff4757;">à§³${totalExpense.toLocaleString('en-IN')}</span>
+              <span style="color:#fff;">মোট ব্যয়</span>
+              <span style="color:#ff4757;">৳${totalExpense.toLocaleString('en-IN')}</span>
             </div>
           </div>
         </div>
 
         <!-- Net Result -->
         <div style="margin-top:16px;padding:14px 20px;background:${isProfit ? 'rgba(0,255,136,0.1)' : 'rgba(255,71,87,0.1)'};border:2px solid ${isProfit ? 'rgba(0,255,136,0.4)' : 'rgba(255,71,87,0.4)'};border-radius:10px;display:flex;justify-content:space-between;align-items:center;">
-          <span style="font-size:1.05rem;font-weight:800;color:#fff;">${isProfit ? 'âœ… à¦¨à¦¿à¦Ÿ à¦®à§à¦¨à¦¾à¦«à¦¾ (Net Profit)' : 'âŒ à¦¨à¦¿à¦Ÿ à¦•à§à¦·à¦¤à¦¿ (Net Loss)'}</span>
+          <span style="font-size:1.05rem;font-weight:800;color:#fff;">${isProfit ? '✅ নিট মুনাফা (Net Profit)' : '❌ নিট ক্ষতি (Net Loss)'}</span>
           <span style="font-size:1.4rem;font-weight:900;color:${isProfit ? '#00ff88' : '#ff4757'};">
-            ${isProfit ? '+' : '-'}à§³${Math.abs(netProfit).toLocaleString('en-IN')}
+            ${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}
           </span>
         </div>
       </div>
@@ -2141,25 +2141,25 @@ const SettingsModule = (() => {
       <!-- Student-wise Table -->
       <div style="margin-bottom:20px;">
         <div style="font-weight:800;color:var(--brand-primary);font-size:0.85rem;letter-spacing:1px;margin-bottom:10px;border-left:4px solid var(--brand-primary);padding-left:10px;">
-          ðŸ‘¨â€ðŸŽ“ à¦›à¦¾à¦¤à§à¦° à¦­à¦¿à¦¤à§à¦¤à¦¿à¦• à¦¬à¦¿à¦¬à¦°à¦£
+          👨‍🎓 ছাত্র ভিত্তিক বিবরণ
         </div>
         <div class="table-wrapper">
           <table>
             <thead>
               <tr>
                 <th>#</th>
-                <th>à¦›à¦¾à¦¤à§à¦°à§‡à¦° à¦¨à¦¾à¦®</th>
+                <th>ছাত্রের নাম</th>
                 <th>Student ID</th>
                 <th>Batch</th>
-                <th>à¦•à§‹à¦°à§à¦¸</th>
-                <th>à¦®à§‹à¦Ÿ à¦«à¦¿</th>
-                <th>à¦ªà¦°à¦¿à¦¶à§‹à¦§à¦¿à¦¤</th>
-                <th>à¦¬à¦¾à¦•à¦¿</th>
-                <th>à¦…à¦¬à¦¸à§à¦¥à¦¾</th>
+                <th>কোর্স</th>
+                <th>মোট ফি</th>
+                <th>পরিশোধিত</th>
+                <th>বাকি</th>
+                <th>অবস্থা</th>
               </tr>
             </thead>
             <tbody>
-              ${batchStudents.length === 0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:16px;">à¦•à§‹à¦¨à§‹ à¦›à¦¾à¦¤à§à¦° à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿</td></tr>' :
+              ${batchStudents.length === 0 ? '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:16px;">কোনো ছাত্র পাওয়া যায়নি</td></tr>' :
                 batchStudents.map((s, i) => {
                   const fee  = parseFloat(s.total_fee) || 0;
                   const paid = parseFloat(s.paid) || 0;
@@ -2167,13 +2167,13 @@ const SettingsModule = (() => {
                   const pct  = fee > 0 ? Math.round((paid / fee) * 100) : 0;
                   return `<tr>
                     <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
-                    <td><strong>${Utils.esc(s.name) || 'â€”'}</strong></td>
-                    <td><span class="badge badge-primary">${Utils.esc(s.student_id) || 'â€”'}</span></td>
-                    <td>${Utils.esc(s.batch) || 'â€”'}</td>
-                    <td style="font-size:0.82rem;color:var(--text-secondary);">${Utils.esc(s.course) || 'â€”'}</td>
-                    <td style="font-weight:700;color:var(--brand-primary);">à§³${fee.toLocaleString('en-IN')}</td>
-                    <td style="font-weight:700;color:#00ff88;">à§³${paid.toLocaleString('en-IN')}</td>
-                    <td style="font-weight:700;color:${due > 0 ? '#ff4757' : 'var(--text-muted)'};">à§³${due.toLocaleString('en-IN')}</td>
+                    <td><strong>${Utils.esc(s.name) || '—'}</strong></td>
+                    <td><span class="badge badge-primary">${Utils.esc(s.student_id) || '—'}</span></td>
+                    <td>${Utils.esc(s.batch) || '—'}</td>
+                    <td style="font-size:0.82rem;color:var(--text-secondary);">${Utils.esc(s.course) || '—'}</td>
+                    <td style="font-weight:700;color:var(--brand-primary);">৳${fee.toLocaleString('en-IN')}</td>
+                    <td style="font-weight:700;color:#00ff88;">৳${paid.toLocaleString('en-IN')}</td>
+                    <td style="font-weight:700;color:${due > 0 ? '#ff4757' : 'var(--text-muted)'};">৳${due.toLocaleString('en-IN')}</td>
                     <td>
                       <div style="display:flex;align-items:center;gap:6px;">
                         <div style="width:50px;height:6px;background:rgba(255,255,255,0.1);border-radius:3px;overflow:hidden;">
@@ -2189,10 +2189,10 @@ const SettingsModule = (() => {
             ${batchStudents.length > 0 ? `
             <tfoot>
               <tr style="background:rgba(0,0,0,0.4);font-weight:800;">
-                <td colspan="5" style="text-align:right;padding:10px;color:var(--brand-primary);letter-spacing:0.5px;">à¦®à§‹à¦Ÿ à¦¸à¦¾à¦°à¦¾à¦‚à¦¶:</td>
-                <td style="color:#ffd700;padding:10px;">à§³${totalStudentFee.toLocaleString('en-IN')}</td>
-                <td style="color:#00ff88;padding:10px;">à§³${totalCollected.toLocaleString('en-IN')}</td>
-                <td style="color:#ff4757;padding:10px;">à§³${totalDue.toLocaleString('en-IN')}</td>
+                <td colspan="5" style="text-align:right;padding:10px;color:var(--brand-primary);letter-spacing:0.5px;">মোট সারাংশ:</td>
+                <td style="color:#ffd700;padding:10px;">৳${totalStudentFee.toLocaleString('en-IN')}</td>
+                <td style="color:#00ff88;padding:10px;">৳${totalCollected.toLocaleString('en-IN')}</td>
+                <td style="color:#ff4757;padding:10px;">৳${totalDue.toLocaleString('en-IN')}</td>
                 <td></td>
               </tr>
             </tfoot>` : ''}
@@ -2204,13 +2204,13 @@ const SettingsModule = (() => {
       ${expenseEntries.length > 0 ? `
       <div>
         <div style="font-weight:800;color:#ff9a00;font-size:0.85rem;letter-spacing:1px;margin-bottom:10px;border-left:4px solid #ff9a00;padding-left:10px;">
-          ðŸ’¸ à¦–à¦°à¦šà§‡à¦° à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ (${startDate ? Utils.formatDateEN(startDate) : 'â€”'} à¦¥à§‡à¦•à§‡ ${endDate ? Utils.formatDateEN(endDate) : 'â€”'})
+          💸 খরচের বিস্তারিত (${startDate ? Utils.formatDateEN(startDate) : '—'} থেকে ${endDate ? Utils.formatDateEN(endDate) : '—'})
         </div>
         <div class="table-wrapper">
           <table>
             <thead>
               <tr>
-                <th>#</th><th>à¦¤à¦¾à¦°à¦¿à¦–</th><th>à¦¬à¦¿à¦¬à¦°à¦£</th><th>à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿</th><th>à¦ªà¦¦à§à¦§à¦¤à¦¿</th><th style="text-align:right;">à¦ªà¦°à¦¿à¦®à¦¾à¦£</th>
+                <th>#</th><th>তারিখ</th><th>বিবরণ</th><th>ক্যাটাগরি</th><th>পদ্ধতি</th><th style="text-align:right;">পরিমাণ</th>
               </tr>
             </thead>
             <tbody>
@@ -2219,18 +2219,18 @@ const SettingsModule = (() => {
                 return `
                 <tr>
                   <td style="text-align:center;color:var(--text-muted);font-size:0.8rem;">${i + 1}</td>
-                  <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || 'â€”'}</td>
-                  <td>${personStr}${Utils.esc(f.description) || 'â€”'}</td>
+                  <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || '—'}</td>
+                  <td>${personStr}${Utils.esc(f.description) || '—'}</td>
                   <td><span class="badge badge-secondary">${Utils.esc(f.category) || 'General'}</span></td>
-                  <td>${Utils.esc(f.method) || 'â€”'}</td>
-                  <td style="text-align:right;font-weight:700;color:#ff9a00;">à§³${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
+                  <td>${Utils.esc(f.method) || '—'}</td>
+                  <td style="text-align:right;font-weight:700;color:#ff9a00;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
                 </tr>
               `}).join('')}
             </tbody>
             <tfoot>
               <tr style="background:rgba(0,0,0,0.4);font-weight:800;">
-                <td colspan="5" style="text-align:right;padding:10px;color:#ff9a00;">à¦®à§‹à¦Ÿ à¦–à¦°à¦š:</td>
-                <td style="text-align:right;color:#ff4757;padding:10px;">à§³${totalExpense.toLocaleString('en-IN')}</td>
+                <td colspan="5" style="text-align:right;padding:10px;color:#ff9a00;">মোট খরচ:</td>
+                <td style="text-align:right;color:#ff4757;padding:10px;">৳${totalExpense.toLocaleString('en-IN')}</td>
               </tr>
             </tfoot>
           </table>
@@ -2254,13 +2254,13 @@ const SettingsModule = (() => {
     return `
       <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
         <span style="color:var(--text-secondary);font-size:0.83rem;">${label}</span>
-        <span style="font-weight:700;color:${color};font-size:0.83rem;">à§³${(parseFloat(amount)||0).toLocaleString('en-IN')}</span>
+        <span style="font-weight:700;color:${color};font-size:0.83rem;">৳${(parseFloat(amount)||0).toLocaleString('en-IN')}</span>
       </div>`;
   }
 
   function printBatchReport() {
     const d = window._bpReportData;
-    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('à¦†à¦—à§‡ à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ Generate à¦•à¦°à§à¦¨', 'warn'); return; }
+    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('আগে রিপোর্ট Generate করুন', 'warn'); return; }
 
     const { batch, startDate, endDate, prevBalance,
             batchStudents, expenseEntries,
@@ -2274,7 +2274,7 @@ const SettingsModule = (() => {
     const logoUrl = cfg.logo_url || '';
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" style="height:56px;object-fit:contain;" />`
-      : `<div style="width:56px;height:56px;background:linear-gradient(135deg,#1a3a6b,#0099cc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#fff;">âœˆ</div>`;
+      : `<div style="width:56px;height:56px;background:linear-gradient(135deg,#1a3a6b,#0099cc);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.6rem;color:#fff;">✈</div>`;
 
     const expCats = {};
     expenseEntries.forEach(f => {
@@ -2287,7 +2287,7 @@ const SettingsModule = (() => {
 <html lang="bn">
 <head>
 <meta charset="UTF-8"/>
-<title>Batch Profit Report â€” ${batch}</title>
+<title>Batch Profit Report — ${batch}</title>
 <style>
   @page { size: A4 portrait; margin: 14mm 12mm; }
   * { margin:0; padding:0; box-sizing:border-box; }
@@ -2355,68 +2355,68 @@ const SettingsModule = (() => {
   </div>
   <div class="header-meta">
     <div class="big">Batch: ${batch}</div>
-    ${startDate ? `<div>Expense Period: ${Utils.formatDateEN(startDate)} â†’ ${Utils.formatDateEN(endDate)}</div>` : ''}
-    ${prevBalance !== 0 ? `<div>à¦ªà§‚à¦°à§à¦¬ à¦¬à§à¦¯à¦¾à¦²à§‡à¦¨à§à¦¸: à§³${prevBalance.toLocaleString('en-IN')}</div>` : ''}
+    ${startDate ? `<div>Expense Period: ${Utils.formatDateEN(startDate)} → ${Utils.formatDateEN(endDate)}</div>` : ''}
+    ${prevBalance !== 0 ? `<div>পূর্ব ব্যালেন্স: ৳${prevBalance.toLocaleString('en-IN')}</div>` : ''}
     <div>Report Date: ${reportDate}</div>
   </div>
 </div>
 
 <!-- Title Bar -->
 <div class="title-bar">
-  <h2>âœ¦ à¦²à¦¾à¦­-à¦•à§à¦·à¦¤à¦¿ à¦¹à¦¿à¦¸à¦¾à¦¬ â€” ${batch} âœ¦</h2>
-  <span style="font-size:8px;">${batchStudents.length} à¦œà¦¨ à¦›à¦¾à¦¤à§à¦°</span>
+  <h2>✦ লাভ-ক্ষতি হিসাব — ${batch} ✦</h2>
+  <span style="font-size:8px;">${batchStudents.length} জন ছাত্র</span>
 </div>
 
 <!-- KPI Row -->
 <div class="kpi-row">
-  <div class="kpi-box kpi-blue"><div class="k-label">à¦®à§‹à¦Ÿ à¦›à¦¾à¦¤à§à¦°</div><div class="k-value">${batchStudents.length}</div></div>
-  <div class="kpi-box kpi-yellow"><div class="k-label">à¦®à§‹à¦Ÿ à¦•à§‹à¦°à§à¦¸ à¦«à¦¿</div><div class="k-value">à§³${totalStudentFee.toLocaleString('en-IN')}</div></div>
-  <div class="kpi-box kpi-income"><div class="k-label">à¦¸à¦‚à¦—à§ƒà¦¹à§€à¦¤ à¦«à¦¿</div><div class="k-value">à§³${totalCollected.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-blue"><div class="k-label">মোট ছাত্র</div><div class="k-value">${batchStudents.length}</div></div>
+  <div class="kpi-box kpi-yellow"><div class="k-label">মোট কোর্স ফি</div><div class="k-value">৳${totalStudentFee.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-income"><div class="k-label">সংগৃহীত ফি</div><div class="k-value">৳${totalCollected.toLocaleString('en-IN')}</div></div>
 </div>
 <div class="kpi-row">
-  <div class="kpi-box kpi-expense"><div class="k-label">à¦¬à¦•à§‡à¦¯à¦¼à¦¾ à¦¡à¦¿à¦‰</div><div class="k-value">à§³${totalDue.toLocaleString('en-IN')}</div></div>
-  <div class="kpi-box kpi-orange"><div class="k-label">à¦®à§‹à¦Ÿ à¦–à¦°à¦š</div><div class="k-value">à§³${totalExpense.toLocaleString('en-IN')}</div></div>
-  <div class="kpi-box ${isProfit ? 'kpi-profit' : 'kpi-loss'}"><div class="k-label">${isProfit ? 'à¦¨à¦¿à¦Ÿ à¦®à§à¦¨à¦¾à¦«à¦¾' : 'à¦¨à¦¿à¦Ÿ à¦•à§à¦·à¦¤à¦¿'}</div><div class="k-value">${isProfit ? '+' : '-'}à§³${Math.abs(netProfit).toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-expense"><div class="k-label">বকেয়া ডিউ</div><div class="k-value">৳${totalDue.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box kpi-orange"><div class="k-label">মোট খরচ</div><div class="k-value">৳${totalExpense.toLocaleString('en-IN')}</div></div>
+  <div class="kpi-box ${isProfit ? 'kpi-profit' : 'kpi-loss'}"><div class="k-label">${isProfit ? 'নিট মুনাফা' : 'নিট ক্ষতি'}</div><div class="k-value">${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}</div></div>
 </div>
 
 <!-- P&L Statement -->
 <div class="pl-section">
-  <div class="pl-title">ðŸ“Š à¦²à¦¾à¦­-à¦•à§à¦·à¦¤à¦¿ à¦¹à¦¿à¦¸à¦¾à¦¬ (P&amp;L Statement)</div>
+  <div class="pl-title">📊 লাভ-ক্ষতি হিসাব (P&amp;L Statement)</div>
   <div class="pl-grid">
     <div>
-      <div class="pl-col-title" style="color:#15803d;">à¦†à¦¯à¦¼ (Income)</div>
-      <div class="pl-row"><span>à¦›à¦¾à¦¤à§à¦° à¦«à¦¿ à¦¸à¦‚à¦—à§à¦°à¦¹</span><span style="color:#15803d;font-weight:700;">à§³${totalCollected.toLocaleString('en-IN')}</span></div>
-      ${otherIncome > 0 ? `<div class="pl-row"><span>à¦…à¦¨à§à¦¯à¦¾à¦¨à§à¦¯ à¦†à¦¯à¦¼</span><span style="color:#15803d;font-weight:700;">à§³${otherIncome.toLocaleString('en-IN')}</span></div>` : ''}
-      ${prevBalance !== 0 ? `<div class="pl-row"><span>à¦ªà§‚à¦°à§à¦¬ à¦¬à§à¦¯à¦¾à¦²à§‡à¦¨à§à¦¸</span><span style="font-weight:700;color:${prevBalance >= 0 ? '#15803d' : '#b91c1c'};">à§³${prevBalance.toLocaleString('en-IN')}</span></div>` : ''}
-      <div class="pl-total"><span>à¦®à§‹à¦Ÿ à¦†à¦¯à¦¼</span><span style="color:#15803d;">à§³${grossIncome.toLocaleString('en-IN')}</span></div>
+      <div class="pl-col-title" style="color:#15803d;">আয় (Income)</div>
+      <div class="pl-row"><span>ছাত্র ফি সংগ্রহ</span><span style="color:#15803d;font-weight:700;">৳${totalCollected.toLocaleString('en-IN')}</span></div>
+      ${otherIncome > 0 ? `<div class="pl-row"><span>অন্যান্য আয়</span><span style="color:#15803d;font-weight:700;">৳${otherIncome.toLocaleString('en-IN')}</span></div>` : ''}
+      ${prevBalance !== 0 ? `<div class="pl-row"><span>পূর্ব ব্যালেন্স</span><span style="font-weight:700;color:${prevBalance >= 0 ? '#15803d' : '#b91c1c'};">৳${prevBalance.toLocaleString('en-IN')}</span></div>` : ''}
+      <div class="pl-total"><span>মোট আয়</span><span style="color:#15803d;">৳${grossIncome.toLocaleString('en-IN')}</span></div>
     </div>
     <div>
-      <div class="pl-col-title" style="color:#b91c1c;">à¦¬à§à¦¯à¦¯à¦¼ (Expense)</div>
+      <div class="pl-col-title" style="color:#b91c1c;">ব্যয় (Expense)</div>
       ${Object.entries(expCats).map(([cat, amt]) =>
-        `<div class="pl-row"><span>${cat}</span><span style="color:#c2410c;font-weight:700;">à§³${amt.toLocaleString('en-IN')}</span></div>`
+        `<div class="pl-row"><span>${cat}</span><span style="color:#c2410c;font-weight:700;">৳${amt.toLocaleString('en-IN')}</span></div>`
       ).join('')}
-      ${Object.keys(expCats).length === 0 ? '<div class="pl-row" style="color:#aaa;">à¦•à§‹à¦¨à§‹ à¦¬à§à¦¯à¦¯à¦¼ à¦¨à§‡à¦‡</div>' : ''}
-      <div class="pl-total"><span>à¦®à§‹à¦Ÿ à¦¬à§à¦¯à¦¯à¦¼</span><span style="color:#b91c1c;">à§³${totalExpense.toLocaleString('en-IN')}</span></div>
+      ${Object.keys(expCats).length === 0 ? '<div class="pl-row" style="color:#aaa;">কোনো ব্যয় নেই</div>' : ''}
+      <div class="pl-total"><span>মোট ব্যয়</span><span style="color:#b91c1c;">৳${totalExpense.toLocaleString('en-IN')}</span></div>
     </div>
   </div>
   <div class="pl-net ${isProfit ? 'pl-net-profit' : 'pl-net-loss'}">
-    <span class="label">${isProfit ? 'âœ… à¦¨à¦¿à¦Ÿ à¦®à§à¦¨à¦¾à¦«à¦¾ (Net Profit)' : 'âŒ à¦¨à¦¿à¦Ÿ à¦•à§à¦·à¦¤à¦¿ (Net Loss)'}</span>
-    <span class="amount" style="color:${isProfit ? '#15803d' : '#b91c1c'};">${isProfit ? '+' : '-'}à§³${Math.abs(netProfit).toLocaleString('en-IN')}</span>
+    <span class="label">${isProfit ? '✅ নিট মুনাফা (Net Profit)' : '❌ নিট ক্ষতি (Net Loss)'}</span>
+    <span class="amount" style="color:${isProfit ? '#15803d' : '#b91c1c'};">${isProfit ? '+' : '-'}৳${Math.abs(netProfit).toLocaleString('en-IN')}</span>
   </div>
 </div>
 
 <!-- Student Table -->
-<div class="section-title">ðŸ‘¨â€ðŸŽ“ à¦›à¦¾à¦¤à§à¦° à¦­à¦¿à¦¤à§à¦¤à¦¿à¦• à¦¬à¦¿à¦¬à¦°à¦£</div>
+<div class="section-title">👨‍🎓 ছাত্র ভিত্তিক বিবরণ</div>
 <table>
   <thead><tr>
     <th style="width:24px;text-align:center">#</th>
-    <th>à¦¨à¦¾à¦®</th>
+    <th>নাম</th>
     <th>Student ID</th>
     <th>Batch</th>
-    <th>à¦•à§‹à¦°à§à¦¸</th>
-    <th style="text-align:right">à¦®à§‹à¦Ÿ à¦«à¦¿</th>
-    <th style="text-align:right">à¦ªà¦°à¦¿à¦¶à§‹à¦§à¦¿à¦¤</th>
-    <th style="text-align:right">à¦¬à¦¾à¦•à¦¿</th>
+    <th>কোর্স</th>
+    <th style="text-align:right">মোট ফি</th>
+    <th style="text-align:right">পরিশোধিত</th>
+    <th style="text-align:right">বাকি</th>
   </tr></thead>
   <tbody>
     ${batchStudents.map((s, i) => {
@@ -2425,37 +2425,37 @@ const SettingsModule = (() => {
       const due  = parseFloat(s.due) || Math.max(0, fee - paid);
       return `<tr>
         <td style="text-align:center;color:#777;">${i + 1}</td>
-        <td style="font-weight:700;">${Utils.esc(s.name) || 'â€”'}</td>
-        <td><span class="badge badge-blue">${Utils.esc(s.student_id) || 'â€”'}</span></td>
-        <td>${Utils.esc(s.batch) || 'â€”'}</td>
-        <td style="color:#555;">${Utils.esc(s.course) || 'â€”'}</td>
-        <td style="text-align:right;font-weight:700;color:#1d4ed8;">à§³${fee.toLocaleString('en-IN')}</td>
-        <td style="text-align:right;font-weight:700;color:#15803d;">à§³${paid.toLocaleString('en-IN')}</td>
-        <td style="text-align:right;font-weight:700;color:${due > 0 ? '#b91c1c' : '#555'};">à§³${due.toLocaleString('en-IN')}</td>
+        <td style="font-weight:700;">${Utils.esc(s.name) || '—'}</td>
+        <td><span class="badge badge-blue">${Utils.esc(s.student_id) || '—'}</span></td>
+        <td>${Utils.esc(s.batch) || '—'}</td>
+        <td style="color:#555;">${Utils.esc(s.course) || '—'}</td>
+        <td style="text-align:right;font-weight:700;color:#1d4ed8;">৳${fee.toLocaleString('en-IN')}</td>
+        <td style="text-align:right;font-weight:700;color:#15803d;">৳${paid.toLocaleString('en-IN')}</td>
+        <td style="text-align:right;font-weight:700;color:${due > 0 ? '#b91c1c' : '#555'};">৳${due.toLocaleString('en-IN')}</td>
       </tr>`;
     }).join('')}
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="5" style="text-align:right;color:#1a3a6b;">à¦®à§‹à¦Ÿ:</td>
-      <td style="text-align:right;color:#1d4ed8;">à§³${totalStudentFee.toLocaleString('en-IN')}</td>
-      <td style="text-align:right;color:#15803d;">à§³${totalCollected.toLocaleString('en-IN')}</td>
-      <td style="text-align:right;color:#b91c1c;">à§³${totalDue.toLocaleString('en-IN')}</td>
+      <td colspan="5" style="text-align:right;color:#1a3a6b;">মোট:</td>
+      <td style="text-align:right;color:#1d4ed8;">৳${totalStudentFee.toLocaleString('en-IN')}</td>
+      <td style="text-align:right;color:#15803d;">৳${totalCollected.toLocaleString('en-IN')}</td>
+      <td style="text-align:right;color:#b91c1c;">৳${totalDue.toLocaleString('en-IN')}</td>
     </tr>
   </tfoot>
 </table>
 
 ${expenseEntries.length > 0 ? `
 <!-- Expense Table -->
-<div class="section-title">ðŸ’¸ à¦–à¦°à¦šà§‡à¦° à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤</div>
+<div class="section-title">💸 খরচের বিস্তারিত</div>
 <table>
   <thead><tr>
     <th style="width:24px;text-align:center">#</th>
-    <th>à¦¤à¦¾à¦°à¦¿à¦–</th>
-    <th>à¦¬à¦¿à¦¬à¦°à¦£</th>
-    <th>à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿</th>
-    <th>à¦ªà¦¦à§à¦§à¦¤à¦¿</th>
-    <th style="text-align:right">à¦ªà¦°à¦¿à¦®à¦¾à¦£</th>
+    <th>তারিখ</th>
+    <th>বিবরণ</th>
+    <th>ক্যাটাগরি</th>
+    <th>পদ্ধতি</th>
+    <th style="text-align:right">পরিমাণ</th>
   </tr></thead>
   <tbody>
     ${expenseEntries.sort((a,b)=>a.date>b.date?1:-1).map((f, i) => {
@@ -2463,28 +2463,28 @@ ${expenseEntries.length > 0 ? `
       return `
       <tr>
         <td style="text-align:center;color:#777;">${i + 1}</td>
-        <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || 'â€”'}</td>
-        <td>${personStr}${f.description || 'â€”'}</td>
+        <td style="white-space:nowrap;">${Utils.formatDateEN(f.date) || '—'}</td>
+        <td>${personStr}${f.description || '—'}</td>
         <td>${f.category || 'General'}</td>
-        <td>${f.method || 'â€”'}</td>
-        <td style="text-align:right;font-weight:700;color:#c2410c;">à§³${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
+        <td>${f.method || '—'}</td>
+        <td style="text-align:right;font-weight:700;color:#c2410c;">৳${(parseFloat(f.amount)||0).toLocaleString('en-IN')}</td>
       </tr>
     `}).join('')}
   </tbody>
   <tfoot>
     <tr>
-      <td colspan="5" style="text-align:right;color:#b91c1c;">à¦®à§‹à¦Ÿ à¦–à¦°à¦š:</td>
-      <td style="text-align:right;color:#b91c1c;">à§³${totalExpense.toLocaleString('en-IN')}</td>
+      <td colspan="5" style="text-align:right;color:#b91c1c;">মোট খরচ:</td>
+      <td style="text-align:right;color:#b91c1c;">৳${totalExpense.toLocaleString('en-IN')}</td>
     </tr>
   </tfoot>
 </table>` : ''}
 
 <!-- Footer -->
 <div class="footer">
-  <div style="font-size:8px;color:#888;">${Utils.esc(academyName)}<br/>à¦à¦Ÿà¦¿ à¦à¦•à¦Ÿà¦¿ à¦…à¦«à¦¿à¦¸à¦¿à¦¯à¦¼à¦¾à¦² à¦†à¦°à§à¦¥à¦¿à¦• à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿà¥¤</div>
+  <div style="font-size:8px;color:#888;">${Utils.esc(academyName)}<br/>এটি একটি অফিসিয়াল আর্থিক রিপোর্ট।</div>
   <div style="display:flex;gap:40px;">
-    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">à¦¹à¦¿à¦¸à¦¾à¦¬à¦°à¦•à§à¦·à¦•</div></div>
-    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">à¦…à¦§à§à¦¯à¦•à§à¦· / à¦•à¦°à§à¦¤à§ƒà¦ªà¦•à§à¦·</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">হিসাবরক্ষক</div></div>
+    <div class="sig-box"><div class="sig-line"></div><div class="sig-label">অধ্যক্ষ / কর্তৃপক্ষ</div></div>
   </div>
 </div>
 
@@ -2499,74 +2499,74 @@ ${expenseEntries.length > 0 ? `
 
   function exportBatchReportExcel() {
     const d = window._bpReportData;
-    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('à¦†à¦—à§‡ à¦°à¦¿à¦ªà§‹à¦°à§à¦Ÿ Generate à¦•à¦°à§à¦¨', 'warn'); return; }
+    if (!d) { if (typeof Utils !== 'undefined') Utils.toast('আগে রিপোর্ট Generate করুন', 'warn'); return; }
 
     const { batch, batchStudents, expenseEntries, totalStudentFee, totalCollected, totalDue, totalExpense, netProfit } = d;
 
     // Sheet 1: Student Summary
     const studentRows = batchStudents.map((s, i) => ({
       '#': i + 1,
-      'à¦¨à¦¾à¦®': s.name || '',
+      'নাম': s.name || '',
       'Student ID': s.student_id || '',
       'Batch': s.batch || '',
-      'à¦•à§‹à¦°à§à¦¸': s.course || '',
-      'à¦®à§‹à¦Ÿ à¦«à¦¿': parseFloat(s.total_fee) || 0,
-      'à¦ªà¦°à¦¿à¦¶à§‹à¦§à¦¿à¦¤': parseFloat(s.paid) || 0,
-      'à¦¬à¦¾à¦•à¦¿': parseFloat(s.due) || Math.max(0, (parseFloat(s.total_fee)||0) - (parseFloat(s.paid)||0)),
-      'à¦­à¦°à§à¦¤à¦¿à¦° à¦¤à¦¾à¦°à¦¿à¦–': s.admission_date || '',
-      'à¦…à¦¬à¦¸à§à¦¥à¦¾': s.status || 'Active',
+      'কোর্স': s.course || '',
+      'মোট ফি': parseFloat(s.total_fee) || 0,
+      'পরিশোধিত': parseFloat(s.paid) || 0,
+      'বাকি': parseFloat(s.due) || Math.max(0, (parseFloat(s.total_fee)||0) - (parseFloat(s.paid)||0)),
+      'ভর্তির তারিখ': s.admission_date || '',
+      'অবস্থা': s.status || 'Active',
     }));
 
     // Totals row
     studentRows.push({
-      '#': '', 'à¦¨à¦¾à¦®': 'â€” à¦®à§‹à¦Ÿ â€”', 'Student ID': '', 'Batch': '', 'à¦•à§‹à¦°à§à¦¸': '',
-      'à¦®à§‹à¦Ÿ à¦«à¦¿': totalStudentFee, 'à¦ªà¦°à¦¿à¦¶à§‹à¦§à¦¿à¦¤': totalCollected, 'à¦¬à¦¾à¦•à¦¿': totalDue,
-      'à¦­à¦°à§à¦¤à¦¿à¦° à¦¤à¦¾à¦°à¦¿à¦–': '', 'à¦…à¦¬à¦¸à§à¦¥à¦¾': ''
+      '#': '', 'নাম': '— মোট —', 'Student ID': '', 'Batch': '', 'কোর্স': '',
+      'মোট ফি': totalStudentFee, 'পরিশোধিত': totalCollected, 'বাকি': totalDue,
+      'ভর্তির তারিখ': '', 'অবস্থা': ''
     });
 
     // Sheet 2: Expenses
     const expenseRows = expenseEntries.map((f, i) => ({
       '#': i + 1,
-      'à¦¤à¦¾à¦°à¦¿à¦–': Utils.formatDateEN(f.date) || '',
-      'à¦¬à¦¿à¦¬à¦°à¦£': (f.person_name || f.person ? `[${f.person_name || f.person}] ` : '') + (f.description || ''),
-      'à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿': f.category || 'General',
-      'à¦ªà¦¦à§à¦§à¦¤à¦¿': f.method || '',
-      'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': parseFloat(f.amount) || 0,
+      'তারিখ': Utils.formatDateEN(f.date) || '',
+      'বিবরণ': (f.person_name || f.person ? `[${f.person_name || f.person}] ` : '') + (f.description || ''),
+      'ক্যাটাগরি': f.category || 'General',
+      'পদ্ধতি': f.method || '',
+      'পরিমাণ (৳)': parseFloat(f.amount) || 0,
     }));
-    expenseRows.push({ '#': '', 'à¦¤à¦¾à¦°à¦¿à¦–': 'â€” à¦®à§‹à¦Ÿ à¦–à¦°à¦š â€”', 'à¦¬à¦¿à¦¬à¦°à¦£': '', 'à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿': '', 'à¦ªà¦¦à§à¦§à¦¤à¦¿': '', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': totalExpense });
+    expenseRows.push({ '#': '', 'তারিখ': '— মোট খরচ —', 'বিবরণ': '', 'ক্যাটাগরি': '', 'পদ্ধতি': '', 'পরিমাণ (৳)': totalExpense });
 
     // Sheet 3: P&L Summary
     const summaryRows = [
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦®à§‹à¦Ÿ à¦›à¦¾à¦¤à§à¦°', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': batchStudents.length },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦®à§‹à¦Ÿ à¦•à§‹à¦°à§à¦¸ à¦«à¦¿', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': totalStudentFee },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦¸à¦‚à¦—à§ƒà¦¹à§€à¦¤ à¦«à¦¿ (Income)', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': totalCollected },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦¬à¦•à§‡à¦¯à¦¼à¦¾ à¦¡à¦¿à¦‰', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': totalDue },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦®à§‹à¦Ÿ à¦–à¦°à¦š (Expense)', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': totalExpense },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': 'à¦ªà§‚à¦°à§à¦¬ à¦¬à§à¦¯à¦¾à¦²à§‡à¦¨à§à¦¸', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': d.prevBalance },
-      { 'à¦¬à¦¿à¦¬à¦°à¦£': netProfit >= 0 ? 'à¦¨à¦¿à¦Ÿ à¦®à§à¦¨à¦¾à¦«à¦¾' : 'à¦¨à¦¿à¦Ÿ à¦•à§à¦·à¦¤à¦¿', 'à¦ªà¦°à¦¿à¦®à¦¾à¦£ (à§³)': netProfit },
+      { 'বিবরণ': 'মোট ছাত্র', 'পরিমাণ (৳)': batchStudents.length },
+      { 'বিবরণ': 'মোট কোর্স ফি', 'পরিমাণ (৳)': totalStudentFee },
+      { 'বিবরণ': 'সংগৃহীত ফি (Income)', 'পরিমাণ (৳)': totalCollected },
+      { 'বিবরণ': 'বকেয়া ডিউ', 'পরিমাণ (৳)': totalDue },
+      { 'বিবরণ': 'মোট খরচ (Expense)', 'পরিমাণ (৳)': totalExpense },
+      { 'বিবরণ': 'পূর্ব ব্যালেন্স', 'পরিমাণ (৳)': d.prevBalance },
+      { 'বিবরণ': netProfit >= 0 ? 'নিট মুনাফা' : 'নিট ক্ষতি', 'পরিমাণ (৳)': netProfit },
     ];
 
     const run = () => {
       const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), 'à¦›à¦¾à¦¤à§à¦° à¦¬à¦¿à¦¬à¦°à¦£');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows), 'à¦–à¦°à¦šà§‡à¦° à¦¬à¦¿à¦¬à¦°à¦£');
-      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'P&L à¦¸à¦¾à¦°à¦¾à¦‚à¦¶');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(studentRows), 'ছাত্র বিবরণ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(expenseRows), 'খরচের বিবরণ');
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summaryRows), 'P&L সারাংশ');
       XLSX.writeFile(wb, `batch-profit-${batch}-${new Date().toISOString().split('T')[0]}.xlsx`);
-      if (typeof Utils !== 'undefined') Utils.toast('Excel Export à¦¸à¦®à§à¦ªà¦¨à§à¦¨ âœ“', 'success');
+      if (typeof Utils !== 'undefined') Utils.toast('Excel Export সম্পন্ন ✓', 'success');
     };
     if (typeof XLSX !== 'undefined') { run(); return; }
     if (window.LazyLibs) {
       window.LazyLibs.load('xlsx').then(run).catch(() => {
-        if (typeof Utils !== 'undefined') Utils.toast('XLSX library à¦²à§‹à¦¡ à¦¹à¦¯à¦¼à¦¨à¦¿', 'error');
+        if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
       });
       return;
     }
-    if (typeof Utils !== 'undefined') Utils.toast('XLSX library à¦²à§‹à¦¡ à¦¹à¦¯à¦¼à¦¨à¦¿', 'error');
+    if (typeof Utils !== 'undefined') Utils.toast('XLSX library লোড হয়নি', 'error');
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 10: ACCOUNTS MANAGEMENT
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelAccountsMgmt() {
     return `
     <div class="settings-panel ${activeTab === 'accounts-mgmt' ? 'active' : ''}" data-panel="accounts-mgmt">
@@ -2611,15 +2611,15 @@ ${expenseEntries.length > 0 ? `
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
           <div style="flex:1;min-width:130px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Advanced</div>
-            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">à§³${totalAdvanced.toLocaleString()}</div>
+            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">৳${totalAdvanced.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Returned</div>
-            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">à§³${totalReturned.toLocaleString()}</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${totalReturned.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Outstanding</div>
-            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">à§³${totalOutstanding.toLocaleString()}</div>
+            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">৳${totalOutstanding.toLocaleString()}</div>
           </div>
         </div>
         <div class="table-wrapper" style="overflow-x:auto">
@@ -2649,13 +2649,13 @@ ${expenseEntries.length > 0 ? `
                     return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
                       <td style="padding:10px 8px;color:var(--text-muted)">${a._idx + 1}</td>
-                      <td style="padding:10px 8px;font-weight:700">${Utils.esc(a.person) || 'â€”'}</td>
-                      <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">à§³${(parseFloat(a.amount)||0).toLocaleString()}</td>
-                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">à§³${a._totalReturned.toLocaleString()}</td>
-                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ff4757'};font-weight:700">à§³${a._remaining.toLocaleString()}</td>
-                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${Utils.esc(a.method) || 'â€”'}</span></td>
-                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${a.date || 'â€”'}</td>
-                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${Utils.esc(a.note) || 'â€”'}</td>
+                      <td style="padding:10px 8px;font-weight:700">${Utils.esc(a.person) || '—'}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">৳${a._totalReturned.toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ff4757'};font-weight:700">৳${a._remaining.toLocaleString()}</td>
+                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${Utils.esc(a.method) || '—'}</span></td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${a.date || '—'}</td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${Utils.esc(a.note) || '—'}</td>
                       <td style="padding:10px 8px">
                         <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;border:1px solid ${statusColor}44">${statusText}</span>
                         ${!isFullyReturned && pct > 0 ? `<div style="margin-top:4px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px"><div style="width:${pct}%;height:100%;background:#00d4ff;border-radius:2px"></div></div>` : ''}
@@ -2697,15 +2697,15 @@ ${expenseEntries.length > 0 ? `
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
           <div style="flex:1;min-width:130px;background:rgba(138,43,226,0.08);border:1px solid rgba(138,43,226,0.3);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Invested</div>
-            <div style="color:#a855f7;font-size:1.3rem;font-weight:800">à§³${totalInvested.toLocaleString()}</div>
+            <div style="color:#a855f7;font-size:1.3rem;font-weight:800">৳${totalInvested.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Returned</div>
-            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">à§³${totalReturnedAmt.toLocaleString()}</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${totalReturnedAmt.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Active Investment</div>
-            <div style="color:#ffd700;font-size:1.3rem;font-weight:800">à§³${totalOutstanding.toLocaleString()}</div>
+            <div style="color:#ffd700;font-size:1.3rem;font-weight:800">৳${totalOutstanding.toLocaleString()}</div>
           </div>
         </div>
         <div class="table-wrapper" style="overflow-x:auto">
@@ -2735,13 +2735,13 @@ ${expenseEntries.length > 0 ? `
                     return `
                     <tr style="border-bottom:1px solid rgba(255,255,255,0.04)">
                       <td style="padding:10px 8px;color:var(--text-muted)">${inv._idx + 1}</td>
-                      <td style="padding:10px 8px;font-weight:700">${inv.source || 'â€”'}</td>
-                      <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">à§³${(parseFloat(inv.amount)||0).toLocaleString()}</td>
-                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">à§³${inv._totalReturned.toLocaleString()}</td>
-                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ffd700'};font-weight:700">à§³${inv._remaining.toLocaleString()}</td>
-                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${inv.method || 'â€”'}</span></td>
-                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${inv.date || 'â€”'}</td>
-                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${inv.note || 'â€”'}</td>
+                      <td style="padding:10px 8px;font-weight:700">${inv.source || '—'}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">৳${(parseFloat(inv.amount)||0).toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:#00d4ff">৳${inv._totalReturned.toLocaleString()}</td>
+                      <td style="padding:10px 8px;text-align:right;color:${isFullyReturned?'#00ff88':'#ffd700'};font-weight:700">৳${inv._remaining.toLocaleString()}</td>
+                      <td style="padding:10px 8px;font-size:.82rem"><span style="background:rgba(0,212,255,0.1);color:#00d4ff;padding:2px 8px;border-radius:20px;font-size:.75rem">${inv.method || '—'}</span></td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-secondary)">${inv.date || '—'}</td>
+                      <td style="padding:10px 8px;font-size:.82rem;color:var(--text-muted)">${inv.note || '—'}</td>
                       <td style="padding:10px 8px">
                         <span style="background:${statusColor}22;color:${statusColor};padding:3px 10px;border-radius:20px;font-size:.75rem;font-weight:700;border:1px solid ${statusColor}44">${statusText}</span>
                         ${!isFullyReturned && pct > 0 ? `<div style="margin-top:4px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px"><div style="width:${pct}%;height:100%;background:#a855f7;border-radius:2px"></div></div>` : ''}
@@ -2782,9 +2782,9 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  // BALANCE ADJUSTMENT â€” render, add, save, delete
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
+  // BALANCE ADJUSTMENT — render, add, save, delete
+  // ════════════════════════════════════════════════════════════════
 
   function buildBalanceAdjustmentSection() {
     const entries = (SupabaseSync.getAll(DB.finance) || [])
@@ -2798,11 +2798,11 @@ ${expenseEntries.length > 0 ? `
       ? entries.map((f, i) => `
           <tr>
             <td>${i + 1}</td>
-            <td>${f.date || 'â€”'}</td>
-            <td>${f.method || 'â€”'}</td>
-            <td><span class="badge ${f.type === 'Income' ? 'badge-success' : 'badge-error'}">${f.type === 'Income' ? '+ Add' : 'âˆ’ Subtract'}</span></td>
-            <td class="text-right" style="color:${f.type === 'Income' ? '#00ff88' : '#ff4757'}">à§³${parseFloat(f.amount || 0).toLocaleString()}</td>
-            <td>${f.note || f.description || 'â€”'}</td>
+            <td>${f.date || '—'}</td>
+            <td>${f.method || '—'}</td>
+            <td><span class="badge ${f.type === 'Income' ? 'badge-success' : 'badge-error'}">${f.type === 'Income' ? '+ Add' : '− Subtract'}</span></td>
+            <td class="text-right" style="color:${f.type === 'Income' ? '#00ff88' : '#ff4757'}">৳${parseFloat(f.amount || 0).toLocaleString()}</td>
+            <td>${f.note || f.description || '—'}</td>
             <td class="text-center">
               <button class="btn btn-error btn-sm" onclick="SettingsModule.deleteBalanceAdjustment('${f.id}')"><i class="fa fa-trash"></i></button>
             </td>
@@ -2818,20 +2818,20 @@ ${expenseEntries.length > 0 ? `
         </div>
         <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">
           Manually align account balances (cash / bank / mobile banking).<br>
-          <strong style="color:#ffd700">âš  These entries are excluded from Batch Profit Reports and Dashboard statistics.</strong>
+          <strong style="color:#ffd700">⚠ These entries are excluded from Batch Profit Reports and Dashboard statistics.</strong>
         </p>
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
           <div style="flex:1;min-width:130px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Added</div>
-            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">à§³${totalAdded.toLocaleString()}</div>
+            <div style="color:#00ff88;font-size:1.3rem;font-weight:800">৳${totalAdded.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Total Subtracted</div>
-            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">à§³${totalSubtract.toLocaleString()}</div>
+            <div style="color:#ff4757;font-size:1.3rem;font-weight:800">৳${totalSubtract.toLocaleString()}</div>
           </div>
           <div style="flex:1;min-width:130px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.25);border-radius:10px;padding:12px;text-align:center">
             <div style="color:#aaa;font-size:.75rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Net Effect</div>
-            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">à§³${(totalAdded - totalSubtract).toLocaleString()}</div>
+            <div style="color:#00d4ff;font-size:1.3rem;font-weight:800">৳${(totalAdded - totalSubtract).toLocaleString()}</div>
           </div>
         </div>
         <div class="table-wrapper" style="overflow-x:auto">
@@ -2861,7 +2861,7 @@ ${expenseEntries.length > 0 ? `
         <label style="font-size:.85rem;color:var(--text-secondary)">Adjustment Type
           <select id="adj-type" class="settings-input" style="width:100%;margin-top:6px">
             <option value="Income">+ Add to Balance</option>
-            <option value="Expense">âˆ’ Subtract from Balance</option>
+            <option value="Expense">− Subtract from Balance</option>
           </select>
         </label>
         <label style="font-size:.85rem;color:var(--text-secondary)">Date
@@ -2870,7 +2870,7 @@ ${expenseEntries.length > 0 ? `
         <label style="font-size:.85rem;color:var(--text-secondary)">Account / Method
           <select id="adj-method" class="settings-input" style="width:100%;margin-top:6px">${methodOptions}</select>
         </label>
-        <label style="font-size:.85rem;color:var(--text-secondary)">Amount (à§³)
+        <label style="font-size:.85rem;color:var(--text-secondary)">Amount (৳)
           <input type="number" id="adj-amount" class="settings-input" min="1" placeholder="e.g. 5000" style="width:100%;margin-top:6px">
         </label>
         <label style="font-size:.85rem;color:var(--text-secondary)">Note (optional)
@@ -2900,7 +2900,7 @@ ${expenseEntries.length > 0 ? `
       const balances = SupabaseSync.getAccountBalances ? SupabaseSync.getAccountBalances() : {};
       const currentBal = parseFloat(balances[adjMethod] || 0);
       if (currentBal < adjAmount) {
-        const force = confirm(`âš  Account "${adjMethod}" balance is à§³${currentBal.toLocaleString()}, which is less than à§³${adjAmount.toLocaleString()}.\n\nForce subtract anyway?`);
+        const force = confirm(`⚠ Account "${adjMethod}" balance is ৳${currentBal.toLocaleString()}, which is less than ৳${adjAmount.toLocaleString()}.\n\nForce subtract anyway?`);
         if (!force) return;
       }
     }
@@ -2939,12 +2939,12 @@ ${expenseEntries.length > 0 ? `
       const currentBal = parseFloat(balances[entry.method] || 0);
       const amt = parseFloat(entry.amount);
       if (currentBal < amt) {
-        const force = confirm(`âš  Reversing this adjustment will subtract à§³${amt.toLocaleString()} from "${entry.method}", which currently only has à§³${currentBal.toLocaleString()}.\n\nForce delete anyway?`);
+        const force = confirm(`⚠ Reversing this adjustment will subtract ৳${amt.toLocaleString()} from "${entry.method}", which currently only has ৳${currentBal.toLocaleString()}.\n\nForce delete anyway?`);
         if (!force) return;
       }
     }
 
-    if (!confirm(`Delete this balance adjustment?\n${entry.type === 'Income' ? '+' : '-'} à§³${parseFloat(entry.amount).toLocaleString()} on ${entry.date} (${entry.method})\n\nThis will reverse the balance change.`)) return;
+    if (!confirm(`Delete this balance adjustment?\n${entry.type === 'Income' ? '+' : '-'} ৳${parseFloat(entry.amount).toLocaleString()} on ${entry.date} (${entry.method})\n\nThis will reverse the balance change.`)) return;
 
     try {
       // Reverse the balance effect
@@ -2960,11 +2960,11 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB 11: MONITOR
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
-    // wfa_recent_changes â€” à¦¶à§à¦§à§ finance transactions (supabase-sync.js)
+    // wfa_recent_changes — শুধু finance transactions (supabase-sync.js)
     const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
 
     // Transaction type badge color
@@ -2988,31 +2988,31 @@ ${expenseEntries.length > 0 ? `
             <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsModule.rebuildMonitorData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactionsà¥¤ à¦à¦•à¦Ÿà¦¿ row-à¦ click à¦•à¦°à¦²à§‡ à¦¸à§‡à¦‡ à¦¸à¦®à¦¯à¦¼à§‡à¦° account balance snapshot à¦¦à§‡à¦–à¦¾à¦¬à§‡à¥¤</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
 
         <div class="table-wrapper">
           <table>
             <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
             <tbody>
               ${transactions.length === 0 ?
-                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet â€” Income à¦¬à¦¾ Expense add à¦•à¦°à¦²à§‡ à¦à¦–à¦¾à¦¨à§‡ à¦¦à§‡à¦–à¦¾à¦¬à§‡à¥¤</td></tr>` :
+                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
                 transactions.map((c, i) => {
-                  const actionLabel = c.action === 'update' ? 'âœï¸ Edit' : c.action === 'delete' ? 'ðŸ—‘ï¸ Delete' : c.action === 'restore' ? 'â†©ï¸ Restore' : 'âž• New';
+                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
                   const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
                   const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
-                  // âœ… Rebuilt vs Real snapshot indicator
+                  // ✅ Rebuilt vs Real snapshot indicator
                   const snapshotBadge = c.rebuilt
-                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild à¦¥à§‡à¦•à§‡ à¦¤à§ˆà¦°à¦¿ â€” à¦†à¦¸à¦² snapshot à¦¨à¦¯à¦¼">ðŸ”„</span>'
-                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot âœ“">ðŸ“¸</span>';
+                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
+                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>';
                   return `
                   <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
                     <td>${i + 1}${snapshotBadge}</td>
-                    <td style="font-size:.82rem">${c.date || 'â€”'}</td>
+                    <td style="font-size:.82rem">${c.date || '—'}</td>
                     <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
-                    <td><span class="badge ${txBadge(c.type)}">${c.type || 'â€”'}</span></td>
-                    <td style="font-size:.82rem">${c.category || 'â€”'}</td>
-                    <td style="font-size:.82rem">${c.person || 'â€”'}</td>
-                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : 'â€”'}</td>
+                    <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
+                    <td style="font-size:.82rem">${c.category || '—'}</td>
+                    <td style="font-size:.82rem">${c.person || '—'}</td>
+                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
                   </tr>
                   <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
                 }).join('')
@@ -3023,9 +3023,9 @@ ${expenseEntries.length > 0 ? `
       </div>
     </div>`;
   }
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
 
   function getConfig() {
     return SupabaseSync.getAll(DB.settings)[0] || {};
@@ -3057,8 +3057,8 @@ ${expenseEntries.length > 0 ? `
   }
 
   function saveConfig(cfg) {
-    // âœ… DUPLICATE FIX: à¦¸à¦¬à¦¸à¦®à¦¯à¦¼ admin_password à¦†à¦›à§‡ à¦à¦®à¦¨ row à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§‹ â€” à¦à¦Ÿà¦¾à¦‡ keeper rowà¥¤
-    // allSettings[0] à¦¨à¦¯à¦¼, à¦•à¦¾à¦°à¦£ sync à¦à¦° à¦•à¦¾à¦°à¦£à§‡ row order à¦­à¦¿à¦¨à§à¦¨ à¦¹à¦¤à§‡ à¦ªà¦¾à¦°à§‡à¥¤
+    // ✅ DUPLICATE FIX: সবসময় admin_password আছে এমন row আপডেট করো — এটাই keeper row।
+    // allSettings[0] নয়, কারণ sync এর কারণে row order ভিন্ন হতে পারে।
     const allSettings = SupabaseSync.getAll(DB.settings);
     if (allSettings.length > 0) {
       const keeper = allSettings.find(s => s.admin_password) || allSettings[0];
@@ -3081,7 +3081,7 @@ ${expenseEntries.length > 0 ? `
     setTimeout(_initSettingsDatePickers, 20);
   }
 
-  // âœ… Req 4: init Flatpickr DD/MM/YYYY on all non-disabled date inputs in the settings overlay
+  // ✅ Req 4: init Flatpickr DD/MM/YYYY on all non-disabled date inputs in the settings overlay
   function _initSettingsDatePickers() {
     if (typeof flatpickr === 'undefined') return;
     const overlay = document.getElementById('settings-overlay');
@@ -3142,13 +3142,13 @@ ${expenseEntries.length > 0 ? `
     if (bpEnd && !bpEnd._flatpickr) _fp(bpEnd, Object.assign({}, bpCfg));
   }
 
-  // â”€â”€â”€ SyncGuard Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── SyncGuard Panel ──────────────────────────────────────────
   function panelSyncGuard() {
     return `
     <div class="settings-panel ${activeTab === 'syncguard' ? 'active' : ''}" data-panel="syncguard">
       <div class="settings-card glow-red">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px">
-          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-shield-halved"></i> SYNC GUARD â€” Payment &amp; Data Integrity</div>
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-shield-halved"></i> SYNC GUARD — Payment &amp; Data Integrity</div>
           <button type="button" class="btn btn-outline btn-sm" onclick="SyncGuard.runFullAudit();setTimeout(()=>SyncGuard.renderPanel('syncguard-panel'),200)">
             <i class="fa fa-rotate"></i> Re-Audit
           </button>
@@ -3157,8 +3157,8 @@ ${expenseEntries.length > 0 ? `
           </button>
         </div>
         <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">
-          Finance ledger, Loan, Transfer à¦à¦¬à¦‚ Account Balance à¦¸à§à¦¬à¦¯à¦¼à¦‚à¦•à§à¦°à¦¿à¦¯à¦¼à¦­à¦¾à¦¬à§‡ à¦ªà¦°à§€à¦•à§à¦·à¦¾ à¦•à¦°à§‡à¥¤
-          Sync conflict à¦¬à¦¾ balance mismatch à¦¹à¦²à§‡ à¦¸à¦¾à¦¥à§‡ à¦¸à¦¾à¦¥à§‡ alert à¦ªà¦¾à¦ à¦¾à¦¯à¦¼ à¦à¦¬à¦‚ à¦à¦–à¦¾à¦¨à§‡ log à¦•à¦°à§‡à¥¤
+          Finance ledger, Loan, Transfer এবং Account Balance স্বয়ংক্রিয়ভাবে পরীক্ষা করে।
+          Sync conflict বা balance mismatch হলে সাথে সাথে alert পাঠায় এবং এখানে log করে।
         </p>
         <div id="syncguard-panel">
           <div style="text-align:center;padding:20px;color:var(--text-muted)">Loading audit...</div>
@@ -3169,7 +3169,7 @@ ${expenseEntries.length > 0 ? `
   }
 
 
-  // â”€â”€â”€ Activity Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Activity Log ─────────────────────────────────────────────
   function getActivityLogs() {
     const raw = Utils.safeJSON(localStorage.getItem('wfa_activity_log'), []);
     if (typeof SupabaseSync !== 'undefined' && SupabaseSync.filterActivityLogs) {
@@ -3178,13 +3178,13 @@ ${expenseEntries.length > 0 ? `
     return raw.filter(l => {
       const d = String(l.description || '');
       if (/DIAG-TEST-|DIAG-INST-|DIAG-EXAM-|DIAG-SAL-|System Test Student|Auto-generated diagnostic|Diagnostic Test Staff|Diagnostic Installment Student|Diagnostic Exam Student|Diagnostic Loan Person|Batch-DIAG|Diagnostics Course/i.test(d)) return false;
-      if (l.type === 'settings' && /^à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸-à¦ (à¦¤à¦¥à§à¦¯ à¦†à¦ªà¦¡à§‡à¦Ÿ|à¦¨à¦¤à§à¦¨ à¦à¦¨à§à¦Ÿà§à¦°à¦¿)/i.test(d) && /à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸$/i.test(d)) return false;
+      if (l.type === 'settings' && /^সেটিংস-এ (তথ্য আপডেট|নতুন এন্ট্রি)/i.test(d) && /একাডেমি সেটিংস$/i.test(d)) return false;
       return true;
     });
   }
 
-  // âœ… Fix: settings.js logActivity à¦à¦–à¦¨ SupabaseSync.logActivity à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à§‡
-  // à¦à¦¤à§‡ à¦¸à¦¬ device-à¦ activity log Supabase-à¦ sync à¦¹à¦¬à§‡
+  // ✅ Fix: settings.js logActivity এখন SupabaseSync.logActivity ব্যবহার করে
+  // এতে সব device-এ activity log Supabase-এ sync হবে
   function logActivity(action, type, description) {
     if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
       SupabaseSync.logActivity(action, type, description);
@@ -3204,7 +3204,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   async function clearActivityLog() {
-    const ok = await Utils.confirm('à¦¸à¦¬ Activity Log à¦®à§à¦›à§‡ à¦¦à§‡à¦¬à§‡à¦¨? à¦à¦Ÿà¦¿ undo à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡ à¦¨à¦¾à¥¤', 'Clear Activity Log');
+    const ok = await Utils.confirm('সব Activity Log মুছে দেবেন? এটি undo করা যাবে না।', 'Clear Activity Log');
     if (!ok) return;
 
     // Clear localStorage
@@ -3220,11 +3220,11 @@ ${expenseEntries.length > 0 ? `
       console.warn('[ActivityLog] Cloud clear failed:', e);
     }
 
-    Utils.toast('Activity log cleared âœ…', 'success');
+    Utils.toast('Activity log cleared ✅', 'success');
     refreshModal();
   }
 
-  // Activity log panel-à¦à¦° tbody à¦“ stats live refresh (modal reload à¦›à¦¾à¦¡à¦¼à¦¾à¦‡)
+  // Activity log panel-এর tbody ও stats live refresh (modal reload ছাড়াই)
   function refreshActivityPanel() {
     const fresh  = getActivityLogs();
     const panel  = document.querySelector('[data-panel="activity"]');
@@ -3236,10 +3236,10 @@ ${expenseEntries.length > 0 ? `
     const add = document.getElementById('astat-add');
     const edi = document.getElementById('astat-edit');
     const del = document.getElementById('astat-del');
-    if (tot) tot.textContent = `à¦®à§‹à¦Ÿ: ${fresh.length}`;
-    if (add) add.textContent = `+ à¦¯à§‹à¦— ${addC}`;
-    if (edi) edi.textContent = `âœ à¦à¦¡à¦¿à¦Ÿ ${editC}`;
-    if (del) del.textContent = `ðŸ—‘ à¦¡à¦¿à¦²à¦¿à¦Ÿ ${delC}`;
+    if (tot) tot.textContent = `মোট: ${fresh.length}`;
+    if (add) add.textContent = `+ যোগ ${addC}`;
+    if (edi) edi.textContent = `✏ এডিট ${editC}`;
+    if (del) del.textContent = `🗑 ডিলিট ${delC}`;
     const tbody = document.getElementById('alog-tbody') || panel.querySelector('tbody');
     if (!tbody) return;
     const fa = document.getElementById('alog-filter-action')?.value || 'all';
@@ -3264,26 +3264,26 @@ ${expenseEntries.length > 0 ? `
     filterActivityLog();
   }
 
-  // â”€â”€ Activity type metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Activity type metadata ──────────────────────────────────────────────
   const _ACT_TYPE_META = {
-    students:       { icon:'fa-user-graduate',        label:'à¦›à¦¾à¦¤à§à¦° à¦¤à¦¾à¦²à¦¿à¦•à¦¾',    color:'#00d9ff' },
-    finance_ledger: { icon:'fa-money-bill-wave',       label:'à¦†à¦¯à¦¼-à¦¬à§à¦¯à¦¯à¦¼ à¦²à§‡à¦œà¦¾à¦°', color:'#00ff88' },
-    accounts:       { icon:'fa-building-columns',      label:'à¦à¦•à¦¾à¦‰à¦¨à§à¦Ÿ',         color:'#ffd700' },
-    loans:          { icon:'fa-hand-holding-dollar',   label:'à¦²à§‹à¦¨',             color:'#ff6b35' },
-    salary:         { icon:'fa-money-bill-wave',       label:'à¦¬à§‡à¦¤à¦¨',            color:'#b537f2' },
-    exams:          { icon:'fa-file-lines',            label:'à¦ªà¦°à§€à¦•à§à¦·à¦¾',         color:'#00d9ff' },
-    attendance:     { icon:'fa-clipboard-list',        label:'à¦‰à¦ªà¦¸à§à¦¥à¦¿à¦¤à¦¿',        color:'#00ff88' },
-    staff:          { icon:'fa-user-tie',              label:'à¦¸à§à¦Ÿà¦¾à¦«',           color:'#ffa502' },
-    'hr-staff':     { icon:'fa-user-tie',              label:'à¦¸à§à¦Ÿà¦¾à¦«',           color:'#ffa502' },
-    finance:        { icon:'fa-money-bill-wave',       label:'à¦†à¦¯à¦¼-à¦¬à§à¦¯à¦¯à¦¼ à¦²à§‡à¦œà¦¾à¦°', color:'#00ff88' },
-    settings:       { icon:'fa-gear',                  label:'à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸',          color:'#aaaaaa' },
-    security:       { icon:'fa-shield-halved',         label:'à¦¨à¦¿à¦°à¦¾à¦ªà¦¤à§à¦¤à¦¾',       color:'#ff4757' },
-    category:       { icon:'fa-tags',                  label:'à¦•à§à¦¯à¦¾à¦Ÿà¦¾à¦—à¦°à¦¿',       color:'#ffd700' },
-    certificates:   { icon:'fa-certificate',           label:'à¦¸à¦¾à¦°à§à¦Ÿà¦¿à¦«à¦¿à¦•à§‡à¦Ÿ',    color:'#00ff88' },
-    visitors:       { icon:'fa-person-walking',        label:'à¦­à¦¿à¦œà¦¿à¦Ÿà¦°',          color:'#aaaaaa' },
-    notices:        { icon:'fa-bullhorn',              label:'à¦¨à§‹à¦Ÿà¦¿à¦¶',           color:'#ffa502' },
-    system:         { icon:'fa-gear',                  label:'à¦¸à¦¿à¦¸à§à¦Ÿà§‡à¦®',         color:'#666666' },
-    note:           { icon:'fa-bookmark',              label:'à¦¨à§‹à¦Ÿ',             color:'#b537f2' },
+    students:       { icon:'fa-user-graduate',        label:'ছাত্র তালিকা',    color:'#00d9ff' },
+    finance_ledger: { icon:'fa-money-bill-wave',       label:'আয়-ব্যয় লেজার', color:'#00ff88' },
+    accounts:       { icon:'fa-building-columns',      label:'একাউন্ট',         color:'#ffd700' },
+    loans:          { icon:'fa-hand-holding-dollar',   label:'লোন',             color:'#ff6b35' },
+    salary:         { icon:'fa-money-bill-wave',       label:'বেতন',            color:'#b537f2' },
+    exams:          { icon:'fa-file-lines',            label:'পরীক্ষা',         color:'#00d9ff' },
+    attendance:     { icon:'fa-clipboard-list',        label:'উপস্থিতি',        color:'#00ff88' },
+    staff:          { icon:'fa-user-tie',              label:'স্টাফ',           color:'#ffa502' },
+    'hr-staff':     { icon:'fa-user-tie',              label:'স্টাফ',           color:'#ffa502' },
+    finance:        { icon:'fa-money-bill-wave',       label:'আয়-ব্যয় লেজার', color:'#00ff88' },
+    settings:       { icon:'fa-gear',                  label:'সেটিংস',          color:'#aaaaaa' },
+    security:       { icon:'fa-shield-halved',         label:'নিরাপত্তা',       color:'#ff4757' },
+    category:       { icon:'fa-tags',                  label:'ক্যাটাগরি',       color:'#ffd700' },
+    certificates:   { icon:'fa-certificate',           label:'সার্টিফিকেট',    color:'#00ff88' },
+    visitors:       { icon:'fa-person-walking',        label:'ভিজিটর',          color:'#aaaaaa' },
+    notices:        { icon:'fa-bullhorn',              label:'নোটিশ',           color:'#ffa502' },
+    system:         { icon:'fa-gear',                  label:'সিস্টেম',         color:'#666666' },
+    note:           { icon:'fa-bookmark',              label:'নোট',             color:'#b537f2' },
   };
   const _ACT_ACTION_META = {
     add:      { badge:'ADD',      color:'#00ff88', bg:'rgba(0,255,136,0.12)',   icon:'fa-plus-circle' },
@@ -3309,9 +3309,9 @@ ${expenseEntries.length > 0 ? `
 
   function _buildActivityRows(logs, filterAction, filterType, filterSearch) {
     if (!logs || logs.length === 0)
-      return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> à¦•à§‹à¦¨à§‹ activity à¦¨à§‡à¦‡</td></tr>`;
+      return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> কোনো activity নেই</td></tr>`;
 
-    // â”€â”€ Apply filters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Apply filters ────────────────────────────────────────────
     let items = (typeof SupabaseSync !== 'undefined' && SupabaseSync.filterActivityLogs)
       ? SupabaseSync.filterActivityLogs(logs)
       : logs.filter(l => {
@@ -3327,7 +3327,7 @@ ${expenseEntries.length > 0 ? `
         (l.type||'').toLowerCase().includes(q));
     }
 
-    // â”€â”€ Deduplication: merge related side-effect entries (within 4 sec) â”€â”€
+    // ── Deduplication: merge related side-effect entries (within 4 sec) ──
     const MERGE_MS = 4000;
     const merged   = [];
     const used     = new Set();
@@ -3338,7 +3338,7 @@ ${expenseEntries.length > 0 ? `
       const key = `${e.action}:${e.type}`;
       const t0  = new Date(e.created_at || 0).getTime();
       const rel = _RELATED_PAIRS[key] || [];
-      // Special: settings â€” collapse consecutive same-type within window
+      // Special: settings — collapse consecutive same-type within window
       if (e.type === 'settings' && e.action === 'edit') {
         let j = i + 1;
         while (j < capped.length && j < i + 8) {
@@ -3364,7 +3364,7 @@ ${expenseEntries.length > 0 ? `
       used.add(i);
     }
 
-    // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Render ───────────────────────────────────────────────────
     let lastDateStr = null;
     const rows = [];
     for (const { e: l, absorbed } of merged) {
@@ -3376,20 +3376,20 @@ ${expenseEntries.length > 0 ? `
         const dStr  = dt.toDateString();
         if (dStr !== lastDateStr) {
           lastDateStr = dStr;
-          const dlabel = dt >= today ? 'ðŸ“… à¦†à¦œ'
-                       : dt >= yest  ? 'ðŸ“… à¦—à¦¤à¦•à¦¾à¦²'
-                       : 'ðŸ“… ' + dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+          const dlabel = dt >= today ? '📅 আজ'
+                       : dt >= yest  ? '📅 গতকাল'
+                       : '📅 ' + dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
           rows.push(`<tr><td colspan="7" style="padding:5px 14px;background:rgba(255,255,255,0.025);font-size:.70rem;font-weight:700;color:rgba(255,255,255,0.30);letter-spacing:.8px;border-top:1px solid rgba(255,255,255,0.06)">${dlabel}</td></tr>`);
         }
       }
 
-      const tm  = _ACT_TYPE_META[l.type]   || { icon:'fa-circle-dot', label: l.type||'â€”', color:'#aaa' };
+      const tm  = _ACT_TYPE_META[l.type]   || { icon:'fa-circle-dot', label: l.type||'—', color:'#aaa' };
       const am  = _ACT_ACTION_META[l.action]|| { badge:(l.action||'?').toUpperCase(), color:'#aaa', bg:'rgba(255,255,255,0.06)', icon:'fa-circle' };
-      const dev = l.device_id ? String(l.device_id).slice(-6) : 'â€”';
+      const dev = l.device_id ? String(l.device_id).slice(-6) : '—';
       const ok  = l.status !== 'failed';
       const desc = (l.description || '');
       const rid  = 'al_' + (l.id || Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9_-]/g, '');
-      const short= desc.length > 90 ? desc.slice(0, 90) + 'â€¦' : desc;
+      const short= desc.length > 90 ? desc.slice(0, 90) + '…' : desc;
       const long = desc.length > 90;
       const descEsc = Utils.esc(desc);
       const shortEsc = Utils.esc(short);
@@ -3398,7 +3398,7 @@ ${expenseEntries.length > 0 ? `
       let absHtml = '';
       if (absorbed.length) {
         const uniq = [...new Set(absorbed.map(a => (_ACT_TYPE_META[a.type]||{label:a.type}).label))];
-        absHtml = `<div style="margin-top:3px;font-size:.68rem;color:rgba(255,255,255,0.28)"><i class="fa fa-link" style="font-size:.6rem"></i> à¦¬à§à¦¯à¦¾à¦•à¦—à§à¦°à¦¾à¦‰à¦¨à§à¦¡ à¦†à¦ªà¦¡à§‡à¦Ÿ: ${uniq.join(', ')}</div>`;
+        absHtml = `<div style="margin-top:3px;font-size:.68rem;color:rgba(255,255,255,0.28)"><i class="fa fa-link" style="font-size:.6rem"></i> ব্যাকগ্রাউন্ড আপডেট: ${uniq.join(', ')}</div>`;
       }
 
       rows.push(`<tr style="border-bottom:1px solid rgba(255,255,255,0.035)">
@@ -3417,22 +3417,22 @@ ${expenseEntries.length > 0 ? `
           </div>
         </td>
         <td style="padding:9px 7px;max-width:270px">
-          <div id="${ridEsc}_s" style="font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${shortEsc}${long?`<span onclick="document.getElementById('${ridEsc}_s').style.display='none';document.getElementById('${ridEsc}_f').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">â–¼ à¦†à¦°à¦“</span>`:''}</div>
-          ${long?`<div id="${ridEsc}_f" style="display:none;font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${descEsc}<span onclick="document.getElementById('${ridEsc}_f').style.display='none';document.getElementById('${ridEsc}_s').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">â–² à¦•à¦®</span></div>`:''}
+          <div id="${ridEsc}_s" style="font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${shortEsc}${long?`<span onclick="document.getElementById('${ridEsc}_s').style.display='none';document.getElementById('${ridEsc}_f').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▼ আরও</span>`:''}</div>
+          ${long?`<div id="${ridEsc}_f" style="display:none;font-size:.80rem;line-height:1.5;color:rgba(255,255,255,0.82)">${descEsc}<span onclick="document.getElementById('${ridEsc}_f').style.display='none';document.getElementById('${ridEsc}_s').style.display='block'" style="color:#00d9ff;cursor:pointer;font-size:.68rem;margin-left:4px">▲ কম</span></div>`:''}
           ${absHtml}
         </td>
         <td style="padding:9px 7px;white-space:nowrap;font-size:.76rem">
           ${ok?'<span style="color:#00ff88;font-weight:700"><i class="fa fa-check-circle"></i> OK</span>':'<span style="color:#ff4757;font-weight:700"><i class="fa fa-circle-xmark"></i> Failed</span>'}
         </td>
         <td style="padding:9px 7px;font-size:.70rem;color:rgba(255,255,255,0.32);white-space:nowrap"><i class="fa fa-mobile-screen" style="font-size:.65rem"></i> ${dev}</td>
-        <td style="padding:9px 12px;text-align:right;font-size:.70rem;color:rgba(255,255,255,0.32);white-space:nowrap">${l.time||(dt?dt.toLocaleString('en-US',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'â€”')}</td>
+        <td style="padding:9px 12px;text-align:right;font-size:.70rem;color:rgba(255,255,255,0.32);white-space:nowrap">${l.time||(dt?dt.toLocaleString('en-US',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'—')}</td>
       </tr>`);
     }
-    return rows.join('') || `<tr><td colspan="7" class="no-data">à¦«à¦¿à¦²à§à¦Ÿà¦¾à¦°à§‡ à¦•à§‹à¦¨à§‹ result à¦¨à§‡à¦‡</td></tr>`;
+    return rows.join('') || `<tr><td colspan="7" class="no-data">ফিল্টারে কোনো result নেই</td></tr>`;
   }
 
-  // â”€â”€â”€ Recycle Bin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // âœ… Bug Fix: SupabaseSync.remove() writes to IndexedDB ('recycle_bin' table)
+  // ─── Recycle Bin ───────────────────────────────────────────────────────
+  // ✅ Bug Fix: SupabaseSync.remove() writes to IndexedDB ('recycle_bin' table)
   //            but the old code read from localStorage 'wfa_recycle_bin'.
   //            Now we read from IDB first, then fall back to localStorage.
   function getDeletedItems() {
@@ -3455,7 +3455,7 @@ ${expenseEntries.length > 0 ? `
     const bin = isIDB ? idbBin : Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
     const item = bin[index];
 
-    // âœ… Req 2: handle settings-specific types locally (categories & sub-accounts)
+    // ✅ Req 2: handle settings-specific types locally (categories & sub-accounts)
     if (item && item.table === 'settings_category') {
       const { key, item: catItem } = item.data || {};
       if (key && catItem) {
@@ -3467,7 +3467,7 @@ ${expenseEntries.length > 0 ? `
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
-      Utils.toast(`Category "${item.data?.item}" restored âœ“`, 'success');
+      Utils.toast(`Category "${item.data?.item}" restored ✓`, 'success');
       refreshModal();
       return;
     }
@@ -3479,18 +3479,18 @@ ${expenseEntries.length > 0 ? `
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin); // fix: IDB-only
-      Utils.toast(`Sub-account @${item.data?.username} restored âœ“`, 'success');
+      Utils.toast(`Sub-account @${item.data?.username} restored ✓`, 'success');
       refreshModal();
       return;
     }
 
-    // âœ… keep_records: restore note back to localStorage
+    // ✅ keep_records: restore note back to localStorage
     if (item && item.table === 'keep_records') {
       const noteData = item.data;
       if (noteData) {
         const notes = getKeepRecords();
         
-        // âœ… IMPROVED: Use unique ID instead of title + date (more reliable)
+        // ✅ IMPROVED: Use unique ID instead of title + date (more reliable)
         const noteId = noteData.id || `${(noteData.title || '').toLowerCase()}_${noteData.date || ''}`;
         const exists = notes.some(n => {
           const nId = n.id || `${(n.title || '').toLowerCase()}_${n.date || ''}`;
@@ -3518,40 +3518,40 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
-    // âœ… advance_payments restore
+    // ✅ advance_payments restore
     if (item && item.table === 'advance_payments') {
       const data = item.data;
       if (data) {
         const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
         const exists = advances.some(a => a.id && a.id === data.id);
         if (!exists) advances.unshift(data);
-        // âœ… Bug Fix: IDB-à¦ write à¦•à¦°à§‹, localStorage à¦¨à¦¯à¦¼ (SupabaseSync IDB à¦¥à§‡à¦•à§‡ à¦ªà¦¡à¦¼à§‡)
+        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
         SupabaseSync.setAll(DB.advance_payments || 'advance_payments', advances);
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
       _saveRecycleBinToSettings();
       logActivity('restore', 'settings', `Restored advance payment: ${data?.person || 'Unknown'}`);
-      Utils.toast('Advance payment restored âœ“', 'success');
+      Utils.toast('Advance payment restored ✓', 'success');
       refreshModal();
       return;
     }
 
-    // âœ… investments restore
+    // ✅ investments restore
     if (item && item.table === 'investments') {
       const data = item.data;
       if (data) {
         const investments = SupabaseSync.getAll(DB.investments || 'investments');
         const exists = investments.some(i => i.id && i.id === data.id);
         if (!exists) investments.unshift(data);
-        // âœ… Bug Fix: IDB-à¦ write à¦•à¦°à§‹, localStorage à¦¨à¦¯à¦¼ (SupabaseSync IDB à¦¥à§‡à¦•à§‡ à¦ªà¦¡à¦¼à§‡)
+        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
         SupabaseSync.setAll(DB.investments || 'investments', investments);
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
       _saveRecycleBinToSettings();
       logActivity('restore', 'settings', `Restored investment: ${data?.source || 'Unknown'}`);
-      Utils.toast('Investment restored âœ“', 'success');
+      Utils.toast('Investment restored ✓', 'success');
       refreshModal();
       return;
     }
@@ -3586,13 +3586,13 @@ ${expenseEntries.length > 0 ? `
     refreshModal();
   }
 
-  // â”€â”€â”€ Keep Record (Notes) â€” localStorage-à¦ à¦†à¦²à¦¾à¦¦à¦¾à¦­à¦¾à¦¬à§‡ à¦¸à¦‚à¦°à¦•à§à¦·à¦£ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // âœ… REDESIGN: keep_records à¦†à¦° settings table-à¦ à¦°à¦¾à¦–à¦¾ à¦¹à¦¬à§‡ à¦¨à¦¾à¥¤
-  // à¦•à¦¾à¦°à¦£: settings table-à¦ à¦°à¦¾à¦–à¦²à§‡ â€”
-  //   1. SupabaseSync.update('settings') â†’ activity log-à¦ "à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸ à¦†à¦ªà¦¡à§‡à¦Ÿ" à¦¦à§‡à¦–à¦¾à¦¯à¦¼ (à¦­à§à¦²)
-  //   2. à¦ªà§à¦°à¦¤à¦¿ à§©à§¦ à¦¸à§‡à¦•à§‡à¦¨à§à¦¡à§‡ auto-pull settings overwrite â†’ à¦¨à§‹à¦Ÿ à¦­à§à¦¯à¦¾à¦¨à¦¿à¦¶
-  //   3. realtime event-à¦ settings row overwrite â†’ keep_records à¦¹à¦¾à¦°à¦¾à¦¯à¦¼
-  // à¦¸à¦®à¦¾à¦§à¦¾à¦¨: localStorage-à¦ 'wfa_keep_records_v2' key-à¦ à¦¸à¦°à¦¾à¦¸à¦°à¦¿ saveà¥¤
+  // ─── Keep Record (Notes) — localStorage-এ আলাদাভাবে সংরক্ষণ ────────────
+  // ✅ REDESIGN: keep_records আর settings table-এ রাখা হবে না।
+  // কারণ: settings table-এ রাখলে —
+  //   1. SupabaseSync.update('settings') → activity log-এ "সেটিংস আপডেট" দেখায় (ভুল)
+  //   2. প্রতি ৩০ সেকেন্ডে auto-pull settings overwrite → নোট ভ্যানিশ
+  //   3. realtime event-এ settings row overwrite → keep_records হারায়
+  // সমাধান: localStorage-এ 'wfa_keep_records_v2' key-এ সরাসরি save।
 
   function getKeepRecords() {
     return typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.keep_records || 'keep_records') : [];
@@ -3604,7 +3604,7 @@ ${expenseEntries.length > 0 ? `
     SupabaseSync.setAll(table, Array.isArray(notes) ? notes : []);
   }
 
-  // âœ… Migration: à¦ªà§à¦°à¦¨à§‹ data localStorage à¦¥à§‡à¦•à§‡ Supabase-à¦ à¦¸à¦¿à¦™à§à¦• à¦•à¦°à§‹
+  // ✅ Migration: পুরনো data localStorage থেকে Supabase-এ সিঙ্ক করো
   function _migrateOfflineDataToCloud() {
     try {
       if (typeof SupabaseSync === 'undefined' || !SupabaseSync.insert) return;
@@ -3640,7 +3640,7 @@ ${expenseEntries.length > 0 ? `
   // Run migration on load
   setTimeout(_migrateOfflineDataToCloud, 2000);
 
-  // âœ… IMPROVED: Merge remote keep_records from cfg into local view after a Supabase pull
+  // ✅ IMPROVED: Merge remote keep_records from cfg into local view after a Supabase pull
   // This prevents data loss when two devices edit notes simultaneously
   function _mergeRemoteKeepRecords() {
     try {
@@ -3681,9 +3681,9 @@ ${expenseEntries.length > 0 ? `
         }
       }
       
-      // âœ… FIX: Actually save the merged notes back to config!
+      // ✅ FIX: Actually save the merged notes back to config!
       if (final.length !== local.length) {
-        _saveKeepRecords(final); // âœ… Save merged notes back
+        _saveKeepRecords(final); // ✅ Save merged notes back
         console.info(`[Settings] Merged ${toAdd.length} remote keep_records, total: ${final.length}`);
       }
     } catch(e) { console.warn('[Settings] _mergeRemoteKeepRecords failed:', e); }
@@ -3696,8 +3696,8 @@ ${expenseEntries.length > 0 ? `
     return `${(note.title || '').toLowerCase()}_${note.date || ''}`;
   }
 
-  // â”€â”€â”€ Recycle Bin Sync â€” saves last 50 items to settings table â”€â”€â”€
-  // âœ… This piggybacks on the settings Supabase sync for cross-device visibility
+  // ─── Recycle Bin Sync — saves last 50 items to settings table ───
+  // ✅ This piggybacks on the settings Supabase sync for cross-device visibility
   function _saveRecycleBinToSettings() {
     try {
       const bin = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll('recycle_bin') : [];
@@ -3712,7 +3712,7 @@ ${expenseEntries.length > 0 ? `
     _saveRecycleBinToSettings();
   }
 
-  // âœ… Merge remote recycle bin from settings into local IDB after a Supabase pull
+  // ✅ Merge remote recycle bin from settings into local IDB after a Supabase pull
   function _mergeRemoteRecycleBin() {
     try {
       const cfg = getConfig();
@@ -3731,39 +3731,39 @@ ${expenseEntries.length > 0 ? `
   }
 
   function addNote() {
-    openSettingsInternalModal('ðŸ“ à¦¨à¦¤à§à¦¨ à¦¨à§‹à¦Ÿ à¦¯à§‹à¦— à¦•à¦°à§à¦¨', `
+    openSettingsInternalModal('📝 নতুন নোট যোগ করুন', `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
-          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦Ÿà¦¾à¦‡à¦Ÿà§‡à¦² <span style="color:#ff4757">*</span></label>
-          <input id="note-title" class="form-control" placeholder="à¦¨à§‹à¦Ÿà§‡à¦° à¦Ÿà¦¾à¦‡à¦Ÿà§‡à¦²..." style="width:100%;box-sizing:border-box" />
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">টাইটেল <span style="color:#ff4757">*</span></label>
+          <input id="note-title" class="form-control" placeholder="নোটের টাইটেল..." style="width:100%;box-sizing:border-box" />
         </div>
         <div>
-          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦°à¦™ à¦¬à§‡à¦›à§‡ à¦¨à¦¿à¦¨</label>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">রঙ বেছে নিন</label>
           <select id="note-color" class="form-control" style="width:100%;box-sizing:border-box">
-            <option value="blue">ðŸ”µ à¦¨à§€à¦²</option>
-            <option value="green">ðŸŸ¢ à¦¸à¦¬à§à¦œ</option>
-            <option value="purple">ðŸŸ£ à¦¬à§‡à¦—à§à¦¨à¦¿</option>
-            <option value="yellow">ðŸŸ¡ à¦¹à¦²à§à¦¦</option>
-            <option value="red">ðŸ”´ à¦²à¦¾à¦²</option>
-            <option value="orange">ðŸŸ  à¦•à¦®à¦²à¦¾</option>
+            <option value="blue">🔵 নীল</option>
+            <option value="green">🟢 সবুজ</option>
+            <option value="purple">🟣 বেগুনি</option>
+            <option value="yellow">🟡 হলুদ</option>
+            <option value="red">🔴 লাল</option>
+            <option value="orange">🟠 কমলা</option>
           </select>
         </div>
       </div>
       <div style="margin-bottom:12px">
-        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ / à¦•à¦¨à¦Ÿà§‡à¦¨à§à¦Ÿ</label>
-        <textarea id="note-content" class="form-control" rows="4" placeholder="à¦¨à§‹à¦Ÿ à¦²à¦¿à¦–à§à¦¨..." style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">বিস্তারিত / কনটেন্ট</label>
+        <textarea id="note-content" class="form-control" rows="4" placeholder="নোট লিখুন..." style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
       </div>
       <div style="margin-bottom:16px">
-        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦Ÿà§à¦¯à¦¾à¦— (comma à¦¦à¦¿à¦¯à¦¼à§‡ à¦†à¦²à¦¾à¦¦à¦¾ à¦•à¦°à§à¦¨)</label>
-        <input id="note-tags" class="form-control" placeholder="à¦¯à§‡à¦®à¦¨: à¦—à§à¦°à§à¦¤à§à¦¬à¦ªà§‚à¦°à§à¦£, à¦«à¦¾à¦‡à¦¨à§à¦¯à¦¾à¦¨à§à¦¸, à¦¸à§à¦Ÿà¦¾à¦«" style="width:100%;box-sizing:border-box" />
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">ট্যাগ (comma দিয়ে আলাদা করুন)</label>
+        <input id="note-tags" class="form-control" placeholder="যেমন: গুরুত্বপূর্ণ, ফাইন্যান্স, স্টাফ" style="width:100%;box-sizing:border-box" />
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
         <input type="checkbox" id="note-pin" style="width:16px;height:16px;cursor:pointer" />
-        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">ðŸ“Œ à¦‰à¦ªà¦°à§‡ à¦ªà¦¿à¦¨ à¦•à¦°à§à¦¨</label>
+        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">📌 উপরে পিন করুন</label>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">à¦¬à¦¾à¦¤à¦¿à¦²</button>
-        <button onclick="SettingsModule.saveNote()" style="background:linear-gradient(135deg,#b537f2,#7c3aed);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-check" style="margin-right:6px"></i>à¦¸à§‡à¦­ à¦•à¦°à§à¦¨</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">বাতিল</button>
+        <button onclick="SettingsModule.saveNote()" style="background:linear-gradient(135deg,#b537f2,#7c3aed);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-check" style="margin-right:6px"></i>সেভ করুন</button>
       </div>
     `);
   }
@@ -3774,10 +3774,10 @@ ${expenseEntries.length > 0 ? `
     const color   = document.getElementById('note-color')?.value || 'blue';
     const tagsRaw = document.getElementById('note-tags')?.value || '';
     const pinned  = document.getElementById('note-pin')?.checked || false;
-    if (!title && !content) { Utils.toast('à¦•à¦¿à¦›à§ à¦²à¦¿à¦–à§à¦¨', 'error'); return; }
+    if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
     const tags = tagsRaw.split(',').map(t=>t.trim()).filter(Boolean);
     const _notes = getKeepRecords();
-    // âœ… FIX: Add unique ID and timestamp for proper sync
+    // ✅ FIX: Add unique ID and timestamp for proper sync
     const entry = { 
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), // unique ID
       title: title||'Untitled', 
@@ -3789,12 +3789,12 @@ ${expenseEntries.length > 0 ? `
     };
     SupabaseSync.insert(DB.keep_records || 'keep_records', entry);
     closeSettingsInternalModal();
-    Utils.toast('à¦¨à§‹à¦Ÿ à¦¸à§‡à¦­ à¦¹à¦¯à¦¼à§‡à¦›à§‡ âœ“', 'success');
+    Utils.toast('নোট সেভ হয়েছে ✓', 'success');
     logActivity('add', 'note', `Added note: ${title}`);
-    _refreshKeepRecordGrid(); // âœ… FIX: Refresh only notes grid, not entire modal
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
   }
 
-  // âœ… NEW: Lightweight grid refresh for Keep Record (prevents flickering)
+  // ✅ NEW: Lightweight grid refresh for Keep Record (prevents flickering)
   function _refreshKeepRecordGrid() {
     if (activeTab !== 'keeprecord') return; // Only if Keep Record tab is active
     const grid = document.getElementById('kr-notes-grid');
@@ -3806,14 +3806,14 @@ ${expenseEntries.length > 0 ? `
     const borderMap = { red:'rgba(255,71,87,0.30)', green:'rgba(0,255,136,0.25)', blue:'rgba(0,217,255,0.25)', yellow:'rgba(255,215,0,0.25)', purple:'rgba(181,55,242,0.30)', orange:'rgba(255,107,53,0.25)' };
     
     if (notes.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><i class="fa fa-flag" style="font-size:2.5rem;color:#b537f2;opacity:.4;display:block;margin-bottom:14px"></i><div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">à¦•à§‹à¦¨à§‹ à¦¨à§‹à¦Ÿ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿</div><div style="color:#00ff88;font-size:.82rem">à¦¨à¦¤à§à¦¨ à¦¨à§‹à¦Ÿ à¦¯à§‹à¦— à¦•à¦°à¦¤à§‡ à¦‰à¦ªà¦°à§‡à¦° à¦¬à¦¾à¦Ÿà¦¨à§‡ à¦•à§à¦²à¦¿à¦• à¦•à¦°à§à¦¨</div></div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 20px"><i class="fa fa-flag" style="font-size:2.5rem;color:#b537f2;opacity:.4;display:block;margin-bottom:14px"></i><div style="color:var(--text-muted);font-size:.9rem;margin-bottom:8px">কোনো নোট পাওয়া যায়নি</div><div style="color:#00ff88;font-size:.82rem">নতুন নোট যোগ করতে উপরের বাটনে ক্লিক করুন</div></div>`;
       return;
     }
     
     grid.innerHTML = notes.map((n, i) => {
       const c = n.color || 'blue';
       const pinned = n.pinned ? 'border-left:3px solid #ffd700;' : '';
-      return `<div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">ðŸ“Œ</div>' : ''}<button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">âœï¸</button><button onclick="SettingsModule.deleteNote(${i})" title="Delete â†’ Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">âœ•</button><div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px"><div style="display:flex;gap:5px;flex-wrap:wrap">${(n.tags||[]).map(t=>`<span style="font-size:.68rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);border-radius:10px;padding:2px 8px">${Utils.esc(t)}</span>`).join('')}</div><span style="font-size:.7rem;color:rgba(255,255,255,0.3)">${n.date||''}</span></div></div>`;
+      return `<div style="background:${bgMap[c]||bgMap.blue};border:1px solid ${borderMap[c]||borderMap.blue};${pinned}border-radius:14px;padding:16px;position:relative;transition:transform 0.15s,box-shadow 0.15s" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(0,0,0,0.3)'" onmouseout="this.style.transform='';this.style.boxShadow=''">${n.pinned ? '<div style="position:absolute;top:10px;right:68px;font-size:.75rem;color:#ffd700" title="Pinned">📌</div>' : ''}<button onclick="SettingsModule.editNote(${i})" title="Edit" style="position:absolute;top:10px;right:38px;background:rgba(0,217,255,0.12);border:1px solid rgba(0,217,255,0.3);color:#00d9ff;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.7rem;display:flex;align-items:center;justify-content:center">✏️</button><button onclick="SettingsModule.deleteNote(${i})" title="Delete → Recycle Bin" style="position:absolute;top:10px;right:10px;background:rgba(255,71,87,0.15);border:1px solid rgba(255,71,87,0.3);color:#ff6b7a;width:24px;height:24px;border-radius:50%;cursor:pointer;font-size:.75rem;display:flex;align-items:center;justify-content:center">✕</button><div style="font-weight:700;color:${colorMap[c]||colorMap.blue};font-size:.92rem;margin-bottom:8px;padding-right:28px;line-height:1.3">${Utils.esc(n.title||'Untitled')}</div>${n.content ? `<div style="font-size:.82rem;color:rgba(255,255,255,0.72);line-height:1.6;margin-bottom:10px;white-space:pre-wrap">${Utils.esc(n.content)}</div>` : ''}<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-top:8px;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px"><div style="display:flex;gap:5px;flex-wrap:wrap">${(n.tags||[]).map(t=>`<span style="font-size:.68rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);border-radius:10px;padding:2px 8px">${Utils.esc(t)}</span>`).join('')}</div><span style="font-size:.7rem;color:rgba(255,255,255,0.3)">${n.date||''}</span></div></div>`;
     }).join('');
   }
 
@@ -3822,12 +3822,12 @@ ${expenseEntries.length > 0 ? `
     const victim = notes[index];
     if (!victim) return;
     
-    // âœ… IMPROVED: Add unique ID if missing (for older notes)
+    // ✅ IMPROVED: Add unique ID if missing (for older notes)
     if (!victim.id) {
       victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     }
     
-    // âœ… Fix: Send note to Recycle Bin before removing
+    // ✅ Fix: Send note to Recycle Bin before removing
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('keep_records', victim);
     } else {
@@ -3835,11 +3835,11 @@ ${expenseEntries.length > 0 ? `
       try {
         const bin = Utils.safeJSON(localStorage.getItem('wfa_recycle_bin'), []);
         bin.unshift({
-          id: victim.id, // âœ… NEW: unique ID for proper restore
+          id: victim.id, // ✅ NEW: unique ID for proper restore
           table: 'keep_records',
           data: (typeof structuredClone === 'function') ? structuredClone(victim) : JSON.parse(JSON.stringify(victim)),
           deletedAt: new Date().toISOString(),
-          type: 'à¦¨à§‹à¦Ÿ',
+          type: 'নোট',
           name: victim.title || 'Untitled Note',
           tableLabel: 'Keep Record',
         });
@@ -3849,49 +3849,49 @@ ${expenseEntries.length > 0 ? `
         }
       } catch(e) { console.warn('[Recycle] note delete failed:', e); }
     }
-    SupabaseSync.remove(DB.keep_records || 'keep_records', victim.id); // âœ… sync recycle bin after note delete
-    Utils.toast('à¦¨à§‹à¦Ÿ à¦°à¦¿à¦¸à¦¾à¦‡à¦•à§‡à¦² à¦¬à¦¿à¦¨à§‡ à¦—à§‡à¦›à§‡ ðŸ—‘ï¸', 'info');
+    SupabaseSync.remove(DB.keep_records || 'keep_records', victim.id); // ✅ sync recycle bin after note delete
+    Utils.toast('নোট রিসাইকেল বিনে গেছে 🗑️', 'info');
     logActivity('delete', 'note', `Deleted note: ${victim.title || 'Untitled'}`);
-    _refreshKeepRecordGrid(); // âœ… FIX: Refresh only notes grid, not entire modal
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
   }
 
   function editNote(index) {
     const notes = getKeepRecords();
     const n = notes[index];
     if (!n) return;
-    openSettingsInternalModal('âœï¸ à¦¨à§‹à¦Ÿ à¦à¦¡à¦¿à¦Ÿ à¦•à¦°à§à¦¨', `
+    openSettingsInternalModal('✏️ নোট এডিট করুন', `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
-          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦Ÿà¦¾à¦‡à¦Ÿà§‡à¦² <span style="color:#ff4757">*</span></label>
-          <input id="note-title" class="form-control" placeholder="à¦¨à§‹à¦Ÿà§‡à¦° à¦Ÿà¦¾à¦‡à¦Ÿà§‡à¦²..." value="${Utils.esc(n.title||'')}" style="width:100%;box-sizing:border-box" />
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">টাইটেল <span style="color:#ff4757">*</span></label>
+          <input id="note-title" class="form-control" placeholder="নোটের টাইটেল..." value="${Utils.esc(n.title||'')}" style="width:100%;box-sizing:border-box" />
         </div>
         <div>
-          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦°à¦™ à¦¬à§‡à¦›à§‡ à¦¨à¦¿à¦¨</label>
+          <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">রঙ বেছে নিন</label>
           <select id="note-color" class="form-control" style="width:100%;box-sizing:border-box">
-            <option value="blue" ${n.color==='blue'?'selected':''}>ðŸ”µ à¦¨à§€à¦²</option>
-            <option value="green" ${n.color==='green'?'selected':''}>ðŸŸ¢ à¦¸à¦¬à§à¦œ</option>
-            <option value="purple" ${n.color==='purple'?'selected':''}>ðŸŸ£ à¦¬à§‡à¦—à§à¦¨à¦¿</option>
-            <option value="yellow" ${n.color==='yellow'?'selected':''}>ðŸŸ¡ à¦¹à¦²à§à¦¦</option>
-            <option value="red" ${n.color==='red'?'selected':''}>ðŸ”´ à¦²à¦¾à¦²</option>
-            <option value="orange" ${n.color==='orange'?'selected':''}>ðŸŸ  à¦•à¦®à¦²à¦¾</option>
+            <option value="blue" ${n.color==='blue'?'selected':''}>🔵 নীল</option>
+            <option value="green" ${n.color==='green'?'selected':''}>🟢 সবুজ</option>
+            <option value="purple" ${n.color==='purple'?'selected':''}>🟣 বেগুনি</option>
+            <option value="yellow" ${n.color==='yellow'?'selected':''}>🟡 হলুদ</option>
+            <option value="red" ${n.color==='red'?'selected':''}>🔴 লাল</option>
+            <option value="orange" ${n.color==='orange'?'selected':''}>🟠 কমলা</option>
           </select>
         </div>
       </div>
       <div style="margin-bottom:12px">
-        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ / à¦•à¦¨à¦Ÿà§‡à¦¨à§à¦Ÿ</label>
-        <textarea id="note-content" class="form-control" rows="4" placeholder="à¦¨à§‹à¦Ÿ à¦²à¦¿à¦–à§à¦¨..." style="width:100%;box-sizing:border-box;resize:vertical">${Utils.esc(n.content||'')}</textarea>
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">বিস্তারিত / কনটেন্ট</label>
+        <textarea id="note-content" class="form-control" rows="4" placeholder="নোট লিখুন..." style="width:100%;box-sizing:border-box;resize:vertical">${Utils.esc(n.content||'')}</textarea>
       </div>
       <div style="margin-bottom:16px">
-        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">à¦Ÿà§à¦¯à¦¾à¦— (comma à¦¦à¦¿à¦¯à¦¼à§‡ à¦†à¦²à¦¾à¦¦à¦¾ à¦•à¦°à§à¦¨)</label>
-        <input id="note-tags" class="form-control" placeholder="à¦¯à§‡à¦®à¦¨: à¦—à§à¦°à§à¦¤à§à¦¬à¦ªà§‚à¦°à§à¦£, à¦«à¦¾à¦‡à¦¨à§à¦¯à¦¾à¦¨à§à¦¸, à¦¸à§à¦Ÿà¦¾à¦«" value="${Utils.esc((n.tags||[]).join(', '))}" style="width:100%;box-sizing:border-box" />
+        <label style="font-size:.8rem;color:var(--text-secondary);display:block;margin-bottom:5px">ট্যাগ (comma দিয়ে আলাদা করুন)</label>
+        <input id="note-tags" class="form-control" placeholder="যেমন: গুরুত্বপূর্ণ, ফাইন্যান্স, স্টাফ" value="${Utils.esc((n.tags||[]).join(', '))}" style="width:100%;box-sizing:border-box" />
       </div>
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px">
         <input type="checkbox" id="note-pin" ${n.pinned?'checked':''} style="width:16px;height:16px;cursor:pointer" />
-        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">ðŸ“Œ à¦‰à¦ªà¦°à§‡ à¦ªà¦¿à¦¨ à¦•à¦°à§à¦¨</label>
+        <label for="note-pin" style="font-size:.85rem;color:rgba(255,255,255,0.7);cursor:pointer">📌 উপরে পিন করুন</label>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
-        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">à¦¬à¦¾à¦¤à¦¿à¦²</button>
-        <button onclick="SettingsModule.saveEditedNote(${index})" style="background:linear-gradient(135deg,#00d9ff,#0099bb);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-save" style="margin-right:6px"></i>à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§à¦¨</button>
+        <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);padding:9px 18px;border-radius:8px;cursor:pointer;font-size:.85rem">বাতিল</button>
+        <button onclick="SettingsModule.saveEditedNote(${index})" style="background:linear-gradient(135deg,#00d9ff,#0099bb);border:none;color:#fff;padding:9px 22px;border-radius:8px;cursor:pointer;font-size:.85rem;font-weight:700"><i class="fa fa-save" style="margin-right:6px"></i>আপডেট করুন</button>
       </div>
     `);
   }
@@ -3902,29 +3902,29 @@ ${expenseEntries.length > 0 ? `
     const color   = document.getElementById('note-color')?.value || 'blue';
     const tagsRaw = document.getElementById('note-tags')?.value || '';
     const pinned  = document.getElementById('note-pin')?.checked || false;
-    if (!title && !content) { Utils.toast('à¦•à¦¿à¦›à§ à¦²à¦¿à¦–à§à¦¨', 'error'); return; }
+    if (!title && !content) { Utils.toast('কিছু লিখুন', 'error'); return; }
     const tags  = tagsRaw.split(',').map(t => t.trim()).filter(Boolean);
     const notes = getKeepRecords();
-    if (!notes[index]) { Utils.toast('à¦¨à§‹à¦Ÿ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿', 'error'); return; }
+    if (!notes[index]) { Utils.toast('নোট পাওয়া যায়নি', 'error'); return; }
     
-    // âœ… IMPROVED: Preserve ID and timestamps for proper sync
+    // ✅ IMPROVED: Preserve ID and timestamps for proper sync
     const oldNote = notes[index];
     notes[index] = { 
       ...oldNote,
       title: title||'Untitled', 
       content: content||'', 
       color, tags, pinned, 
-      modified: new Date().toISOString() // âœ… timestamp for sync resolution
+      modified: new Date().toISOString() // ✅ timestamp for sync resolution
     };
     
     SupabaseSync.update(DB.keep_records || 'keep_records', oldNote.id, notes[index]);
     closeSettingsInternalModal();
-    Utils.toast('à¦¨à§‹à¦Ÿ à¦†à¦ªà¦¡à§‡à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡ âœ“', 'success');
+    Utils.toast('নোট আপডেট হয়েছে ✓', 'success');
     logActivity('edit', 'note', `Edited note: ${title}`);
-    _refreshKeepRecordGrid(); // âœ… FIX: Refresh only notes grid, not entire modal
+    _refreshKeepRecordGrid(); // ✅ FIX: Refresh only notes grid, not entire modal
   }
 
-  // â”€â”€â”€ Settings-à¦à¦° à¦­à§‡à¦¤à¦°à§‡ à¦¨à¦¿à¦œà¦¸à§à¦¬ modal (z-index à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦¸à¦®à¦¾à¦§à¦¾à¦¨) â”€â”€â”€
+  // ─── Settings-এর ভেতরে নিজস্ব modal (z-index সমস্যা সমাধান) ───
   function openSettingsInternalModal(title, bodyHTML, maxWidth = '480px') {
     const old = document.getElementById('settings-inner-modal');
     if (old) old.remove();
@@ -3935,14 +3935,14 @@ ${expenseEntries.length > 0 ? `
       <div style="background:var(--bg-surface,#0e1628);border:1px solid rgba(0,212,255,0.25);border-radius:14px;padding:28px;width:100%;max-width:${maxWidth};max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.7);position:relative;animation:fadeUp .2s ease;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
           <div style="font-size:1rem;font-weight:800;color:#fff">${title}</div>
-          <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">âœ•</button>
+          <button onclick="SettingsModule.closeSettingsInternalModal()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">✕</button>
         </div>
         ${bodyHTML}
       </div>`;
     wrap.addEventListener('click', e => { if (e.target === wrap) closeSettingsInternalModal(); });
     document.body.appendChild(wrap);
-    // âœ… à¦²à¦œà¦¿à¦• à§ª FIX: inner modal-à¦à¦° à¦¸à¦¬ date inputs-à¦ Flatpickr (DD/MM/YYYY) apply à¦•à¦°à§‹
-    // adv-date, ret-adv-date, inv-date, ret-inv-date à¦¸à¦¹ à¦¯à§‡à¦•à§‹à¦¨à§‹ à¦­à¦¬à¦¿à¦·à§à¦¯à§Ž date input
+    // ✅ লজিক ৪ FIX: inner modal-এর সব date inputs-এ Flatpickr (DD/MM/YYYY) apply করো
+    // adv-date, ret-adv-date, inv-date, ret-inv-date সহ যেকোনো ভবিষ্যৎ date input
     setTimeout(() => {
       wrap.querySelectorAll('input[type="date"]:not([disabled])').forEach(el => {
         if (!el._flatpickr && typeof Utils !== 'undefined' && Utils.initFlatpickrOnElement) {
@@ -3963,9 +3963,9 @@ ${expenseEntries.length > 0 ? `
     if (el) el.remove();
   }
 
-  // â”€â”€â”€ Advance Payments & Investments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Advance Payments & Investments ───────────────────────────
   function addAdvancePayment() {
-    openSettingsInternalModal('ðŸ’° Add Advance Payment', `
+    openSettingsInternalModal('💰 Add Advance Payment', `
       <div style="background:linear-gradient(135deg,rgba(0,255,136,0.06),rgba(0,212,255,0.04));border:1px solid rgba(0,255,136,0.15);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
         <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(0,255,136,0.18),rgba(0,212,255,0.12));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(0,255,136,0.25)">
           <i class="fa fa-money-bill-wave" style="color:#00ff88;font-size:1.1rem"></i>
@@ -3986,7 +3986,7 @@ ${expenseEntries.length > 0 ? `
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
         <div>
-          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (à§³) <span style="color:#ff4757">*</span></label>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
           <div style="position:relative">
             <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.4);font-size:.82rem;pointer-events:none"></i>
             <input id="adv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
@@ -4001,7 +4001,7 @@ ${expenseEntries.length > 0 ? `
       <div style="margin-bottom:16px">
         <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Payment Method <span style="color:#ff4757">*</span></label>
         <select id="adv-method" class="form-control" style="width:100%;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)">
-          <option value="">â€” Select Method â€”</option>
+          <option value="">— Select Method —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
@@ -4010,7 +4010,7 @@ ${expenseEntries.length > 0 ? `
         <label style="font-size:.70rem;font-weight:800;color:rgba(0,255,136,0.7);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
         <div style="position:relative">
           <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(0,255,136,0.3);font-size:.82rem;pointer-events:none"></i>
-          <input id="adv-note" class="form-control" placeholder="Optional noteâ€¦" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
+          <input id="adv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(0,255,136,0.20);background:rgba(0,255,136,0.04)" />
         </div>
       </div>
 
@@ -4032,21 +4032,21 @@ ${expenseEntries.length > 0 ? `
     if (!method) { Utils.toast('Payment method required', 'error'); return; }
     if (typeof Utils.getAccountBalance === 'function') {
       const available = Utils.getAccountBalance(method);
-      if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: à§³${available.toLocaleString()}`, 'error'); return; }
+      if (available < amount) { Utils.toast(`Insufficient funds in ${method}. Available: ৳${available.toLocaleString()}`, 'error'); return; }
     }
     const newAdv = { id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), person, amount, method, date, note, returns: [] };
     SupabaseSync.insert(DB.advance_payments || 'advance_payments', newAdv);
     const _finEntry = SupabaseSync.insert(DB.finance, {
       type: 'Expense', method, category: 'Advance Payment',
       description: `Advance to ${person}`, amount, date, note,
-      _advId: newAdv.id  // link à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯
+      _advId: newAdv.id  // link করার জন্য
     });
-    // âœ… FIX: Account balance à¦•à¦®à¦¾à¦“ (Advance à¦¦à§‡à¦“à¦¯à¦¼à¦¾ = à¦Ÿà¦¾à¦•à¦¾ à¦¬à§‡à¦° à¦¹à¦¯à¦¼)
+    // ✅ FIX: Account balance কমাও (Advance দেওয়া = টাকা বের হয়)
     if (typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(method, amount, 'out');
     }
     closeSettingsInternalModal();
-    Utils.toast('Advance payment saved âœ“', 'success');
+    Utils.toast('Advance payment saved ✓', 'success');
     refreshModal();
   }
 
@@ -4054,15 +4054,15 @@ ${expenseEntries.length > 0 ? `
     const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
     if (!advances[idx]) return;
     const victim = advances[idx];
-    if (!window.confirm(`"${victim.person}"-à¦à¦° advance payment à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦•à¦°à¦¬à§‡à¦¨? Recycle Bin-à¦ à¦¯à¦¾à¦¬à§‡à¥¤`)) return;
+    if (!window.confirm(`"${victim.person}"-এর advance payment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
 
-    // Recycle Bin-à¦ à¦ªà¦¾à¦ à¦¾à¦“
+    // Recycle Bin-এ পাঠাও
     if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('advance_payments', victim);
     }
 
-    // âœ… FIX: Finance linked entry reverse à¦•à¦°à§‹
+    // ✅ FIX: Finance linked entry reverse করো
     const finEntries = SupabaseSync.getAll(DB.finance).filter(f =>
       f.category === 'Advance Payment' && f.type === 'Expense' &&
       (f._advId === victim.id ||
@@ -4074,15 +4074,15 @@ ${expenseEntries.length > 0 ? `
       totalFinLinked += parseFloat(f.amount) || 0;
       SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
     });
-    // âœ… FIX: Account balance à¦«à§‡à¦°à¦¤ à¦¦à¦¾à¦“ (Expense à¦›à¦¿à¦² â†’ 'in' à¦•à¦°à§‹)
+    // ✅ FIX: Account balance ফেরত দাও (Expense ছিল → 'in' করো)
     if (victim.method && typeof SupabaseSync.updateAccountBalance === 'function') {
       const reverseAmt = totalFinLinked > 0 ? totalFinLinked : parseFloat(victim.amount) || 0;
       if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'in');
     }
 
     SupabaseSync.remove(DB.advance_payments || 'advance_payments', victim.id);
-    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} à§³${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
-    Utils.toast(`"${victim.person}"-à¦à¦° advance â€” Recycle Bin-à¦ à¦—à§‡à¦›à§‡ âœ“`, 'warning');
+    logActivity('delete', 'settings', `Advance payment deleted: ${victim.person} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
+    Utils.toast(`"${victim.person}"-এর advance — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
@@ -4093,15 +4093,15 @@ ${expenseEntries.length > 0 ? `
     const returns = a.returns || [];
     const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
     const remaining = (parseFloat(a.amount) || 0) - totalReturned;
-    openSettingsInternalModal(`â†©ï¸ Return Advance â€” ${Utils.esc(a.person)}`, `
+    openSettingsInternalModal(`↩️ Return Advance — ${Utils.esc(a.person)}`, `
       <div style="background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:10px;padding:14px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Original Amount</span><span style="color:#00ff88;font-weight:700">à§³${(parseFloat(a.amount)||0).toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">à§³${totalReturned.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining</span><span style="color:#ff4757;font-weight:800;font-size:1.1rem">à§³${remaining.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Original Amount</span><span style="color:#00ff88;font-weight:700">৳${(parseFloat(a.amount)||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">৳${totalReturned.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining</span><span style="color:#ff4757;font-weight:800;font-size:1.1rem">৳${remaining.toLocaleString()}</span></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
-          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (à§³) <span style="color:#ff4757">*</span></label>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (৳) <span style="color:#ff4757">*</span></label>
           <input id="ret-adv-amount" type="number" class="form-control" placeholder="0" max="${remaining}" />
         </div>
         <div>
@@ -4138,7 +4138,7 @@ ${expenseEntries.length > 0 ? `
     const totalReturned = (a.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
     const remaining = (parseFloat(a.amount)||0) - totalReturned;
     if (!retAmount || retAmount <= 0) { Utils.toast('Return amount required', 'error'); return; }
-    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining à§³${remaining.toLocaleString()}`, 'error'); return; }
+    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
     if (!advances[idx].returns) advances[idx].returns = [];
     advances[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
     SupabaseSync.update(DB.advance_payments || 'advance_payments', advances[idx].id, advances[idx]);
@@ -4147,7 +4147,7 @@ ${expenseEntries.length > 0 ? `
       description: `Advance return from ${a.person}`, amount: retAmount, date: retDate, note: retNote
     });
     closeSettingsInternalModal();
-    Utils.toast(`Return of à§³${retAmount.toLocaleString()} recorded âœ“`, 'success');
+    Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
     refreshModal();
   }
 
@@ -4162,24 +4162,24 @@ ${expenseEntries.length > 0 ? `
       `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
         <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${a.date}</td>
         <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Advance Given</span></td>
-        <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">âˆ’à§³${(parseFloat(a.amount)||0).toLocaleString()}</td>
+        <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(a.amount)||0).toLocaleString()}</td>
         <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(a.method)}</td>
-        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(a.note)||'â€”'}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(a.note)||'—'}</td>
       </tr>`,
       ...returns.map((r, ri) => `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
           <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
           <td style="padding:10px 8px"><span style="background:rgba(0,255,136,0.15);color:#00ff88;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
-          <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">+à§³${(parseFloat(r.amount)||0).toLocaleString()}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'â€”'}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'â€”'}</td>
+          <td style="padding:10px 8px;text-align:right;color:#00ff88;font-weight:700">+৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'—'}</td>
         </tr>`)
     ].join('');
-    openSettingsInternalModal(`ðŸ“‹ Advance Ledger â€” ${Utils.esc(a.person)}`, `
+    openSettingsInternalModal(`📋 Advance Ledger — ${Utils.esc(a.person)}`, `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-        <div style="flex:1;min-width:100px;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Advanced</div><div style="color:#ff4757;font-weight:800">à§³${(parseFloat(a.amount)||0).toLocaleString()}</div></div>
-        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">à§³${totalReturned.toLocaleString()}</div></div>
-        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Remaining</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">à§³${remaining.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Advanced</div><div style="color:#ff4757;font-weight:800">৳${(parseFloat(a.amount)||0).toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Remaining</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">৳${remaining.toLocaleString()}</div></div>
       </div>
       <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:8px">
         <table style="width:100%;border-collapse:collapse">
@@ -4202,7 +4202,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   function addInvestment() {
-    openSettingsInternalModal('ðŸ“ˆ Add Investment', `
+    openSettingsInternalModal('📈 Add Investment', `
       <div style="background:linear-gradient(135deg,rgba(168,85,247,0.08),rgba(124,58,237,0.05));border:1px solid rgba(168,85,247,0.20);border-radius:14px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px">
         <div style="width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,rgba(168,85,247,0.22),rgba(124,58,237,0.15));display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(168,85,247,0.30)">
           <i class="fa fa-chart-line" style="color:#c084fc;font-size:1.1rem"></i>
@@ -4223,7 +4223,7 @@ ${expenseEntries.length > 0 ? `
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px">
         <div>
-          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (à§³) <span style="color:#ff4757">*</span></label>
+          <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Amount (৳) <span style="color:#ff4757">*</span></label>
           <div style="position:relative">
             <i class="fa fa-bangladeshi-taka-sign" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.45);font-size:.82rem;pointer-events:none"></i>
             <input id="inv-amount" type="number" class="form-control" placeholder="0" style="padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
@@ -4238,7 +4238,7 @@ ${expenseEntries.length > 0 ? `
       <div style="margin-bottom:16px">
         <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Deposit To (Account) <span style="color:#ff4757">*</span></label>
         <select id="inv-method" class="form-control" style="width:100%;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)">
-          <option value="">â€” Select Account â€”</option>
+          <option value="">— Select Account —</option>
           ${Utils.getPaymentMethodsHTML ? Utils.getPaymentMethodsHTML() : '<option value="Cash">Cash</option><option value="Bank">Bank</option><option value="Mobile Banking">Mobile Banking</option>'}
         </select>
       </div>
@@ -4247,7 +4247,7 @@ ${expenseEntries.length > 0 ? `
         <label style="font-size:.70rem;font-weight:800;color:rgba(168,85,247,0.80);letter-spacing:1.2px;margin-bottom:8px;display:block;text-transform:uppercase">Note</label>
         <div style="position:relative">
           <i class="fa fa-note-sticky" style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:rgba(168,85,247,0.35);font-size:.82rem;pointer-events:none"></i>
-          <input id="inv-note" class="form-control" placeholder="Optional noteâ€¦" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
+          <input id="inv-note" class="form-control" placeholder="Optional note…" style="width:100%;box-sizing:border-box;padding-left:36px;border-color:rgba(168,85,247,0.22);background:rgba(168,85,247,0.05)" />
         </div>
       </div>
 
@@ -4272,14 +4272,14 @@ ${expenseEntries.length > 0 ? `
     SupabaseSync.insert(DB.finance, {
       type: 'Investment In', method, category: 'Investment Receiving',
       description: `Investment from ${source}`, amount, date, note,
-      _invId: newInv.id  // link à¦•à¦°à¦¾à¦° à¦œà¦¨à§à¦¯
+      _invId: newInv.id  // link করার জন্য
     });
-    // âœ… FIX: Account balance à¦¬à¦¾à¦¡à¦¼à¦¾à¦“ (Investment à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ = à¦Ÿà¦¾à¦•à¦¾ à¦†à¦¸à§‡)
+    // ✅ FIX: Account balance বাড়াও (Investment পাওয়া = টাকা আসে)
     if (typeof SupabaseSync.updateAccountBalance === 'function') {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
     }
     closeSettingsInternalModal();
-    Utils.toast('Investment saved âœ“', 'success');
+    Utils.toast('Investment saved ✓', 'success');
     refreshModal();
   }
 
@@ -4287,15 +4287,15 @@ ${expenseEntries.length > 0 ? `
     const investments = SupabaseSync.getAll(DB.investments || 'investments');
     if (!investments[idx]) return;
     const victim = investments[idx];
-    if (!window.confirm(`"${victim.source}"-à¦à¦° investment à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦•à¦°à¦¬à§‡à¦¨? Recycle Bin-à¦ à¦¯à¦¾à¦¬à§‡à¥¤`)) return;
+    if (!window.confirm(`"${victim.source}"-এর investment ডিলিট করবেন? Recycle Bin-এ যাবে।`)) return;
 
-    // Recycle Bin-à¦ à¦ªà¦¾à¦ à¦¾à¦“
+    // Recycle Bin-এ পাঠাও
     if (!victim.id) victim.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
       SupabaseSync._addToRecycleBinPublic('investments', victim);
     }
 
-    // âœ… FIX: Finance linked entry reverse à¦•à¦°à§‹
+    // ✅ FIX: Finance linked entry reverse করো
     const finEntries = SupabaseSync.getAll(DB.finance).filter(f =>
       f.category === 'Investment Receiving' &&
       (f._invId === victim.id ||
@@ -4307,15 +4307,15 @@ ${expenseEntries.length > 0 ? `
       totalFinLinked += parseFloat(f.amount) || 0;
       SupabaseSync.remove(DB.finance, f.id, { bypassLog: true });
     });
-    // âœ… FIX: Account balance à¦«à§‡à¦°à¦¤ à¦¦à¦¾à¦“ (Investment In à¦›à¦¿à¦² â†’ 'out' à¦•à¦°à§‹)
+    // ✅ FIX: Account balance ফেরত দাও (Investment In ছিল → 'out' করো)
     if (victim.method && typeof SupabaseSync.updateAccountBalance === 'function') {
       const reverseAmt = totalFinLinked > 0 ? totalFinLinked : parseFloat(victim.amount) || 0;
       if (reverseAmt > 0) SupabaseSync.updateAccountBalance(victim.method, reverseAmt, 'out');
     }
 
     SupabaseSync.remove(DB.investments || 'investments', victim.id);
-    logActivity('delete', 'settings', `Investment deleted: ${victim.source} à§³${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
-    Utils.toast(`"${victim.source}"-à¦à¦° investment â€” Recycle Bin-à¦ à¦—à§‡à¦›à§‡ âœ“`, 'warning');
+    logActivity('delete', 'settings', `Investment deleted: ${victim.source} ৳${Number(victim.amount||0).toLocaleString()} (Finance reversed)`);
+    Utils.toast(`"${victim.source}"-এর investment — Recycle Bin-এ গেছে ✓`, 'warning');
     refreshModal();
   }
 
@@ -4326,15 +4326,15 @@ ${expenseEntries.length > 0 ? `
     const returns = inv.returns || [];
     const totalReturned = returns.reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
     const remaining = (parseFloat(inv.amount)||0) - totalReturned;
-    openSettingsInternalModal(`â†©ï¸ Return Investment â€” ${inv.source}`, `
+    openSettingsInternalModal(`↩️ Return Investment — ${inv.source}`, `
       <div style="background:rgba(138,43,226,0.08);border:1px solid rgba(138,43,226,0.25);border-radius:10px;padding:14px;margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Total Invested</span><span style="color:#a855f7;font-weight:700">à§³${(parseFloat(inv.amount)||0).toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">à§³${totalReturned.toLocaleString()}</span></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining to Return</span><span style="color:#ffd700;font-weight:800;font-size:1.1rem">à§³${remaining.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Total Invested</span><span style="color:#a855f7;font-weight:700">৳${(parseFloat(inv.amount)||0).toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px"><span style="color:#aaa;font-size:.83rem">Already Returned</span><span style="color:#00d4ff;font-weight:700">৳${totalReturned.toLocaleString()}</span></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:#aaa;font-size:.83rem">Remaining to Return</span><span style="color:#ffd700;font-weight:800;font-size:1.1rem">৳${remaining.toLocaleString()}</span></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
         <div>
-          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (à§³) <span style="color:#ff4757">*</span></label>
+          <label style="font-size:.83rem;color:var(--text-secondary);margin-bottom:6px;display:block">Return Amount (৳) <span style="color:#ff4757">*</span></label>
           <input id="ret-inv-amount" type="number" class="form-control" placeholder="0" max="${remaining}" />
         </div>
         <div>
@@ -4371,7 +4371,7 @@ ${expenseEntries.length > 0 ? `
     const totalReturned = (inv.returns||[]).reduce((s, r) => s + (parseFloat(r.amount)||0), 0);
     const remaining = (parseFloat(inv.amount)||0) - totalReturned;
     if (!retAmount || retAmount <= 0) { Utils.toast('Return amount required', 'error'); return; }
-    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining à§³${remaining.toLocaleString()}`, 'error'); return; }
+    if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
     if (!investments[idx].returns) investments[idx].returns = [];
     investments[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
     SupabaseSync.update(DB.investments || 'investments', investments[idx].id, investments[idx]);
@@ -4380,7 +4380,7 @@ ${expenseEntries.length > 0 ? `
       description: `Investment return to ${inv.source}`, amount: retAmount, date: retDate, note: retNote
     });
     closeSettingsInternalModal();
-    Utils.toast(`Return of à§³${retAmount.toLocaleString()} recorded âœ“`, 'success');
+    Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
     refreshModal();
   }
 
@@ -4395,24 +4395,24 @@ ${expenseEntries.length > 0 ? `
       `<tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
         <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.date}</td>
         <td style="padding:10px 8px"><span style="background:rgba(168,85,247,0.15);color:#a855f7;padding:2px 8px;border-radius:20px;font-size:.75rem">Investment In</span></td>
-        <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">+à§³${(parseFloat(inv.amount)||0).toLocaleString()}</td>
+        <td style="padding:10px 8px;text-align:right;color:#a855f7;font-weight:700">+৳${(parseFloat(inv.amount)||0).toLocaleString()}</td>
         <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.method}</td>
-        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.note||'â€”'}</td>
+        <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${inv.note||'—'}</td>
       </tr>`,
       ...returns.map((r, ri) => `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.06)">
           <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${r.date}</td>
           <td style="padding:10px 8px"><span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 8px;border-radius:20px;font-size:.75rem">Return #${ri+1}</span></td>
-          <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">âˆ’à§³${(parseFloat(r.amount)||0).toLocaleString()}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'â€”'}</td>
-          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'â€”'}</td>
+          <td style="padding:10px 8px;text-align:right;color:#ff4757;font-weight:700">−৳${(parseFloat(r.amount)||0).toLocaleString()}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.method)||'—'}</td>
+          <td style="padding:10px 8px;color:var(--text-muted);font-size:.82rem">${Utils.esc(r.note)||'—'}</td>
         </tr>`)
     ].join('');
-    openSettingsInternalModal(`ðŸ“‹ Investment Ledger â€” ${Utils.esc(inv.source)}`, `
+    openSettingsInternalModal(`📋 Investment Ledger — ${Utils.esc(inv.source)}`, `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-        <div style="flex:1;min-width:100px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Invested</div><div style="color:#a855f7;font-weight:800">à§³${(parseFloat(inv.amount)||0).toLocaleString()}</div></div>
-        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">à§³${totalReturned.toLocaleString()}</div></div>
-        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Outstanding</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">à§³${remaining.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(168,85,247,0.1);border:1px solid rgba(168,85,247,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Invested</div><div style="color:#a855f7;font-weight:800">৳${(parseFloat(inv.amount)||0).toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(0,212,255,0.1);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Returned</div><div style="color:#00d4ff;font-weight:800">৳${totalReturned.toLocaleString()}</div></div>
+        <div style="flex:1;min-width:100px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:10px;text-align:center"><div style="color:#aaa;font-size:.72rem;text-transform:uppercase">Outstanding</div><div style="color:${remaining<=0?'#00ff88':'#ffd700'};font-weight:800">৳${remaining.toLocaleString()}</div></div>
       </div>
       <div style="overflow-x:auto;max-height:280px;overflow-y:auto;border:1px solid rgba(255,255,255,0.06);border-radius:8px">
         <table style="width:100%;border-collapse:collapse">
@@ -4441,9 +4441,9 @@ ${expenseEntries.length > 0 ? `
       ? accounts.map((a, i) => `
           <tr>
             <td>${i + 1}</td>
-            <td>${esc(a.name || a.type || 'â€”')}</td>
-            <td>${esc(a.type || 'â€”')}</td>
-            <td style="text-align:right;font-variant-numeric:tabular-nums">à§³${(parseFloat(a.balance) || 0).toLocaleString()}</td>
+            <td>${esc(a.name || a.type || '—')}</td>
+            <td>${esc(a.type || '—')}</td>
+            <td style="text-align:right;font-variant-numeric:tabular-nums">৳${(parseFloat(a.balance) || 0).toLocaleString()}</td>
           </tr>`).join('')
       : '<tr><td colspan="4" class="no-data">No account rows in local cache</td></tr>';
     const total = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
@@ -4455,7 +4455,7 @@ ${expenseEntries.length > 0 ? `
           <tbody>${rows}</tbody>
         </table>
       </div>
-      <p style="margin-top:10px;font-weight:700;text-align:right">Combined: à§³${total.toLocaleString()}</p>
+      <p style="margin-top:10px;font-weight:700;text-align:right">Combined: ৳${total.toLocaleString()}</p>
     `, 'modal-lg');
   }
 
@@ -4483,9 +4483,9 @@ ${expenseEntries.length > 0 ? `
     const item = transactions[index];
     if (!item) return showLiveAccountSnapshot();
 
-    // âœ… Bug Fix: à¦†à¦—à§‡ snapshot à¦¨à¦¾ à¦¥à¦¾à¦•à¦²à§‡ _buildMonitorSnapshotAtRecord à¦¦à¦¿à¦¯à¦¼à§‡ recalculate
-    // à¦•à¦°à¦¤à§‹ â€” à¦¯à§‡à¦Ÿà¦¾ backwards calculation à¦•à¦°à§‡ à¦¸à¦¬à¦¸à¦®à¦¯à¦¼ "à¦¸à¦ à¦¿à¦•" à¦¦à§‡à¦–à¦¾à¦¤à§‹à¥¤
-    // à¦à¦–à¦¨ à¦¶à§à¦§à§ stored snapshot à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦¹à¦¬à§‡à¥¤ à¦¨à¦¾ à¦¥à¦¾à¦•à¦²à§‡ warning à¦¦à§‡à¦–à¦¾à¦¬à§‡à¥¤
+    // ✅ Bug Fix: আগে snapshot না থাকলে _buildMonitorSnapshotAtRecord দিয়ে recalculate
+    // করতো — যেটা backwards calculation করে সবসময় "সঠিক" দেখাতো।
+    // এখন শুধু stored snapshot ব্যবহার হবে। না থাকলে warning দেখাবে।
     let snapshot = item.snapshot || {};
     const isRebuilt = !!item.rebuilt;
     const hasRealSnapshot = !!(item.snapshot && item.snapshot.accounts && item.snapshot.accounts.list);
@@ -4499,7 +4499,7 @@ ${expenseEntries.length > 0 ? `
 
     const snapshotTime = snapshot.recordedAt
       ? new Date(snapshot.recordedAt).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
-      : (item.date || 'â€”');
+      : (item.date || '—');
 
     // Transaction type colors
     const typeColorMap = {
@@ -4536,7 +4536,7 @@ ${expenseEntries.length > 0 ? `
     const netProfit  = (finance.totalIncome || 0) - (finance.totalExpense || 0);
     const profitColor = netProfit >= 0 ? '#00ff88' : '#ff4757';
 
-    // Running Batch row â€” from snapshot (no live re-calc)
+    // Running Batch row — from snapshot (no live re-calc)
     const batchName = batchSnap.name || '';
     const batchRow = batchName ? `
       <div style="margin-bottom:14px;padding:12px 16px;background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.18);border-radius:10px">
@@ -4564,17 +4564,17 @@ ${expenseEntries.length > 0 ? `
         </div>
       </div>` : '';
 
-    // âœ… Warning banner: rebuilt entry à¦¬à¦¾ snapshot à¦¨à¦¾ à¦¥à¦¾à¦•à¦²à§‡ alert à¦¦à§‡à¦–à¦¾à¦¬à§‡
+    // ✅ Warning banner: rebuilt entry বা snapshot না থাকলে alert দেখাবে
     const snapshotWarningBanner = (isRebuilt || !hasRealSnapshot) ? `
       <div style="margin-bottom:14px;padding:10px 14px;background:rgba(255,215,0,0.10);border:1px solid rgba(255,215,0,0.35);border-radius:10px;display:flex;align-items:flex-start;gap:10px">
         <i class="fa fa-triangle-exclamation" style="color:#ffd700;margin-top:2px;flex-shrink:0"></i>
         <div style="font-size:.80rem;color:#ffd700;line-height:1.6">
-          <strong>âš  à¦à¦Ÿà¦¿ à¦†à¦¸à¦² time-stamped à¦¸à§à¦•à§à¦°à¦¿à¦¨à¦¶à¦Ÿ à¦¨à¦¯à¦¼à¥¤</strong><br>
+          <strong>⚠ এটি আসল time-stamped স্ক্রিনশট নয়।</strong><br>
           ${isRebuilt
-            ? 'à¦à¦‡ entry <strong>Rebuild</strong> à¦¬à¦¾à¦Ÿà¦¨ à¦¦à¦¿à¦¯à¦¼à§‡ à¦¤à§ˆà¦°à¦¿ â€” snapshot à¦¸à§‡à¦‡ transaction-à¦à¦° à¦¸à¦®à¦¯à¦¼à§‡à¦° à¦¨à¦¯à¦¼, à¦¬à¦°à¦‚ Rebuild à¦•à¦°à¦¾à¦° à¦¸à¦®à¦¯à¦¼à§‡à¦° à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ balance à¦¦à§‡à¦–à¦¾à¦šà§à¦›à§‡à¥¤'
-            : 'à¦à¦‡ entry-à¦° à¦•à§‹à¦¨à§‹ stored snapshot à¦¨à§‡à¦‡à¥¤ Balance data à¦…à¦¨à§à¦ªà¦²à¦¬à§à¦§à¥¤'
+            ? 'এই entry <strong>Rebuild</strong> বাটন দিয়ে তৈরি — snapshot সেই transaction-এর সময়ের নয়, বরং Rebuild করার সময়ের বর্তমান balance দেখাচ্ছে।'
+            : 'এই entry-র কোনো stored snapshot নেই। Balance data অনুপলব্ধ।'
           }<br>
-          <span style="opacity:.75;font-size:.74rem">à¦¨à¦¤à§à¦¨ transaction add à¦•à¦°à¦²à§‡ real-time snapshot à¦¸à§à¦¬à¦¯à¦¼à¦‚à¦•à§à¦°à¦¿à¦¯à¦¼à¦­à¦¾à¦¬à§‡ à¦¸à§‡à¦­ à¦¹à¦¬à§‡à¥¤</span>
+          <span style="opacity:.75;font-size:.74rem">নতুন transaction add করলে real-time snapshot স্বয়ংক্রিয়ভাবে সেভ হবে।</span>
         </div>
       </div>` : '';
 
@@ -4635,14 +4635,14 @@ ${expenseEntries.length > 0 ? `
       <!-- hint -->
       <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
-        à¦ªà§à¦°à¦¤à¦¿à¦Ÿà¦¿ row-à¦à¦° Grand Total à¦“ account balance à¦¸à§‡à¦‡ transaction à¦ªà¦°à§à¦¯à¦¨à§à¦¤ (à¦¸à¦®à¦¯à¦¼ à¦…à¦¨à§à¦¯à¦¾à¦¯à¦¼à§€) à¦¹à¦¿à¦¸à¦¾à¦¬ à¦•à¦°à¦¾à¥¤ à¦ªà§à¦°à¦¨à§‹ entry-à¦à¦° à¦œà¦¨à§à¦¯ à¦à¦•à¦¬à¦¾à¦° <strong>Rebuild Data</strong> à¦šà¦¾à¦ªà§à¦¨à¥¤
+        প্রতিটি row-এর Grand Total ও account balance সেই transaction পর্যন্ত (সময় অনুযায়ী) হিসাব করা। পুরনো entry-এর জন্য একবার <strong>Rebuild Data</strong> চাপুন।
       </div>
       `
     , '720px');
   }
-  // â”€â”€â”€ Rebuild Monitor Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // Finance ledger à¦¥à§‡à¦•à§‡ à¦¶à§‡à¦· à§§à§«à¦Ÿà¦¿ à¦Ÿà§à¦°à¦¾à¦¨à§à¦¸à§‡à¦•à¦¶à¦¨ à¦¨à¦¿à¦¯à¦¼à§‡ Data Monitor-à¦ populate à¦•à¦°à§‡à¥¤
-  // à¦¯à¦¦à¦¿ wfa_recent_changes à¦–à¦¾à¦²à¦¿ à¦¹à¦¯à¦¼à§‡ à¦¯à¦¾à¦¯à¦¼ à¦¬à¦¾ à¦¹à¦¾à¦°à¦¿à¦¯à¦¼à§‡ à¦¯à¦¾à¦¯à¦¼, à¦à¦‡ function à¦¦à¦¿à¦¯à¦¼à§‡ rebuild à¦•à¦°à¦¾ à¦¯à¦¾à¦¯à¦¼à¥¤
+  // ─── Rebuild Monitor Data ───────────────────────────────────────
+  // Finance ledger থেকে শেষ ১৫টি ট্রান্সেকশন নিয়ে Data Monitor-এ populate করে।
+  // যদি wfa_recent_changes খালি হয়ে যায় বা হারিয়ে যায়, এই function দিয়ে rebuild করা যায়।
   function rebuildMonitorData() {
     try {
       const allFinance = SupabaseSync.getAll(DB.finance);
@@ -4653,7 +4653,7 @@ ${expenseEntries.length > 0 ? `
 
       const filtered = allFinance
         .filter(f => allowedTypes.includes(String(f.type || '').toLowerCase()))
-        // âœ… Fix: Exclude phantom categories from rebuild
+        // ✅ Fix: Exclude phantom categories from rebuild
         .filter(f => f.category !== 'Opening Balance' && f.category !== 'Balance Adjustment')
         .sort((a, b) => {
           const da = new Date(a.created_at || a.updated_at || a.date || 0).getTime();
@@ -4663,16 +4663,16 @@ ${expenseEntries.length > 0 ? `
         .slice(0, 15);
 
       if (filtered.length === 0) {
-        Utils.toast('à¦•à§‹à¦¨à§‹ à¦Ÿà§à¦°à¦¾à¦¨à§à¦¸à§‡à¦•à¦¶à¦¨ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿ â€” à¦†à¦—à§‡ Income à¦¬à¦¾ Expense add à¦•à¦°à§à¦¨', 'warn');
+        Utils.toast('কোনো ট্রান্সেকশন পাওয়া যায়নি — আগে Income বা Expense add করুন', 'warn');
         return;
       }
 
-      // âœ… Bug Fix: Rebuild-à¦ _buildMonitorSnapshotAtRecord à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾ à¦¹à¦¤à§‹ à¦¯à§‡à¦Ÿà¦¾
-      // à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ à¦¬à§à¦¯à¦¾à¦²à§‡à¦¨à§à¦¸ à¦¥à§‡à¦•à§‡ backwards recalculate à¦•à¦°à¦¤à§‹ â€” à¦«à¦²à§‡ à¦¡à§‡à¦Ÿà¦¾ à¦­à§à¦² à¦¥à¦¾à¦•à¦²à§‡à¦“
-      // snapshot "à¦¸à¦ à¦¿à¦•" à¦¦à§‡à¦–à¦¾à¦¤à§‹ (à¦•à¦¾à¦°à¦£ à¦—à¦¾à¦£à¦¿à¦¤à¦¿à¦•à¦­à¦¾à¦¬à§‡ derive à¦•à¦°à¦¾)à¥¤
-      // à¦à¦–à¦¨ _getMonitorSnapshot() à¦¬à§à¦¯à¦¬à¦¹à¦¾à¦° à¦•à¦°à¦¾ à¦¹à¦šà§à¦›à§‡ à¦¯à§‡à¦Ÿà¦¾ accounts.balance à¦¸à¦°à¦¾à¦¸à¦°à¦¿ à¦ªà¦¡à¦¼à§‡
-      // (à¦†à¦¸à¦² à¦¸à§à¦•à§à¦°à¦¿à¦¨à¦¶à¦Ÿ)à¥¤ Rebuild-à¦•à§ƒà¦¤ entry-à¦¤à§‡ rebuilt:true à¦«à§à¦²à§à¦¯à¦¾à¦— à¦¥à¦¾à¦•à¦¬à§‡à¥¤
-      // NOTE: Rebuilt snapshot = à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ state, historical point-in-time à¦¨à¦¯à¦¼à¥¤
+      // ✅ Bug Fix: Rebuild-এ _buildMonitorSnapshotAtRecord ব্যবহার করা হতো যেটা
+      // বর্তমান ব্যালেন্স থেকে backwards recalculate করতো — ফলে ডেটা ভুল থাকলেও
+      // snapshot "সঠিক" দেখাতো (কারণ গাণিতিকভাবে derive করা)।
+      // এখন _getMonitorSnapshot() ব্যবহার করা হচ্ছে যেটা accounts.balance সরাসরি পড়ে
+      // (আসল স্ক্রিনশট)। Rebuild-কৃত entry-তে rebuilt:true ফ্ল্যাগ থাকবে।
+      // NOTE: Rebuilt snapshot = বর্তমান state, historical point-in-time নয়।
       const currentSnapshot = typeof SupabaseSync.getMonitorSnapshot === 'function'
         ? SupabaseSync.getMonitorSnapshot()
         : {};
@@ -4684,28 +4684,28 @@ ${expenseEntries.length > 0 ? `
           action,
           type: record.type,
           category: String(record.category || record.type || '').slice(0, 100),
-          person: String(record.person_name || record.description || record.note || 'â€”').slice(0, 100),
+          person: String(record.person_name || record.description || record.note || '—').slice(0, 100),
           amount: Number(record.amount || 0),
           method: record.method || '',
           table: DB.finance,
           recordId: record.id,
           recordAt: record.created_at || record.updated_at || record.date || null,
-          item: `${record.category || record.type} â€” à§³${Number(record.amount || 0).toLocaleString()}`,
+          item: `${record.category || record.type} — ৳${Number(record.amount || 0).toLocaleString()}`,
           snapshot: currentSnapshot,
-          rebuilt: true,  // âœ… Mark as rebuilt â€” real-time snapshot à¦›à¦¿à¦² à¦¨à¦¾
+          rebuilt: true,  // ✅ Mark as rebuilt — real-time snapshot ছিল না
         };
       });
 
       localStorage.setItem('wfa_recent_changes', JSON.stringify(entries));
-      Utils.toast(`âœ… ${entries.length}à¦Ÿà¦¿ à¦Ÿà§à¦°à¦¾à¦¨à§à¦¸à§‡à¦•à¦¶à¦¨ Data Monitor-à¦ restore à¦¹à¦¯à¦¼à§‡à¦›à§‡ (snapshot = à¦¬à¦°à§à¦¤à¦®à¦¾à¦¨ state)`, 'success');
+      Utils.toast(`✅ ${entries.length}টি ট্রান্সেকশন Data Monitor-এ restore হয়েছে (snapshot = বর্তমান state)`, 'success');
       refreshModal();
     } catch (err) {
       console.error('[RebuildMonitor] Failed:', err);
-      Utils.toast('Rebuild à¦¬à§à¦¯à¦°à§à¦¥ à¦¹à¦¯à¦¼à§‡à¦›à§‡ â€” console à¦šà§‡à¦• à¦•à¦°à§à¦¨', 'error');
+      Utils.toast('Rebuild ব্যর্থ হয়েছে — console চেক করুন', 'error');
     }
   }
 
-  // â”€â”€â”€ Diagnostic Functions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Diagnostic Functions ─────────────────────────────────────
   function runAutoHeal() {
     let checks = 0, fixes = 0;
     const logEl = document.getElementById('heal-log-output');
@@ -4725,17 +4725,17 @@ ${expenseEntries.length > 0 ? `
     document.getElementById('heal-total').textContent = checks;
     document.getElementById('heal-fixed').textContent = fixes;
     document.getElementById('heal-last').textContent = now;
-    document.getElementById('heal-lastfix').textContent = fixes > 0 ? now : 'â€”';
-    if (logEl) logEl.innerHTML = `âœ… Checked ${checks} records. Fixed ${fixes} issues. (${now})`;
+    document.getElementById('heal-lastfix').textContent = fixes > 0 ? now : '—';
+    if (logEl) logEl.innerHTML = `✅ Checked ${checks} records. Fixed ${fixes} issues. (${now})`;
 
     Utils.toast(`Auto-Heal: ${checks} checked, ${fixes} fixed`, 'success');
-    // Note: Background system functions do NOT log to activity â€” by design
+    // Note: Background system functions do NOT log to activity — by design
   }
 
   async function runSyncCheck() {
     const output = document.getElementById('sync-check-output');
     if (!output) return;
-    output.innerHTML = '<span style="color:var(--text-muted)">Checking local IDs and cloud row countsâ€¦</span>';
+    output.innerHTML = '<span style="color:var(--text-muted)">Checking local IDs and cloud row counts…</span>';
 
     let issues = 0;
     let report = '';
@@ -4746,7 +4746,7 @@ ${expenseEntries.length > 0 ? `
       const noId = rows.filter(r => !r || !r.id).length;
       if (noId > 0) {
         issues += noId;
-        report += `âš ï¸ ${table}: ${noId} record(s) without ID<br>`;
+        report += `⚠️ ${table}: ${noId} record(s) without ID<br>`;
       }
 
       if (!client) continue;
@@ -4756,22 +4756,22 @@ ${expenseEntries.length > 0 ? `
         if (error) {
           if (error.code === '42P01' || (error.message && error.message.includes('does not exist'))) {
             issues++;
-            report += `âš ï¸ ${table}: cloud table missing or not accessible<br>`;
+            report += `⚠️ ${table}: cloud table missing or not accessible<br>`;
             continue;
           }
           issues++;
-          report += `âš ï¸ ${table}: cloud error â€” ${error.message || 'unknown'}<br>`;
+          report += `⚠️ ${table}: cloud error — ${error.message || 'unknown'}<br>`;
           continue;
         }
         const localCount = rows.length;
         const cloudCount = count ?? 0;
         if (cloudCount !== localCount) {
           issues++;
-          report += `âš ï¸ ${table}: local <strong>${localCount}</strong> rows vs cloud <strong>${cloudCount}</strong><br>`;
+          report += `⚠️ ${table}: local <strong>${localCount}</strong> rows vs cloud <strong>${cloudCount}</strong><br>`;
         }
       } catch (e) {
         issues++;
-        report += `âš ï¸ ${table}: ${e.message || 'cloud check failed'}<br>`;
+        report += `⚠️ ${table}: ${e.message || 'cloud check failed'}<br>`;
       }
     }
 
@@ -4780,7 +4780,7 @@ ${expenseEntries.length > 0 ? `
       : '';
 
     if (issues === 0) {
-      output.innerHTML = `<span style="color:var(--success)">âœ… All checks passed â€” IDs valid${client ? ' and row counts match cloud' : ''}.</span>${cloudNote}`;
+      output.innerHTML = `<span style="color:var(--success)">✅ All checks passed — IDs valid${client ? ' and row counts match cloud' : ''}.</span>${cloudNote}`;
       Utils.toast('All checks passed!', 'success');
     } else {
       output.innerHTML = `<span style="color:var(--error)">${report}</span>${cloudNote}`;
@@ -4804,7 +4804,7 @@ ${expenseEntries.length > 0 ? `
   function _supabaseErrHint(msg) {
     const m = String(msg || '');
     if (/503|502|504|unavailable|timeout/i.test(m)) {
-      return '<br><small style="color:var(--text-muted)">Supabase server unavailable â€” Dashboard-à¦ project paused/active à¦šà§‡à¦• à¦•à¦°à§à¦¨, à¦•à¦¿à¦›à§à¦•à§à¦·à¦£ à¦ªà¦° à¦†à¦¬à¦¾à¦° à¦šà§‡à¦·à§à¦Ÿà¦¾ à¦•à¦°à§à¦¨à¥¤</small>';
+      return '<br><small style="color:var(--text-muted)">Supabase server unavailable — Dashboard-এ project paused/active চেক করুন, কিছুক্ষণ পর আবার চেষ্টা করুন।</small>';
     }
     return '';
   }
@@ -4822,18 +4822,18 @@ ${expenseEntries.length > 0 ? `
     SyncEngine.syncAll({ silent: true })
       .then(res => {
         b.disabled = false;
-        b.innerHTML = 'â¬‡ Sync (retry + pull)';
+        b.innerHTML = '⬇ Sync (retry + pull)';
         if (res && res.ok) {
-          _showSyncDiagResult('ok', 'âœ… Sync à¦¸à¦«à¦²! à¦¡à§‡à¦Ÿà¦¾ Cloud à¦¥à§‡à¦•à§‡ à¦¨à¦¾à¦®à¦¾à¦¨à§‹ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤', 'Sync à¦¸à¦«à¦² âœ…', 'success');
+          _showSyncDiagResult('ok', '✅ Sync সফল! ডেটা Cloud থেকে নামানো হয়েছে।', 'Sync সফল ✅', 'success');
         } else {
-          _showSyncDiagResult('warn', 'âš ï¸ Sync à¦¸à¦®à§à¦ªà¦¨à§à¦¨ à¦•à¦¿à¦¨à§à¦¤à§ à¦•à¦¿à¦›à§ à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤ Supabase credentials à¦šà§‡à¦• à¦•à¦°à§à¦¨à¥¤', 'Sync â€” à¦•à¦¿à¦›à§ à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡', 'warn');
+          _showSyncDiagResult('warn', '⚠️ Sync সম্পন্ন কিন্তু কিছু সমস্যা হয়েছে। Supabase credentials চেক করুন।', 'Sync — কিছু সমস্যা হয়েছে', 'warn');
         }
       })
       .catch(err => {
         b.disabled = false;
-        b.innerHTML = 'â¬‡ Sync (retry + pull)';
+        b.innerHTML = '⬇ Sync (retry + pull)';
         const msg = (typeof Utils !== 'undefined' && Utils.esc) ? Utils.esc(err?.message || 'Unknown error') : (err?.message || 'Unknown error');
-        _showSyncDiagResult('err', 'âŒ Sync à¦¬à§à¦¯à¦°à§à¦¥: ' + msg + _supabaseErrHint(err?.message), 'Sync à¦¬à§à¦¯à¦°à§à¦¥', 'error');
+        _showSyncDiagResult('err', '❌ Sync ব্যর্থ: ' + msg + _supabaseErrHint(err?.message), 'Sync ব্যর্থ', 'error');
       });
   }
 
@@ -4850,28 +4850,28 @@ ${expenseEntries.length > 0 ? `
     SyncEngine.push({ silent: true, forcePush: true })
       .then(res => {
         b.disabled = false;
-        b.innerHTML = 'â¬† Push to Cloud';
+        b.innerHTML = '⬆ Push to Cloud';
         const sc = res?.successCount || 0;
         const errs = res?.errors || [];
         if (res && res.ok) {
-          _showSyncDiagResult('ok', `âœ… Push à¦¸à¦«à¦²! à¦¸à¦¬ à¦¡à§‡à¦Ÿà¦¾ Cloud-à¦ à¦†à¦ªà¦²à§‹à¦¡ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤ (${sc} à¦Ÿà§‡à¦¬à¦¿à¦²)`, `Push à¦¸à¦«à¦² âœ… ${sc} à¦Ÿà§‡à¦¬à¦¿à¦²`, 'success');
+          _showSyncDiagResult('ok', `✅ Push সফল! সব ডেটা Cloud-এ আপলোড হয়েছে। (${sc} টেবিল)`, `Push সফল ✅ ${sc} টেবিল`, 'success');
         } else {
           _showSyncDiagResult(
             'warn',
-            `âš ï¸ à¦†à¦‚à¦¶à¦¿à¦• Push: ${sc} à¦Ÿà§‡à¦¬à¦¿à¦² à¦¸à¦«à¦², ${errs.length} à¦Ÿà§‡à¦¬à¦¿à¦²à§‡ à¦¸à¦®à¦¸à§à¦¯à¦¾à¥¤<br><small style="color:var(--text-muted)">F12 Console-à¦ à¦¬à¦¿à¦¸à§à¦¤à¦¾à¦°à¦¿à¦¤ à¦¦à§‡à¦–à§à¦¨</small>`,
-            'Push â€” à¦•à¦¿à¦›à§ à¦¸à¦®à¦¸à§à¦¯à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡',
+            `⚠️ আংশিক Push: ${sc} টেবিল সফল, ${errs.length} টেবিলে সমস্যা।<br><small style="color:var(--text-muted)">F12 Console-এ বিস্তারিত দেখুন</small>`,
+            'Push — কিছু সমস্যা হয়েছে',
             'warn'
           );
         }
       })
       .catch(err => {
         b.disabled = false;
-        b.innerHTML = 'â¬† Push to Cloud';
+        b.innerHTML = '⬆ Push to Cloud';
         const msg = (typeof Utils !== 'undefined' && Utils.esc) ? Utils.esc(err?.message || 'Unknown error') : (err?.message || 'Unknown error');
         _showSyncDiagResult(
           'err',
-          'âŒ Push à¦¬à§à¦¯à¦°à§à¦¥: ' + msg + _supabaseErrHint(err?.message) + '<br><small style="color:var(--text-muted)">Security &amp; Access-à¦ URL à¦“ Anon Key à¦¯à¦¾à¦šà¦¾à¦‡ à¦•à¦°à§à¦¨à¥¤</small>',
-          'Push à¦¬à§à¦¯à¦°à§à¦¥',
+          '❌ Push ব্যর্থ: ' + msg + _supabaseErrHint(err?.message) + '<br><small style="color:var(--text-muted)">Security &amp; Access-এ URL ও Anon Key যাচাই করুন।</small>',
+          'Push ব্যর্থ',
           'error'
         );
       });
@@ -4891,22 +4891,22 @@ ${expenseEntries.length > 0 ? `
       if (changed) SupabaseSync.setAll(table, rows);
     });
 
-    if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">âœ… Auto-fix complete. ${fixes} fields repaired.</span>`;
+    if (statusEl) statusEl.innerHTML = `<span style="color:var(--success)">✅ Auto-fix complete. ${fixes} fields repaired.</span>`;
     Utils.toast(`Auto-fix: ${fixes} repairs`, 'success');
   }
 
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // LEGACY FUNCTIONS (Preserved)
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
 
-  // â”€â”€ Save All Changes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Save All Changes ──────────────────────────────────────────
   function saveAllChanges() {
     saveAcademyInfo();
-    Utils.toast('All settings saved âœ…', 'success');
+    Utils.toast('All settings saved ✅', 'success');
   }
 
-  // â”€â”€ Academy Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Academy Info ──────────────────────────────────────────────
   async function saveAcademyInfo() {
     const cfg = getConfig();
     const prev = { ...cfg };
@@ -4916,7 +4916,7 @@ ${expenseEntries.length > 0 ? `
     const rawBatch = document.getElementById('set-running-batch')?.value;
     cfg.running_batch = rawBatch !== undefined && rawBatch !== null ? String(rawBatch) : (cfg.running_batch != null ? String(cfg.running_batch) : '');
 
-    // â”€â”€ Expense Start Date â€” Flatpickr-safe read â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Expense Start Date — Flatpickr-safe read ──────────────────
     // Flatpickr altInput=true: original input is hidden (YYYY-MM-DD value),
     // altInput is visible (DD/MM/YYYY). getElementById returns original hidden input.
     // We also check Flatpickr instance and altInput as fallback.
@@ -4924,19 +4924,19 @@ ${expenseEntries.length > 0 ? `
     let startVal = '';
     if (expEl) {
       if (expEl._flatpickr) {
-        // Flatpickr manages this input â€” use the selectedDates array for reliability
+        // Flatpickr manages this input — use the selectedDates array for reliability
         const fp = expEl._flatpickr;
         startVal = fp.selectedDates.length > 0
           ? fp.formatDate(fp.selectedDates[0], 'Y-m-d')
           : (expEl.value || '');
       } else {
-        // Native date input â€” always returns YYYY-MM-DD
+        // Native date input — always returns YYYY-MM-DD
         startVal = expEl.value || '';
         // Fallback: if empty, try next sibling altInput (if Flatpickr added it)
         const altInput = expEl.nextElementSibling;
         if (!startVal && altInput && altInput.classList.contains('flatpickr-input')) {
           const altVal = altInput.value || '';
-          // Convert DD/MM/YYYY â†’ YYYY-MM-DD
+          // Convert DD/MM/YYYY → YYYY-MM-DD
           if (/^\d{2}\/\d{2}\/\d{4}$/.test(altVal)) {
             const [d, m, y] = altVal.split('/');
             startVal = `${y}-${m}-${d}`;
@@ -4963,24 +4963,24 @@ ${expenseEntries.length > 0 ? `
     saveConfig(cfg);
     const changes = [];
     if (String(prev.academy_name || '') !== String(cfg.academy_name || '')) {
-      changes.push(`à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿à¦° à¦¨à¦¾à¦®: "${prev.academy_name || '(à¦–à¦¾à¦²à¦¿)'}" â†’ "${cfg.academy_name || '(à¦–à¦¾à¦²à¦¿)'}"`);
+      changes.push(`একাডেমির নাম: "${prev.academy_name || '(খালি)'}" → "${cfg.academy_name || '(খালি)'}"`);
     }
     if (Number(prev.monthly_target || 0) !== Number(cfg.monthly_target || 0)) {
-      changes.push(`à¦®à¦¾à¦¸à¦¿à¦• à¦²à¦•à§à¦·à§à¦¯: à§³${Number(prev.monthly_target || 0).toLocaleString()} â†’ à§³${Number(cfg.monthly_target || 0).toLocaleString()}`);
+      changes.push(`মাসিক লক্ষ্য: ৳${Number(prev.monthly_target || 0).toLocaleString()} → ৳${Number(cfg.monthly_target || 0).toLocaleString()}`);
     }
     if (String(prev.running_batch || '') !== String(cfg.running_batch || '')) {
-      changes.push(`à¦šà¦²à¦®à¦¾à¦¨ à¦¬à§à¦¯à¦¾à¦š: "${prev.running_batch || '(à¦–à¦¾à¦²à¦¿)'}" â†’ "${cfg.running_batch || '(à¦–à¦¾à¦²à¦¿)'}"`);
+      changes.push(`চলমান ব্যাচ: "${prev.running_batch || '(খালি)'}" → "${cfg.running_batch || '(খালি)'}"`);
     }
     if (String(prev.expense_start_date || '') !== String(cfg.expense_start_date || '')) {
-      changes.push(`à¦¬à§à¦¯à¦¯à¦¼ à¦¶à§à¦°à§à¦° à¦¤à¦¾à¦°à¦¿à¦–: "${prev.expense_start_date || '(à¦–à¦¾à¦²à¦¿)'}" â†’ "${cfg.expense_start_date || '(à¦–à¦¾à¦²à¦¿)'}"`);
+      changes.push(`ব্যয় শুরুর তারিখ: "${prev.expense_start_date || '(খালি)'}" → "${cfg.expense_start_date || '(খালি)'}"`);
     }
     if (prevLang !== newLang) {
-      changes.push(`à¦­à¦¾à¦·à¦¾: "${prevLang === 'en' ? 'English' : 'Default'}" â†’ "${newLang === 'en' ? 'English' : 'Default'}"`);
+      changes.push(`ভাষা: "${prevLang === 'en' ? 'English' : 'Default'}" → "${newLang === 'en' ? 'English' : 'Default'}"`);
     }
     logActivity('edit', 'settings', changes.length
-      ? 'à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸ à¦†à¦ªà¦¡à§‡à¦Ÿ â€” ' + changes.join('; ')
-      : 'à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿ à¦¸à§‡à¦Ÿà¦¿à¦‚à¦¸ à¦¸à¦‚à¦°à¦•à§à¦·à¦£ (à¦•à§‹à¦¨à§‹ à¦®à¦¾à¦¨ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦¹à¦¯à¦¼à¦¨à¦¿)');
-    Utils.toast('Academy info saved âœ…', 'success');
+      ? 'একাডেমি সেটিংস আপডেট — ' + changes.join('; ')
+      : 'একাডেমি সেটিংস সংরক্ষণ (কোনো মান পরিবর্তন হয়নি)');
+    Utils.toast('Academy info saved ✅', 'success');
 
     // Trigger reload if language changed so new language assets are cleanly loaded
     if (prevLang !== newLang) {
@@ -4991,7 +4991,7 @@ ${expenseEntries.length > 0 ? `
   }
 
 
-  // â”€â”€ Password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Password ──────────────────────────────────────────────────
   async function changePassword() {
     const cfg = getConfig();
     const oldPw = document.getElementById('set-old-pw')?.value;
@@ -5025,18 +5025,18 @@ ${expenseEntries.length > 0 ? `
     if (!newPw || newPw.length < 8) { Utils.toast('New password must be at least 8 characters', 'error'); return; }
     if (newPw !== confirmPw) { Utils.toast('Passwords do not match!', 'error'); return; }
 
-    // Store SHA-256 hash â€” never plaintext
+    // Store SHA-256 hash — never plaintext
     cfg.admin_password = await _hashPw(newPw);
     saveConfig(cfg);
 
-    // Save à¦¸à¦«à¦² à¦¹à¦¯à¦¼à§‡à¦›à§‡ à¦•à¦¿à¦¨à¦¾ verify à¦•à¦°à§‹
+    // Save সফল হয়েছে কিনা verify করো
     const verified = getConfig();
     if (verified.admin_password !== cfg.admin_password) {
-      Utils.toast('âš ï¸ Password save failed â€” please try again!', 'error');
+      Utils.toast('⚠️ Password save failed — please try again!', 'error');
       return;
     }
 
-    // Input fields à¦ªà¦°à¦¿à¦·à§à¦•à¦¾à¦° à¦•à¦°à§‹
+    // Input fields পরিষ্কার করো
     const oldEl = document.getElementById('set-old-pw');
     const newEl = document.getElementById('set-new-pw');
     const cfmEl = document.getElementById('set-confirm-pw');
@@ -5044,20 +5044,20 @@ ${expenseEntries.length > 0 ? `
     if (newEl) newEl.value = '';
     if (cfmEl) cfmEl.value = '';
 
-    logActivity('edit', 'security', 'à¦…à§à¦¯à¦¾à¦¡à¦®à¦¿à¦¨ à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦•à¦°à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡');
-    Utils.toast('Password changed successfully âœ…', 'success');
+    logActivity('edit', 'security', 'অ্যাডমিন পাসওয়ার্ড পরিবর্তন করা হয়েছে');
+    Utils.toast('Password changed successfully ✅', 'success');
   }
 
-  // â”€â”€ Theme â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Theme ─────────────────────────────────────────────────────
   function setTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('wfa_theme', theme);
     const btn = document.getElementById('btn-theme-toggle');
-    if (btn) btn.textContent = theme === 'dark' ? 'â˜€ï¸' : 'ðŸŒ™';
-    Utils.toast(`${theme === 'dark' ? 'ðŸŒ™ Dark' : 'â˜€ï¸ Light'} mode activated`, 'info');
+    if (btn) btn.textContent = theme === 'dark' ? '☀️' : '🌙';
+    Utils.toast(`${theme === 'dark' ? '🌙 Dark' : '☀️ Light'} mode activated`, 'info');
   }
 
-  // â”€â”€ View Table Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── View Table Data ───────────────────────────────────────────
   function viewTableData(tableName) {
     const rows = SupabaseSync.getAll(tableName);
     if (!rows.length) { Utils.toast('No data available', 'info'); return; }
@@ -5066,11 +5066,11 @@ ${expenseEntries.length > 0 ? `
     const sample = rows.slice(0, 20);
     const headerHTML = fields.slice(0, 6).map(f => `<th style="font-size:.75rem">${f}</th>`).join('');
     const bodyHTML = sample.map(r => `<tr>${fields.slice(0, 6).map(f =>
-      `<td style="font-size:.78rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[f] ?? 'â€”'}</td>`
+      `<td style="font-size:.78rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r[f] ?? '—'}</td>`
     ).join('')}</tr>`).join('');
 
-    // âœ… Fix: use openSettingsInternalModal so it appears ON TOP of the Settings modal
-    openSettingsInternalModal(`ðŸ“‹ ${tableName} (${rows.length} records)`, `
+    // ✅ Fix: use openSettingsInternalModal so it appears ON TOP of the Settings modal
+    openSettingsInternalModal(`📋 ${tableName} (${rows.length} records)`, `
       <div class="table-wrapper" style="max-height:480px;overflow:auto">
         <table style="width:100%;min-width:600px"><thead><tr>${headerHTML}</tr></thead><tbody>${bodyHTML}</tbody></table>
       </div>
@@ -5080,12 +5080,12 @@ ${expenseEntries.length > 0 ? `
     `, '860px');
   }
 
-  // â”€â”€ Export All Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Export All Data ───────────────────────────────────────────
   function exportAllData() {
     const allData = {};
     for (const [_key, tableName] of Object.entries(DB)) {
       let rows = SupabaseSync.getAll(tableName);
-      // Security: admin_password, security_answer â€” backup à¦¥à§‡à¦•à§‡ à¦¬à¦¾à¦¦ à¦¦à¦¾à¦“
+      // Security: admin_password, security_answer — backup থেকে বাদ দাও
       if (tableName === 'settings') {
         rows = rows.map(r => {
           const safe = { ...r };
@@ -5107,10 +5107,10 @@ ${expenseEntries.length > 0 ? `
     a.click();
     URL.revokeObjectURL(url);
     logActivity('add', 'backup', 'Exported all data (password fields excluded)');
-    Utils.toast('All data exported âœ… (password fields excluded for security)', 'success');
+    Utils.toast('All data exported ✅ (password fields excluded for security)', 'success');
   }
 
-  // â”€â”€ Data Migration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Data Migration ────────────────────────────────────────────
   async function startMigration() {
     const oldUrl = document.getElementById('mig-url')?.value;
     const oldKey = document.getElementById('mig-key')?.value;
@@ -5121,7 +5121,7 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
-    if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = 'ðŸ”„ Starting migration...'; }
+    if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Starting migration...'; }
 
     try {
       const oldClient = supabase.createClient(oldUrl, oldKey);
@@ -5129,7 +5129,7 @@ ${expenseEntries.length > 0 ? `
       let errors = 0;
 
       for (const [_key, tableName] of Object.entries(DB)) {
-        if (statusEl) statusEl.innerHTML = `ðŸ”„ Fetching data from ${tableName}...`;
+        if (statusEl) statusEl.innerHTML = `🔄 Fetching data from ${tableName}...`;
 
         try {
           const { data, error } = await oldClient
@@ -5151,22 +5151,22 @@ ${expenseEntries.length > 0 ? `
                 await client.from(tableName).upsert(batch, { onConflict: 'id' });
               }
             }
-            if (statusEl) statusEl.innerHTML = `âœ… ${tableName}: ${data.length} records (${newRows.length} New)`;
+            if (statusEl) statusEl.innerHTML = `✅ ${tableName}: ${data.length} records (${newRows.length} New)`;
           }
         } catch { errors++; }
       }
 
-      if (statusEl) statusEl.innerHTML = `âœ… Migration complete! ${imported} new records imported. ${errors > 0 ? `âš ï¸ ${errors} tables skipped.` : ''}`;
+      if (statusEl) statusEl.innerHTML = `✅ Migration complete! ${imported} new records imported. ${errors > 0 ? `⚠️ ${errors} tables skipped.` : ''}`;
       Utils.toast(`Migration complete! ${imported} records imported`, 'success');
       logActivity('add', 'migration', `Imported ${imported} records`);
       window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
     } catch (e) {
-      if (statusEl) statusEl.textContent = `âŒ Migration Failed: ${e.message}`;
+      if (statusEl) statusEl.textContent = `❌ Migration Failed: ${e.message}`;
       Utils.toast('Migration failed', 'error');
     }
   }
 
-  // â”€â”€ Import from JSON file â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Import from JSON file ─────────────────────────────────────
   function importFromJSON() {
     const input = document.createElement('input');
     input.type = 'file';
@@ -5188,7 +5188,7 @@ ${expenseEntries.length > 0 ? `
         let tableCount = 0;
         const tableDetails = [];
 
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = 'ðŸ”„ Backup à¦¬à¦¿à¦¶à§à¦²à§‡à¦·à¦£ à¦•à¦°à¦¾ à¦¹à¦šà§à¦›à§‡...'; }
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Backup বিশ্লেষণ করা হচ্ছে...'; }
 
         // Detect legacy format
         const isLegacy = Object.prototype.hasOwnProperty.call(data, 'employees') ||
@@ -5197,7 +5197,7 @@ ${expenseEntries.length > 0 ? `
                          (data.students && data.students[0] && data.students[0].studentId);
 
         if (isLegacy) {
-          Utils.toast('à¦ªà§à¦°à¦¨à§‹ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦«à¦°à¦®à§à¦¯à¦¾à¦Ÿ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦—à§‡à¦›à§‡ â€” à¦°à§‚à¦ªà¦¾à¦¨à§à¦¤à¦° à¦•à¦°à¦¾ à¦¹à¦šà§à¦›à§‡...', 'info');
+          Utils.toast('পুরনো ব্যাকআপ ফরম্যাট পাওয়া গেছে — রূপান্তর করা হচ্ছে...', 'info');
           imported = await importLegacyData(data, statusEl);
         } else {
           // Meta/non-table keys to skip
@@ -5233,47 +5233,47 @@ ${expenseEntries.length > 0 ? `
               SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
               imported += newRows.length;
               tableCount++;
-              tableDetails.push(`${targetTable}: ${newRows.length}à¦Ÿà¦¿`);
+              tableDetails.push(`${targetTable}: ${newRows.length}টি`);
             }
           }
         }
 
-        // â”€â”€ Show result â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Show result ────────────────────────────────────────────
         if (imported === 0) {
-          if (statusEl) statusEl.innerHTML = 'âš ï¸ à¦•à§‹à¦¨à§‹ à¦¨à¦¤à§à¦¨ à¦°à§‡à¦•à¦°à§à¦¡ à¦ªà¦¾à¦“à¦¯à¦¼à¦¾ à¦¯à¦¾à¦¯à¦¼à¦¨à¦¿à¥¤ à¦¬à§à¦¯à¦¾à¦•à¦†à¦ª à¦«à¦¾à¦‡à¦²à¦Ÿà¦¿ à¦¸à¦ à¦¿à¦• à¦•à¦¿à¦¨à¦¾ à¦¦à§‡à¦–à§à¦¨ à¦…à¦¥à¦¬à¦¾ à¦¡à§‡à¦Ÿà¦¾ à¦‡à¦¤à¦¿à¦®à¦§à§à¦¯à§‡ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¹à¦¯à¦¼à§‡ à¦†à¦›à§‡à¥¤';
-          Utils.toast('à¦•à§‹à¦¨à§‹ à¦¨à¦¤à§à¦¨ à¦°à§‡à¦•à¦°à§à¦¡ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¹à¦¯à¦¼à¦¨à¦¿', 'warn');
+          if (statusEl) statusEl.innerHTML = '⚠️ কোনো নতুন রেকর্ড পাওয়া যায়নি। ব্যাকআপ ফাইলটি সঠিক কিনা দেখুন অথবা ডেটা ইতিমধ্যে ইম্পোর্ট হয়ে আছে।';
+          Utils.toast('কোনো নতুন রেকর্ড ইম্পোর্ট হয়নি', 'warn');
           return;
         }
 
         const detailsStr = tableDetails.length > 0 ? `<br><small style="color:var(--text-muted)">${tableDetails.join(' | ')}</small>` : '';
-        if (statusEl) statusEl.innerHTML = `âœ… à¦¸à¦«à¦²à¦­à¦¾à¦¬à§‡ <strong>${imported}à¦Ÿà¦¿ à¦°à§‡à¦•à¦°à§à¦¡</strong> ${tableCount}à¦Ÿà¦¿ à¦Ÿà§‡à¦¬à¦¿à¦²à§‡ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡!${detailsStr}<br><br>`;
-        Utils.toast(`âœ… ${imported}à¦Ÿà¦¿ à¦°à§‡à¦•à¦°à§à¦¡ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡!`, 'success');
+        if (statusEl) statusEl.innerHTML = `✅ সফলভাবে <strong>${imported}টি রেকর্ড</strong> ${tableCount}টি টেবিলে ইম্পোর্ট হয়েছে!${detailsStr}<br><br>`;
+        Utils.toast(`✅ ${imported}টি রেকর্ড ইম্পোর্ট হয়েছে!`, 'success');
 
-        // â”€â”€ Push to cloud (Supabase) if connected â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        if (statusEl) statusEl.innerHTML += 'ðŸ”„ Cloud-à¦ à¦†à¦ªà¦²à§‹à¦¡ à¦¹à¦šà§à¦›à§‡...';
+        // ── Push to cloud (Supabase) if connected ──────────────────
+        if (statusEl) statusEl.innerHTML += '🔄 Cloud-এ আপলোড হচ্ছে...';
         try {
           const pushResult = await SyncEngine.push({ silent: true, forcePush: true });
           if (pushResult?.ok) {
-            if (statusEl) statusEl.innerHTML += ' âœ… Cloud sync à¦¸à¦«à¦²!';
+            if (statusEl) statusEl.innerHTML += ' ✅ Cloud sync সফল!';
           } else {
-            if (statusEl) statusEl.innerHTML += ' âš ï¸ Cloud sync à¦¹à¦¯à¦¼à¦¨à¦¿ (Supabase à¦•à¦¾à¦¨à§‡à¦•à§à¦Ÿ à¦¨à¦¾ à¦¥à¦¾à¦•à¦²à§‡ à¦à¦Ÿà¦¾ à¦¸à§à¦¬à¦¾à¦­à¦¾à¦¬à¦¿à¦• â€” à¦²à§‹à¦•à¦¾à¦²à¦¿ à¦¸à§‡à¦­ à¦¹à¦¯à¦¼à§‡à¦›à§‡)à¥¤';
+            if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি (Supabase কানেক্ট না থাকলে এটা স্বাভাবিক — লোকালি সেভ হয়েছে)।';
           }
         } catch {
-          if (statusEl) statusEl.innerHTML += ' âš ï¸ Cloud sync à¦¹à¦¯à¦¼à¦¨à¦¿ â€” à¦²à§‹à¦•à¦¾à¦² à¦¸à§à¦Ÿà§‹à¦°à§‡ à¦¡à§‡à¦Ÿà¦¾ à¦†à¦›à§‡à¥¤';
+          if (statusEl) statusEl.innerHTML += ' ⚠️ Cloud sync হয়নি — লোকাল স্টোরে ডেটা আছে।';
         }
 
-        // â”€â”€ Add reload button so user sees fresh data immediately â”€â”€
+        // ── Add reload button so user sees fresh data immediately ──
         if (statusEl) {
           statusEl.innerHTML += `
             <br><br>
             <div style="background:rgba(0,255,136,0.07);border:1px solid rgba(0,255,136,0.2);border-radius:10px;padding:14px;margin-top:8px">
-              <div style="font-weight:700;color:#00ff88;margin-bottom:8px">ðŸŽ‰ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¸à¦®à§à¦ªà¦¨à§à¦¨!</div>
+              <div style="font-weight:700;color:#00ff88;margin-bottom:8px">🎉 ইম্পোর্ট সম্পন্ন!</div>
               <div style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px">
-                à¦¡à§à¦¯à¦¾à¦¶à¦¬à§‹à¦°à§à¦¡à§‡ à¦¸à¦¬ à¦¡à§‡à¦Ÿà¦¾ à¦¦à§‡à¦–à¦¤à§‡ à¦ªà§‡à¦œà¦Ÿà¦¿ à¦°à¦¿à¦²à§‹à¦¡ à¦•à¦°à§à¦¨à¥¤
+                ড্যাশবোর্ডে সব ডেটা দেখতে পেজটি রিলোড করুন।
               </div>
               <button onclick="location.reload()"
                 style="background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:800;font-size:.95rem;cursor:pointer">
-                ðŸ”„ à¦à¦–à¦¨à¦‡ à¦°à¦¿à¦²à§‹à¦¡ à¦•à¦°à§à¦¨
+                🔄 এখনই রিলোড করুন
               </button>
             </div>`;
         }
@@ -5282,15 +5282,15 @@ ${expenseEntries.length > 0 ? `
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
 
       } catch (err) {
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `âŒ à¦¤à§à¦°à§à¦Ÿà¦¿: ${err.message}`; }
-        Utils.toast('JSON à¦ªà¦¡à¦¼à¦¤à§‡ à¦¬à§à¦¯à¦°à§à¦¥: ' + err.message, 'error');
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `❌ ত্রুটি: ${err.message}`; }
+        Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
         console.error('[importFromJSON]', err);
       }
     };
     input.click();
   }
 
-  // âœ… REQ 1: Import from JSON with custom date
+  // ✅ REQ 1: Import from JSON with custom date
   function importFromJSONWithDate() {
     const customDateInput = document.getElementById('imp-date');
     const customDate = customDateInput ? customDateInput.value : '';
@@ -5319,7 +5319,7 @@ ${expenseEntries.length > 0 ? `
         let imported = 0;
         let tableCount = 0;
 
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = 'ðŸ”„ Backup à¦¬à¦¿à¦¶à§à¦²à§‡à¦·à¦£ à¦•à¦°à¦¾ à¦¹à¦šà§à¦›à§‡...'; }
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '🔄 Backup বিশ্লেষণ করা হচ্ছে...'; }
 
         // Detect legacy format
         const isLegacy = Object.prototype.hasOwnProperty.call(data, 'employees') ||
@@ -5336,13 +5336,13 @@ ${expenseEntries.length > 0 ? `
         }
 
         if (statusEl) {
-          statusEl.innerHTML += `<br/>âœ… à¦†à¦®à¦¦à¦¾à¦¨à¦¿ à¦¸à¦®à§à¦ªà¦¨à§à¦¨! ${imported} à¦°à§‡à¦•à¦°à§à¦¡ à¦¯à§à¦•à§à¦¤ à¦•à¦°à¦¾ à¦¹à¦¯à¦¼à§‡à¦›à§‡à¥¤<br/>
+          statusEl.innerHTML += `<br/>✅ আমদানি সম্পন্ন! ${imported} রেকর্ড যুক্ত করা হয়েছে।<br/>
               <div style="font-size:.82rem;color:var(--text-muted);margin-top:8px">
-                à¦¡à§à¦¯à¦¾à¦¶à¦¬à§‹à¦°à§à¦¡à§‡ à¦¸à¦¬ à¦¡à§‡à¦Ÿà¦¾ à¦¦à§‡à¦–à¦¤à§‡ à¦ªà§‡à¦œà¦Ÿà¦¿ à¦°à¦¿à¦²à§‹à¦¡ à¦•à¦°à§à¦¨à¥¤
+                ড্যাশবোর্ডে সব ডেটা দেখতে পেজটি রিলোড করুন।
               </div>
               <button onclick="location.reload()"
                 style="background:linear-gradient(135deg,#00ff88,#00d9ff);color:#000;border:none;padding:10px 24px;border-radius:8px;font-weight:800;font-size:.95rem;cursor:pointer;margin-top:8px">
-                ðŸ”„ à¦à¦–à¦¨à¦‡ à¦°à¦¿à¦²à§‹à¦¡ à¦•à¦°à§à¦¨
+                🔄 এখনই রিলোড করুন
               </button>`;
         }
 
@@ -5350,25 +5350,25 @@ ${expenseEntries.length > 0 ? `
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'migration' } }));
 
       } catch (err) {
-        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `âŒ à¦¤à§à¦°à§à¦Ÿà¦¿: ${err.message}`; }
-        Utils.toast('JSON à¦ªà¦¡à¦¼à¦¤à§‡ à¦¬à§à¦¯à¦°à§à¦¥: ' + err.message, 'error');
+        if (statusEl) { statusEl.style.display = 'block'; statusEl.textContent = `❌ ত্রুটি: ${err.message}`; }
+        Utils.toast('JSON পড়তে ব্যর্থ: ' + err.message, 'error');
         console.error('[importFromJSONWithDate]', err);
       }
     };
     input.click();
   }
 
-  // â”€â”€ Legacy Data Transformer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // âœ… REQ 1: Support custom import date
+  // ── Legacy Data Transformer ───────────────────────────────────
+  // ✅ REQ 1: Support custom import date
   async function importLegacyData(data, statusEl, customDate) {
     let total = 0;
     
-    // âœ… REQ 1: If custom date provided, convert to ISO format
+    // ✅ REQ 1: If custom date provided, convert to ISO format
     const importDateISO = customDate && customDate.length === 10 ? customDate : null;
 
     if (data.students && data.students.length) {
       const log = (m) => { if (statusEl) statusEl.innerHTML = m; };
-      log('ðŸ”„ Importing students...');
+      log('🔄 Importing students...');
       const mapped = data.students.map(s => ({
         id: SupabaseSync.generateId(),
         student_id: s.studentId || s.student_id || '',
@@ -5392,7 +5392,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.employees && data.employees.length) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing staff...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing staff...';
       const mapped = data.employees.map(emp => ({
         id: emp.id || SupabaseSync.generateId(),
         staffId: emp.id || emp.staffId || '', name: emp.name || '', role: emp.role || 'Staff',
@@ -5408,7 +5408,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.finance && data.finance.length) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing finance...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing finance...';
       const mapped = data.finance.map(f => ({
         id: String(f.id || SupabaseSync.generateId()),
         type: f.type || 'Expense', method: f.method || 'Cash', category: f.category || '',
@@ -5425,7 +5425,7 @@ ${expenseEntries.length > 0 ? `
       if (newRows.length) { SupabaseSync.setAll(DB.finance, [...newRows, ...existing]); total += newRows.length; }
     }
 
-    if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing accounts...';
+    if (statusEl) statusEl.innerHTML = '🔄 Importing accounts...';
     const accountEntries = [];
     if (data.cashBalance) {
       const bal = typeof data.cashBalance === 'object' ? (data.cashBalance.amount || data.cashBalance.balance || 0) : data.cashBalance;
@@ -5456,7 +5456,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.visitors && data.visitors.length) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing visitors...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing visitors...';
       const mapped = data.visitors.map(v => ({
         id: v.id || SupabaseSync.generateId(), name: v.name || '', phone: v.phone || '',
         course: v.interestedCourse || v.course || '', remarks: v.remarks || '',
@@ -5470,7 +5470,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.notices && data.notices.length) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing notices...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing notices...';
       const mapped = data.notices.map(n => ({
         ...n,
         date: importDateISO || n.date || '',
@@ -5482,24 +5482,24 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.settings) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing settings...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing settings...';
       const cfg = Array.isArray(data.settings) ? data.settings[0] : data.settings;
       if (cfg) {
         const existing = SupabaseSync.getAll(DB.settings);
         if (!existing.length) {
-          // SECURITY: admin_password à¦•à¦–à¦¨à§‹ backup à¦¥à§‡à¦•à§‡ import à¦•à¦°à¦¾ à¦¹à¦¬à§‡ à¦¨à¦¾
-          // Backup-à¦ plaintext à¦ªà¦¾à¦¸à¦“à¦¯à¦¼à¦¾à¦°à§à¦¡ à¦¥à¦¾à¦•à¦²à§‡à¦“ à¦à¦–à¦¾à¦¨à§‡ à¦¸à§‡à¦Ÿ à¦¹à¦¬à§‡ à¦¨à¦¾
+          // SECURITY: admin_password কখনো backup থেকে import করা হবে না
+          // Backup-এ plaintext পাসওয়ার্ড থাকলেও এখানে সেট হবে না
           SupabaseSync.insert(DB.settings, {
             academy_name: cfg.academyName || cfg.academy_name || 'Wings Fly Aviation Academy',
             address: cfg.address || '', phone: cfg.phone || '', email: cfg.email || '',
-            // admin_password intentionally excluded â€” set via Settings â†’ Change Password
+            // admin_password intentionally excluded — set via Settings → Change Password
           }, { bypassLog: true });
           total += 1;
         } else {
-          // Existing settings à¦¥à¦¾à¦•à¦²à§‡ à¦¶à§à¦§à§ non-sensitive fields à¦†à¦ªà¦¡à§‡à¦Ÿ à¦•à¦°à§‹
+          // Existing settings থাকলে শুধু non-sensitive fields আপডেট করো
           const existingCfg = { ...existing[0] };
           existingCfg.academy_name = cfg.academyName || cfg.academy_name || existingCfg.academy_name;
-          // admin_password à¦•à¦–à¦¨à§‹ backup à¦¥à§‡à¦•à§‡ overwrite à¦¹à¦¬à§‡ à¦¨à¦¾
+          // admin_password কখনো backup থেকে overwrite হবে না
           delete existingCfg.admin_password;
           const currentPw = existing[0].admin_password;
           if (currentPw) existingCfg.admin_password = currentPw;
@@ -5509,7 +5509,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (data.examRegistrations && data.examRegistrations.length) {
-      if (statusEl) statusEl.innerHTML = 'ðŸ”„ Importing exams...';
+      if (statusEl) statusEl.innerHTML = '🔄 Importing exams...';
       const mapped = data.examRegistrations.map(e => ({
         id: e.id || SupabaseSync.generateId(),
         reg_id: e.regId || e.reg_id || '', student_id: e.studentId || e.student_id || '',
@@ -5528,15 +5528,15 @@ ${expenseEntries.length > 0 ? `
     return total;
   }
 
-  // â”€â”€ Modern Data Importer (with custom date support) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // âœ… FIX: This function was called on line 5080 but was never defined.
+  // ── Modern Data Importer (with custom date support) ───────────
+  // ✅ FIX: This function was called on line 5080 but was never defined.
   //         Extracted from importFromJSON() modern-format logic + custom date support.
   async function importModernData(data, statusEl, customDate, tableCount) {
     let imported = 0;
     tableCount = tableCount || 0;
     const tableDetails = [];
 
-    // âœ… If custom date provided, use it for date fields
+    // ✅ If custom date provided, use it for date fields
     const importDateISO = customDate && customDate.length === 10 ? customDate : null;
 
     // Meta/non-table keys to skip
@@ -5560,7 +5560,7 @@ ${expenseEntries.length > 0 ? `
 
       const targetTable = tableAliases[key] || key;
 
-      if (statusEl) statusEl.innerHTML = `ðŸ”„ Importing ${targetTable}...`;
+      if (statusEl) statusEl.innerHTML = `🔄 Importing ${targetTable}...`;
 
       // Get existing records in this table
       const existing = SupabaseSync.getAll(targetTable);
@@ -5587,19 +5587,19 @@ ${expenseEntries.length > 0 ? `
         SupabaseSync.setAll(targetTable, [...newRows, ...existing]);
         imported += newRows.length;
         tableCount++;
-        tableDetails.push(`${targetTable}: ${newRows.length}à¦Ÿà¦¿`);
+        tableDetails.push(`${targetTable}: ${newRows.length}টি`);
       }
     }
 
     if (statusEl && tableDetails.length > 0) {
       const detailsStr = `<br><small style="color:var(--text-muted)">${tableDetails.join(' | ')}</small>`;
-      statusEl.innerHTML = `âœ… à¦¸à¦«à¦²à¦­à¦¾à¦¬à§‡ <strong>${imported}à¦Ÿà¦¿ à¦°à§‡à¦•à¦°à§à¦¡</strong> ${tableCount}à¦Ÿà¦¿ à¦Ÿà§‡à¦¬à¦¿à¦²à§‡ à¦‡à¦®à§à¦ªà§‹à¦°à§à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡!${detailsStr}`;
+      statusEl.innerHTML = `✅ সফলভাবে <strong>${imported}টি রেকর্ড</strong> ${tableCount}টি টেবিলে ইম্পোর্ট হয়েছে!${detailsStr}`;
     }
 
     return imported;
   }
 
-  // â”€â”€ Clear Local Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Clear Local Data ──────────────────────────────────────────
   async function clearLocalData() {
     const ok = await Utils.confirm('Delete all local data? Cloud data will remain. Settings will be kept.', 'Reset Data');
     if (!ok) return;
@@ -5615,9 +5615,9 @@ ${expenseEntries.length > 0 ? `
     setTimeout(() => location.reload(), 800);
   }
 
-  // â”€â”€ Factory Reset â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Factory Reset ─────────────────────────────────────────────
   async function factoryReset() {
-    const ok = await Utils.confirm('âš ï¸ FACTORY RESET will delete ALL data including settings! This cannot be undone!', 'â˜¢ï¸ Factory Reset');
+    const ok = await Utils.confirm('⚠️ FACTORY RESET will delete ALL data including settings! This cannot be undone!', '☢️ Factory Reset');
     if (!ok) return;
     const ok2 = await Utils.confirm('Are you ABSOLUTELY sure? ALL data will be permanently lost!', 'Final Confirmation');
     if (!ok2) return;
@@ -5645,9 +5645,9 @@ ${expenseEntries.length > 0 ? `
     setTimeout(() => location.reload(), 800);
   }
 
-  // â”€â”€ Clear Cloud Data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Clear Cloud Data ──────────────────────────────────────────
   async function clearCloudData() {
-    const ok = await Utils.confirm('âš ï¸ All cloud data will be permanently deleted!', 'â˜ï¸ Delete Cloud Data');
+    const ok = await Utils.confirm('⚠️ All cloud data will be permanently deleted!', '☁️ Delete Cloud Data');
     if (!ok) return;
     try {
       const { client } = window.SUPABASE_CONFIG;
@@ -5660,9 +5660,9 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  // â”€â”€ Auto Snapshots â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  // âœ… Fix: Snapshots now stored in IndexedDB (via WFA_IDB) instead of localStorage.
-  //         localStorage has a 5MB hard limit â€” snapshots containing all data easily exceed it.
+  // ── Auto Snapshots ──────────────────────────────────────────────
+  // ✅ Fix: Snapshots now stored in IndexedDB (via WFA_IDB) instead of localStorage.
+  //         localStorage has a 5MB hard limit — snapshots containing all data easily exceed it.
   //         IndexedDB supports 500MB+ so quota errors are eliminated.
   const SNAPSHOT_IDB_KEY = 'wfa_snapshots';
 
@@ -5676,7 +5676,7 @@ ${expenseEntries.length > 0 ? `
     return Utils.safeJSON(localStorage.getItem('wfa_auto_snapshots'), []);
   }
 
-  // âœ… Fix: Save snapshots to IndexedDB â€” no quota limit
+  // ✅ Fix: Save snapshots to IndexedDB — no quota limit
   function _saveSnapshotsQuotaSafe(snapshots) {
     try {
       if (typeof WFA_IDB !== 'undefined') {
@@ -5697,11 +5697,11 @@ ${expenseEntries.length > 0 ? `
       } catch (e) {
         if (e.name === 'QuotaExceededError' || e.code === 22) {
           if (snapshots.length === 0) {
-            console.warn('[Snapshot] Storage quota exceeded â€” cannot save even 1 snapshot. Skipping.');
+            console.warn('[Snapshot] Storage quota exceeded — cannot save even 1 snapshot. Skipping.');
             return false;
           }
           snapshots.pop();
-          console.warn(`[Snapshot] Quota hit â€” trimmed to ${snapshots.length} snapshot(s).`);
+          console.warn(`[Snapshot] Quota hit — trimmed to ${snapshots.length} snapshot(s).`);
         } else {
           console.error('[Snapshot] Unexpected storage error:', e);
           return false;
@@ -5769,32 +5769,32 @@ ${expenseEntries.length > 0 ? `
       data: data,
     });
 
-    // âœ… Fix: Cap at 3 to save storage space
+    // ✅ Fix: Cap at 3 to save storage space
     if (snapshots.length > 3) snapshots.length = 3;
 
     const saved = _saveSnapshotsQuotaSafe(snapshots);
     if (manual) {
       if (saved) {
-        if (typeof Utils !== 'undefined') Utils.toast('ðŸ“¸ Snapshot Saved!', 'success');
+        if (typeof Utils !== 'undefined') Utils.toast('📸 Snapshot Saved!', 'success');
       } else {
-        if (typeof Utils !== 'undefined') Utils.toast('âš ï¸ Snapshot skipped â€” storage full. Try exporting a manual backup instead.', 'warn');
+        if (typeof Utils !== 'undefined') Utils.toast('⚠️ Snapshot skipped — storage full. Try exporting a manual backup instead.', 'warn');
       }
       refreshModal();
     }
   }
 
-  // â”€â”€ Daily Auto Backup Download â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Daily Auto Backup Download ────────────────────────────────
   function tryDailyAutoDownload() {
     try {
       const today   = new Date().toISOString().split('T')[0];
       const lastDay = localStorage.getItem('wfa_last_auto_download') || '';
-      if (lastDay === today) return; // à¦†à¦œà¦•à§‡ already à¦¹à¦¯à¦¼à§‡à¦›à§‡
+      if (lastDay === today) return; // আজকে already হয়েছে
 
       if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return;
       const students = SupabaseSync.getAll(DB.students || 'students');
-      if (!students || students.length === 0) return; // data ready à¦¨à¦¾
+      if (!students || students.length === 0) return; // data ready না
 
-      // exportAllData à¦à¦° à¦®à¦¤à§‹ à¦•à¦°à§‡ data à¦¨à¦¾à¦“
+      // exportAllData এর মতো করে data নাও
       const allData = {};
       for (const [_key, tableName] of Object.entries(DB)) {
         let rows = SupabaseSync.getAll(tableName);
@@ -5818,9 +5818,9 @@ ${expenseEntries.length > 0 ? `
 
       localStorage.setItem('wfa_last_auto_download', today);
       if (typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast('ðŸ“¥ Daily auto backup downloaded: wfa_backup_' + today + '.json', 'success', 6000);
+        Utils.toast('📥 Daily auto backup downloaded: wfa_backup_' + today + '.json', 'success', 6000);
       }
-      console.info('[AutoBackup] âœ… Daily backup downloaded for', today);
+      console.info('[AutoBackup] ✅ Daily backup downloaded for', today);
     } catch(e) {
       console.warn('[AutoBackup] Daily download failed:', e);
     }
@@ -5849,7 +5849,7 @@ ${expenseEntries.length > 0 ? `
       });
     }
 
-    if(typeof Utils !== 'undefined') Utils.toast('âœ… Snapshot Restored Successfully', 'success');
+    if(typeof Utils !== 'undefined') Utils.toast('✅ Snapshot Restored Successfully', 'success');
     logActivity('edit', 'system', 'Restored database from snapshot: ' + snap.displayDate);
     setTimeout(() => window.location.reload(), 1500);
   }
@@ -5895,15 +5895,15 @@ ${expenseEntries.length > 0 ? `
         
         <div style="display:flex;justify-content:space-between;align-items:center;background:rgba(0,150,255,0.05);padding:12px 18px;border-radius:8px;border:1px solid rgba(0,217,255,0.2);margin-bottom:15px">
            <div style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
-             <span style="color:var(--brand-primary);font-weight:600;font-size:0.95rem">à¦ªà§à¦°à¦¤à¦¿ à§§ à¦˜à¦£à§à¦Ÿà¦¾à¦¯à¦¼ auto snapshot</span>
-             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 3 à¦°à¦¾à¦–à¦¾ à¦¹à¦¯à¦¼ Â· IndexedDB</span>
+             <span style="color:var(--brand-primary);font-weight:600;font-size:0.95rem">প্রতি ১ ঘণ্টায় auto snapshot</span>
+             <span class="badge" style="background:rgba(0,217,255,0.15);color:var(--brand-primary);border-radius:20px;padding:3px 12px;font-size:0.75rem;border:1px solid rgba(0,217,255,0.3)">LAST 3 রাখা হয় · IndexedDB</span>
            </div>
            <div style="display:flex; gap: 8px;">
              <button class="btn btn-outline" style="border-color:var(--error);color:var(--error);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;" onclick="SettingsModule.clearAllSnapshots()">
                 <i class="fa fa-trash"></i> Clear All
              </button>
              <button class="btn btn-outline" style="border-color:var(--brand-cyan);color:var(--brand-primary);font-size:0.85rem;padding:6px 14px;border-radius:20px;display:flex;align-items:center;gap:6px;box-shadow:0 0 10px rgba(0,217,255,0.2)" onclick="SettingsModule.saveSnapshot(true)">
-                <i class="fa fa-camera-retro"></i> à¦à¦–à¦¨à¦‡ à¦¨à¦¿à¦¨
+                <i class="fa fa-camera-retro"></i> এখনই নিন
              </button>
            </div>
         </div>
@@ -5934,7 +5934,7 @@ ${expenseEntries.length > 0 ? `
     `;
   }
 
-  // â”€â”€ Recovery & Sub-accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Recovery & Sub-accounts ───────────────────────────────────
   function saveRecoverySettings() {
      const question = document.getElementById('sec-question')?.value;
      const answer = document.getElementById('sec-answer')?.value?.trim();
@@ -5950,11 +5950,11 @@ ${expenseEntries.length > 0 ? `
      saveConfig(cfg);
      
      logActivity('edit', 'security', 'Updated Secret Recovery Question');
-     if(typeof Utils !== 'undefined') Utils.toast('Security Settings Saved âœ…', 'success');
+     if(typeof Utils !== 'undefined') Utils.toast('Security Settings Saved ✅', 'success');
      refreshModal();
   }
 
-  // â”€â”€ Supabase Auth credentials save â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Supabase Auth credentials save ────────────────────────────
   async function saveCloudApiCredentials() {
     const url = document.getElementById('supa-project-url')?.value?.trim();
     const key = document.getElementById('supa-anon-key')?.value?.trim();
@@ -5972,8 +5972,8 @@ ${expenseEntries.length > 0 ? `
       }
       await window.SUPABASE_CONFIG.saveCloudCredentials(url, key);
       logActivity('edit', 'security', 'Supabase API credentials updated');
-      Utils.toast('Cloud API credentials saved (encrypted) âœ…', 'success');
-      // âœ… FIX: Reset sync anchor & trigger full pull so data loads immediately
+      Utils.toast('Cloud API credentials saved (encrypted) ✅', 'success');
+      // ✅ FIX: Reset sync anchor & trigger full pull so data loads immediately
       if (window.SyncEngine) {
         window.SyncEngine.resetSyncAnchor();
         window.SyncEngine.fullPull({ silent: false }).catch(function(e) {
@@ -5998,7 +5998,7 @@ ${expenseEntries.length > 0 ? `
 
     const cfg = getConfig();
     cfg.supabase_email    = email;
-    // Note: password stored locally only â€” never pushed to Supabase settings table
+    // Note: password stored locally only — never pushed to Supabase settings table
     // (settings.js sanitizeRecord already strips it via _TABLE_COLS allowlist)
     cfg.supabase_password = pass;
     saveConfig(cfg);
@@ -6008,8 +6008,8 @@ ${expenseEntries.length > 0 ? `
       SupabaseAuth.signIn(email, pass)
         .then(() => {
           logActivity('edit', 'security', 'Supabase Auth credentials saved & signed in');
-          Utils.toast('Cloud credentials saved âœ… Supabase sign-in successful', 'success');
-          // âœ… FIX: Reset sync anchor & trigger full pull so data loads immediately
+          Utils.toast('Cloud credentials saved ✅ Supabase sign-in successful', 'success');
+          // ✅ FIX: Reset sync anchor & trigger full pull so data loads immediately
           if (window.SyncEngine) {
             window.SyncEngine.resetSyncAnchor();
             window.SyncEngine.fullPull({ silent: false }).catch(function(e) {
@@ -6023,7 +6023,7 @@ ${expenseEntries.length > 0 ? `
         });
     } else {
       logActivity('edit', 'security', 'Supabase Auth credentials saved');
-      Utils.toast('Cloud credentials saved âœ…', 'success');
+      Utils.toast('Cloud credentials saved ✅', 'success');
     }
   }
 
@@ -6034,17 +6034,17 @@ ${expenseEntries.length > 0 ? `
      return Utils.safeJSON(localStorage.getItem('wfa_sub_accounts'), []);
   }
 
-  /* â”€â”€ SHA-256 password hashing (Web Crypto API) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-     Passwords à¦•à¦–à¦¨à§‹ plaintext à¦¸à¦‚à¦°à¦•à§à¦·à¦£ à¦•à¦°à¦¾ à¦¹à¦¬à§‡ à¦¨à¦¾à¥¤
-     hashPassword(pw) â†’ Promise<string> hex digest
-  â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  /* ── SHA-256 password hashing (Web Crypto API) ───────────────────────
+     Passwords কখনো plaintext সংরক্ষণ করা হবে না।
+     hashPassword(pw) → Promise<string> hex digest
+  ──────────────────────────────────────────────────────────────────── */
   async function hashPassword(pw) {
     try {
       const enc = new TextEncoder();
       const buf = await crypto.subtle.digest('SHA-256', enc.encode(pw));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
     } catch {
-      // Fallback: simple obfuscation à¦¯à¦¦à¦¿ Web Crypto à¦¨à¦¾ à¦¥à¦¾à¦•à§‡
+      // Fallback: simple obfuscation যদি Web Crypto না থাকে
       console.warn('Web Crypto unavailable, using fallback');
       let hash = 0;
       for (let i = 0; i < pw.length; i++) { hash = ((hash << 5) - hash) + pw.charCodeAt(i); hash |= 0; }
@@ -6052,14 +6052,14 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  /* Existing sub-accounts migrate à¦•à¦°à§‹ (plaintext â†’ hashed)
-     App load à¦¹à¦“à¦¯à¦¼à¦¾à¦° à¦ªà¦°à§‡ à¦à¦•à¦¬à¦¾à¦° à¦šà¦²à¦¬à§‡, à¦¤à¦¾à¦°à¦ªà¦° à¦†à¦° à¦¦à¦°à¦•à¦¾à¦° à¦¨à§‡à¦‡à¥¤
+  /* Existing sub-accounts migrate করো (plaintext → hashed)
+     App load হওয়ার পরে একবার চলবে, তারপর আর দরকার নেই।
   */
   async function migratePasswordsToHash() {
     const subs = getSubAccounts();
     let changed = false;
     for (let s of subs) {
-      // à¦¯à¦¦à¦¿ hash à¦¨à¦¾ à¦¹à¦¯à¦¼à§‡ à¦¥à¦¾à¦•à§‡ (64-char hex à¦¨à¦¯à¦¼)
+      // যদি hash না হয়ে থাকে (64-char hex নয়)
       if (s.password && !/^[0-9a-f]{64}$/.test(s.password) && !s.password.startsWith('fb_')) {
         s.password = await hashPassword(s.password);
         changed = true;
@@ -6070,7 +6070,7 @@ ${expenseEntries.length > 0 ? `
       console.info('[Security] Sub-account passwords migrated to SHA-256 hashes.');
     }
   }
-  // Migration à¦à¦•à¦¬à¦¾à¦° à¦šà¦¾à¦²à¦¾à¦“
+  // Migration একবার চালাও
   migratePasswordsToHash();
 
   function buildSubAccountsList(subs) {
@@ -6109,7 +6109,7 @@ ${expenseEntries.length > 0 ? `
         return;
      }
      if(pw.length < 6) {
-        if(typeof Utils !== 'undefined') Utils.toast('Password à¦•à¦®à¦ªà¦•à§à¦·à§‡ à§¬ à¦…à¦•à§à¦·à¦°à§‡à¦° à¦¹à¦¤à§‡ à¦¹à¦¬à§‡', 'error');
+        if(typeof Utils !== 'undefined') Utils.toast('Password কমপক্ষে ৬ অক্ষরের হতে হবে', 'error');
         return;
      }
 
@@ -6149,13 +6149,13 @@ ${expenseEntries.length > 0 ? `
         return;
      }
 
-     // â”€â”€ Password SHA-256 hash à¦•à¦°à§‡ à¦¸à¦‚à¦°à¦•à§à¦·à¦£ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+     // ── Password SHA-256 hash করে সংরক্ষণ ───────────────────────────
      const hashedPw = await hashPassword(pw);
 
      const newSub = {
         id: (typeof SupabaseSync !== 'undefined') ? SupabaseSync.generateId() : Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
         username: un,
-        password: hashedPw,   // SHA-256 hashed â€” plaintext à¦•à¦–à¦¨à§‹ store à¦¹à¦¯à¦¼ à¦¨à¦¾
+        password: hashedPw,   // SHA-256 hashed — plaintext কখনো store হয় না
         permissions: permissions
      };
 
@@ -6167,7 +6167,7 @@ ${expenseEntries.length > 0 ? `
      }
      
      logActivity('add', 'security', `Added sub-account @${un}`);
-     if(typeof Utils !== 'undefined') Utils.toast('Sub-account created âœ…', 'success');
+     if(typeof Utils !== 'undefined') Utils.toast('Sub-account created ✅', 'success');
      refreshModal();
   }
 
@@ -6175,7 +6175,7 @@ ${expenseEntries.length > 0 ? `
     const subs = getSubAccounts();
     const target = subs[idx];
     if (target) {
-      // âœ… Req 2: push to recycle bin (IDB-backed) before deleting so it can be restored
+      // ✅ Req 2: push to recycle bin (IDB-backed) before deleting so it can be restored
       if (!target.id) target.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync._addToRecycleBinPublic === 'function') {
         SupabaseSync._addToRecycleBinPublic('settings_subaccount', target);
@@ -6194,12 +6194,12 @@ ${expenseEntries.length > 0 ? `
          localStorage.setItem('wfa_sub_accounts', JSON.stringify(subs));
       }
       logActivity('delete', 'security', `Deleted sub-account @${target.username}`);
-      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted â†’ Recycle Bin-à¦ à¦†à¦›à§‡', 'warning');
+      if (typeof Utils !== 'undefined') Utils.toast('Sub-account deleted → Recycle Bin-এ আছে', 'warning');
       refreshModal();
     }
   }
 
-  // â”€â”€ Custom Theme Logic â”€â”€
+  // ── Custom Theme Logic ──
   function _getAllThemes() {
     const custom = Utils.safeJSON(localStorage.getItem('wfa_custom_themes'), []);
     return [...THEMES, ...custom];
@@ -6230,14 +6230,14 @@ ${expenseEntries.length > 0 ? `
     `;
   }
 
-  // â”€â”€ Color presets for the theme builder â”€â”€
+  // ── Color presets for the theme builder ──
   const _THEME_PRESETS = [
-    { label: 'ðŸŒŠ Ocean', bg: '#030d1a', primary: '#00c8ff', secondary: '#0066ff', neon: '#00ffdd' },
-    { label: 'ðŸŒ¸ Cherry', bg: '#120008', primary: '#ff3ca0', secondary: '#ff7043', neon: '#ff9ff3' },
-    { label: 'ðŸŒ¿ Forest', bg: '#050f05', primary: '#00e676', secondary: '#69f0ae', neon: '#b9f6ca' },
-    { label: 'ðŸ”¥ Lava',  bg: '#1a0500', primary: '#ff5722', secondary: '#ff1744', neon: '#ffab40' },
-    { label: 'ðŸ‘¾ Cyber', bg: '#050512', primary: '#b537f2', secondary: '#00d9ff', neon: '#ff00ff' },
-    { label: 'ðŸŒ™ Dusk',  bg: '#0d0015', primary: '#e040fb', secondary: '#7c4dff', neon: '#ea80fc' },
+    { label: '🌊 Ocean', bg: '#030d1a', primary: '#00c8ff', secondary: '#0066ff', neon: '#00ffdd' },
+    { label: '🌸 Cherry', bg: '#120008', primary: '#ff3ca0', secondary: '#ff7043', neon: '#ff9ff3' },
+    { label: '🌿 Forest', bg: '#050f05', primary: '#00e676', secondary: '#69f0ae', neon: '#b9f6ca' },
+    { label: '🔥 Lava',  bg: '#1a0500', primary: '#ff5722', secondary: '#ff1744', neon: '#ffab40' },
+    { label: '👾 Cyber', bg: '#050512', primary: '#b537f2', secondary: '#00d9ff', neon: '#ff00ff' },
+    { label: '🌙 Dusk',  bg: '#0d0015', primary: '#e040fb', secondary: '#7c4dff', neon: '#ea80fc' },
   ];
 
   function _updateThemePreview() {
@@ -6305,7 +6305,7 @@ ${expenseEntries.length > 0 ? `
     m.innerHTML = `
       <div class="modal-box" style="max-width:600px;width:95vw">
         <div class="modal-header">
-          <span class="modal-title bn">ðŸŽ¨ Custom Theme Builder</span>
+          <span class="modal-title bn">🎨 Custom Theme Builder</span>
           <button class="modal-close" onclick="document.getElementById('theme-builder-modal').remove()"><i class="fa fa-xmark"></i></button>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:14px 10px 10px">
@@ -6322,14 +6322,14 @@ ${expenseEntries.length > 0 ? `
 
             <!-- Quick Presets -->
             <div>
-              <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">âš¡ QUICK PRESETS</label>
+              <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">⚡ QUICK PRESETS</label>
               <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">${presetsHTML}</div>
             </div>
 
             <!-- Color Pickers -->
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div>
-                <label style="font-size:.75rem;color:var(--text-muted)">ðŸŒ‘ Background</label>
+                <label style="font-size:.75rem;color:var(--text-muted)">🌑 Background</label>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
                   <input type="color" id="ct-bg1" value="${defBg}"
                     oninput="SettingsModule._updateThemePreview()"
@@ -6338,7 +6338,7 @@ ${expenseEntries.length > 0 ? `
                 </div>
               </div>
               <div>
-                <label style="font-size:.75rem;color:var(--text-muted)">âœ¨ Primary Accent</label>
+                <label style="font-size:.75rem;color:var(--text-muted)">✨ Primary Accent</label>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
                   <input type="color" id="ct-primary" value="${defPr}"
                     oninput="SettingsModule._updateThemePreview()"
@@ -6347,7 +6347,7 @@ ${expenseEntries.length > 0 ? `
                 </div>
               </div>
               <div>
-                <label style="font-size:.75rem;color:var(--text-muted)">ðŸŽ† Secondary Accent</label>
+                <label style="font-size:.75rem;color:var(--text-muted)">🎆 Secondary Accent</label>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
                   <input type="color" id="ct-secondary" value="${defSc}"
                     oninput="SettingsModule._updateThemePreview()"
@@ -6356,7 +6356,7 @@ ${expenseEntries.length > 0 ? `
                 </div>
               </div>
               <div>
-                <label style="font-size:.75rem;color:var(--text-muted)">ðŸ’¡ Neon Glow</label>
+                <label style="font-size:.75rem;color:var(--text-muted)">💡 Neon Glow</label>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
                   <input type="color" id="ct-neon" value="${defNn}"
                     oninput="SettingsModule._updateThemePreview()"
@@ -6370,7 +6370,7 @@ ${expenseEntries.length > 0 ? `
             <div style="display:flex;gap:8px;margin-top:4px">
               <button class="btn btn-primary" style="flex:1;font-weight:700"
                 onclick="SettingsModule.saveCustomThemeFromBuilder('${editId || ''}')">
-                ðŸ’¾ ${editTheme ? 'Update Theme' : 'Save Theme'}
+                💾 ${editTheme ? 'Update Theme' : 'Save Theme'}
               </button>
               <button class="btn" style="flex:0 0 auto;background:rgba(255,255,255,.07);color:#fff;border:1px solid rgba(255,255,255,.15)"
                 onclick="document.getElementById('theme-builder-modal').remove()">
@@ -6381,15 +6381,15 @@ ${expenseEntries.length > 0 ? `
 
           <!-- RIGHT: Live Preview -->
           <div>
-            <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">ðŸ‘ï¸ LIVE PREVIEW</label>
+            <label style="font-size:.78rem;color:var(--text-muted);font-weight:600;letter-spacing:.04em">👁️ LIVE PREVIEW</label>
             <div id="ct-preview" style="margin-top:6px;border-radius:12px;overflow:hidden;border:1px solid rgba(255,255,255,.12);height:240px;display:flex;font-size:.75rem;transition:all .2s;background:linear-gradient(135deg,${defBg} 0%,#000 100%)">
               <!-- Mini Sidebar -->
               <div class="pv-sidebar" style="width:90px;padding:10px 0;display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,${defBg} 0%,${defBg} 100%);border-right:1.5px solid ${defPr}44">
-                <div style="text-align:center;padding:6px;font-size:1rem;margin-bottom:4px">ðŸ¦…</div>
-                <div class="pv-nav-active" style="padding:5px 8px;border-radius:0 6px 6px 0;font-weight:600;color:${defPr};background:${defPr}22;border-left:3px solid ${defPr}">ðŸ“Š Dash</div>
-                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">ðŸ“š Course</div>
-                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">ðŸ‘¥ Students</div>
-                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">ðŸ’° Finance</div>
+                <div style="text-align:center;padding:6px;font-size:1rem;margin-bottom:4px">🦅</div>
+                <div class="pv-nav-active" style="padding:5px 8px;border-radius:0 6px 6px 0;font-weight:600;color:${defPr};background:${defPr}22;border-left:3px solid ${defPr}">📊 Dash</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">📚 Course</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">👥 Students</div>
+                <div style="padding:5px 8px;color:rgba(255,255,255,.4)">💰 Finance</div>
               </div>
               <!-- Mini Content -->
               <div style="flex:1;padding:10px;display:flex;flex-direction:column;gap:6px;overflow:hidden">
@@ -6401,7 +6401,7 @@ ${expenseEntries.length > 0 ? `
                   </div>
                   <div style="background:rgba(255,255,255,.06);border-radius:6px;padding:6px;border:1px solid rgba(255,255,255,.08)">
                     <div style="color:rgba(255,255,255,.4);font-size:.68rem">Revenue</div>
-                    <div class="pv-accent" style="font-weight:700;font-size:.9rem;color:${defSc}">à§³ 18k</div>
+                    <div class="pv-accent" style="font-weight:700;font-size:.9rem;color:${defSc}">৳ 18k</div>
                   </div>
                 </div>
                 <div style="background:rgba(255,255,255,.05);border-radius:6px;padding:8px;border:1px solid rgba(255,255,255,.07);flex:1">
@@ -6411,7 +6411,7 @@ ${expenseEntries.length > 0 ? `
                 <button class="pv-btn" style="border:none;border-radius:6px;padding:5px 10px;color:#fff;font-weight:700;cursor:pointer;font-size:.72rem;background:linear-gradient(135deg,${defPr},${defSc})">+ Add Student</button>
               </div>
             </div>
-            <div style="text-align:center;font-size:.7rem;color:rgba(255,255,255,.3);margin-top:6px">à¦°à¦‚ à¦ªà¦°à¦¿à¦¬à¦°à§à¦¤à¦¨ à¦•à¦°à¦²à§‡ à¦¸à¦¾à¦¥à§‡ à¦¸à¦¾à¦¥à§‡ preview à¦†à¦ªà¦¡à§‡à¦Ÿ à¦¹à¦¬à§‡</div>
+            <div style="text-align:center;font-size:.7rem;color:rgba(255,255,255,.3);margin-top:6px">রং পরিবর্তন করলে সাথে সাথে preview আপডেট হবে</div>
           </div>
 
         </div>
@@ -6445,7 +6445,7 @@ ${expenseEntries.length > 0 ? `
           _injectCustomThemeStyle(custom[idx]);
         }
         document.getElementById('theme-builder-modal').remove();
-        if (typeof Utils !== 'undefined') Utils.toast('âœ… Theme updated!', 'success');
+        if (typeof Utils !== 'undefined') Utils.toast('✅ Theme updated!', 'success');
         refreshModal();
         switchTab('theme');
         return;
@@ -6454,7 +6454,7 @@ ${expenseEntries.length > 0 ? `
 
     // Create mode
     if (custom.length >= 5) {
-      if (typeof Utils !== 'undefined') Utils.toast('à¦¸à¦°à§à¦¬à§‹à¦šà§à¦š à§«à¦Ÿà¦¿ custom theme à¦¸à§‡à¦­ à¦•à¦°à¦¾ à¦¯à¦¾à¦¬à§‡à¥¤', 'error');
+      if (typeof Utils !== 'undefined') Utils.toast('সর্বোচ্চ ৫টি custom theme সেভ করা যাবে।', 'error');
       return;
     }
 
@@ -6463,14 +6463,14 @@ ${expenseEntries.length > 0 ? `
       id: tId,
       name,
       desc: 'Custom user-defined theme.',
-      emoji: 'ðŸŽ¨',
+      emoji: '🎨',
       colors: [bg1, p, s, n],
       bg: 'linear-gradient(135deg, ' + bg1 + ' 0%, #000 100%)',
       isCustom: true
     });
     localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
     document.getElementById('theme-builder-modal').remove();
-    if (typeof Utils !== 'undefined') Utils.toast('ðŸŽ¨ Theme saved! Theme panel à¦¥à§‡à¦•à§‡ select à¦•à¦°à§à¦¨à¥¤', 'success');
+    if (typeof Utils !== 'undefined') Utils.toast('🎨 Theme saved! Theme panel থেকে select করুন।', 'success');
     refreshModal();
     switchTab('theme');
   }
@@ -6481,7 +6481,7 @@ ${expenseEntries.length > 0 ? `
     custom = custom.filter(t => t.id !== tId);
     localStorage.setItem('wfa_custom_themes', JSON.stringify(custom));
 
-    // âœ… Put deleted theme info in Keep Record
+    // ✅ Put deleted theme info in Keep Record
     const notes = getKeepRecords();
     const entry = { 
       title: `Deleted Theme: ${themeName}`, 
@@ -6492,7 +6492,7 @@ ${expenseEntries.length > 0 ? `
       date: new Date().toLocaleDateString('en-GB') 
     };
     notes.unshift(entry);
-    _saveKeepRecords(notes); // âœ… synced to Supabase
+    _saveKeepRecords(notes); // ✅ synced to Supabase
     if (localStorage.getItem('wfa_theme') === tId) {
       applyTheme('neon-space');
     } else {
@@ -6502,20 +6502,20 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // TAB: AI ASSISTANT
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   function panelAIAssistant() {
     const rawKey = localStorage.getItem('wfa_gemini_key') || '';
     const isEncrypted = rawKey.startsWith('wfa_enc::');
-    const displayKey = isEncrypted ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢ (Encrypted)' : (rawKey ? 'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢ (Legacy)' : '');
-    // âœ… Bug #5 Fix: Auto-migrate plaintext key â†’ SecureStorage (one-time)
+    const displayKey = isEncrypted ? '•••••••• (Encrypted)' : (rawKey ? '•••••••• (Legacy)' : '');
+    // ✅ Bug #5 Fix: Auto-migrate plaintext key → SecureStorage (one-time)
     if (rawKey && !isEncrypted && typeof SecureStorage !== 'undefined' && SecureStorage.setItem) {
       SecureStorage.setItem('wfa_gemini_key', rawKey).then(() => {
         console.info('[Security] Migrated plaintext Gemini key to SecureStorage.');
       }).catch(() => {});
     }
-    // âœ… Security Fix: Auto-migrate plaintext backup keys â†’ SecureStorage (one-time, same as slot 1)
+    // ✅ Security Fix: Auto-migrate plaintext backup keys → SecureStorage (one-time, same as slot 1)
     ['wfa_gemini_key_2', 'wfa_gemini_key_3'].forEach(async slot => {
       const raw = localStorage.getItem(slot) || '';
       if (raw && !raw.startsWith('wfa_enc::') && typeof SecureStorage !== 'undefined' && SecureStorage.setItem) {
@@ -6536,12 +6536,12 @@ ${expenseEntries.length > 0 ? `
       <div class="settings-card glow-cyan">
         <div class="settings-card-title"><i class="fa fa-robot"></i> Academy Assistant (Hybrid)</div>
         <div style="background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.25);padding:14px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;">
-          <strong>ðŸ”„ à¦¸à§à¦¬à¦¯à¦¼à¦‚à¦•à§à¦°à¦¿à¦¯à¦¼ Hybrid:</strong> à¦›à¦¾à¦¤à§à¦°/à¦¬à¦•à§‡à¦¯à¦¼à¦¾/à¦²à§‡à¦¨à¦¦à§‡à¦¨ = à¦¸à¦¬à¦¸à¦®à¦¯à¦¼ à¦²à§‹à¦•à¦¾à¦² à¦¡à¦¾à¦Ÿà¦¾à¥¤
-          API Key à¦¸à§‡à¦Ÿ à¦•à¦°à¦²à§‡ à¦…à¦¨à§à¦¯ à¦ªà§à¦°à¦¶à§à¦¨ Gemini-à¦¤à§‡ à¦¯à¦¾à¦¬à§‡à¥¤ <strong>à¦²à¦¿à¦®à¦¿à¦Ÿ à¦¶à§‡à¦· à¦¹à¦²à§‡ à¦…à¦Ÿà§‹ à¦²à§‹à¦•à¦¾à¦²</strong> â€” à¦†à¦¬à¦¾à¦° Key à¦•à¦¾à¦œ à¦•à¦°à¦²à§‡ Gemini à¦«à¦¿à¦°à§‡ à¦†à¦¸à¦¬à§‡à¥¤
+          <strong>🔄 স্বয়ংক্রিয় Hybrid:</strong> ছাত্র/বকেয়া/লেনদেন = সবসময় লোকাল ডাটা।
+          API Key সেট করলে অন্য প্রশ্ন Gemini-তে যাবে। <strong>লিমিট শেষ হলে অটো লোকাল</strong> — আবার Key কাজ করলে Gemini ফিরে আসবে।
         </div>
         <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;font-size:0.9rem;">
           <input type="checkbox" id="ai-local-only" ${localOnly ? 'checked' : ''} onchange="SettingsModule.toggleAILocalOnly(this.checked)" />
-          <span><strong>à¦¶à§à¦§à§ Local</strong> â€” Gemini à¦à¦•à¦¦à¦® à¦¬à¦¨à§à¦§ (à¦šà¦¾à¦‡à¦²à§‡ à¦Ÿà¦¿à¦• à¦¦à¦¿à¦¨)</span>
+          <span><strong>শুধু Local</strong> — Gemini একদম বন্ধ (চাইলে টিক দিন)</span>
         </label>
         <details open style="margin-bottom:8px;">
           <summary style="cursor:pointer;font-size:0.85rem;color:var(--text-muted);margin-bottom:10px;">Gemini API Key</summary>
@@ -6549,21 +6549,21 @@ ${expenseEntries.length > 0 ? `
           <label>Primary Gemini API Key</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <input type="password" id="ai-api-key-input" class="form-control" placeholder="AIzaSy..." value="${displayKey}" style="flex:1;min-width:200px" />
-            <button class="btn btn-primary" onclick="SettingsModule.saveAIApiKey()">ðŸ’¾ Save</button>
-            <button class="btn btn-secondary" onclick="SettingsModule.testAIApiKey()">ðŸ” Test Key</button>
+            <button class="btn btn-primary" onclick="SettingsModule.saveAIApiKey()">💾 Save</button>
+            <button class="btn btn-secondary" onclick="SettingsModule.testAIApiKey()">🔍 Test Key</button>
           </div>
         </div>
         <div class="form-group" style="margin-bottom:14px;">
-          <label>Backup Keys (limit à¦¶à§‡à¦· à¦¹à¦²à§‡ auto-switch)</label>
+          <label>Backup Keys (limit শেষ হলে auto-switch)</label>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-            <input type="password" id="ai-api-key-2" class="form-control" placeholder="Backup 2 ${hasBackup2 ? 'âœ“' : ''}" style="flex:1;min-width:160px" />
-            <input type="password" id="ai-api-key-3" class="form-control" placeholder="Backup 3 ${hasBackup3 ? 'âœ“' : ''}" style="flex:1;min-width:160px" />
-            <button class="btn btn-secondary" onclick="SettingsModule.saveAIBackupKeys()">ðŸ’¾ Save Backup</button>
+            <input type="password" id="ai-api-key-2" class="form-control" placeholder="Backup 2 ${hasBackup2 ? '✓' : ''}" style="flex:1;min-width:160px" />
+            <input type="password" id="ai-api-key-3" class="form-control" placeholder="Backup 3 ${hasBackup3 ? '✓' : ''}" style="flex:1;min-width:160px" />
+            <button class="btn btn-secondary" onclick="SettingsModule.saveAIBackupKeys()">💾 Save Backup</button>
           </div>
         </div>
         </details>
         <div style="font-size:0.8rem;color:var(--text-secondary);margin-top:8px;">
-          <strong>à¦œà¦¿à¦œà§à¦žà§‡à¦¸ à¦•à¦°à§à¦¨:</strong> "à¦¸à¦¾à¦°à¦¾à¦‚à¦¶", "à¦®à§‹à¦Ÿ à¦›à¦¾à¦¤à§à¦°", "à¦¬à¦•à§‡à¦¯à¦¼à¦¾", "à¦†à¦¦à¦¾à¦¯à¦¼", "à¦†à¦œà¦•à§‡à¦° à¦²à§‡à¦¨à¦¦à§‡à¦¨", "[à¦¨à¦¾à¦®]"
+          <strong>জিজ্ঞেস করুন:</strong> "সারাংশ", "মোট ছাত্র", "বকেয়া", "আদায়", "আজকের লেনদেন", "[নাম]"
         </div>
       </div>
     </div>`;
@@ -6576,7 +6576,7 @@ ${expenseEntries.length > 0 ? `
       localStorage.setItem('wfa_ai_local_only', checked ? 'true' : 'false');
     }
     if (typeof Utils !== 'undefined') {
-      Utils.toast(checked ? 'à¦¶à§à¦§à§ Local à¦®à§‹à¦¡ â€” Gemini à¦¬à¦¨à§à¦§' : 'Hybrid à¦®à§‹à¦¡ â€” Key à¦¥à¦¾à¦•à¦²à§‡ Gemini, à¦²à¦¿à¦®à¦¿à¦Ÿà§‡ Local', 'success');
+      Utils.toast(checked ? 'শুধু Local মোড — Gemini বন্ধ' : 'Hybrid মোড — Key থাকলে Gemini, লিমিটে Local', 'success');
     }
     refreshModal();
   }
@@ -6586,7 +6586,7 @@ ${expenseEntries.length > 0 ? `
     if (!el) return;
     let key = el.value.trim();
     
-    if (key.startsWith('â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢')) {
+    if (key.startsWith('••••••••')) {
       if(typeof Utils !== 'undefined') Utils.toast('No changes made to existing encrypted key.', 'info');
       return;
     }
@@ -6602,7 +6602,7 @@ ${expenseEntries.length > 0 ? `
     }
     
     if (typeof SecureStorage === 'undefined') {
-      if(typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable â€” cannot save API key safely.', 'error');
+      if(typeof Utils !== 'undefined') Utils.toast('SecureStorage unavailable — cannot save API key safely.', 'error');
       return;
     }
     try {
@@ -6618,7 +6618,7 @@ ${expenseEntries.length > 0 ? `
     }
     localStorage.removeItem('wfa_ai_local_only');
     
-    if(typeof Utils !== 'undefined') Utils.toast('âœ… API Key saved â€” Hybrid mode: Gemini + auto local fallback', 'success');
+    if(typeof Utils !== 'undefined') Utils.toast('✅ API Key saved — Hybrid mode: Gemini + auto local fallback', 'success');
     refreshModal();
   }
 
@@ -6638,22 +6638,23 @@ ${expenseEntries.length > 0 ? `
     if (k2 && await _saveGeminiSlot('wfa_gemini_key_2', k2)) saved++;
     if (k3 && await _saveGeminiSlot('wfa_gemini_key_3', k3)) saved++;
     if (typeof Utils !== 'undefined') {
-      Utils.toast(saved ? `âœ… ${saved} backup key saved` : 'Backup key à¦–à¦¾à¦²à¦¿ â€” AIzaSy... à¦¬à¦¸à¦¾à¦¨', saved ? 'success' : 'warning');
+      Utils.toast(saved ? `✅ ${saved} backup key saved` : 'Backup key খালি — AIzaSy... বসান', saved ? 'success' : 'warning');
     }
     refreshModal();
   }
 
   async function testAIApiKey() {
     if (typeof AIAssistant === 'undefined' || typeof AIAssistant.testApiKey !== 'function') {
-      if (typeof Utils !== 'undefined') Utils.toast('AI Assistant module à¦²à§‹à¦¡ à¦¹à¦¯à¦¼à¦¨à¦¿', 'error');
+      if (typeof Utils !== 'undefined') Utils.toast('AI Assistant module লোড হয়নি', 'error');
       return;
     }
-    if (typeof Utils !== 'undefined') Utils.toast('Key à¦¯à¦¾à¦šà¦¾à¦‡ à¦¹à¦šà§à¦›à§‡...', 'info', 2000);
+    if (typeof Utils !== 'undefined') Utils.toast('Key যাচাই হচ্ছে...', 'info', 2000);
     const result = await AIAssistant.testApiKey();
     if (typeof Utils !== 'undefined') {
       Utils.toast(result.message, result.ok ? 'success' : (result.quota ? 'warning' : 'error'), 10000);
     }
   }
+
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CLIENT MANAGER PANEL â€” Admin only
@@ -6889,9 +6890,9 @@ ${expenseEntries.length > 0 ? `
     </div>`;
   }
 
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   // PUBLIC API
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // ════════════════════════════════════════════════════════════════
   return {
     deleteCustomTheme, openThemeBuilderModal, saveCustomThemeFromBuilder, _getAllThemes,
     _updateThemePreview, _applyThemeBuilderPreset, _THEME_PRESETS,
@@ -6931,7 +6932,7 @@ ${expenseEntries.length > 0 ? `
   };
 })();
 
-// â”€â”€ S2 Fix: Restore saved theme + sidebar + colors BEFORE exporting the module â”€â”€
+// ── S2 Fix: Restore saved theme + sidebar + colors BEFORE exporting the module ──
 // CSS injections (document.head.appendChild) must complete before any other page
 // code accesses window.SettingsModule, to avoid dark/neon theme conflicts.
 (function restoreThemeOnLoad() {
@@ -7010,11 +7011,11 @@ ${expenseEntries.length > 0 ? `
   const map = { 'neon-grid': 'maroon', 'nebula': 'purple', 'emerald': 'emerald', 'molten': 'obsidian', 'aurora-wave': 'navy' };
   const cardPresetId = localStorage.getItem(`wfa_card_theme_${savedTheme}`) || map[savedTheme] || 'navy';
   const CARD_PRESETS = [
-    { id: 'navy',   name: 'ðŸŒ‘ Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
-    { id: 'obsidian',name: 'ðŸŒŒ Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
-    { id: 'maroon', name: 'ðŸ”¥ Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
-    { id: 'purple', name: 'ðŸ’œ Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
-    { id: 'emerald',name: 'ðŸŒ¿ Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' }
+    { id: 'navy',   name: '🌑 Deep Navy',  cardBg: 'rgba(8,12,40,0.88)', border: 'rgba(0,217,255,0.15)', inner: 'rgba(6,9,28,0.96)', anaBg: 'rgba(5,8,26,0.92)' },
+    { id: 'obsidian',name: '🌌 Obsidian',   cardBg: 'rgba(8,10,14,0.92)', border: 'rgba(0,243,255,0.15)', inner: 'rgba(5,6,8,0.96)', anaBg: 'rgba(6,8,10,0.95)' },
+    { id: 'maroon', name: '🔥 Cyber Maroon',cardBg: 'rgba(24,5,10,0.88)', border: 'rgba(255,0,85,0.2)', inner: 'rgba(16,4,8,0.96)', anaBg: 'rgba(18,4,8,0.92)' },
+    { id: 'purple', name: '💜 Royal Void', cardBg: 'rgba(16,8,32,0.90)', border: 'rgba(181,55,242,0.2)', inner: 'rgba(10,5,20,0.96)', anaBg: 'rgba(14,6,26,0.92)' },
+    { id: 'emerald',name: '🌿 Deep Jade',  cardBg: 'rgba(4,16,10,0.88)', border: 'rgba(0,255,136,0.15)', inner: 'rgba(2,10,6,0.96)', anaBg: 'rgba(3,12,8,0.92)' }
   ];
   const c = CARD_PRESETS.find(x => x.id === cardPresetId) || CARD_PRESETS[0];
   const styleTag = document.createElement('style');
@@ -7055,6 +7056,5 @@ ${expenseEntries.length > 0 ? `
 
 })();
 
-// âœ… S-2 Fix: Export after theme CSS injections are complete (regression fix â€” export was accidentally removed)
+// ✅ S-2 Fix: Export after theme CSS injections are complete (regression fix — export was accidentally removed)
 window.SettingsModule = SettingsModule;
-
