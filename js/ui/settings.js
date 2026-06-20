@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 // Wings Fly Aviation Academy â€” Settings Module (Full Parity)
 // 11 Tabs matching legacy app design
 // ============================================================
@@ -133,11 +133,11 @@ const SettingsModule = (() => {
   function buildSidebarTabs() {
     const tabs = [
       { id: 'general',        icon: 'fa-sliders',             label: 'General Settings' },
-      { id: 'theme',          icon: 'fa-palette',             label: 'ðŸŽ¨ Theme / Appearance' },
+      { id: 'theme',          icon: 'fa-palette',             label: 'Theme / Appearance' },
       { id: 'categories',     icon: 'fa-tags',                label: 'Categories & Courses' },
       { id: 'data',           icon: 'fa-database',            label: 'Data Management' },
       { id: 'security',       icon: 'fa-lock',                label: 'Security & Access' },
-      { id: 'client-manager', icon: 'fa-id-card',             label: 'ðŸ§‘â€ðŸ’¼ Client Manager' },
+      { id: 'client-manager', icon: 'fa-id-card',             label: 'Client Manager' },
       { id: 'activity',       icon: 'fa-list-check',          label: 'Activity Log' },
       { id: 'recycle',        icon: 'fa-trash-can',           label: 'Recycle Bin' },
       { id: 'sync',           icon: 'fa-magnifying-glass',    label: 'Sync Diagnostic' },
@@ -6657,8 +6657,8 @@ ${expenseEntries.length > 0 ? `
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // CLIENT MANAGER PANEL â€” Admin only
-  // à¦¸à¦¬ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°à§‡à¦° info + License Key generator
-  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+  // All client info + License Key generator
+  // ================================================================
   function panelClientManager() {
     const isAdm = (typeof App !== 'undefined' && App.isAdmin && App.isAdmin()) ||
                   (localStorage.getItem('wfa_user_role') === 'admin');
@@ -6675,24 +6675,24 @@ ${expenseEntries.length > 0 ? `
     const clients = _loadClients();
 
     function _statusBadge(client) {
-      if (!client.licenseKey) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">â¬œ No Key</span>`;
+      if (!client.licenseKey) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">No Key</span>`;
       const ls = typeof LicenseEngine !== 'undefined' ? LicenseEngine.validate(client.licenseKey) : null;
       if (!ls) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Unknown</span>`;
-      if (ls.expired) return `<span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">ðŸ”´ Expired</span>`;
-      if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">ðŸŸ¡ Grace (${ls.graceDaysLeft}d)</span>`;
-      if (ls.daysLeft <= 7) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">ðŸŸ  ${ls.daysLeft}d left</span>`;
-      return `<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">âœ… Active (${ls.daysLeft}d)</span>`;
+      if (ls.expired) return `<span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Expired</span>`;
+      if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Grace (${ls.graceDaysLeft}d)</span>`;
+      if (ls.daysLeft <= 7) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">${ls.daysLeft}d left</span>`;
+      return `<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Active (${ls.daysLeft}d)</span>`;
     }
 
     function _buildTable(list) {
-      if (!list.length) return `<div style="text-align:center;color:#7a8baa;padding:32px;font-size:0.9rem">à¦•à§‹à¦¨à§‹ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦° à¦¨à§‡à¦‡à¥¤ à¦¨à¦¿à¦šà§‡ à¦¥à§‡à¦•à§‡ à¦¯à§‹à¦— à¦•à¦°à§à¦¨à¥¤</div>`;
+      if (!list.length) return `<div style="text-align:center;color:#7a8baa;padding:32px;font-size:0.9rem">No clients yet. Add one below.</div>`;
       return `<div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
           <thead><tr style="border-bottom:1px solid rgba(0,217,255,0.15)">
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">#</th>
-            <th style="padding:8px 6px;color:#00d9ff;text-align:left">à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿</th>
-            <th style="padding:8px 6px;color:#00d9ff;text-align:left">à¦®à¦¾à¦²à¦¿à¦•</th>
-            <th style="padding:8px 6px;color:#00d9ff;text-align:left">à¦«à§‹à¦¨</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Academy</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Owner</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Phone</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Package</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">License Key</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Status</th>
@@ -6702,22 +6702,22 @@ ${expenseEntries.length > 0 ? `
             ${list.map((c, i) => `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseenter="this.style.background='rgba(0,217,255,0.04)'" onmouseleave="this.style.background='none'">
                 <td style="padding:9px 6px;color:#7a8baa">${i+1}</td>
-                <td style="padding:9px 6px;color:#fff;font-weight:600">${Utils.esc(c.academy||'â€”')}</td>
-                <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.owner||'â€”')}</td>
-                <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.phone||'â€”')}</td>
+                <td style="padding:9px 6px;color:#fff;font-weight:600">${Utils.esc(c.academy||'-')}</td>
+                <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.owner||'-')}</td>
+                <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.phone||'-')}</td>
                 <td style="padding:9px 6px">
                   <span style="background:rgba(123,47,247,0.15);color:#b57ff7;padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700">${Utils.esc(c.package||'Basic')}</span>
                 </td>
                 <td style="padding:9px 6px;font-family:monospace;font-size:0.78rem;color:#00d9ff">
                   ${c.licenseKey
-                    ? `<span title="${Utils.escAttr(c.licenseKey)}">${c.licenseKey.slice(0,18)}â€¦</span>
-                       <button onclick="navigator.clipboard.writeText('${Utils.escAttr(c.licenseKey)}');Utils.toast('Key copied!','success')" style="background:none;border:none;color:#7a8baa;cursor:pointer;margin-left:4px">ðŸ“‹</button>`
-                    : '<span style="color:#7a8baa">â€”</span>'}
+                    ? `<span title="${Utils.escAttr(c.licenseKey)}">${c.licenseKey.slice(0,18)}...</span>
+                       <button onclick="navigator.clipboard.writeText('${Utils.escAttr(c.licenseKey)}');Utils.toast('Key copied!','success')" style="background:none;border:none;color:#7a8baa;cursor:pointer;margin-left:4px;font-size:0.75rem">Copy</button>`
+                    : '<span style="color:#7a8baa">-</span>'}
                 </td>
                 <td style="padding:9px 6px">${_statusBadge(c)}</td>
                 <td style="padding:9px 6px;text-align:right">
-                  <button onclick="_wfaClientEdit(${i})" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem;margin-right:4px">âœï¸</button>
-                  <button onclick="_wfaClientDelete(${i})" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);color:#ff4757;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem">ðŸ—‘ï¸</button>
+                  <button onclick="_wfaClientEdit(${i})" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem;margin-right:4px">Edit</button>
+                  <button onclick="_wfaClientDelete(${i})" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);color:#ff4757;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem">Del</button>
                 </td>
               </tr>`).join('')}
           </tbody>
@@ -6731,7 +6731,7 @@ ${expenseEntries.length > 0 ? `
       return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
         <div style="flex:1;min-width:100px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.2);border-radius:12px;padding:14px;text-align:center">
           <div style="font-size:1.6rem;font-weight:800;color:#00d9ff">${total}</div>
-          <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">à¦®à§‹à¦Ÿ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°</div></div>
+          <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">Total Clients</div></div>
         <div style="flex:1;min-width:100px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:14px;text-align:center">
           <div style="font-size:1.6rem;font-weight:800;color:#00ff88">${active}</div>
           <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">Active</div></div>
@@ -6741,7 +6741,6 @@ ${expenseEntries.length > 0 ? `
       </div>`;
     }
 
-    // Global helpers for onclick handlers
     window._wfaClientSave = function() {
       const id = document.getElementById('cm-edit-id')?.value;
       const obj = {
@@ -6760,7 +6759,7 @@ ${expenseEntries.length > 0 ? `
       const idx = list.findIndex(c => c.id === obj.id);
       if (idx >= 0) Object.assign(list[idx], obj); else list.push(obj);
       _saveClients(list);
-      Utils.toast('à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦° à¦¸à§‡à¦­ à¦¹à¦¯à¦¼à§‡à¦›à§‡ âœ…', 'success');
+      Utils.toast('Client saved!', 'success');
       SettingsModule.refreshModal();
     };
 
@@ -6771,14 +6770,14 @@ ${expenseEntries.length > 0 ? `
         'cm-phone': c.phone, 'cm-email': c.email, 'cm-package': c.package,
         'cm-lickey': c.licenseKey, 'cm-supurl': c.supabaseUrl, 'cm-notes': c.notes };
       Object.entries(map).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; });
-      document.getElementById('cm-form-title').textContent = `âœï¸ Edit: ${c.academy || 'Client'}`;
+      document.getElementById('cm-form-title').textContent = 'Edit: ' + (c.academy || 'Client');
       document.getElementById('cm-form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     window._wfaClientDelete = function(idx) {
-      if (!confirm('à¦à¦‡ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°à¦•à§‡ à¦¸à¦¤à§à¦¯à¦¿à¦‡ à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦•à¦°à¦¬à§‡à¦¨?')) return;
+      if (!confirm('Delete this client permanently?')) return;
       const list = _loadClients(); list.splice(idx, 1); _saveClients(list);
-      Utils.toast('à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦° à¦¡à¦¿à¦²à¦¿à¦Ÿ à¦¹à¦¯à¦¼à§‡à¦›à§‡', 'warning');
+      Utils.toast('Client deleted.', 'warning');
       SettingsModule.refreshModal();
     };
 
@@ -6790,7 +6789,7 @@ ${expenseEntries.length > 0 ? `
       const keyEl  = document.getElementById('cm-gen-result');
       if (keyEl) { keyEl.value = result.key; keyEl.style.display = 'block'; }
       navigator.clipboard.writeText(result.key).catch(() => {});
-      Utils.toast(`Key generated & copied! Expires: ${result.expires}`, 'success');
+      Utils.toast('Key generated & copied! Expires: ' + result.expires, 'success');
       const lkEl = document.getElementById('cm-lickey');
       if (lkEl && !lkEl.value) lkEl.value = result.key;
     };
@@ -6799,18 +6798,16 @@ ${expenseEntries.length > 0 ? `
     <div class="settings-panel ${activeTab === 'client-manager' ? 'active' : ''}" data-panel="client-manager">
       <div class="settings-card-title" style="color:var(--brand-primary)">
         <i class="fa fa-id-card"></i> CLIENT MANAGER
-        <span style="font-size:0.72rem;font-weight:500;color:#7a8baa;margin-left:8px">Admin Only â€” à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°à¦¦à§‡à¦° à¦¸à¦¬ à¦¤à¦¥à§à¦¯ à¦“ License</span>
+        <span style="font-size:0.72rem;font-weight:500;color:#7a8baa;margin-left:8px">Admin Only &mdash; All client info &amp; Licenses</span>
       </div>
 
       ${_summary(clients)}
 
-      <!-- Client Table -->
       <div class="settings-card" style="margin-bottom:20px">
-        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">ðŸ“‹ à¦¸à¦•à¦² à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°</div>
+        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients</div>
         ${_buildTable(clients)}
       </div>
 
-      <!-- License Key Generator -->
       <div class="settings-card" style="margin-bottom:20px;border:1px solid rgba(123,47,247,0.3)">
         <div style="font-size:0.8rem;font-weight:700;color:#b57ff7;letter-spacing:1px;margin-bottom:14px;text-transform:uppercase">
           <i class="fa fa-key"></i> License Key Generator
@@ -6831,30 +6828,29 @@ ${expenseEntries.length > 0 ? `
           </div>
         </div>
         <button onclick="_wfaGenerateLicKey()" style="background:linear-gradient(135deg,#7b2ff7,#b57ff7);border:none;color:#fff;padding:10px 22px;border-radius:8px;font-weight:700;cursor:pointer;width:100%;margin-bottom:10px">
-          ðŸ”‘ Generate New License Key
+          Generate New License Key
         </button>
         <input id="cm-gen-result" type="text" readonly
           style="display:none;width:100%;padding:10px 14px;border-radius:8px;background:rgba(123,47,247,0.1);border:1px solid rgba(123,47,247,0.4);color:#b57ff7;font-family:monospace;font-size:0.9rem;text-align:center;cursor:pointer;box-sizing:border-box"
           onclick="navigator.clipboard.writeText(this.value);Utils.toast('Copied!','success')" />
       </div>
 
-      <!-- Add / Edit Client Form -->
       <div class="settings-card" id="cm-form-section" style="border:1px solid rgba(0,217,255,0.2)">
         <div style="font-size:0.8rem;font-weight:700;color:#00d9ff;letter-spacing:1px;margin-bottom:14px;text-transform:uppercase">
-          <i class="fa fa-plus"></i> <span id="cm-form-title">à¦¨à¦¤à§à¦¨ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦° à¦¯à§‹à¦— à¦•à¦°à§à¦¨</span>
+          <i class="fa fa-plus"></i> <span id="cm-form-title">Add New Client</span>
         </div>
         <input type="hidden" id="cm-edit-id" value="" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
-            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">à¦à¦•à¦¾à¦¡à§‡à¦®à¦¿à¦° à¦¨à¦¾à¦® *</label>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Academy Name *</label>
             <input id="cm-academy" type="text" class="form-control" placeholder="Green Leaf Academy" />
           </div>
           <div>
-            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">à¦®à¦¾à¦²à¦¿à¦•à§‡à¦° à¦¨à¦¾à¦®</label>
-            <input id="cm-owner" type="text" class="form-control" placeholder="à¦°à¦¹à¦¿à¦® à¦¸à¦¾à¦¹à§‡à¦¬" />
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Owner Name</label>
+            <input id="cm-owner" type="text" class="form-control" placeholder="Rahim Sir" />
           </div>
           <div>
-            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">à¦«à§‹à¦¨ à¦¨à¦®à§à¦¬à¦°</label>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Phone Number</label>
             <input id="cm-phone" type="tel" class="form-control" placeholder="01700-000000" />
           </div>
           <div>
@@ -6873,24 +6869,25 @@ ${expenseEntries.length > 0 ? `
           </div>
         </div>
         <div style="margin-bottom:12px">
-          <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦°à§‡à¦° Supabase URL (optional)</label>
+          <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Client Supabase URL (optional)</label>
           <input id="cm-supurl" type="text" class="form-control" placeholder="https://xxxx.supabase.co" />
         </div>
         <div style="margin-bottom:16px">
-          <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Notes / à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦šà¦¾à¦¹à¦¿à¦¦à¦¾</label>
-          <textarea id="cm-notes" class="form-control" rows="3" placeholder="à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦‡à¦œà§‡à¦¶à¦¨ à¦šà¦¾à¦¹à¦¿à¦¦à¦¾, payment history, à¦‡à¦¤à§à¦¯à¦¾à¦¦à¦¿â€¦" style="resize:vertical"></textarea>
+          <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Notes / Customization Requests</label>
+          <textarea id="cm-notes" class="form-control" rows="3" placeholder="Customization requests, payment history, etc..." style="resize:vertical"></textarea>
         </div>
         <div style="display:flex;gap:10px">
           <button onclick="_wfaClientSave()" style="flex:1;background:linear-gradient(135deg,rgba(0,217,255,0.8),rgba(123,47,247,0.8));border:none;color:#fff;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">
-            ðŸ’¾ Save Client
+            Save Client
           </button>
-          <button onclick="document.getElementById('cm-edit-id').value='';['cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='à¦¨à¦¤à§à¦¨ à¦•à¦¾à¦¸à§à¦Ÿà¦®à¦¾à¦° à¦¯à§‹à¦— à¦•à¦°à§à¦¨';"
+          <button onclick="document.getElementById('cm-edit-id').value='';['cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='Add New Client';"
             style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:8px;cursor:pointer;font-weight:600">
-            âœ• Clear
+            Clear
           </button>
         </div>
       </div>
     </div>`;
+  }
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
