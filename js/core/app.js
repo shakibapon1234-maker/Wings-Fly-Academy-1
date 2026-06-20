@@ -675,18 +675,14 @@ const App = (() => {
   }
 
   function showApp(fromLogin = false) {
-    // ── License Key Check ────────────────────────────────────────
-    // Admin সবসময় bypass করে (আপনার নিজের একাডেমি)
-    // Sub-account (কাস্টমার) login-এ license check হয়
-    if (typeof LicenseEngine !== 'undefined') {
-      const _role = localStorage.getItem('wfa_user_role');
-      if (_role !== 'admin') {
-        // sub-account বা অজানা role → license check
-        const _allowed = LicenseEngine.checkOnStart();
-        if (!_allowed) return; // block screen দেখাচ্ছে, app বন্ধ
-      }
+    // ── License Key Check ─────────────────────────────────────────
+    // Admin সবসময় bypass — isAdmin() দিয়ে check (SessionStore + localStorage দুটোই support)
+    if (typeof LicenseEngine !== 'undefined' && !isAdmin()) {
+      const _allowed = LicenseEngine.checkOnStart();
+      if (!_allowed) return;
     }
-    // ─────────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────
+
 
     const loginEl = document.getElementById('login-screen');
     const appEl = document.getElementById('app-wrapper');
