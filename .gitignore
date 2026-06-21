@@ -20,6 +20,10 @@ yarn-error.log*
 js/core/supabase-secrets.js
 android/app/src/main/assets/public/js/core/supabase-secrets.js
 
+# License Server credentials — NEVER commit (use license-server-config.example.js as template)
+js/core/license-server-config.js
+android/app/src/main/assets/public/js/core/license-server-config.js
+
 # VAPID private key — NEVER commit (see VAPID_KEYS.md)
 VAPID_PRIVATE_KEY.local.md
 *.vapid-private.*
@@ -66,4 +70,3 @@ WingsFly_Full_Backup_*.json
 
 # Local Git installation files (do not commit system binaries)
 /Git/
-

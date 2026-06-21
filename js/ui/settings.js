@@ -131,13 +131,18 @@ const SettingsModule = (() => {
 
   // ─── SIDEBAR TABS ─────────────────────────────────────────────
   function buildSidebarTabs() {
+    const isAdm = (typeof App !== 'undefined' && App.isAdmin && App.isAdmin()) ||
+                  (localStorage.getItem('wfa_user_role') === 'admin');
+
     const tabs = [
       { id: 'general',        icon: 'fa-sliders',             label: 'General Settings' },
       { id: 'theme',          icon: 'fa-palette',             label: 'Theme / Appearance' },
       { id: 'categories',     icon: 'fa-tags',                label: 'Categories & Courses' },
       { id: 'data',           icon: 'fa-database',            label: 'Data Management' },
       { id: 'security',       icon: 'fa-lock',                label: 'Security & Access' },
-      { id: 'client-manager', icon: 'fa-id-card',             label: 'Client Manager' },
+      // ✅ Fix: Client Manager is admin-only content (panelClientManager renders
+      // empty for non-admins) — hide the tab itself instead of leaving a dead entry.
+      { id: 'client-manager', icon: 'fa-id-card',             label: 'Client Manager', adminOnly: true },
       { id: 'activity',       icon: 'fa-list-check',          label: 'Activity Log' },
       { id: 'recycle',        icon: 'fa-trash-can',           label: 'Recycle Bin' },
       { id: 'sync',           icon: 'fa-magnifying-glass',    label: 'Sync Diagnostic' },
@@ -148,7 +153,9 @@ const SettingsModule = (() => {
       { id: 'syncguard',      icon: 'fa-shield-halved',       label: 'Sync Guard' },
       { id: 'ai-assistant',   icon: 'fa-robot',               label: 'AI Assistant' },
     ];
-    return tabs.map(t => `
+    return tabs
+      .filter(t => !t.adminOnly || isAdm)
+      .map(t => `
       <button type="button" class="settings-tab ${activeTab === t.id ? 'active' : ''}"
               data-tab="${t.id}">
         <i class="fa ${t.icon}"></i> ${t.label}
@@ -6675,14 +6682,10 @@ ${expenseEntries.length > 0 ? `
 
     const clients = _loadClients();
 
+    // v2: status badge shows "Loading..." initially; license-manager.js batch-validates async
     function _statusBadge(client) {
       if (!client.licenseKey) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">No Key</span>`;
-      const ls = typeof LicenseEngine !== 'undefined' ? LicenseEngine.validate(client.licenseKey) : null;
-      if (!ls) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Unknown</span>`;
-      if (ls.expired) return `<span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Expired</span>`;
-      if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Grace (${ls.graceDaysLeft}d)</span>`;
-      if (ls.daysLeft <= 7) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">${ls.daysLeft}d left</span>`;
-      return `<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Active (${ls.daysLeft}d)</span>`;
+      return `<span data-status-badge style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Loading…</span>`;
     }
 
     function _buildTable(list) {
@@ -6782,18 +6785,16 @@ ${expenseEntries.length > 0 ? `
       SettingsModule.refreshModal();
     };
 
-    window._wfaGenerateLicKey = function() {
-      if (typeof LicenseEngine === 'undefined') { Utils.toast('License engine not loaded', 'error'); return; }
-      const code   = document.getElementById('cm-gen-code')?.value?.trim().toUpperCase() || 'C001';
-      const months = parseInt(document.getElementById('cm-gen-months')?.value || '1');
-      const result = LicenseEngine.generate(code, months);
-      const keyEl  = document.getElementById('cm-gen-result');
-      if (keyEl) { keyEl.value = result.key; keyEl.style.display = 'block'; }
-      navigator.clipboard.writeText(result.key).catch(() => {});
-      Utils.toast('Key generated & copied! Expires: ' + result.expires, 'success');
-      const lkEl = document.getElementById('cm-lickey');
-      if (lkEl && !lkEl.value) lkEl.value = result.key;
-    };
+    // v2: _wfaGenerateLicKey is now async and lives in js/core/license-manager.js
+    // This stub ensures backward compatibility if license-manager.js loads after settings.js
+    if (typeof window._wfaGenerateLicKey === 'undefined') {
+      window._wfaGenerateLicKey = function() {
+        Utils.toast('⏳ License Manager লোড হচ্ছে, একটু অপেক্ষা করুন…', 'warning');
+      };
+    }
+
+    // Trigger async panel-ready hook after DOM renders
+    setTimeout(() => { if (typeof _wfaLicenseManagerOnPanelReady === 'function') _wfaLicenseManagerOnPanelReady(); }, 200);
 
     return `
     <div class="settings-panel ${activeTab === 'client-manager' ? 'active' : ''}" data-panel="client-manager">
@@ -6805,8 +6806,24 @@ ${expenseEntries.length > 0 ? `
       ${_summary(clients)}
 
       <div class="settings-card" style="margin-bottom:20px">
-        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients</div>
-        ${_buildTable(clients)}
+        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
+          <button onclick="_wfaRefreshLicenseStatuses && _wfaRefreshLicenseStatuses()" title="Refresh license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
+        </div>
+        <div id="cm-clients-table">${_buildTable(clients)}</div>
+      </div>
+
+      <div class="settings-card" style="margin-bottom:20px;border:1px solid rgba(123,47,247,0.3)">
+        <div style="font-size:0.8rem;font-weight:700;color:#b57ff7;letter-spacing:1px;margin-bottom:14px;text-transform:uppercase">
+          <i class="fa fa-shield-halved"></i> License Server Admin Secret
+        </div>
+        <p style="font-size:0.78rem;color:#7a8baa;margin-bottom:10px;line-height:1.5">
+          Generate/Revoke করার জন্য এই field-এ আপনার <code style="color:#b57ff7">ADMIN_GEN_SECRET</code> দিন
+          (Supabase Edge Function-এ set করা secret)। এটি শুধু এই ডিভাইসে localStorage-এ সেভ হয়।
+        </p>
+        <div style="display:flex;gap:10px">
+          <input id="cm-admin-secret" type="password" class="form-control" placeholder="ADMIN_GEN_SECRET" style="flex:1;font-family:monospace" />
+          <button onclick="_wfaSaveAdminSecret && _wfaSaveAdminSecret()" style="background:rgba(123,47,247,0.2);border:1px solid rgba(123,47,247,0.4);color:#b57ff7;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Save</button>
+        </div>
       </div>
 
       <div class="settings-card" style="margin-bottom:20px;border:1px solid rgba(123,47,247,0.3)">

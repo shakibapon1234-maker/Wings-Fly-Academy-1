@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260606-cert-login-fix)
-const DEPLOY_ID = '20260619-integrity-hr-staff-fix';
+const DEPLOY_ID = '20260620-license-key-fixes';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
@@ -31,6 +31,11 @@ const STATIC_ASSETS = [
   './js/core/sync-guard.js',
   './js/core/integrity-guard.js',
   './js/core/app.js',
+  // ✅ Fix: license.js was missing from precache — without it, offline PWA
+  // would silently SKIP the license check entirely (app.js guards the call
+  // with `typeof LicenseEngine !== 'undefined'`), letting the app run
+  // without a valid key whenever the file failed to load from network.
+  './js/core/license.js',
   './js/core/utils.js',
   './js/core/lazy-libs.js',
   './js/core/lazy-modules.js',

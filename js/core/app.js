@@ -674,11 +674,12 @@ const App = (() => {
     }
   }
 
-  function showApp(fromLogin = false) {
+  async function showApp(fromLogin = false) {
     // ── License Key Check ─────────────────────────────────────────
     // Admin সবসময় bypass — isAdmin() দিয়ে check (SessionStore + localStorage দুটোই support)
+    // ✅ v2: checkOnStart() is async — server-validated (see js/core/license.js)
     if (typeof LicenseEngine !== 'undefined' && !isAdmin()) {
-      const _allowed = LicenseEngine.checkOnStart();
+      const _allowed = await LicenseEngine.checkOnStart();
       if (!_allowed) return;
     }
     // ──────────────────────────────────────────────────────────────

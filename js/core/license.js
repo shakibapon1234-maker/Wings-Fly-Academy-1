@@ -1,28 +1,44 @@
 // ============================================================
-// Wings Fly Academy — License Key Engine
+// Wings Fly Academy — License Key Engine v2
 // © AcadeFlow — All rights reserved
 // ============================================================
 //
-// KEY FORMAT:  WFA-YYYY-XXXX-CCCC-EM
-//   YYYY = Year (e.g. 2026)
+// KEY FORMAT:  WFA-XXXX-CCCC-YYYYMM-CS
 //   XXXX = Random 4-char hex
 //   CCCC = Customer code (4 chars)
-//   EM   = Expire Month as 2-digit (01-12), year encoded in salt
+//   YYYYMM = Expire year+month
+//   CS   = checksum suffix (cosmetic only in v2 — DB row is the source of truth)
+//
+// ✅ v2: Server-validated (AcadeFlow License Server, a Supabase project
+// SEPARATE from any client's own project — see supabase/license_server_setup.sql).
+// The DB row is now the source of truth, not a local salt+checksum.
+// validate()/getStatus()/checkOnStart() are ASYNC — callers must await them.
 //
 // Usage:
-//   LicenseEngine.generate('GL01', 6)  → new key valid 6 months
-//   LicenseEngine.validate(key)        → { ok, daysLeft, customer, expires }
-//   LicenseEngine.getStatus()          → current saved key status
+//   await LicenseEngine.generate('GL01', 6, adminSecret) → new key valid 6 months
+//   await LicenseEngine.validate(key)                    → { ok, daysLeft, customer, expires }
+//   await LicenseEngine.getStatus()                      → current saved key status
+//   await LicenseEngine.checkOnStart()                   → true if app should proceed
 // ============================================================
 
 const LicenseEngine = (() => {
 
-  // ── Master secret — শুধু আপনি জানেন, কেউ কপি করতে পারবে না
-  const _SALT = 'WFA-ACEFLOW-2026-SHAKIB-MASTER';
-  const _LS_KEY = 'wfa_license_key';
-  const _GRACE_DAYS = 7; // expire-এর পরে ৭ দিন warning, তারপর block
+  const _LS_KEY       = 'wfa_license_key';
+  const _CACHE_KEY    = 'wfa_license_cache'; // last good server result, for offline grace
+  const _GRACE_DAYS   = 7; // expire-এর পরে ৭ দিন warning, তারপর block
+  const _CACHE_MAX_AGE_DAYS = 7; // ফুল অফলাইনে থাকলে কতদিন পুরনো cached result বিশ্বাস করা হবে
 
-  // ── Simple deterministic checksum (tamper detection)
+  // ── TEMPORARY migration-window fallback ─────────────────────────
+  // If the License Server is unreachable AND there's no usable cache yet
+  // (brand-new device, never validated online before), fall back to the
+  // OLD local checksum validator so already-issued keys keep working
+  // while clients get backfilled into the new DB. Remove this whole
+  // block (_SALT, _checksum, _legacyValidate, and its call site below)
+  // after _MIGRATION_FALLBACK_UNTIL — by then every active client should
+  // have validated online at least once and have a fresh cache.
+  const _MIGRATION_FALLBACK_UNTIL = '2026-07-04'; // ~2 weeks after rollout
+  const _SALT = 'WFA-ACEFLOW-2026-SHAKIB-MASTER';
+
   function _checksum(str) {
     let h = 0x811c9dc5;
     for (let i = 0; i < str.length; i++) {
@@ -32,76 +48,29 @@ const LicenseEngine = (() => {
     return (h >>> 0).toString(16).padStart(8, '0').slice(0, 4).toUpperCase();
   }
 
-  // ── Generate a new license key
-  // customerCode: 4-char code (e.g. 'GL01' for Green Leaf #1)
-  // months: validity in months (default 1)
-  function generate(customerCode, months = 1) {
-    const code = (customerCode || 'C001').toUpperCase().slice(0, 4).padEnd(4, '0');
-    const now = new Date();
-    const expDate = new Date(now);
-    expDate.setMonth(expDate.getMonth() + months);
-
-    const year = expDate.getFullYear();
-    const month = String(expDate.getMonth() + 1).padStart(2, '0');
-
-    // Expire date = last day of expiry month (consistent with validate())
-    const lastDay = new Date(year, expDate.getMonth() + 1, 0).getDate();
-    const day = String(lastDay).padStart(2, '0');
-
-    // random part
-    const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
-
-    // encode expiry into payload — day NOT included (validate() derives it from YEARMONTH)
-    const payload = `${year}${month}${code}${rand}${_SALT}`;
-    const cs = _checksum(payload);
-
-    // KEY = WFA-RAND-CODE-YEARMONTH-CS
-    const key = `WFA-${rand}-${code}-${year}${month}-${cs}`;
-    return { key, expires: `${year}-${month}-${day}`, customerCode: code };
-  }
-
-  // ── Validate a key
-  function validate(key) {
-    if (!key || typeof key !== 'string') return { ok: false, reason: 'no_key' };
-
-    const clean = key.trim().toUpperCase().replace(/\s/g, '');
+  function _legacyValidate(clean) {
     const parts = clean.split('-');
-
-    // Expected: WFA-RAND-CODE-YEARMONTH-CS  → 5 parts
-    if (parts.length !== 5 || parts[0] !== 'WFA') {
-      return { ok: false, reason: 'invalid_format' };
-    }
-
+    if (parts.length !== 5 || parts[0] !== 'WFA') return { ok: false, reason: 'invalid_format' };
     const [, rand, code, yearmonth, cs] = parts;
-
-    // yearmonth must be 6 digits: YYYYMM
     if (!/^\d{6}$/.test(yearmonth)) return { ok: false, reason: 'invalid_format' };
 
     const year  = parseInt(yearmonth.slice(0, 4));
     const month = parseInt(yearmonth.slice(4, 6));
-
-    // Reconstruct expire date as last day of the expire month
-    const expDate = new Date(year, month, 0); // day=0 → last day of prev month = last day of our month
-    const day = String(expDate.getDate()).padStart(2, '0');
+    const expDate = new Date(year, month, 0); // last day of that month
+    const day     = String(expDate.getDate()).padStart(2, '0');
     const monthStr = String(month).padStart(2, '0');
 
-    // Verify checksum
     const payload = `${year}${monthStr}${code}${rand}${_SALT}`;
-    const expectedCs = _checksum(payload);
+    if (cs !== _checksum(payload)) return { ok: false, reason: 'tampered' };
 
-    if (cs !== expectedCs) {
-      return { ok: false, reason: 'tampered' };
-    }
-
-    // Check expiry
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     expDate.setHours(23, 59, 59, 0);
 
-    const daysLeft = Math.ceil((expDate - today) / 86400000);
-    const graceEnd = new Date(expDate.getTime() + _GRACE_DAYS * 86400000);
-    const inGrace  = today > expDate && today <= graceEnd;
-    const expired  = today > graceEnd;
+    const daysLeft  = Math.ceil((expDate - today) / 86400000);
+    const graceEnd  = new Date(expDate.getTime() + _GRACE_DAYS * 86400000);
+    const inGrace   = today > expDate && today <= graceEnd;
+    const expired   = today > graceEnd;
 
     return {
       ok: !expired,
@@ -113,12 +82,111 @@ const LicenseEngine = (() => {
       customerCode: code,
       expires: `${year}-${monthStr}-${day}`,
       key: clean,
+      _fromLegacyFallback: true,
     };
+  }
+  // ── end TEMPORARY migration-window fallback ──────────────────────
+
+  function _serverConfig() {
+    const cfg = window.WFA_LICENSE_SERVER || {};
+    return cfg.url && cfg.anonKey ? cfg : null;
+  }
+
+  function _endpoint(cfg, fnName) {
+    return `${cfg.url.replace(/\/$/, '')}/functions/v1/${fnName}`;
+  }
+
+  async function _postToServer(fnName, body, adminSecret) {
+    const cfg = _serverConfig();
+    if (!cfg) throw new Error('license_server_not_configured');
+    const headers = {
+      'Content-Type': 'application/json',
+      apikey:         cfg.anonKey,
+      Authorization:  `Bearer ${cfg.anonKey}`,
+    };
+    if (adminSecret) headers['x-admin-secret'] = adminSecret;
+    const res  = await fetch(_endpoint(cfg, fnName), {
+      method: 'POST',
+      headers,
+      body:   JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data?.error || data?.reason || `http_${res.status}`);
+      err.data  = data;
+      throw err;
+    }
+    return data;
+  }
+
+  function _loadCache() {
+    try { return JSON.parse(localStorage.getItem(_CACHE_KEY) || 'null'); } catch { return null; }
+  }
+  function _saveCache(key, result) {
+    try { localStorage.setItem(_CACHE_KEY, JSON.stringify({ key, result, cachedAt: Date.now() })); } catch {}
+  }
+
+  // ── Generate a new license key (ADMIN ONLY — calls generate-license Edge Fn)
+  // customerCode: 4-char code (e.g. 'GL01' for Green Leaf #1)
+  // months: validity in months (default 1)
+  // adminSecret: the ADMIN_GEN_SECRET configured on the License Server
+  async function generate(customerCode, months = 1, adminSecret) {
+    return _postToServer('generate-license', { customerCode, months }, adminSecret);
+    // returns { key, expires, customerCode }
+  }
+
+  // ── Revoke (or reactivate) a key immediately — ADMIN ONLY, new capability
+  // that the old local-only system never had.
+  async function revoke(key, reactivate = false, adminSecret) {
+    return _postToServer('revoke-license', { key, reactivate }, adminSecret);
+    // returns { key, status }
+  }
+
+  // ── Validate a key — ASYNC. Tries the License Server first (source of
+  // truth), falls back to a recent cached result if offline, and finally
+  // to the legacy local checksum during the migration window only.
+  async function validate(key) {
+    if (!key || typeof key !== 'string') return { ok: false, reason: 'no_key' };
+
+    const clean = key.trim().toUpperCase().replace(/\s/g, '');
+    const parts = clean.split('-');
+    if (parts.length !== 5 || parts[0] !== 'WFA') {
+      return { ok: false, reason: 'invalid_format' };
+    }
+
+    // 1. Server is the source of truth.
+    const cfg = _serverConfig();
+    if (cfg) {
+      try {
+        const result = await _postToServer('validate-license', { key: clean });
+        _saveCache(clean, result);
+        return result;
+      } catch (e) {
+        console.warn('[LicenseEngine] server validate failed, falling back:', e.message);
+      }
+    }
+
+    // 2. Offline / server unreachable → use a recent cached server result.
+    const cache = _loadCache();
+    if (cache && cache.key === clean) {
+      const ageDays = (Date.now() - cache.cachedAt) / 86400000;
+      if (ageDays <= _CACHE_MAX_AGE_DAYS) {
+        return { ...cache.result, _fromCache: true };
+      }
+    }
+
+    // 3. TEMPORARY migration-window fallback (see note above _SALT).
+    if (Date.now() <= new Date(_MIGRATION_FALLBACK_UNTIL).getTime()) {
+      return _legacyValidate(clean);
+    }
+
+    // 4. No server, no usable cache, migration window over → block.
+    return { ok: false, reason: 'no_connection' };
   }
 
   // ── Save key to localStorage
   function save(key) {
-    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch {}
+    try { localStorage.setItem(_LS_KEY, key.trim().toUpperCase()); } catch { /* ignore */ }
   }
 
   // ── Load saved key
@@ -126,17 +194,18 @@ const LicenseEngine = (() => {
     try { return localStorage.getItem(_LS_KEY) || ''; } catch { return ''; }
   }
 
-  // ── Get current saved key status
-  function getStatus() {
+  // ── Get current saved key status — ASYNC
+  async function getStatus() {
     const key = load();
     if (!key) return { ok: false, reason: 'no_key', key: '' };
-    return { ...validate(key), key };
+    const result = await validate(key);
+    return { ...result, key };
   }
 
-  // ── Check on app start — returns true if app should proceed
-  // Shows block screen if expired
-  function checkOnStart() {
-    const status = getStatus();
+  // ── Check on app start — ASYNC. Returns true if app should proceed.
+  // Shows block screen if expired.
+  async function checkOnStart() {
+    const status = await getStatus();
 
     // No key saved yet → show license entry screen
     if (!status.key || status.reason === 'no_key') {
@@ -144,9 +213,13 @@ const LicenseEngine = (() => {
       return false;
     }
 
-    // Key tampered or invalid format
+    // Key tampered, invalid format, or revoked
     if (status.reason === 'tampered' || status.reason === 'invalid_format') {
       _showBlockScreen('❌ Invalid License Key', 'This license key is not valid. Please contact AcadeFlow support.');
+      return false;
+    }
+    if (status.reason === 'revoked') {
+      _showBlockScreen('🚫 License Revoked', 'This license key has been revoked. Please contact AcadeFlow support.');
       return false;
     }
 
@@ -214,7 +287,7 @@ const LicenseEngine = (() => {
           ✅ Activate License
         </button>
         <div style="margin-top:20px;color:#7a8baa;font-size:0.78rem">
-          AcadeFlow Support: 
+          AcadeFlow Support:
           <a href="https://wa.me/8801757208244" target="_blank" style="color:#00d9ff">WhatsApp</a>
         </div>
       </div>
@@ -222,26 +295,34 @@ const LicenseEngine = (() => {
 
     document.body.appendChild(ov);
 
-    document.getElementById('wfa-license-submit').addEventListener('click', () => {
-      const val = document.getElementById('wfa-license-input').value;
-      const result = validate(val);
+    const submitBtn = document.getElementById('wfa-license-submit');
+    submitBtn.addEventListener('click', async () => {
+      const val   = document.getElementById('wfa-license-input').value;
       const errEl = document.getElementById('wfa-license-err');
+      submitBtn.disabled    = true;
+      submitBtn.textContent = '⏳ যাচাই হচ্ছে...';
+
+      const result = await validate(val);
 
       if (result.ok || result.inGrace) {
         save(val);
         ov.remove();
-        // Reload so the app starts fresh with the valid key
         window.location.reload();
-      } else {
-        const msgs = {
-          'no_key':         'Please enter your license key.',
-          'invalid_format': 'Invalid key format. Please check and try again.',
-          'tampered':       'This key is not valid. Please contact support.',
-        };
-        errEl.textContent = result.expired
-          ? `❌ This key expired on ${result.expires}. Please renew.`
-          : (msgs[result.reason] || '❌ Invalid key. Please contact AcadeFlow support.');
+        return;
       }
+
+      submitBtn.disabled    = false;
+      submitBtn.textContent = '✅ Activate License';
+      const msgs = {
+        'no_key':         'Please enter your license key.',
+        'invalid_format': 'Invalid key format. Please check and try again.',
+        'tampered':       'This key is not valid. Please contact support.',
+        'revoked':        'This key has been revoked. Please contact support.',
+        'no_connection':  'ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না। সংযোগ চেক করে আবার চেষ্টা করুন।',
+      };
+      errEl.textContent = result.expired
+        ? `❌ This key expired on ${result.expires}. Please renew.`
+        : (msgs[result.reason] || '❌ Invalid key. Please contact AcadeFlow support.');
     });
 
     // Allow Enter key
@@ -250,7 +331,7 @@ const LicenseEngine = (() => {
     });
   }
 
-  // ── UI: Hard block screen (expired past grace)
+  // ── UI: Hard block screen (expired past grace / revoked / invalid)
   function _showBlockScreen(title, message) {
     const existing = document.getElementById('wfa-license-overlay');
     if (existing) existing.remove();
@@ -287,17 +368,27 @@ const LicenseEngine = (() => {
     `;
     document.body.appendChild(ov);
 
-    document.getElementById('wfa-newkey-btn').addEventListener('click', () => {
-      const val = document.getElementById('wfa-newkey-input').value;
-      const result = validate(val);
+    const newBtn = document.getElementById('wfa-newkey-btn');
+    newBtn.addEventListener('click', async () => {
+      const val   = document.getElementById('wfa-newkey-input').value;
+      const errEl = document.getElementById('wfa-newkey-err');
+      newBtn.disabled    = true;
+      newBtn.textContent = '⏳ যাচাই হচ্ছে...';
+
+      const result = await validate(val);
+
       if (result.ok || result.inGrace) {
         save(val);
         window.location.reload();
-      } else {
-        document.getElementById('wfa-newkey-err').textContent = result.expired
-          ? `This key also expired on ${result.expires}.`
-          : '❌ Invalid key. Please contact AcadeFlow support.';
+        return;
       }
+      newBtn.disabled    = false;
+      newBtn.textContent = '✅ Activate';
+      errEl.textContent  = result.expired
+        ? `This key also expired on ${result.expires}.`
+        : (result.reason === 'no_connection'
+            ? 'ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না।'
+            : '❌ Invalid key. Please contact AcadeFlow support.');
     });
   }
 
@@ -335,7 +426,7 @@ const LicenseEngine = (() => {
   }
 
   // ── Public API
-  return { generate, validate, save, load, getStatus, checkOnStart };
+  return { generate, revoke, validate, save, load, getStatus, checkOnStart };
 
 })();
 

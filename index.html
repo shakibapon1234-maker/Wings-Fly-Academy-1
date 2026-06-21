@@ -509,8 +509,14 @@
   <script src="js/core/supabase-config.js" defer></script>
   <script src="js/core/supabase-sync.js" defer></script>
   <script src="js/core/sync-guard.js" defer></script>
+  <!-- ✅ License Server v2: central AcadeFlow license config (separate from client's own Supabase) -->
+  <script src="js/core/license-server-config.stub.js" defer></script>
+  <!-- ✅ Override: copy license-server-config.example.js → license-server-config.js (gitignored) and add tag here -->
+  <!-- <script src="js/core/license-server-config.js" defer></script> -->
   <script src="js/core/license.js" defer></script>
   <script src="js/core/app.js" defer></script>
+  <!-- ✅ License Manager v2: generate/revoke/batch-validate — extracted from settings.js -->
+  <script src="js/core/license-manager.js" defer></script>
 
   <!-- UI — login only; dashboard/settings/modules lazy-loaded via lazy-modules.js -->
   <script src="js/ui/login.js" defer></script>
