@@ -10,8 +10,9 @@ const LazyLibs = (() => {
   function _resolve(path) {
     const rel = String(path || '').replace(/^\.\//, '').replace(/^\//, '');
     if (/^https?:\/\//i.test(rel)) return rel;
+    const origin = window.location.origin === 'null' ? 'file://' : window.location.origin;
     const basePath = (window.location.pathname || '/').replace(/\/[^/]*$/, '/');
-    return new URL(rel, window.location.origin + basePath).href;
+    return new URL(rel, origin + basePath).href;
   }
 
   function _loadScript(local, cdn, isReady) {

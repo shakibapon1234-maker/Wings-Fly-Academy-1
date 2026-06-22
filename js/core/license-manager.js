@@ -118,7 +118,6 @@
       isRevoked = (status.reason === 'revoked');
     } catch { /* assume not revoked */ }
 
-    const action      = isRevoked ? 'reactivate' : 'revoke';
     const actionLabel = isRevoked ? 'Reactivate' : 'Revoke';
     if (!confirm(`${c.academy || 'এই client'}-এর license key ${actionLabel} করবেন?`)) return;
 
@@ -149,7 +148,6 @@
     const keyed = list.filter(c => c.licenseKey);
     if (!keyed.length) return;
 
-    const total    = keyed.length;
     let processed  = 0;
 
     for (const c of keyed) {
@@ -195,7 +193,7 @@
     // Restore saved admin secret into the input
     _restoreAdminSecret();
     // Kick off async batch status refresh (non-blocking)
-    setTimeout(() => _wfaRefreshLicenseStatuses(), 400);
+    setTimeout(() => window._wfaRefreshLicenseStatuses(), 400);
   };
 
   console.log('[LicenseManager v2] loaded ✓');

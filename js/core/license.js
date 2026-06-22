@@ -123,7 +123,7 @@ const LicenseEngine = (() => {
     try { return JSON.parse(localStorage.getItem(_CACHE_KEY) || 'null'); } catch { return null; }
   }
   function _saveCache(key, result) {
-    try { localStorage.setItem(_CACHE_KEY, JSON.stringify({ key, result, cachedAt: Date.now() })); } catch {}
+    try { localStorage.setItem(_CACHE_KEY, JSON.stringify({ key, result, cachedAt: Date.now() })); } catch { /* ignore */ }
   }
 
   // ── Generate a new license key (ADMIN ONLY — calls generate-license Edge Fn)

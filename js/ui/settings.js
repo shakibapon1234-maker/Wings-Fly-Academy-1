@@ -6794,7 +6794,7 @@ ${expenseEntries.length > 0 ? `
     }
 
     // Trigger async panel-ready hook after DOM renders
-    setTimeout(() => { if (typeof _wfaLicenseManagerOnPanelReady === 'function') _wfaLicenseManagerOnPanelReady(); }, 200);
+    setTimeout(() => { if (typeof window._wfaLicenseManagerOnPanelReady === 'function') window._wfaLicenseManagerOnPanelReady(); }, 200);
 
     return `
     <div class="settings-panel ${activeTab === 'client-manager' ? 'active' : ''}" data-panel="client-manager">
