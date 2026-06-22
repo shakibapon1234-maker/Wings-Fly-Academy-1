@@ -432,6 +432,11 @@ const IntegrityGuard = (() => {
           if (!navigator.onLine) {
             return { ok: true, detail: 'Skipped — offline (cannot HEAD-check URLs)' };
           }
+          // file:// protocol: window.location.origin === "null" → fetch() always fails.
+          // The files are on disk and will be verifiable when served over HTTP/HTTPS.
+          if (window.location.protocol === 'file:') {
+            return { ok: true, detail: 'Skipped — file:// protocol (files verified on disk; deploy to HTTP to enable live check)' };
+          }
           try {
             const files = [
               '/admin.html',
