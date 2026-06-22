@@ -145,6 +145,19 @@ try {
   console.error(`❌ Failed to remove supabase-secrets.js from build: ${e.message}`);
 }
 
+// ── C2 Security Fix: Remove license-server-config.js from build output ──────
+// license-server-config.js contains the real License Server URL + anonKey.
+// It must NEVER ship in the www/ bundle. The stub.js (safe empty object) stays.
+const licCfgInBuild = path.join(destDir, 'js', 'core', 'license-server-config.js');
+try {
+  if (fs.existsSync(licCfgInBuild)) {
+    fs.rmSync(licCfgInBuild);
+    console.log('🔒 Removed js/core/license-server-config.js from build (credentials must not ship)');
+  }
+} catch (e) {
+  console.error(`❌ Failed to remove license-server-config.js from build: ${e.message}`);
+}
+
 if (failed > 0) {
   console.error(`\n❌ Build completed WITH ERRORS. Check the log above.`);
   process.exitCode = 1;
