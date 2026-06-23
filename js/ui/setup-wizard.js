@@ -169,6 +169,21 @@ const SetupWizard = (() => {
       return;
     }
 
+    // ── Customer Code binding check ──────────────────────────────
+    // Key format: WFA-RAND-CODE-YYYYMM-CS  (index 2 = customer code)
+    const secrets = window.WFA_SUPABASE_SECRETS;
+    if (secrets && secrets.customerCode) {
+      const parts = key.split('-');
+      const codeInKey = parts.length >= 3 ? parts[2] : '';
+      if (codeInKey !== secrets.customerCode) {
+        _showError(errorEl,
+          `এই license key এই deployment-এর জন্য নয়। ` +
+          `আপনার provider থেকে "${secrets.customerCode}" কোডের key নিন।`
+        );
+        return;
+      }
+    }
+
     // Show loading
     btnText.classList.add('hidden');
     btnLoader.classList.remove('hidden');
@@ -206,6 +221,7 @@ const SetupWizard = (() => {
       btnLoader.classList.add('hidden');
     }
   }
+
 
   async function _createAdmin() {
     const academyName    = (document.getElementById('sw-academy-name').value || '').trim();
