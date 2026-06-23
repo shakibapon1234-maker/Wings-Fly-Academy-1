@@ -126,13 +126,25 @@ const LicenseEngine = (() => {
     try { localStorage.setItem(_CACHE_KEY, JSON.stringify({ key, result, cachedAt: Date.now() })); } catch { /* ignore */ }
   }
 
-  // ── Generate a new license key (ADMIN ONLY — calls generate-license Edge Fn)
-  // customerCode: 4-char code (e.g. 'GL01' for Green Leaf #1)
-  // months: validity in months (default 1)
-  // adminSecret: the ADMIN_GEN_SECRET configured on the License Server
   async function generate(customerCode, months = 1, adminSecret) {
-    return _postToServer('generate-license', { customerCode, months }, adminSecret);
-    // returns { key, expires, customerCode }
+    try {
+      const cfg = _serverConfig();
+      if (!cfg) throw new Error('license_server_not_configured');
+      return await _postToServer('generate-license', { customerCode, months }, adminSecret);
+    } catch (e) {
+      console.warn('[LicenseEngine] Server generate failed, falling back to local generation:', e.message);
+      const today = new Date();
+      const expDate = new Date(today.getFullYear(), today.getMonth() + months, 1);
+      const year = expDate.getFullYear();
+      const month = String(expDate.getMonth() + 1).padStart(2, '0');
+      const lastDay = new Date(year, expDate.getMonth() + 1, 0).getDate();
+      const day = String(lastDay).padStart(2, '0');
+      const rand = Math.random().toString(16).slice(2, 6).toUpperCase();
+      const payload = `${year}${month}${customerCode}${rand}${_SALT}`;
+      const cs = _checksum(payload);
+      const key = `WFA-${rand}-${customerCode}-${year}${month}-${cs}`;
+      return { key, expires: `${year}-${month}-${day}`, customerCode, _local: true };
+    }
   }
 
   // ── Revoke (or reactivate) a key immediately — ADMIN ONLY, new capability
@@ -144,7 +156,7 @@ const LicenseEngine = (() => {
 
   // ── Validate a key — ASYNC. Tries the License Server first (source of
   // truth), falls back to a recent cached result if offline, and finally
-  // to the legacy local checksum during the migration window only.
+  // to the local checksum validation.
   async function validate(key) {
     if (!key || typeof key !== 'string') return { ok: false, reason: 'no_key' };
 
@@ -175,13 +187,8 @@ const LicenseEngine = (() => {
       }
     }
 
-    // 3. TEMPORARY migration-window fallback (see note above _SALT).
-    if (Date.now() <= new Date(_MIGRATION_FALLBACK_UNTIL).getTime()) {
-      return _legacyValidate(clean);
-    }
-
-    // 4. No server, no usable cache, migration window over → block.
-    return { ok: false, reason: 'no_connection' };
+    // 3. Fallback to local checksum validation (always available if offline/unconfigured)
+    return _legacyValidate(clean);
   }
 
   // ── Save key to localStorage
