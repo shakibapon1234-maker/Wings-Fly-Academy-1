@@ -80,6 +80,10 @@
       // Auto-fill the license key field if empty
       const lkEl = document.getElementById('cm-lickey');
       if (lkEl && !lkEl.value) lkEl.value = result.key;
+      // Show the assign-to-client dropdown
+      if (typeof window._wfaPopulateAssignDropdown === 'function') {
+        window._wfaPopulateAssignDropdown(result.key);
+      }
     } catch (err) {
       console.error('[LicenseManager] generate failed:', err);
       if (err.message === 'license_server_not_configured') {

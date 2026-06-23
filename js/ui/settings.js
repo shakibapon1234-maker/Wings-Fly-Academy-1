@@ -142,7 +142,7 @@ const SettingsModule = (() => {
       { id: 'security',       icon: 'fa-lock',                label: 'Security & Access' },
       // ✅ Fix: Client Manager is admin-only content (panelClientManager renders
       // empty for non-admins) — hide the tab itself instead of leaving a dead entry.
-      { id: 'client-manager', icon: 'fa-id-card',             label: 'Client Manager', adminOnly: true },
+      { id: 'client-manager', icon: 'fa-id-card',             label: 'Client Manager', adminOnly: true, superAdminOnly: true },
       { id: 'activity',       icon: 'fa-list-check',          label: 'Activity Log' },
       { id: 'recycle',        icon: 'fa-trash-can',           label: 'Recycle Bin' },
       { id: 'sync',           icon: 'fa-magnifying-glass',    label: 'Sync Diagnostic' },
@@ -153,8 +153,10 @@ const SettingsModule = (() => {
       { id: 'syncguard',      icon: 'fa-shield-halved',       label: 'Sync Guard' },
       { id: 'ai-assistant',   icon: 'fa-robot',               label: 'AI Assistant' },
     ];
+    const isClientDeployment = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.customerCode;
     return tabs
       .filter(t => !t.adminOnly || isAdm)
+      .filter(t => !t.superAdminOnly || !isClientDeployment)
       .map(t => `
       <button type="button" class="settings-tab ${activeTab === t.id ? 'active' : ''}"
               data-tab="${t.id}">
@@ -6668,6 +6670,9 @@ ${expenseEntries.length > 0 ? `
   // All client info + License Key generator
   // ================================================================
   function panelClientManager() {
+    const isClientDeployment = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.customerCode;
+    if (isClientDeployment) return `<div class="settings-panel" data-panel="client-manager"></div>`;
+
     const isAdm = (typeof App !== 'undefined' && App.isAdmin && App.isAdmin()) ||
                   (localStorage.getItem('wfa_user_role') === 'admin');
     if (!isAdm) return `<div class="settings-panel" data-panel="client-manager"></div>`;
@@ -6694,6 +6699,7 @@ ${expenseEntries.length > 0 ? `
         <table style="width:100%;border-collapse:collapse;font-size:0.82rem">
           <thead><tr style="border-bottom:1px solid rgba(0,217,255,0.15)">
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">#</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Code</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Academy</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Owner</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Phone</th>
@@ -6706,6 +6712,7 @@ ${expenseEntries.length > 0 ? `
             ${list.map((c, i) => `
               <tr style="border-bottom:1px solid rgba(255,255,255,0.04)" onmouseenter="this.style.background='rgba(0,217,255,0.04)'" onmouseleave="this.style.background='none'">
                 <td style="padding:9px 6px;color:#7a8baa">${i+1}</td>
+                <td style="padding:9px 6px;color:#00d9ff;font-family:monospace;font-weight:700">${Utils.esc(c.customerCode||'-')}</td>
                 <td style="padding:9px 6px;color:#fff;font-weight:600">${Utils.esc(c.academy||'-')}</td>
                 <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.owner||'-')}</td>
                 <td style="padding:9px 6px;color:#ccc">${Utils.esc(c.phone||'-')}</td>
@@ -6747,16 +6754,19 @@ ${expenseEntries.length > 0 ? `
 
     window._wfaClientSave = function() {
       const id = document.getElementById('cm-edit-id')?.value;
+      const rawCode = (document.getElementById('cm-customer-code')?.value?.trim()?.toUpperCase()) || '';
       const obj = {
-        id:          id || Date.now().toString(36),
-        academy:     document.getElementById('cm-academy')?.value?.trim()  || '',
-        owner:       document.getElementById('cm-owner')?.value?.trim()    || '',
-        phone:       document.getElementById('cm-phone')?.value?.trim()    || '',
-        email:       document.getElementById('cm-email')?.value?.trim()    || '',
-        package:     document.getElementById('cm-package')?.value          || 'Basic',
-        licenseKey:  (document.getElementById('cm-lickey')?.value?.trim()?.toUpperCase()) || '',
-        supabaseUrl: document.getElementById('cm-supurl')?.value?.trim()   || '',
-        notes:       document.getElementById('cm-notes')?.value?.trim()    || '',
+        id:           id || Date.now().toString(36),
+        customerCode: rawCode,
+        academy:      document.getElementById('cm-academy')?.value?.trim()  || '',
+        owner:        document.getElementById('cm-owner')?.value?.trim()    || '',
+        phone:        document.getElementById('cm-phone')?.value?.trim()    || '',
+        email:        document.getElementById('cm-email')?.value?.trim()    || '',
+        package:      document.getElementById('cm-package')?.value          || 'Basic',
+        licenseKey:   (document.getElementById('cm-lickey')?.value?.trim()?.toUpperCase()) || '',
+        supabaseUrl:  document.getElementById('cm-supurl')?.value?.trim()   || '',
+        supabaseKey:  document.getElementById('cm-supkey')?.value?.trim()   || '',
+        notes:        document.getElementById('cm-notes')?.value?.trim()    || '',
       };
       if (!id) obj.createdAt = new Date().toISOString();
       let list = _loadClients();
@@ -6770,10 +6780,23 @@ ${expenseEntries.length > 0 ? `
     window._wfaClientEdit = function(idx) {
       const list = _loadClients();
       const c = list[idx]; if (!c) return;
-      const map = { 'cm-edit-id': c.id, 'cm-academy': c.academy, 'cm-owner': c.owner,
-        'cm-phone': c.phone, 'cm-email': c.email, 'cm-package': c.package,
-        'cm-lickey': c.licenseKey, 'cm-supurl': c.supabaseUrl, 'cm-notes': c.notes };
+      const map = {
+        'cm-edit-id':       c.id,
+        'cm-customer-code': c.customerCode,
+        'cm-academy':       c.academy,
+        'cm-owner':         c.owner,
+        'cm-phone':         c.phone,
+        'cm-email':         c.email,
+        'cm-package':       c.package,
+        'cm-lickey':        c.licenseKey,
+        'cm-supurl':        c.supabaseUrl,
+        'cm-supkey':        c.supabaseKey,
+        'cm-notes':         c.notes,
+      };
       Object.entries(map).forEach(([id, val]) => { const el = document.getElementById(id); if (el) el.value = val || ''; });
+      // Auto-fill the generator code from this client's customerCode
+      const genCode = document.getElementById('cm-gen-code');
+      if (genCode) genCode.value = c.customerCode || '';
       document.getElementById('cm-form-title').textContent = 'Edit: ' + (c.academy || 'Client');
       document.getElementById('cm-form-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -6783,6 +6806,40 @@ ${expenseEntries.length > 0 ? `
       const list = _loadClients(); list.splice(idx, 1); _saveClients(list);
       Utils.toast('Client deleted.', 'warning');
       SettingsModule.refreshModal();
+    };
+
+    // Assign a generated key to a selected client
+    window._wfaAssignKeyToClient = function() {
+      const sel  = document.getElementById('cm-assign-client-select');
+      const key  = document.getElementById('cm-gen-result')?.value?.trim();
+      if (!sel || !sel.value || !key) { Utils.toast('Client নির্বাচন করুন এবং আগে key generate করুন', 'warning'); return; }
+      const list = _loadClients();
+      const idx  = list.findIndex(c => c.id === sel.value);
+      if (idx < 0) { Utils.toast('Client পাওয়া যায়নি', 'error'); return; }
+      list[idx].licenseKey = key;
+      _saveClients(list);
+      Utils.toast(`✅ Key assigned to "${list[idx].academy || list[idx].customerCode}"`, 'success');
+      // Also fill the form fields for quick editing
+      const licEl = document.getElementById('cm-lickey');
+      if (licEl) licEl.value = key;
+      SettingsModule.refreshModal();
+    };
+
+    // Populate assign-dropdown helper (called after key generation)
+    window._wfaPopulateAssignDropdown = function(generatedKey) {
+      const row = document.getElementById('cm-assign-key-row');
+      const sel = document.getElementById('cm-assign-client-select');
+      if (!sel || !row) return;
+      const list = _loadClients();
+      // Extract customer code from key e.g. WFA-RAND-CODE-YYYYMM-CS
+      const parts = generatedKey ? generatedKey.split('-') : [];
+      const codeInKey = parts.length >= 3 ? parts[2] : '';
+      sel.innerHTML = '<option value="">-- Client নির্বাচন করুন --</option>' +
+        list.map(c => {
+          const match = codeInKey && c.customerCode === codeInKey;
+          return `<option value="${c.id}" ${match ? 'selected' : ''}>${c.customerCode ? '['+c.customerCode+'] ' : ''}${c.academy || c.owner || c.id}</option>`;
+        }).join('');
+      row.style.display = list.length ? 'block' : 'none';
     };
 
     // v2: _wfaGenerateLicKey is now async and lives in js/core/license-manager.js
@@ -6851,6 +6908,15 @@ ${expenseEntries.length > 0 ? `
         <input id="cm-gen-result" type="text" readonly
           style="display:none;width:100%;padding:10px 14px;border-radius:8px;background:rgba(123,47,247,0.1);border:1px solid rgba(123,47,247,0.4);color:#b57ff7;font-family:monospace;font-size:0.9rem;text-align:center;cursor:pointer;box-sizing:border-box"
           onclick="navigator.clipboard.writeText(this.value);Utils.toast('Copied!','success')" />
+        <div id="cm-assign-key-row" style="display:none;margin-top:8px;padding:10px 12px;background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.2);border-radius:8px">
+          <p style="font-size:0.78rem;color:#7a8baa;margin:0 0 8px 0">এই key কোন client-এ assign করবেন?</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <select id="cm-assign-client-select" class="form-control" style="flex:1;font-size:0.82rem">
+              <option value="">-- Client নির্বাচন করুন --</option>
+            </select>
+            <button onclick="_wfaAssignKeyToClient()" style="background:linear-gradient(135deg,#00d9ff,#7b2ff7);border:none;color:#fff;padding:9px 16px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap;font-size:0.82rem">✅ Assign</button>
+          </div>
+        </div>
       </div>
 
       <div class="settings-card" id="cm-form-section" style="border:1px solid rgba(0,217,255,0.2)">
@@ -6859,6 +6925,12 @@ ${expenseEntries.length > 0 ? `
         </div>
         <input type="hidden" id="cm-edit-id" value="" />
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Customer Code (4 chars) *</label>
+            <input id="cm-customer-code" type="text" maxlength="4" class="form-control" placeholder="e.g. GL01"
+              style="text-transform:uppercase;font-family:monospace;font-weight:700;color:#00d9ff"
+              oninput="this.value=this.value.toUpperCase();const g=document.getElementById('cm-gen-code');if(g)g.value=this.value;" />
+          </div>
           <div>
             <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Academy Name *</label>
             <input id="cm-academy" type="text" class="form-control" placeholder="Green Leaf Academy" />
@@ -6881,14 +6953,20 @@ ${expenseEntries.length > 0 ? `
               <option>Basic</option><option>Pro</option><option>Custom</option>
             </select>
           </div>
-          <div>
+          <div style="grid-column:1/-1">
             <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">License Key</label>
             <input id="cm-lickey" type="text" class="form-control" placeholder="WFA-XXXX-XXXX-XXXXXX-XXXX" style="font-family:monospace;font-size:0.78rem" />
           </div>
         </div>
-        <div style="margin-bottom:12px">
-          <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Client Supabase URL (optional)</label>
-          <input id="cm-supurl" type="text" class="form-control" placeholder="https://xxxx.supabase.co" />
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Client Supabase URL</label>
+            <input id="cm-supurl" type="text" class="form-control" placeholder="https://xxxx.supabase.co" />
+          </div>
+          <div>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Client Supabase Anon Key</label>
+            <input id="cm-supkey" type="text" class="form-control" placeholder="eyJhbGci..." style="font-size:0.75rem;font-family:monospace" />
+          </div>
         </div>
         <div style="margin-bottom:16px">
           <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Notes / Customization Requests</label>
@@ -6898,7 +6976,7 @@ ${expenseEntries.length > 0 ? `
           <button onclick="_wfaClientSave()" style="flex:1;background:linear-gradient(135deg,rgba(0,217,255,0.8),rgba(123,47,247,0.8));border:none;color:#fff;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">
             Save Client
           </button>
-          <button onclick="document.getElementById('cm-edit-id').value='';['cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='Add New Client';"
+          <button onclick="document.getElementById('cm-edit-id').value='';['cm-customer-code','cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-supkey','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='Add New Client';"
             style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:8px;cursor:pointer;font-weight:600">
             Clear
           </button>
