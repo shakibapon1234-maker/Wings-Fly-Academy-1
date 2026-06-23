@@ -1,0 +1,1 @@
+window.WFA_AUTO_DEPLOYED_CLIENTS = [];

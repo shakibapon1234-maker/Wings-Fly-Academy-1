@@ -129,6 +129,46 @@ $STUB_PATH = Join-Path $CLIENT_DIR "js\core\supabase-secrets.stub.js"
 $STUB | Set-Content -Path $STUB_PATH -Encoding UTF8
 Write-OK "Config written: js/core/supabase-secrets.stub.js"
 
+# ── STEP 5B: Write to clients-metadata.js in main project ──────
+Write-Host "Updating main project clients-metadata.js..."
+$META_PATH = Join-Path $WFA_ROOT "js\core\clients-metadata.js"
+$existing_clients = @()
+if (Test-Path $META_PATH) {
+    $js_content = Get-Content -Path $META_PATH -Raw -Encoding UTF8
+    if ($js_content -match '\[([\s\S]*)\]') {
+        $json_str = "[" + $Matches[1] + "]"
+        try {
+            $existing_clients = ConvertFrom-Json $json_str
+            if ($existing_clients -eq $null) { $existing_clients = @() }
+        } catch {
+            $existing_clients = @()
+        }
+    }
+}
+
+# Ensure it behaves as an array
+if ($existing_clients -isnot [array]) {
+    $existing_clients = @($existing_clients)
+}
+
+$new_client = [PSCustomObject]@{
+    id           = [Guid]::NewGuid().ToString()
+    customerCode = $CODE
+    academy      = $ACADEMY
+    package      = $PKG
+    licenseKey   = $LICKEY
+    supabaseUrl  = $URL
+    supabaseKey  = $KEY
+    createdAt    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+    notes        = "Auto-deployed via script"
+}
+
+$existing_clients += $new_client
+$new_json = ConvertTo-Json $existing_clients -Depth 10
+$new_meta_content = "window.WFA_AUTO_DEPLOYED_CLIENTS = $new_json;"
+$new_meta_content | Set-Content -Path $META_PATH -Encoding UTF8
+Write-OK "Clients metadata updated in main project: js/core/clients-metadata.js"
+
 # ── STEP 6: Create .gitattributes ─────────────────────────────
 $GA = "* text=auto`n*.js text eol=lf`n*.html text eol=lf`n*.css text eol=lf"
 $GA | Set-Content -Path (Join-Path $CLIENT_DIR ".gitattributes") -Encoding UTF8

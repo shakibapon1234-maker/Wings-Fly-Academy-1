@@ -6679,7 +6679,35 @@ ${expenseEntries.length > 0 ? `
 
     const _CLIENTS_KEY = 'wfa_acadeflow_clients';
     function _loadClients() {
-      try { return JSON.parse(localStorage.getItem(_CLIENTS_KEY) || '[]'); } catch { return []; }
+      let local = [];
+      try { local = JSON.parse(localStorage.getItem(_CLIENTS_KEY) || '[]'); } catch { local = []; }
+      
+      const autoDeployed = window.WFA_AUTO_DEPLOYED_CLIENTS || [];
+      let changed = false;
+      autoDeployed.forEach(ac => {
+        const exists = local.some(lc => lc.customerCode === ac.customerCode);
+        if (!exists) {
+          local.push({
+            id: ac.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+            customerCode: ac.customerCode,
+            academy: ac.academy,
+            owner: ac.owner || '',
+            phone: ac.phone || '',
+            email: ac.email || '',
+            package: ac.package || 'Basic',
+            licenseKey: ac.licenseKey || '',
+            supabaseUrl: ac.supabaseUrl || '',
+            supabaseKey: ac.supabaseKey || '',
+            notes: ac.notes || 'Auto-deployed via script',
+            createdAt: ac.createdAt || new Date().toISOString()
+          });
+          changed = true;
+        }
+      });
+      if (changed) {
+        try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(local)); } catch (e) {}
+      }
+      return local;
     }
     function _saveClients(arr) {
       try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(arr)); } catch { /* ignore */ }
