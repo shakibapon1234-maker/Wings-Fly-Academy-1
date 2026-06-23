@@ -1403,7 +1403,7 @@ const App = (() => {
     // checks fail silently. onReady() guarantees the in-memory cache
     // is populated before any auth logic runs.
     if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
-    WFA_IDB.onReady(() => {
+    WFA_IDB.onReady(async () => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
       cleanupDuplicateSettings();
       // ডায়াগনস্টিক টেস্টের ডামি/লেফটওভার রেকর্ডগুলো অটোমেটিক ক্লিনআপ করো
@@ -1422,6 +1422,19 @@ const App = (() => {
         }
         showApp(false);
       } else {
+        // ✅ First-Time Setup Wizard check for new client deployments
+        // Show wizard if: SetupWizard is loaded AND no admin password exists anywhere
+        if (typeof SetupWizard !== 'undefined' && SetupWizard.isFirstTimeSetup) {
+          try {
+            const needsSetup = await SetupWizard.isFirstTimeSetup();
+            if (needsSetup) {
+              SetupWizard.show(() => showLogin());
+              return;
+            }
+          } catch (e) {
+            console.warn('[App] Setup wizard check failed, falling back to login:', e.message);
+          }
+        }
         showLogin();
       }
       updateNotifCount();
@@ -1436,6 +1449,7 @@ const App = (() => {
       updateNotifCount();
     }
   }
+
 
   return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
 })();
