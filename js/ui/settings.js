@@ -6821,7 +6821,7 @@ ${expenseEntries.length > 0 ? `
           (Supabase Edge Function-এ set করা secret)। এটি শুধু এই ডিভাইসে localStorage-এ সেভ হয়।
         </p>
         <div style="display:flex;gap:10px">
-          <input id="cm-admin-secret" type="password" class="form-control" placeholder="ADMIN_GEN_SECRET" style="flex:1;font-family:monospace" />
+          <input id="cm-admin-secret" type="text" autocomplete="off" class="form-control" placeholder="ADMIN_GEN_SECRET" style="flex:1;font-family:monospace; -webkit-text-security: disc; text-security: disc;" />
           <button onclick="_wfaSaveAdminSecret && _wfaSaveAdminSecret()" style="background:rgba(123,47,247,0.2);border:1px solid rgba(123,47,247,0.4);color:#b57ff7;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Save</button>
         </div>
       </div>

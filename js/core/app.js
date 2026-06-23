@@ -283,39 +283,106 @@ const App = (() => {
     // ── Admin login ──────────────────────────────────────────
     if (normalizedUsername === 'admin' || normalizedUsername === '') {
       let adminOk;
-      const hashedStoredPw = await _ensureHashedAdminPassword(settings);
+      let hashedStoredPw = await _ensureHashedAdminPassword(settings);
 
       if (!hashedStoredPw) {
-        // ✅ Security Fix: Genuine first-time setup ONLY if absolutely no data exists anywhere.
-        // Check all major tables to prevent password bypass on a fresh browser/device.
-        const hasAnyData =
-          (SupabaseSync.getAll(DB.students   ).length > 0) ||
-          (SupabaseSync.getAll(DB.finance    ).length > 0) ||
-          (SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts').length > 0);
+        // ✅ Security Fix v2: Before allowing first-time setup bypass, ALWAYS try to
+        // fetch settings directly from Supabase. This prevents the race condition in
+        // incognito/new browsers where IDB is empty but the account already exists.
+        if (window.supabaseClient) {
+          try {
+            const { data: remoteSettings, error: remoteErr } = await window.supabaseClient
+              .from('settings')
+              .select('admin_password,id')
+              .limit(1)
+              .maybeSingle();
 
-        if (hasAnyData) {
-          // Data exists but settings not loaded yet — block and wait for sync.
-          const retryKey = '_loginRetryCount';
-          window[retryKey] = (window[retryKey] || 0) + 1;
-          const waitSec = Math.min(5 * window[retryKey], 30);
-          const errEl = document.getElementById('login-error');
-          if (errEl) {
-            errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]})</small>`;
-            errEl.style.display = 'block';
+            if (!remoteErr && remoteSettings && remoteSettings.admin_password) {
+              // Found password in Supabase — use it for verification
+              const remotePw = remoteSettings.admin_password;
+              const remoteHashed = _isHashedPw(remotePw) ? remotePw : await _hashPw(remotePw);
+              const inputHash = await _hashPw(password);
+              adminOk = inputHash === remoteHashed;
+
+              if (adminOk) {
+                // Cache into local settings for this session
+                settings.admin_password = remoteHashed;
+                settings.id = remoteSettings.id || settings.id;
+              } else {
+                // Wrong password — block immediately, do NOT fall through to first-time setup
+                const errEl = document.getElementById('login-error');
+                if (errEl) {
+                  errEl.textContent = 'Incorrect password.';
+                  errEl.classList.remove('hidden');
+                  errEl.style.display = 'block';
+                }
+                return false;
+              }
+            } else if (!remoteErr && !remoteSettings) {
+              // No settings row at all in Supabase — genuine first-time setup is OK
+              adminOk = !!password;
+              if (adminOk) {
+                const newHash = await _hashPw(password);
+                settings.admin_password = newHash;
+                if (settings.id) {
+                  SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
+                } else {
+                  settings.id = SupabaseSync.generateId();
+                  SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
+                }
+              }
+            } else {
+              // Supabase error or offline — block login, do NOT allow bypass
+              const retryKey = '_loginRetryCount';
+              window[retryKey] = (window[retryKey] || 0) + 1;
+              const waitSec = Math.min(5 * window[retryKey], 30);
+              const errEl = document.getElementById('login-error');
+              if (errEl) {
+                errEl.innerHTML = `⏳ Cloud sync চলছে… ${waitSec} সেকেন্ড পর আবার চেষ্টা করুন। <br><small style="color:#aaa">(Attempt ${window[retryKey]})</small>`;
+                errEl.style.display = 'block';
+              }
+              return 'pending';
+            }
+          } catch (fetchErr) {
+            console.warn('[Login] Supabase settings fetch failed:', fetchErr.message);
+            // Network error — block login safely
+            const errEl = document.getElementById('login-error');
+            if (errEl) {
+              errEl.innerHTML = `⏳ ইন্টারনেট সংযোগ পাওয়া যাচ্ছে না। সংযোগ চেক করে আবার চেষ্টা করুন।`;
+              errEl.style.display = 'block';
+            }
+            return 'pending';
           }
-          return 'pending';
-        }
+        } else {
+          // No Supabase client available at all — only allow if literally zero data anywhere
+          const hasAnyData =
+            (SupabaseSync.getAll(DB.students   ).length > 0) ||
+            (SupabaseSync.getAll(DB.finance    ).length > 0) ||
+            (SupabaseSync.getAll(DB.sub_accounts || 'sub_accounts').length > 0);
 
-        // Genuine first-time setup — accept any non-empty password and save it
-        adminOk = !!password;
-        if (adminOk) {
-          const newHash = await _hashPw(password);
-          settings.admin_password = newHash;
-          if (settings.id) {
-            SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
-          } else {
-            settings.id = SupabaseSync.generateId();
-            SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
+          if (hasAnyData) {
+            const retryKey = '_loginRetryCount';
+            window[retryKey] = (window[retryKey] || 0) + 1;
+            const waitSec = Math.min(5 * window[retryKey], 30);
+            const errEl = document.getElementById('login-error');
+            if (errEl) {
+              errEl.innerHTML = `⏳ Cloud settings loading… Please wait ${waitSec}s and try again. <br><small style="color:#aaa">(Attempt ${window[retryKey]})</small>`;
+              errEl.style.display = 'block';
+            }
+            return 'pending';
+          }
+
+          // Genuine first-time setup (no Supabase, no local data)
+          adminOk = !!password;
+          if (adminOk) {
+            const newHash = await _hashPw(password);
+            settings.admin_password = newHash;
+            if (settings.id) {
+              SupabaseSync.update(DB.settings, settings.id, settings, { bypassLog: true });
+            } else {
+              settings.id = SupabaseSync.generateId();
+              SupabaseSync.insert(DB.settings, settings, { bypassLog: true });
+            }
           }
         }
       } else {
