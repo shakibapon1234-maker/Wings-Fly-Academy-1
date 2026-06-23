@@ -35,7 +35,10 @@ const STATIC_ASSETS = [
   // would silently SKIP the license check entirely (app.js guards the call
   // with `typeof LicenseEngine !== 'undefined'`), letting the app run
   // without a valid key whenever the file failed to load from network.
+  './js/core/license-server-config.stub.js',
   './js/core/license.js',
+  './js/core/license-manager.js',
+  './js/core/clients-metadata.js',
   './js/core/utils.js',
   './js/core/lazy-libs.js',
   './js/core/lazy-modules.js',

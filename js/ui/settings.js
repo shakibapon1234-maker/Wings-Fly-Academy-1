@@ -6756,6 +6756,7 @@ ${expenseEntries.length > 0 ? `
                 <td style="padding:9px 6px">${_statusBadge(c)}</td>
                 <td style="padding:9px 6px;text-align:right">
                   <button onclick="_wfaClientEdit(${i})" style="background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem;margin-right:4px">Edit</button>
+                  ${c.licenseKey ? `<button onclick="_wfaToggleRevokeKey && _wfaToggleRevokeKey(${i})" title="Revoke / Reactivate license" style="background:rgba(245,166,35,0.1);border:1px solid rgba(245,166,35,0.25);color:#f5a623;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem;margin-right:4px">🔑</button>` : ''}
                   <button onclick="_wfaClientDelete(${i})" style="background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.2);color:#ff4757;padding:3px 9px;border-radius:6px;cursor:pointer;font-size:0.78rem">Del</button>
                 </td>
               </tr>`).join('')}
@@ -6764,18 +6765,34 @@ ${expenseEntries.length > 0 ? `
     }
 
     function _summary(list) {
-      const total   = list.length;
-      const active  = list.filter(c => { if (!c.licenseKey || typeof LicenseEngine === 'undefined') return false; const s = LicenseEngine.validate(c.licenseKey); return s.ok || s.inGrace; }).length;
-      const expired = list.filter(c => { if (!c.licenseKey || typeof LicenseEngine === 'undefined') return false; return LicenseEngine.validate(c.licenseKey).expired; }).length;
+      const total = list.length;
+      // ✅ Fix: LicenseEngine.validate() is async (v2). Render placeholders immediately,
+      // then update counts asynchronously after batch validation completes.
+      setTimeout(async () => {
+        if (typeof LicenseEngine === 'undefined') return;
+        let active = 0, expired = 0;
+        for (const c of list) {
+          if (!c.licenseKey) continue;
+          try {
+            const s = await LicenseEngine.validate(c.licenseKey);
+            if (s.ok || s.inGrace) active++;
+            else if (s.expired) expired++;
+          } catch { /* skip */ }
+        }
+        const aEl = document.getElementById('cm-summary-active');
+        const eEl = document.getElementById('cm-summary-expired');
+        if (aEl) aEl.textContent = active;
+        if (eEl) eEl.textContent = expired;
+      }, 0);
       return `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
         <div style="flex:1;min-width:100px;background:rgba(0,217,255,0.08);border:1px solid rgba(0,217,255,0.2);border-radius:12px;padding:14px;text-align:center">
           <div style="font-size:1.6rem;font-weight:800;color:#00d9ff">${total}</div>
           <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">Total Clients</div></div>
         <div style="flex:1;min-width:100px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:1.6rem;font-weight:800;color:#00ff88">${active}</div>
+          <div id="cm-summary-active" style="font-size:1.6rem;font-weight:800;color:#00ff88">…</div>
           <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">Active</div></div>
         <div style="flex:1;min-width:100px;background:rgba(255,71,87,0.08);border:1px solid rgba(255,71,87,0.2);border-radius:12px;padding:14px;text-align:center">
-          <div style="font-size:1.6rem;font-weight:800;color:#ff4757">${expired}</div>
+          <div id="cm-summary-expired" style="font-size:1.6rem;font-weight:800;color:#ff4757">…</div>
           <div style="font-size:0.75rem;color:#7a8baa;margin-top:2px">Expired</div></div>
       </div>`;
     }
