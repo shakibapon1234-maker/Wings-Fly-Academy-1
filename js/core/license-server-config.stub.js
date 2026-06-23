@@ -9,9 +9,16 @@
 //
 // Real config না থাকলে window.WFA_LICENSE_SERVER empty থাকে এবং
 // LicenseEngine migration-window fallback-এ কাজ করে।
-window.WFA_LICENSE_SERVER = window.WFA_LICENSE_SERVER || {};
+// Fallback central License Server credentials (safe to commit as anon keys are public by design)
+const _fallbackLicUrl = 'https://ohlhcgtcqjupmvzxoacm.supabase.co';
+const _fallbackLicKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9obGhjZ3RjcWp1cG12enhvYWNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMTI0MDgsImV4cCI6MjA5NzY4ODQwOH0.i5IArXwgtW35i3anfZmfBsImg38QOCLHWmWSa2zpKck';
 
-// Dynamically load real License Server config in local/dev environment only
+window.WFA_LICENSE_SERVER = window.WFA_LICENSE_SERVER || {
+  url: _fallbackLicUrl,
+  anonKey: _fallbackLicKey
+};
+
+// Dynamically load real License Server config in local/dev environment only (as override)
 // to avoid 404 console errors in production deployment (where it is stripped).
 (() => {
   const h = window.location.hostname;

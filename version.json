@@ -1,7 +1,7 @@
 {
-  "version": "4.9.16",
-  "deploy_id": "20260620-license-key-fixes",
-  "changelog": "License key engine: fixed month-overflow bug in generate(), added license.js to SW precache, synced www/Android build.",
+  "version": "4.9.17",
+  "deploy_id": "20260622-integrity-guard-fixes",
+  "changelog": "Integrity Guard: fixed local protocol issues and removed hardcoded license-server-config.js script tag to prevent 404/503 errors.",
   "size": "~2MB",
-  "released": "2026-06-20"
+  "released": "2026-06-22"
 }
