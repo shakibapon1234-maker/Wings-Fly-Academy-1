@@ -414,14 +414,19 @@
 
 <!-- Header (hidden until logged in) -->
 <div class="header" id="mainHeader" style="display:none;">
-  <div class="header-left">
-    <div style="font-size:22px;">✈️</div>
-    <div>
-      <h1>Wings Fly Academy</h1>
-      <p>Admin Panel</p>
+    <div class="header-left">
+      <div style="font-size:22px;position:relative;">
+        <img id="adminHeaderLogo" class="wfa-academy-logo"
+             src="" alt=""
+             style="display:none;height:36px;width:36px;border-radius:8px;object-fit:cover;" />
+        <span id="adminHeaderEmoji" style="font-size:22px;">✈️</span>
+      </div>
+      <div>
+        <h1 id="adminHeaderTitle">Wings Fly Academy</h1>
+        <p>Admin Panel</p>
+      </div>
+      <span class="badge-admin">ADMIN</span>
     </div>
-    <span class="badge-admin">ADMIN</span>
-  </div>
   <button class="logout-btn" onclick="logout()">লগআউট</button>
 </div>
 
@@ -654,6 +659,58 @@
             <input type="file" accept=".json" style="display:none;" onchange="importQuestions(event)" />
           </label>
           <button class="btn btn-danger" onclick="clearAllQuestions()">⚠️ সব প্রশ্ন মুছুন</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🏻 Academy Branding</div>
+
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-label">Academy-র নাম</div>
+            <div class="toggle-sub">সাইট, সার্টিফিকেট ও হেডারে এই নাম দেখাবে</div>
+          </div>
+          <input type="text" id="academyNameInput"
+            placeholder="যেমন: Hasan Academy"
+            style="width:180px;margin:0;padding:8px 10px;"
+            onchange="saveBrandingSettings()" />
+        </div>
+
+        <div style="padding:14px 0 8px 0;border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div>
+              <div class="toggle-label">Academy Logo</div>
+              <div class="toggle-sub">JPG, PNG, SVG — হেডারে দেখাবে</div>
+            </div>
+            <button class="btn btn-danger btn-sm" id="logoRemoveBtn" onclick="removeLogo()" style="display:none;">ൻ মুছুন</button>
+          </div>
+
+          <div id="logoPreviewWrap"
+               style="display:flex;align-items:center;gap:16px;padding:10px 0;" >
+            <div id="logoPreviewBox"
+                 style="width:72px;height:72px;border-radius:12px;border:2px dashed var(--border);
+                        display:flex;align-items:center;justify-content:center;
+                        background:var(--bg);overflow:hidden;flex-shrink:0;">
+              <img id="logoPreviewImg" class="wfa-academy-logo"
+                   src="" alt="Logo"
+                   style="display:none;width:100%;height:100%;object-fit:cover;" />
+              <span id="logoPreviewPlaceholder" style="font-size:28px;">🎨</span>
+            </div>
+            <label id="logoUploadLabel"
+                   style="flex:1;cursor:pointer;border:1.5px solid var(--primary);
+                          padding:12px 16px;border-radius:9px;text-align:center;
+                          font-size:13px;font-weight:600;color:var(--primary);">
+              ⬆️ Logo আপলোড করুন
+              <input type="file" id="logoFileInput" accept="image/*"
+                     style="display:none;" onchange="handleLogoUpload(event)" />
+            </label>
+          </div>
+
+          <div id="logoAlert" style="display:none;" class="alert" ></div>
+        </div>
+
+        <div style="padding-top:14px;">
+          <button class="btn btn-primary btn-full" onclick="saveBrandingSettings()">💾 Branding সেভ করুন</button>
         </div>
       </div>
 

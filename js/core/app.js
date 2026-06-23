@@ -1387,6 +1387,65 @@ const App = (() => {
     document.addEventListener('touchmove', Utils.debounce(resetIdleTimer, 1000)); // ✅ Fix #4: mobile idle timer
   }
 
+  function _applyAcademyMetadata() {
+    if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return;
+    const settings = SupabaseSync.getAll(DB.settings)[0] || {};
+    const name = settings.academy_name || 'Wings Fly Aviation Academy';
+    const logo = settings.logo_url || 'assets/logo.jpg';
+
+    // 1. Tab title
+    document.title = name;
+
+    // 2. Sidebar logo and text
+    const sidebarLogoImg = document.querySelector('#sidebar .sidebar-logo img');
+    if (sidebarLogoImg) sidebarLogoImg.src = logo;
+
+    const sidebarLogoTitle = document.querySelector('#sidebar .logo-title');
+    const sidebarAcademyName = document.querySelector('#sidebar .academy-name');
+    if (sidebarLogoTitle && sidebarAcademyName) {
+      const parts = name.split(/\s+/);
+      if (parts.length > 2) {
+        sidebarLogoTitle.textContent = parts.slice(0, 2).join(' ');
+        sidebarAcademyName.textContent = parts.slice(2).join(' ');
+      } else if (parts.length === 2) {
+        sidebarLogoTitle.textContent = parts[0];
+        sidebarAcademyName.textContent = parts[1];
+      } else {
+        sidebarLogoTitle.textContent = name;
+        sidebarAcademyName.textContent = '';
+      }
+    }
+
+    // 3. Login logo and text
+    const loginLogoImg = document.querySelector('.login-logo-ring img');
+    if (loginLogoImg) loginLogoImg.src = logo;
+
+    const loginLogoSource = document.querySelector('.login-logo-ring source');
+    if (loginLogoSource) loginLogoSource.srcset = logo;
+
+    const loginTitle = document.querySelector('.login-title');
+    if (loginTitle) {
+      const parts = name.split(/\s+/);
+      if (parts.length > 1) {
+        const first = parts.slice(0, -1).join(' ');
+        const last = parts[parts.length - 1];
+        loginTitle.innerHTML = `${Utils.esc(first)} <span class="login-title-accent">${Utils.esc(last)}</span>`;
+      } else {
+        loginTitle.innerHTML = Utils.esc(name);
+      }
+    }
+
+    const loginSubtitle = document.querySelector('.login-subtitle');
+    if (loginSubtitle) {
+      loginSubtitle.textContent = name + ' Management System';
+    }
+
+    const loginFooter = document.querySelector('.login-footer');
+    if (loginFooter) {
+      loginFooter.innerHTML = `${Utils.esc(name)} &copy; ${new Date().getFullYear()}`;
+    }
+  }
+
   // ── Init ──────────────────────────────────────────────────
   function init() {
     // Apply saved theme immediately (doesn't need IDB)
@@ -1395,6 +1454,7 @@ const App = (() => {
     const themeBtn = document.getElementById('btn-theme-toggle');
     if (themeBtn) themeBtn.textContent = savedTheme === 'dark' ? '☀️' : savedTheme === 'neon-space' ? '✨' : '🌙';
 
+    _applyAcademyMetadata();
     bindEvents();
 
     // ── Wait for IndexedDB to be ready before login check ──
@@ -1406,6 +1466,7 @@ const App = (() => {
     WFA_IDB.onReady(async () => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
       cleanupDuplicateSettings();
+      _applyAcademyMetadata();
       // ডায়াগনস্টিক টেস্টের ডামি/লেফটওভার রেকর্ডগুলো অটোমেটিক ক্লিনআপ করো
       if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {
         SystemDiagnostics.cleanupLeftovers();
@@ -1442,6 +1503,7 @@ const App = (() => {
     } else {
       // WFA_IDB not available — run auth check directly (offline/fallback mode)
       cleanupDuplicateSettings();
+      _applyAcademyMetadata();
       if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {
         SystemDiagnostics.cleanupLeftovers();
       }
@@ -1451,7 +1513,7 @@ const App = (() => {
   }
 
 
-  return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings };
+  return { init, navigateTo, login, logout, isLoggedIn, isAdmin, showApp, toggleSidebar, quickAction, updateNotifCount, resetAdminPassword, cleanupDuplicateSettings, applyAcademyMetadata: _applyAcademyMetadata };
 })();
 
 // ✅ Critical stabilization: wait for core globals to avoid startup race conditions.

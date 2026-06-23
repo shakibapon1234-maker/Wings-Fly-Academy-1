@@ -23,9 +23,11 @@
 
 const LicenseEngine = (() => {
 
-  const _LS_KEY       = 'wfa_license_key';
-  const _CACHE_KEY    = 'wfa_license_cache'; // last good server result, for offline grace
-  const _GRACE_DAYS   = 7; // expire-এর পরে ৭ দিন warning, তারপর block
+  const _LS_KEY            = 'wfa_license_key';
+  const _CACHE_KEY         = 'wfa_license_cache'; // last good server result, for offline grace
+  const _ACADEMY_NAME_KEY  = 'wfa_academy_name';  // client-configured academy name
+  const _ACADEMY_LOGO_KEY  = 'wfa_academy_logo';  // client logo as data-URL
+  const _GRACE_DAYS        = 7; // expire-এর পরে ৭ দিন warning, তারপর block
   const _CACHE_MAX_AGE_DAYS = 7; // ফুল অফলাইনে থাকলে কতদিন পুরনো cached result বিশ্বাস করা হবে
 
   // ── TEMPORARY migration-window fallback ─────────────────────────
@@ -268,22 +270,40 @@ const LicenseEngine = (() => {
       'font-family:inherit'
     ].join(';');
 
+    // Pre-fill academy name if already saved
+    const _savedAcademy = localStorage.getItem(_ACADEMY_NAME_KEY) || '';
+
     ov.innerHTML = `
-      <div style="max-width:440px;width:90%;text-align:center;padding:40px 32px;
+      <div style="max-width:460px;width:92%;text-align:center;padding:40px 32px;
                   background:rgba(255,255,255,0.04);border:1px solid rgba(0,217,255,0.25);
                   border-radius:20px;backdrop-filter:blur(12px);
                   box-shadow:0 0 60px rgba(0,217,255,0.1)">
         <div style="font-size:3rem;margin-bottom:12px">🔑</div>
-        <h2 style="color:#00d9ff;font-size:1.4rem;margin-bottom:6px">License Key Required</h2>
-        <p style="color:#7a8baa;font-size:0.85rem;margin-bottom:24px;line-height:1.6">
+        <h2 style="color:#00d9ff;font-size:1.4rem;margin-bottom:4px">License Activation</h2>
+        <p style="color:#7a8baa;font-size:0.82rem;margin-bottom:22px;line-height:1.6">
           এই অ্যাপটি ব্যবহার করতে আপনার License Key প্রয়োজন।<br>
           AcadeFlow-এর সাথে যোগাযোগ করুন।
         </p>
+
+        <div style="text-align:left;margin-bottom:6px">
+          <label style="color:#7a8baa;font-size:0.78rem;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">🏫 Academy Name</label>
+        </div>
+        <input id="wfa-academy-name-input" type="text"
+          placeholder="আপনার Academy-র নাম লিখুন (যেমন: Hasan Academy)"
+          value="${_savedAcademy}"
+          style="width:100%;padding:11px 14px;border-radius:10px;
+                 background:rgba(0,0,0,0.3);border:1px solid rgba(0,217,255,0.2);
+                 color:#fff;font-size:0.9rem;text-align:left;
+                 outline:none;font-family:inherit;margin-bottom:14px;box-sizing:border-box" />
+
+        <div style="text-align:left;margin-bottom:6px">
+          <label style="color:#7a8baa;font-size:0.78rem;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">🔑 License Key</label>
+        </div>
         <input id="wfa-license-input" type="text" placeholder="WFA-XXXX-XXXX-XXXXXX-XXXX"
           style="width:100%;padding:13px 16px;border-radius:10px;
                  background:rgba(0,0,0,0.3);border:1px solid rgba(0,217,255,0.3);
                  color:#fff;font-size:1rem;text-align:center;letter-spacing:1px;
-                 outline:none;font-family:monospace;margin-bottom:12px;box-sizing:border-box" />
+                 outline:none;font-family:monospace;margin-bottom:10px;box-sizing:border-box" />
         <div id="wfa-license-err" style="color:#ff4757;font-size:0.82rem;min-height:20px;margin-bottom:10px"></div>
         <button id="wfa-license-submit"
           style="width:100%;padding:13px;border:none;border-radius:10px;
@@ -304,8 +324,16 @@ const LicenseEngine = (() => {
 
     const submitBtn = document.getElementById('wfa-license-submit');
     submitBtn.addEventListener('click', async () => {
-      const val   = document.getElementById('wfa-license-input').value;
-      const errEl = document.getElementById('wfa-license-err');
+      const val          = document.getElementById('wfa-license-input').value;
+      const academyName  = document.getElementById('wfa-academy-name-input').value.trim();
+      const errEl        = document.getElementById('wfa-license-err');
+
+      if (!academyName) {
+        errEl.textContent = '⚠️ Academy Name দিন।';
+        document.getElementById('wfa-academy-name-input').focus();
+        return;
+      }
+
       submitBtn.disabled    = true;
       submitBtn.textContent = '⏳ যাচাই হচ্ছে...';
 
@@ -313,6 +341,7 @@ const LicenseEngine = (() => {
 
       if (result.ok || result.inGrace) {
         save(val);
+        try { localStorage.setItem(_ACADEMY_NAME_KEY, academyName); } catch { /* ignore */ }
         ov.remove();
         window.location.reload();
         return;
@@ -332,7 +361,7 @@ const LicenseEngine = (() => {
         : (msgs[result.reason] || '❌ Invalid key. Please contact AcadeFlow support.');
     });
 
-    // Allow Enter key
+    // Allow Enter key on license input
     document.getElementById('wfa-license-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') document.getElementById('wfa-license-submit').click();
     });
@@ -432,9 +461,72 @@ const LicenseEngine = (() => {
     }, 2000);
   }
 
+  // ── Helper: get saved academy name (falls back to secrets or default)
+  function getAcademyName() {
+    try {
+      return localStorage.getItem(_ACADEMY_NAME_KEY)
+        || window.WFA_SUPABASE_SECRETS?.academyName
+        || 'Wings Fly Academy';
+    } catch { return 'Wings Fly Academy'; }
+  }
+
+  // ── Helper: save academy name
+  function setAcademyName(name) {
+    try { localStorage.setItem(_ACADEMY_NAME_KEY, name.trim()); } catch { /* ignore */ }
+  }
+
+  // ── Helper: get saved logo (data-URL or null)
+  function getAcademyLogo() {
+    try { return localStorage.getItem(_ACADEMY_LOGO_KEY) || null; } catch { return null; }
+  }
+
+  // ── Helper: save logo as data-URL
+  function setAcademyLogo(dataURL) {
+    try { localStorage.setItem(_ACADEMY_LOGO_KEY, dataURL); } catch { /* ignore */ }
+  }
+
+  // ── Helper: remove logo
+  function removeAcademyLogo() {
+    try { localStorage.removeItem(_ACADEMY_LOGO_KEY); } catch { /* ignore */ }
+  }
+
   // ── Public API
-  return { generate, revoke, validate, save, load, getStatus, checkOnStart };
+  return { generate, revoke, validate, save, load, getStatus, checkOnStart,
+           getAcademyName, setAcademyName, getAcademyLogo, setAcademyLogo, removeAcademyLogo };
 
 })();
 
 window.LicenseEngine = LicenseEngine;
+
+// ── Apply academy name & logo to page elements on load ──────────────
+(function _applyBranding() {
+  function _apply() {
+    const name = LicenseEngine.getAcademyName();
+    const logo = LicenseEngine.getAcademyLogo();
+
+    // Replace text nodes that contain the default academy name in title/h1/h2/header
+    document.querySelectorAll('h1, h2, .header h1, title, .login-title, .login-sub').forEach(el => {
+      if (el.children.length === 0 && el.textContent.includes('Wings Fly Academy')) {
+        el.textContent = el.textContent.replace(/Wings Fly Academy/g, name);
+      }
+    });
+    // Also patch page title
+    if (document.title.includes('Wings Fly Academy')) {
+      document.title = document.title.replace(/Wings Fly Academy/g, name);
+    }
+
+    // Apply logo to all elements with class wfa-academy-logo
+    if (logo) {
+      document.querySelectorAll('.wfa-academy-logo').forEach(img => {
+        img.src = logo;
+        img.style.display = 'block';
+      });
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _apply);
+  } else {
+    _apply();
+  }
+})();

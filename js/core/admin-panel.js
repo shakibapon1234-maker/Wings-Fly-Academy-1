@@ -344,6 +344,8 @@ function loadSettings() {
   const toggle = document.getElementById('examActiveToggle');
   if (s.active === false) toggle.classList.remove('on');
   else toggle.classList.add('on');
+  // Also load branding
+  loadBrandingSettings();
 }
 
 function toggleExamActive() {
@@ -372,7 +374,122 @@ async function changePassword() {
   document.getElementById('confirmPass').value = '';
 }
 
-// IMPORT / EXPORT
+// BRANDING
+function loadBrandingSettings() {
+  const engine = window.LicenseEngine;
+  if (!engine) return;
+
+  const name = engine.getAcademyName();
+  const logo = engine.getAcademyLogo();
+
+  const nameInput = document.getElementById('academyNameInput');
+  if (nameInput) nameInput.value = name !== 'Wings Fly Academy' ? name : '';
+
+  // Update header title
+  const headerTitle = document.getElementById('adminHeaderTitle');
+  if (headerTitle && name) headerTitle.textContent = name;
+
+  // Apply logo
+  _applyLogoToUI(logo);
+}
+
+function saveBrandingSettings() {
+  const engine = window.LicenseEngine;
+  if (!engine) { alert('LicenseEngine not loaded'); return; }
+
+  const nameInput = document.getElementById('academyNameInput');
+  const name = nameInput ? nameInput.value.trim() : '';
+  if (!name) {
+    _showLogoAlert('⚠️ Academy-র নাম দিতে হবে।', 'danger');
+    nameInput && nameInput.focus();
+    return;
+  }
+
+  engine.setAcademyName(name);
+
+  // Update header immediately
+  const headerTitle = document.getElementById('adminHeaderTitle');
+  if (headerTitle) headerTitle.textContent = name;
+
+  // Update page title
+  if (document.title) {
+    document.title = document.title.replace(/Wings Fly Academy|.*?—/, name + ' —');
+  }
+
+  _showLogoAlert('✅ Branding সফলভাবে সেভ হয়েছে!', 'success');
+}
+
+function handleLogoUpload(event) {
+  const engine = window.LicenseEngine;
+  if (!engine) return;
+
+  const file = event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    _showLogoAlert('❌ শুধু ছবির ফাইল (জেমন: JPG, PNG, SVG) আপলোড করুন।', 'danger');
+    return;
+  }
+
+  if (file.size > 500 * 1024) {
+    _showLogoAlert('❌ Logo ফাইলের size 500KB-এর মধ্যে হতে হবে।', 'danger');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataURL = e.target.result;
+    engine.setAcademyLogo(dataURL);
+    _applyLogoToUI(dataURL);
+    _showLogoAlert('✅ Logo সফলভাবে আপলোড হয়েছে!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  const engine = window.LicenseEngine;
+  if (!engine) return;
+  if (!confirm('লোগো মুছে ফেলতে চান?')) return;
+  engine.removeAcademyLogo();
+  _applyLogoToUI(null);
+  _showLogoAlert('লোগো মুছে ফেলা হয়েছে।', 'success');
+  // Reset file input
+  const fi = document.getElementById('logoFileInput');
+  if (fi) fi.value = '';
+}
+
+function _applyLogoToUI(dataURL) {
+  const previewImg   = document.getElementById('logoPreviewImg');
+  const placeholder  = document.getElementById('logoPreviewPlaceholder');
+  const removeBtn    = document.getElementById('logoRemoveBtn');
+  const headerLogo   = document.getElementById('adminHeaderLogo');
+  const headerEmoji  = document.getElementById('adminHeaderEmoji');
+
+  if (dataURL) {
+    if (previewImg)  { previewImg.src = dataURL; previewImg.style.display = 'block'; }
+    if (placeholder) { placeholder.style.display = 'none'; }
+    if (removeBtn)   { removeBtn.style.display = 'inline-block'; }
+    if (headerLogo)  { headerLogo.src = dataURL; headerLogo.style.display = 'block'; }
+    if (headerEmoji) { headerEmoji.style.display = 'none'; }
+  } else {
+    if (previewImg)  { previewImg.src = ''; previewImg.style.display = 'none'; }
+    if (placeholder) { placeholder.style.display = 'block'; }
+    if (removeBtn)   { removeBtn.style.display = 'none'; }
+    if (headerLogo)  { headerLogo.src = ''; headerLogo.style.display = 'none'; }
+    if (headerEmoji) { headerEmoji.style.display = 'inline'; }
+  }
+}
+
+function _showLogoAlert(msg, type) {
+  const el = document.getElementById('logoAlert');
+  if (!el) return;
+  el.className = `alert alert-${type}`;
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+// INIT (continued)
 function exportQuestions() {
   const qs = getQuestions();
   const blob = new Blob([JSON.stringify(qs, null, 2)], {type:'application/json'});
@@ -423,3 +540,6 @@ window.toggleExamActive   = toggleExamActive;
 window.saveSettings       = saveSettings;
 window.changePassword     = changePassword;
 window.loadAll            = loadAll;
+window.saveBrandingSettings = saveBrandingSettings;
+window.handleLogoUpload     = handleLogoUpload;
+window.removeLogo           = removeLogo;
