@@ -774,10 +774,39 @@ const SupabaseSync = (() => {
         ? upTo.filter(f => {
             if (!_MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
             const fd = normDate(f.date);
-            return fd && fd >= expStart && fd <= cutoffDate;
+            if (!fd || fd < expStart || fd > cutoffDate) return false;
+
+            // ✅ Exclude other batch expenses
+            if (runningBatch) {
+              const desc = String(f.description || '').toLowerCase();
+              const note = String(f.note || '').toLowerCase();
+              const cat  = String(f.category || '').toLowerCase();
+              const text = `${desc} ${note} ${cat}`;
+              const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+              if (m) {
+                const bNum = m[1];
+                if (String(bNum) !== String(runningBatch)) return false;
+              }
+            }
+            return true;
           }).reduce((s, f) => s + Number(f.amount || 0), 0)
-        : upTo.filter(f => _MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase()))
-            .reduce((s, f) => s + Number(f.amount || 0), 0);
+        : upTo.filter(f => {
+            if (!_MONITOR_EXPENSE_TYPES.includes(String(f.type).toLowerCase())) return false;
+
+            // ✅ Exclude other batch expenses
+            if (runningBatch) {
+              const desc = String(f.description || '').toLowerCase();
+              const note = String(f.note || '').toLowerCase();
+              const cat  = String(f.category || '').toLowerCase();
+              const text = `${desc} ${note} ${cat}`;
+              const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+              if (m) {
+                const bNum = m[1];
+                if (String(bNum) !== String(runningBatch)) return false;
+              }
+            }
+            return true;
+          }).reduce((s, f) => s + Number(f.amount || 0), 0);
 
       return {
         students: {
@@ -857,9 +886,39 @@ const SupabaseSync = (() => {
         ? finance.filter(f => {
             if (String(f.type).toLowerCase() !== 'expense') return false;
             const fd = normDate(f.date);
-            return fd && fd >= expStart && fd <= today;
+            if (!fd || fd < expStart || fd > today) return false;
+
+            // ✅ Exclude other batch expenses
+            if (runningBatch) {
+              const desc = String(f.description || '').toLowerCase();
+              const note = String(f.note || '').toLowerCase();
+              const cat  = String(f.category || '').toLowerCase();
+              const text = `${desc} ${note} ${cat}`;
+              const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+              if (m) {
+                const bNum = m[1];
+                if (String(bNum) !== String(runningBatch)) return false;
+              }
+            }
+            return true;
           }).reduce((s, f) => s + Number(f.amount || 0), 0)
-        : totalExpense;
+        : finance.filter(f => {
+            if (String(f.type).toLowerCase() !== 'expense') return false;
+            
+            // ✅ Exclude other batch expenses
+            if (runningBatch) {
+              const desc = String(f.description || '').toLowerCase();
+              const note = String(f.note || '').toLowerCase();
+              const cat  = String(f.category || '').toLowerCase();
+              const text = `${desc} ${note} ${cat}`;
+              const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+              if (m) {
+                const bNum = m[1];
+                if (String(bNum) !== String(runningBatch)) return false;
+              }
+            }
+            return true;
+          }).reduce((s, f) => s + Number(f.amount || 0), 0);
 
       return {
         students: { totalStudents, totalFee, totalPaid, totalDue },
@@ -2553,16 +2612,88 @@ const SupabaseSync = (() => {
     let totalAmount = 0;
     const auditLog = [];
 
+    // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
+    const repairedEntries = allFinance.filter(f => {
+      const isRepaired = f.description && (f.description.includes('(Repaired)') || f.description.includes('(Auto-healed)'));
+      const isAutoRepairedNote = f.note && f.note.includes('Auto-repaired');
+      const isRepairId = f.id && f.id.startsWith('REPAIR-');
+      return isRepaired || isAutoRepairedNote || isRepairId;
+    });
+    
+    repairedEntries.forEach(f => {
+      remove(financeKey, f.id, { bypassLog: true });
+    });
+
+    // Refresh finance cache to use clean entries for calculations
+    const cleanFinance = getAll(financeKey);
+    const cleanStr = str => String(str || '').toLowerCase().trim();
+
+    // 2. Build a unique mapping of ledger entries to students to prevent double-matching
+    const matchedMap = new Map(); // entryId -> student
+    cleanFinance.forEach(f => {
+      const cat = cleanStr(f.category);
+      if (!['student fee', 'student installment', 'student payment'].includes(cat)) return;
+
+      let bestStudent = null;
+
+      // Priority 1: Match by ref_id (exact match)
+      if (f.ref_id) {
+        bestStudent = allStudents.find(s => s.id === f.ref_id || s.student_id === f.ref_id);
+      }
+
+      // Priority 2: Match by student ID found in description
+      if (!bestStudent && f.description) {
+        const m = f.description.match(/(WF(?:A)?-\d+)/i);
+        if (m) {
+          const idStr = m[1].toUpperCase();
+          bestStudent = allStudents.find(s => (s.id || '').toUpperCase() === idStr || (s.student_id || '').toUpperCase() === idStr);
+        }
+      }
+
+      // Priority 3: Match by name in description (only if unique or matches ID)
+      if (!bestStudent && f.description) {
+        const desc = cleanStr(f.description);
+        const matches = allStudents.filter(s => {
+          const sName = cleanStr(s.name);
+          return sName && desc.includes(sName);
+        });
+        if (matches.length === 1) {
+          bestStudent = matches[0];
+        } else if (matches.length > 1) {
+          bestStudent = matches.find(s => desc.includes(cleanStr(s.student_id || '')));
+          if (!bestStudent) bestStudent = matches[0]; // fallback
+        }
+      }
+
+      if (bestStudent) {
+        matchedMap.set(f.id, bestStudent);
+      }
+    });
+
+    // 3. Sum ledger amounts per student
+    const ledgerSums = {};
+    allStudents.forEach(s => { ledgerSums[s.id] = 0; });
+    matchedMap.forEach((student, entryId) => {
+      const f = cleanFinance.find(x => x.id === entryId);
+      if (f) {
+        ledgerSums[student.id] = (ledgerSums[student.id] || 0) + (parseFloat(f.amount) || 0);
+      }
+    });
+
+    // 4. Find and backfill missing entries using deterministic IDs (REPAIR-student_id)
     allStudents.forEach(s => {
       if (!s || !s.id) return;
-      const ledgerPaid = allFinance
-        .filter(f => f.category === 'Student Fee' &&
-                     (f.ref_id === s.id || f.ref_id === s.student_id))
-        .reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
-      const unrecorded = Math.max(0, (parseFloat(s.paid) || 0) - ledgerPaid);
+      const sPaid = parseFloat(s.paid) || 0;
+      if (sPaid <= 0) return;
+
+      const ledgerSum = ledgerSums[s.id] || 0;
+      const unrecorded = Math.max(0, sPaid - ledgerSum);
       if (unrecorded <= 0) return;
 
+      const repairId = `REPAIR-${s.id}`;
+
       insert(financeKey, {
+        id:          repairId,
         type:        'Income',
         category:    'Student Fee',
         description: `${s.name || 'Student'} (${s.student_id || s.id}) — Admission Payment (Repaired)`,
@@ -2573,14 +2704,9 @@ const SupabaseSync = (() => {
         ref_id:      s.id,
       }, { bypassLog: true });
 
-      // ✅ FIX: Do NOT call updateAccountBalance here.
-      // These repaired entries are virtual reconciliation records — students.paid
-      // already reflects money received historically. The cash was NEVER missing from
-      // the actual accounts; only the finance ledger entry was missing.
-      // Calling updateAccountBalance would double-count the cash balance.
       fixedCount++;
       totalAmount += unrecorded;
-      auditLog.push(`${s.name} (${s.student_id}): +৳${unrecorded}`);
+      auditLog.push(`${s.name} (${s.student_id || s.id}): +৳${unrecorded}`);
     });
 
     if (fixedCount > 0) {

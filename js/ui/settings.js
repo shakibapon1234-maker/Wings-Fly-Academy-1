@@ -2080,8 +2080,20 @@ const SettingsModule = (() => {
       const inRange = (!startDate || f.date >= startDate) && (!endDate || f.date <= endDate);
       if (!inRange) return false;
       if (!selectedBatch) return true;
-      // Include expenses tagged to this batch OR untagged general expenses
-      return !f.batch || f.batch === selectedBatch;
+
+      // Extract batch from f.batch, description, note, or category
+      let fBatch = f.batch;
+      if (!fBatch) {
+        const desc = String(f.description || '').toLowerCase();
+        const note = String(f.note || '').toLowerCase();
+        const cat  = String(f.category || '').toLowerCase();
+        const text = `${desc} ${note} ${cat}`;
+        const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+        if (m) fBatch = m[1];
+      }
+
+      // Include general untagged expenses OR expenses matching this batch
+      return !fBatch || String(fBatch) === String(selectedBatch);
     });
 
     const totalExpense = expenseEntries.reduce((s, f) => s + (parseFloat(f.amount) || 0), 0);

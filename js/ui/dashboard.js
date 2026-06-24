@@ -109,6 +109,20 @@ const DashboardModule = (() => {
           if (!fd) return false;
           if (fd < expStart) return false;
           if (fd > today) return false;
+
+          // ✅ Exclude other batch expenses (e.g., "teacher payment Batch -18" / "seminar nasta for batch 20")
+          if (settings.runningBatch) {
+            const desc = String(f.description || '').toLowerCase();
+            const note = String(f.note || '').toLowerCase();
+            const cat  = String(f.category || '').toLowerCase();
+            const text = `${desc} ${note} ${cat}`;
+            const m = text.match(/(?:batch|b\s*[-_]?)\s*(\d+)/i);
+            if (m) {
+              const bNum = m[1];
+              if (String(bNum) !== String(settings.runningBatch)) return false;
+            }
+          }
+
           return true;
         }).reduce((s, f) => s + Utils.safeNum(f.amount), 0)
       : totalExpense;
