@@ -888,7 +888,11 @@ const SettingsModule = (() => {
   function _silentAutoDetect() {
     try {
       const cfg      = getConfig();
-      const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
+      const existing = Utils.parseJsonArray(cfg.courses, []);
+      if (typeof cfg.courses === 'string' && cfg.courses.trim() && !cfg.courses.trim().startsWith('[')) {
+        cfg.courses = JSON.stringify(existing);
+        saveConfig(cfg);
+      }
       const students = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.students) || []) : [];
       const found    = [...new Set(students.map(s => Utils.decodeHtmlEntities(s.course)).filter(Boolean))];
       const toAdd    = found.filter(c => !existing.includes(c));
@@ -4970,6 +4974,12 @@ ${expenseEntries.length > 0 ? `
     localStorage.setItem('wfa_language', newLang);
 
     saveConfig(cfg);
+    if (cfg.academy_name && typeof LicenseEngine !== 'undefined' && LicenseEngine.setAcademyName) {
+      LicenseEngine.setAcademyName(cfg.academy_name);
+    }
+    if (typeof App !== 'undefined' && App.applyAcademyMetadata) {
+      App.applyAcademyMetadata();
+    }
     const changes = [];
     if (String(prev.academy_name || '') !== String(cfg.academy_name || '')) {
       changes.push(`একাডেমির নাম: "${prev.academy_name || '(খালি)'}" → "${cfg.academy_name || '(খালি)'}"`);

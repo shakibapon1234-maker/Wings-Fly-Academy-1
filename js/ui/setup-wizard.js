@@ -211,6 +211,14 @@ const SetupWizard = (() => {
 
         // Move to Step 2
         _goToStep(2);
+        const nameInput = document.getElementById('sw-academy-name');
+        if (nameInput && !nameInput.value) {
+          const preset = window.WFA_SUPABASE_SECRETS?.academyName
+            || result.academyName
+            || result.customerName
+            || '';
+          if (preset) nameInput.value = preset;
+        }
       } else {
         _showError(errorEl, 'License engine লোড হয়নি। পেজ রিফ্রেশ করুন।');
       }
@@ -283,6 +291,10 @@ const SetupWizard = (() => {
         }], { onConflict: 'id' });
 
       if (error) throw new Error(error.message);
+
+      if (academyName && typeof LicenseEngine !== 'undefined' && LicenseEngine.setAcademyName) {
+        LicenseEngine.setAcademyName(academyName);
+      }
 
       // Success — show completion screen
       const licResult = window._sw_license_result || {};

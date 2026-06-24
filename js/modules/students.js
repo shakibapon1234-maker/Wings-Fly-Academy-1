@@ -439,7 +439,7 @@ const Students = (() => {
             </div>
             <div class="sf-field">
               <label class="sf-label">Phone Number <span class="req">*</span></label>
-              <input id="sf-phone" class="sf-input" placeholder="e.g. 01XXXXXXXXX or +1 555-123-4567" maxlength="25" pattern="[0-9+() -]{7,25}" />
+              <input id="sf-phone" class="sf-input" placeholder="e.g. 01XXXXXXXXX or +1 555-123-4567" maxlength="25" inputmode="tel" />
             </div>
           </div>
           <div class="sf-grid-2">
@@ -575,7 +575,7 @@ const Students = (() => {
         </div>
         <div class="form-group">
           <label>Phone Number</label>
-          <input id="sf-phone" class="form-control" value="${Utils.escAttr(s.phone||'')}" maxlength="25" pattern="[0-9+() -]{7,25}" />
+          <input id="sf-phone" class="form-control" value="${Utils.escAttr(s.phone||'')}" maxlength="25" inputmode="tel" />
         </div>
       </div>
       <div class="form-row">

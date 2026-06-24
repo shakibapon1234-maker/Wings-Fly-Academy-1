@@ -6,6 +6,19 @@
 
 const CertificatesModule = (() => {
 
+  function _certBaseUrl() {
+    return (typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+      ? Utils.resolveAppUrl('certificate.html').replace(/certificate\.html.*$/, '')
+      : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}`;
+  }
+
+  function _certPageUrl(token) {
+    const base = (typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+      ? Utils.resolveAppUrl('certificate.html')
+      : `${_certBaseUrl()}certificate.html`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  }
+
   const GRADES = {
     'A+': { label: 'Outstanding', color: '#1a7a1a' },
     'A':  { label: 'Excellent',   color: '#2a6e2a' },
@@ -160,8 +173,7 @@ const CertificatesModule = (() => {
     const token = await generateQRToken(studentDbId);
     if (!token) return;
 
-    const baseUrl = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/';
-    const certUrl = `${baseUrl}certificate.html?token=${token}`;
+    const certUrl = _certPageUrl(token);
 
     const body = document.getElementById('qr-modal-body');
     if (!body) return;
@@ -230,8 +242,7 @@ const CertificatesModule = (() => {
   }
 
   function printQRCard(name, studentId, course, token) {
-    const baseUrl = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/';
-    const certUrl = `${baseUrl}certificate.html?token=${token}`;
+    const certUrl = _certPageUrl(token);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(certUrl)}`;
     const win = window.open('', '_blank');
     win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>QR Card - ${typeof Utils !== 'undefined' ? Utils.esc(name) : name}</title>
@@ -256,14 +267,13 @@ const CertificatesModule = (() => {
     const students = SupabaseSync.getAll(DB.students) || [];
     if (students.length === 0) return Utils.toast('কোনো স্টুডেন্ট নেই।', 'error');
     Utils.toast(`${students.length}জন স্টুডেন্টের QR তৈরি হচ্ছে...`, 'info');
-    const baseUrl = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/';
     const cards = [];
     for (const s of students) {
       const phone = (s.phone || '').replace(/\D/g, '');
       if (!phone || phone.length < 4) continue;
       const token = await generateQRToken(s.id);
       if (!token) continue;
-      const certUrl = `${baseUrl}certificate.html?token=${token}`;
+      const certUrl = _certPageUrl(token);
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=130x130&data=${encodeURIComponent(certUrl)}`;
       cards.push({ name: s.name, studentId: s.student_id || s.id, course: s.course || '', qrUrl, certUrl });
     }
@@ -294,6 +304,7 @@ const CertificatesModule = (() => {
     if (!container) return;
     const students = SupabaseSync.getAll(DB.students) || [];
 
+    const portalLink = _certPageUrl();
     container.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
         <input type="text" id="cert-search" placeholder="🔍 Search student..."
@@ -317,10 +328,10 @@ const CertificatesModule = (() => {
         </div>
         <div style="display:flex;align-items:center;gap:8px;background:#fff;padding:4px 4px 4px 12px;border-radius:24px;border:1px solid #bfdbfe;">
           <div class="blur-link-container" style="position:relative;cursor:pointer;overflow:hidden;min-width:180px;" onclick="this.classList.toggle('revealed')">
-            <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.85rem;color:#1e3a8a;">https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/certificate.html</span>
+            <span class="blur-text" style="filter:blur(4px);transition:filter 0.3s;font-family:monospace;font-size:0.85rem;color:#1e3a8a;">${Utils.esc(portalLink)}</span>
             <div class="blur-overlay" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,0.8);font-weight:600;font-size:0.75rem;transition:opacity 0.3s;color:#1e40af;">Click to Reveal Link</div>
           </div>
-          <button class="btn-primary btn-sm" onclick="Utils.toast('Link Copied!','success');navigator.clipboard.writeText('https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/certificate.html')" style="border-radius:20px;white-space:nowrap;padding:4px 12px;"><i class="fa fa-copy"></i> Copy portal link</button>
+          <button class="btn-primary btn-sm" onclick="Utils.toast('Link Copied!','success');navigator.clipboard.writeText('${Utils.escAttr(portalLink)}')" style="border-radius:20px;white-space:nowrap;padding:4px 12px;"><i class="fa fa-copy"></i> Copy portal link</button>
         </div>
         <style>
           .blur-link-container.revealed .blur-text { filter: blur(0); }

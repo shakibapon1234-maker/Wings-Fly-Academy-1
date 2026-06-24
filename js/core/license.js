@@ -500,20 +500,29 @@ window.LicenseEngine = LicenseEngine;
 
 // ── Apply academy name & logo to page elements on load ──────────────
 (function _applyBranding() {
+  const _DEFAULT_NAMES = ['Wings Fly Academy', 'Wings Fly Aviation Academy', 'Wings Fly'];
+
+  function _replaceBrandingText(el, name) {
+    if (!el || el.children.length > 0) return;
+    let text = el.textContent;
+    _DEFAULT_NAMES.forEach(def => {
+      if (text.includes(def)) text = text.replace(new RegExp(def.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), name);
+    });
+    if (text !== el.textContent) el.textContent = text;
+  }
+
   function _apply() {
     const name = LicenseEngine.getAcademyName();
     const logo = LicenseEngine.getAcademyLogo();
 
-    // Replace text nodes that contain the default academy name in title/h1/h2/header
-    document.querySelectorAll('h1, h2, .header h1, title, .login-title, .login-sub').forEach(el => {
-      if (el.children.length === 0 && el.textContent.includes('Wings Fly Academy')) {
-        el.textContent = el.textContent.replace(/Wings Fly Academy/g, name);
+    document.querySelectorAll('h1, h2, .header h1, .login-title, .login-sub, .logo-title, .academy-name').forEach(el => {
+      _replaceBrandingText(el, name);
+    });
+    _DEFAULT_NAMES.forEach(def => {
+      if (document.title.includes(def)) {
+        document.title = document.title.replace(def, name);
       }
     });
-    // Also patch page title
-    if (document.title.includes('Wings Fly Academy')) {
-      document.title = document.title.replace(/Wings Fly Academy/g, name);
-    }
 
     // Apply logo to all elements with class wfa-academy-logo
     if (logo) {
