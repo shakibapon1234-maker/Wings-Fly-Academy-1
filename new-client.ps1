@@ -1,4 +1,4 @@
-# ================================================================
+﻿# ================================================================
 # Wings Fly Academy — New Client Deployment Script
 # Run this script to create a new client project instantly
 # Usage: Right-click -> "Run with PowerShell"  OR  .\new-client.ps1
