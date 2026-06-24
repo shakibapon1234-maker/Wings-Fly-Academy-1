@@ -28,8 +28,10 @@ function _resolveSupabaseCreds() {
   // Anon key is public by Supabase design; data access is controlled by RLS.
   const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
   const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
-  const url = _fixLegacySupabaseUrlTypo(stored.url || secrets.url || _fallbackUrl);
-  const anonKey = stored.anonKey || secrets.anonKey || secrets.anon_key || _fallbackKey;
+  // Deployed client credentials (secrets.url) should take precedence over stored credentials
+  // to avoid cross-client credentials leak when running multiple client apps under the same origin (file:// or localhost).
+  const url = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
+  const anonKey = secrets.anonKey || secrets.anon_key || stored.anonKey || _fallbackKey;
   return { url, anonKey };
 }
 
@@ -38,6 +40,11 @@ let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 // Re-read from SecureStorage after login (Settings-saved credentials)
 async function _hydrateSupabaseCredsFromStorage() {
   if (typeof SecureStorage === 'undefined') return;
+  // If this is a client deployment with fixed credentials, do NOT load from localStorage/SecureStorage
+  if (window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.url) {
+    console.info('[Config] Deployed client environment detected. Skipping SecureStorage credentials hydrate.');
+    return;
+  }
   try {
     let url = await SecureStorage.getItem('wfa_supabase_url');
     const key = await SecureStorage.getItem('wfa_supabase_anon_key');
