@@ -89,7 +89,9 @@ const WfaSettingsDiagnostics = (() => {
       try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 6000);
-        const res = await fetch('https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json', {
+        const res = await fetch((typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+          ? Utils.resolveAppUrl('version.json')
+          : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}version.json`, {
           cache: 'no-store', signal: ctrl.signal,
         });
         clearTimeout(t);

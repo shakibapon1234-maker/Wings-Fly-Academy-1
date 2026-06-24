@@ -4,7 +4,11 @@
 // ============================================================
 
 const AutoUpdateModule = (() => {
-  const VERSION_FILE_URL = 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/version.json'; // GitHub Pages hosted version
+  function _versionFileUrl() {
+    return (typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+      ? Utils.resolveAppUrl('version.json')
+      : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}version.json`;
+  }
   const LOCAL_VERSION_KEY = 'wfa_app_version';
   const LOCAL_VERSION_FALLBACK = '4.9.17';
   const LAST_CHECK_KEY = 'wfa_last_update_check';
@@ -38,7 +42,7 @@ const AutoUpdateModule = (() => {
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 8000);
-        response = await fetch(VERSION_FILE_URL, {
+        response = await fetch(_versionFileUrl(), {
           cache: 'no-store',
           mode: 'cors',
           signal: controller.signal

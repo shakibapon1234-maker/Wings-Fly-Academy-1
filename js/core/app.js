@@ -1356,17 +1356,20 @@ const App = (() => {
       }
     });
 
-    // On sync, refresh current module
-    // ✅ Fix: modal খোলা থাকলে re-render skip — transaction add করার সময় freeze এড়াতে
+    // On sync, refresh current module (debounced — avoids counter flicker every 30s)
+    let _syncRenderTimer = null;
     window.addEventListener('wfa:synced', () => {
       const modalOpen = document.querySelector('.modal-backdrop.open');
       const settingsOpen = document.getElementById('settings-overlay');
-      if (!modalOpen && !settingsOpen) {
-        renderModule(currentSection);
-      }
-      updateNotifCount();
-      // Refresh notice dot after sync (new notice may have arrived from cloud)
-      try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.updateNoticeDot(); } catch { /* ignore */ }
+      clearTimeout(_syncRenderTimer);
+      _syncRenderTimer = setTimeout(() => {
+        _applyAcademyMetadata();
+        if (!modalOpen && !settingsOpen) {
+          renderModule(currentSection);
+        }
+        updateNotifCount();
+        try { if (typeof NoticeBoardModule !== 'undefined') NoticeBoardModule.updateNoticeDot(); } catch { /* ignore */ }
+      }, 400);
     });
 
     // Auto Logout (Session Timeout)
@@ -1390,7 +1393,16 @@ const App = (() => {
   function _applyAcademyMetadata() {
     if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return;
     const settings = SupabaseSync.getAll(DB.settings)[0] || {};
-    const name = settings.academy_name || 'Wings Fly Aviation Academy';
+    const licenseName = (typeof LicenseEngine !== 'undefined' && LicenseEngine.getAcademyName)
+      ? LicenseEngine.getAcademyName()
+      : '';
+    const secretsName = window.WFA_SUPABASE_SECRETS?.academyName || '';
+    const defaultName = 'Wings Fly Aviation Academy';
+    const licenseIsDefault = !licenseName || licenseName === 'Wings Fly Academy' || licenseName === defaultName;
+    const name = settings.academy_name
+      || secretsName
+      || (!licenseIsDefault ? licenseName : '')
+      || defaultName;
     const logo = settings.logo_url || 'assets/logo.jpg';
 
     // 1. Tab title

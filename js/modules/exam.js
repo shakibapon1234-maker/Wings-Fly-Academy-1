@@ -74,10 +74,10 @@ const Exam = (() => {
 
     const canViewExamLinks = !!(window.App && typeof window.App.isAdmin === 'function' && window.App.isAdmin());
     const teacherLinkText = canViewExamLinks
-      ? 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/admin.html'
+      ? (typeof Utils !== 'undefined' && Utils.resolveAppUrl ? Utils.resolveAppUrl('admin.html') : `${location.origin}${location.pathname.replace(/[^/]+$/, '')}admin.html`)
       : 'Restricted (Admin only)';
     const studentLinkText = canViewExamLinks
-      ? 'https://shakibapon1234-maker.github.io/Wings-Fly-Academy-1/exam.html'
+      ? (typeof Utils !== 'undefined' && Utils.resolveAppUrl ? Utils.resolveAppUrl('exam.html') : `${location.origin}${location.pathname.replace(/[^/]+$/, '')}exam.html`)
       : 'Restricted (Admin only)';
 
     container.innerHTML = `

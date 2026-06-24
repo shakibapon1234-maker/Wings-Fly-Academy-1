@@ -66,6 +66,26 @@ const Utils = (() => {
     catch (e) { console.warn('[safeJSON] Parse failed:', e.message); return fallback; }
   }
 
+  /** Parse settings array fields (courses, categories) — tolerates plain strings. */
+  function parseJsonArray(str, fallback = []) {
+    if (str == null || str === '') return fallback.slice();
+    if (Array.isArray(str)) return str.slice();
+    if (typeof str === 'object') return fallback.slice();
+    const raw = String(str).trim();
+    if (!raw) return fallback.slice();
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed != null && parsed !== '') return [String(parsed)];
+      return fallback.slice();
+    } catch {
+      if (raw.includes(',')) {
+        return raw.split(',').map(s => s.trim()).filter(Boolean);
+      }
+      return [raw];
+    }
+  }
+
   /** localStorage.setItem with QuotaExceededError handling — returns false on failure */
   function safeStorageSet(key, value) {
     try {
@@ -975,7 +995,7 @@ const Utils = (() => {
       // Toast
       toast,
       // XSS Protection
-      esc, decodeHtmlEntities, displayText, safeJSON, safeStorageSet, maskPhone,
+      esc, decodeHtmlEntities, displayText, safeJSON, parseJsonArray, safeStorageSet, maskPhone,
       // Modal
       openModal, closeModal, confirm,
       // Badges

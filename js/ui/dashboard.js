@@ -676,12 +676,30 @@ const DashboardModule = (() => {
     }, 50);
   }
 
+  let _lastCounterTargets = null;
+
   function animateCounters() {
     const counters = document.querySelectorAll('.counter-val');
+    const snapshot = {};
+    counters.forEach((counter, idx) => {
+      const targetStr = counter.getAttribute('data-target') || '';
+      snapshot[counter.id || `counter-${idx}-${targetStr}`] = targetStr;
+    });
+
+    // Sync/re-render fires every ~30s — skip count-up if values unchanged
+    if (_lastCounterTargets && JSON.stringify(snapshot) === JSON.stringify(_lastCounterTargets)) {
+      counters.forEach(counter => {
+        const targetStr = counter.getAttribute('data-target');
+        if (targetStr) counter.textContent = targetStr;
+      });
+      return;
+    }
+    _lastCounterTargets = snapshot;
+
     counters.forEach(counter => {
       const targetStr = counter.getAttribute('data-target');
       if (!targetStr) return;
-      
+
       const isCurrency = targetStr.includes('৳');
       const targetClean = targetStr.replace(/[^\d.-]/g, '');
       const targetVal = parseFloat(targetClean);
@@ -690,14 +708,14 @@ const DashboardModule = (() => {
         return;
       }
 
-      let startVal = 0;
+      const startVal = 0;
       const duration = 1200;
       const startTime = performance.now();
 
       function update(currentTime) {
         const elapsed = currentTime - startTime;
         const progress = Math.min(elapsed / duration, 1);
-        const ease = 1 - Math.pow(1 - progress, 4); // easeOutQuart
+        const ease = 1 - Math.pow(1 - progress, 4);
         const currentVal = startVal + (targetVal - startVal) * ease;
 
         if (isCurrency) {

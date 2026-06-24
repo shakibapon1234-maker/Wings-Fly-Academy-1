@@ -79,6 +79,12 @@ const VisitorsModule = (() => {
     if (cancelBtn) cancelBtn.addEventListener('click', () => Utils.closeModal(), { once: true });
   }
 
+  function getVisitorFormUrl() {
+    return (typeof Utils !== 'undefined' && Utils.resolveAppUrl)
+      ? Utils.resolveAppUrl('visitor-form.html')
+      : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}visitor-form.html`;
+  }
+
   function render() {
     const container = document.getElementById('visitors-content');
     if (!container) return; // Silent return if not rendered
@@ -101,6 +107,9 @@ const VisitorsModule = (() => {
     const interested = visitors.filter(v => v.status === 'Interested').length;
     const followup = visitors.filter(v => v.status === 'Follow-up').length;
 
+    const visitorFormUrl = getVisitorFormUrl();
+    const visitorQrImg = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(visitorFormUrl)}`;
+
     let html = `
       <!-- Top Bar: Search & QR Code -->
       <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:18px; flex-wrap:wrap; gap:16px;">
@@ -115,10 +124,11 @@ const VisitorsModule = (() => {
           />
         </div>
         <div style="display:flex; align-items:center; gap:12px; background:rgba(0,212,255,0.05); border:1px solid rgba(0,212,255,0.2); padding:8px 16px; border-radius:12px;">
-          <img src="assets/Visitor.png" alt="Visitor QR" style="width:60px; height:60px; border-radius:6px; background:#fff; padding:2px; cursor:pointer;" onclick="window.open(this.src,'_blank')" title="Click to enlarge" onerror="this.style.display='none'">
+          <img src="${visitorQrImg}" alt="Visitor QR" style="width:60px; height:60px; border-radius:6px; background:#fff; padding:2px; cursor:pointer;" onclick="window.open('${Utils.escAttr(visitorFormUrl)}','_blank')" title="Open visitor form" onerror="this.style.display='none'">
           <div>
             <div style="font-size:0.85rem; font-weight:700; color:#00d4ff; text-transform:uppercase;">Visitor Scan QR</div>
-            <div style="font-size:0.75rem; color:var(--text-muted);">Visitors can scan this code to register quickly.</div>
+            <div style="font-size:0.75rem; color:var(--text-muted);">Visitors scan to register — link matches this deployment.</div>
+            <button type="button" class="btn btn-sm btn-outline" style="margin-top:6px;font-size:0.72rem;" onclick="navigator.clipboard.writeText('${Utils.escAttr(visitorFormUrl)}').then(()=>Utils.toast('Visitor link copied!','success')).catch(()=>Utils.toast('Copy failed','error'))"><i class="fa fa-copy"></i> Copy link</button>
           </div>
         </div>
       </div>
