@@ -1,17 +1,19 @@
-# ================================================================
+﻿# ================================================================
 # Wings Fly Academy — New Client Deployment Script
 # Run this script to create a new client project instantly
 # Usage: Right-click -> "Run with PowerShell"  OR  .\new-client.ps1
 # ================================================================
 
-$Host.UI.RawUI.WindowTitle = "WFA New Client Setup"
+try { $Host.UI.RawUI.WindowTitle = "WFA New Client Setup" } catch {}
 $ErrorActionPreference = "Stop"
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 
 function Write-Title { param($t); Write-Host "`n  $t" -ForegroundColor Cyan }
 function Write-OK    { param($t); Write-Host "  [OK] $t"    -ForegroundColor Green }
 function Write-WARN  { param($t); Write-Host "  [!]  $t"    -ForegroundColor Yellow }
 function Write-ERR   { param($t); Write-Host "  [X]  $t"    -ForegroundColor Red }
-function Ask         { param($q,$d); $r = Read-Host "  --> $q$(if($d){" [$d]"} else {''})"; if (!$r -and $d) { $r = $d }; return $r }
+function Ask { param($q,$d); $suffix = if($d){ " [$d]" } else { '' }; $r = Read-Host "  --> $q$suffix"; if (!$r -and $d) { $r = $d }; return $r }
 
 try {
 Clear-Host
@@ -245,3 +247,5 @@ Write-Host ""
 } finally {
     pause
 }
+
+
