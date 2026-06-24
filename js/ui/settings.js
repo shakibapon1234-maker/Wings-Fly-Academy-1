@@ -6780,7 +6780,7 @@ ${expenseEntries.length > 0 ? `
         }
       });
       if (changed) {
-        try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(local)); } catch (e) {}
+        try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(local)); } catch { /* ignore */ }
       }
       return local;
     }

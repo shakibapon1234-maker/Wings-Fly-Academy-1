@@ -2573,7 +2573,11 @@ const SupabaseSync = (() => {
         ref_id:      s.id,
       }, { bypassLog: true });
 
-      updateAccountBalance(defaultMethod, unrecorded, 'in');
+      // ✅ FIX: Do NOT call updateAccountBalance here.
+      // These repaired entries are virtual reconciliation records — students.paid
+      // already reflects money received historically. The cash was NEVER missing from
+      // the actual accounts; only the finance ledger entry was missing.
+      // Calling updateAccountBalance would double-count the cash balance.
       fixedCount++;
       totalAmount += unrecorded;
       auditLog.push(`${s.name} (${s.student_id}): +৳${unrecorded}`);
@@ -3083,10 +3087,17 @@ const SyncEngine = (() => {
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
           // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
           if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined || localRow.courses !== undefined) {
-            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots', 'expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
+            const protected_fields = ['keep_records', 'recycle_bin', 'activity_log', 'snapshots'];
+            // ✅ FIX: User-configured display settings — always keep local value.
+            // Cloud sync must NOT overwrite these because user changes them locally.
+            // Previously: only kept local if cloud field was empty (bug: cloud stale value won).
+            const always_local_fields = ['expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
             const merged = { ...cloudRow };
             for (const f of protected_fields) {
               if (localRow[f] && !merged[f]) merged[f] = localRow[f];
+            }
+            for (const f of always_local_fields) {
+              if (localRow[f] !== undefined && localRow[f] !== null) merged[f] = localRow[f];
             }
             // Smart Array Merge for Settings race conditions
             const array_fields = ['income_categories', 'expense_categories', 'courses', 'employee_roles'];

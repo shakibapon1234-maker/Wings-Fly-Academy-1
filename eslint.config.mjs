@@ -50,6 +50,7 @@ export default [
         PatternLockModule: "readonly",
         App: "readonly",
         SystemDiagnostics: "readonly",
+        SetupWizard: "readonly",
         // ── Core Guards & Diagnostics ──
         IntegrityGuard: "readonly",
         WfaSettingsDiagnostics: "readonly",

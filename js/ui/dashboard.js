@@ -57,14 +57,16 @@ const DashboardModule = (() => {
     // ✅ INCOME LOGIC (Double-Count Guard):
     // Student Fee Income = ONLY from students.paid (authoritative source)
     // Finance Ledger Income = ONLY non-student categories (other income streams)
-    // ⚠️  'Student Fee' এবং 'Balance Adjustment' finance ledger থেকে বাদ রাখা হয়
-    //     কারণ students.paid থেকে এটি ইতিমধ্যে গণনা করা হয়েছে।
-    //     এই দুটি লাইন একসাথে না বদলালে double-count হবে।
+    // ⚠️  'Student Fee', 'Student Installment', 'Student Payment' এবং 'Balance Adjustment'
+    //     finance ledger থেকে বাদ রাখা হয় কারণ students.paid থেকে এটি ইতিমধ্যে গণনা করা হয়েছে।
+    //     ✅ 'Student Installment' also excluded — auto-healed entries double-count with students.paid
+    //     এই লাইনগুলো একসাথে না বদলালে double-count হবে।
     const studentFeeTotal  = students.reduce((sum, st) => sum + Utils.safeNum(st.paid), 0);
     const otherIncome      = finance.filter(f =>
       f.type === 'Income' &&
       f.category !== 'Student Fee' &&
-      f.category !== 'Student Payment' &&   // ✅ Added: alternate category name guard
+      f.category !== 'Student Installment' && // ✅ Fix: auto-healed installment entries are in students.paid
+      f.category !== 'Student Payment' &&     // ✅ alternate category name guard
       f.category !== 'Balance Adjustment'
     ).reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const totalIncome = studentFeeTotal + otherIncome;

@@ -249,7 +249,8 @@ const Utils = (() => {
       if (!datestr) return null;
       const str = String(datestr).trim();
       if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
-        const d = new Date(str);
+        const parts = str.split('-');
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
         return isNaN(d.getTime()) ? null : d;
       }
       const dmy = str.split('/');
