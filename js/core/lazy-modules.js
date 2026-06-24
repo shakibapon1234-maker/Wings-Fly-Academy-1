@@ -18,6 +18,7 @@ const LazyModules = (() => {
     'admin-panel':         { src: 'js/core/admin-panel.js' },
     dashboard:             { src: 'js/ui/dashboard.js' },
     settings:              { src: 'js/ui/settings.js' },
+    'settings-branding':   { src: 'js/core/settings-branding.js' },
     students:              { src: 'js/modules/students.js' },
     finance:               { src: 'js/modules/finance.js' },
     accounts:              { src: 'js/modules/accounts.js' },
@@ -56,7 +57,7 @@ const LazyModules = (() => {
   const POST_LOGIN_IDLE = [
     'integrity-guard', 'system-diagnostics', 'settings-diagnostics', 'backup-restore',
     'auto-update', 'push-notifications', 'offline-mode', 'admin-panel',
-    'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
+    'settings-branding', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
   ];
 
   const PREFETCH_MODULES = ['students', 'finance', 'settings'];

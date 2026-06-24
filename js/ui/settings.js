@@ -814,6 +814,13 @@ const SettingsModule = (() => {
           <label class="settings-label">ACADEMY NAME</label>
           <input id="set-academy-name" class="form-control" value="${cfg.academy_name || 'Wings Fly Aviation Academy'}" placeholder="Enter Academy Name" />
         </div>
+        <div class="form-group mb-12">
+          <label class="settings-label">ACADEMY LOGO</label>
+          <small class="settings-sublabel">Sidebar, Login পেজ ও PDF রিপোর্টে দেখাবে। সর্বোচ্চ 500KB।</small>
+          <div id="settings-branding-logo-panel" style="margin-top:10px">
+            <span style="color:#7a8baa;font-size:0.82rem"><i class="fa fa-rotate fa-spin"></i> লোডিং...</span>
+          </div>
+        </div>
       </div>
 
       <div class="settings-card glow-red">
@@ -3092,6 +3099,15 @@ ${expenseEntries.length > 0 ? `
     activeTab = savedTab;
     switchTab(savedTab);
     setTimeout(_initSettingsDatePickers, 20);
+    // ── Branding panel inject (settings-branding.js — আলাদা ফাইল) ──────────
+    setTimeout(() => {
+      if (window.SettingsBranding) window.SettingsBranding.inject();
+      else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-branding').then(() => {
+          window.SettingsBranding && window.SettingsBranding.inject();
+        });
+      }
+    }, 50);
   }
 
   // ✅ Req 4: init Flatpickr DD/MM/YYYY on all non-disabled date inputs in the settings overlay
