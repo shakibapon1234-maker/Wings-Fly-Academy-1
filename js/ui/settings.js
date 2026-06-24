@@ -49,6 +49,14 @@ const SettingsModule = (() => {
         overlay.querySelectorAll('input[type="date"], #bp-start, #bp-end').forEach(Utils.sanitizeDateInputElement);
       }
       _initSettingsDatePickers();
+      // ✅ FIX: Inject branding logo panel on modal open (avoids stuck "লোডিং..." state)
+      if (window.SettingsBranding) {
+        window.SettingsBranding.inject();
+      } else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-branding').then(() => {
+          window.SettingsBranding && window.SettingsBranding.inject();
+        });
+      }
     }, 10);
     
     document.body.style.overflow = 'hidden';

@@ -37,6 +37,45 @@ function _resolveSupabaseCreds() {
 
 let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 
+// ✅ DB-SWITCH ISOLATION FIX
+// When the same browser / origin is reused across different client projects
+// (e.g. multiple GitHub Pages sites under the same domain), we must wipe the
+// local IndexedDB + sync-state keys so stale data cannot bleed through.
+const _LS_LAST_URL_KEY = 'wfa_last_supabase_url';
+const _LS_KEYS_TO_PURGE = [
+  'wfa_idb_migrated_v1', 'wfa_stale_cleanup_v1', 'wfa_finance_backfill_v1',
+  'wfa_activity_log', 'wfa_recent_changes', 'wfa_balance_alerts',
+  'wfa_retry_queue', 'wfa_rls_reminder_shown'
+];
+
+function _purgeLocalDataForNewDb() {
+  // Clear all IndexedDB tables (if WFA_IDB is already loaded)
+  if (window.WFA_IDB && typeof window.WFA_IDB.clearAllTables === 'function') {
+    window.WFA_IDB.clearAllTables();
+  } else {
+    // WFA_IDB loads after this script — delete the whole IndexedDB as fallback
+    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch(e) { /* ignore */ }
+  }
+  // Remove sync-state localStorage keys so next pull is a clean full pull
+  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  console.info('[Config] DB switch detected — local IndexedDB and sync state cleared for clean pull.');
+}
+
+// Run check as early as possible (synchronously after creds are resolved)
+(function _checkAndHandleDbSwitch() {
+  try {
+    const lastUrl = localStorage.getItem(_LS_LAST_URL_KEY);
+    if (lastUrl && lastUrl !== SUPABASE_URL) {
+      console.warn(`[Config] Supabase URL changed (${lastUrl} → ${SUPABASE_URL}). Purging stale local data.`);
+      _purgeLocalDataForNewDb();
+    }
+    // Always keep the current URL recorded
+    localStorage.setItem(_LS_LAST_URL_KEY, SUPABASE_URL);
+  } catch(e) {
+    console.warn('[Config] DB switch check failed (non-critical):', e.message);
+  }
+})();
+
 // Re-read from SecureStorage after login (Settings-saved credentials)
 async function _hydrateSupabaseCredsFromStorage() {
   if (typeof SecureStorage === 'undefined') return;
@@ -260,11 +299,19 @@ window.SUPABASE_CONFIG = {
   saveCloudCredentials: async (url, anonKey) => {
     if (typeof SecureStorage === 'undefined') throw new Error('SecureStorage unavailable');
     let cleanUrl = _fixLegacySupabaseUrlTypo(url.trim());
+    // ✅ DB-SWITCH ISOLATION: If URL is changing, wipe local data before switching
+    const previousUrl = localStorage.getItem(_LS_LAST_URL_KEY);
+    if (previousUrl && previousUrl !== cleanUrl) {
+      console.warn(`[Config] saveCloudCredentials: URL changed. Purging stale local data for clean start.`);
+      _purgeLocalDataForNewDb();
+    }
     await SecureStorage.setItem('wfa_supabase_url', cleanUrl);
     await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
     window.__WFA_SUPABASE_CREDS = { url: cleanUrl, anonKey: anonKey.trim() };
     window.SUPABASE_URL = cleanUrl;
     window.SUPABASE_ANON_KEY = anonKey.trim();
+    // Record the new URL
+    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch(e) {}
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
     // ✅ FIX: Reset sync anchor so next pull is FULL (not incremental from stale timestamp)

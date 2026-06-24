@@ -318,7 +318,21 @@ const WFA_IDB = (() => {
     } catch { return 0; }
   }
 
-  return { init, onReady, getTable, setTable, flushWrites, getUsageKB, getTableSizeKB };
+  function clearAllTables() {
+    _cache = {};
+    const TABLE_KEYS = [
+      'students', 'finance_ledger', 'accounts', 'loans', 'exams',
+      'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings',
+      'sub_accounts', 'recycle_bin', 'deleted_items', 'retry_queue', 'recent_changes', 'activity_log'
+    ];
+    TABLE_KEYS.forEach(key => {
+      _cache[key] = [];
+      _writeToIDB(key, []);
+    });
+    console.info('[IDB] Cleared all local tables.');
+  }
+
+  return { init, onReady, getTable, setTable, flushWrites, getUsageKB, getTableSizeKB, clearAllTables };
 })();
 
 window.WFA_IDB = WFA_IDB;
