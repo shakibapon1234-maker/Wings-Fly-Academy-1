@@ -495,7 +495,7 @@ const DashboardModule = (() => {
         <div class="stat-card animated-glow glow-purple">
           <div class="stat-header">NET PROFIT/LOSS</div>
           <div class="stat-icon-wrapper"><i class="fa fa-calculator"></i></div>
-          <div class="stat-value counter-val" style="color:${rNetProfit>=0?'#f7b731':'#ff4757'}; text-shadow:0 0 10px ${rNetProfit>=0?'rgba(247,183,49,0.4)':'rgba(255,71,87,0.3)'};" data-target="${Utils.takaEn(Math.abs(rNetProfit))}">0</div>
+          <div class="stat-value counter-val" style="color:${rNetProfit>=0?'#f7b731':'#ff4757'}; text-shadow:0 0 10px ${rNetProfit>=0?'rgba(247,183,49,0.4)':'rgba(255,71,87,0.3)'};" data-target="${(rNetProfit < 0 ? '-' : '') + Utils.takaEn(Math.abs(rNetProfit))}">0</div>
           <div class="stat-subtext" style="color:${rNetProfit>=0?'#f7b731':'#ff4757'}; font-weight:700; font-size:0.8rem; letter-spacing:0.5px;">${rNetProfit >= 0 ? '▲ Net Profit' : '▼ Net Loss'}</div>
           <div class="stat-badge" style="background:rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},.12);color:${rNetProfit>=0?'#f7b731':'#ff4757'};border-color:rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},.35);box-shadow:0 0 8px rgba(${rNetProfit>=0?'247,183,49':'255,71,87'},0.2)">✦ ${rNetProfit >= 0 ? 'Healthy' : 'Loss'}</div>
         </div>
