@@ -17,11 +17,10 @@ const CertificatesModule = (() => {
   };
 
   // ── Build Certificate HTML ────────────────────────────────
-  // ✅ C-1/C-2 Fix: Use absolute URLs so images/CSS load correctly in blank popup windows
+  // ✅ C-1/C-2 Fix: Use relative URLs and base tag so assets resolve correctly in both preview and print
   function buildCertHTML(data) {
-    const _base = window.location.origin;
-    const sigShakib = `${_base}/assets/shakib_sign.png`;
-    const sigChairman = `${_base}/assets/ferdous_sign.png`;
+    const sigShakib = `assets/shakib_sign.png`;
+    const sigChairman = `assets/ferdous_sign.png`;
     const _esc = (v) => (typeof Utils !== 'undefined' ? Utils.esc(v) : String(v ?? ''));
     const certNumber = _esc(data.certNumber || 'WFA-' + new Date().getFullYear());
     const studentId = _esc(data.studentId || 'N/A');
@@ -40,7 +39,7 @@ const CertificatesModule = (() => {
         <span>STUDENT ID : ${studentId}</span>
       </div>
       <div class="cert-course-text">CERTIFICATION ON TRAINING ABOUT THE "${courseName}".</div>
-      <img src="${_base}/assets/wings_logo_linear.png" style="position:absolute;top:6%;left:6%;height:50px;" onerror="this.src='${_base}/assets/logo.jpg';this.style.height='60px';">
+      <img src="assets/wings_logo_linear.png" style="position:absolute;top:6%;left:6%;height:50px;" onerror="this.src='assets/logo.jpg';this.style.height='60px';">
       <div style="position:absolute;top:15%;left:6%;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:700;color:#1a1a1a;letter-spacing:0.5px;">
         Certificate No: ${certNumber}
       </div>
@@ -99,15 +98,16 @@ const CertificatesModule = (() => {
   }
 
   function print(data) {
-    // ✅ C-1 Fix: Use absolute CSS URL so blank popup can load the stylesheet
-    const _base = window.location.origin;
     const html = buildCertHTML(data);
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificate - ${typeof Utils !== 'undefined' ? Utils.esc(data.studentName || '') : (data.studentName || '')}</title>
-    <link rel="stylesheet" href="${_base}/css/cert-v2.css" />
+    const baseHref = window.location.href.replace(/\/[^/]*$/, '/');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <base href="${baseHref}">
+    <title>Certificate - ${typeof Utils !== 'undefined' ? Utils.esc(data.studentName || '') : (data.studentName || '')}</title>
+    <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
-    </head><body><div style="zoom:0.85;">${html}</div><script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});}<` + `/script></body></html>`);
+    </head><body><div style="zoom:0.85;">${html}</div><script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});}<\/script></body></html>`);
     win.document.close();
   }
 
@@ -418,17 +418,18 @@ const CertificatesModule = (() => {
   }
 
   function printAllCerts() {
-    // ✅ C-1 Fix: Use absolute CSS URL so blank popup can load the stylesheet
-    const _base = window.location.origin;
     const students = SupabaseSync.getAll(DB.students) || [];
     if (students.length === 0) return Utils.toast('No students to print.', 'error');
     const allHTML = students.map(s => buildCertHTML(buildDataFromStudent(s))).join('<div style="page-break-after:always;"></div>');
     const win = window.open('', '_blank');
-    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Certificates — Bulk Print</title>
-    <link rel="stylesheet" href="${_base}/css/cert-v2.css" />
+    const baseHref = window.location.href.replace(/\/[^/]*$/, '/');
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <base href="${baseHref}">
+    <title>Certificates — Bulk Print</title>
+    <link rel="stylesheet" href="css/cert-v2.css" />
     <style>*{margin:0;padding:0;box-sizing:border-box;}body{margin:0;background:#fff;}
     @media print{body{background:#fff!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}@page{size:A4 landscape;margin:0;}}</style>
-    </head><body>${allHTML}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});}<` + `/script></body></html>`);
+    </head><body>${allHTML}<script>window.addEventListener('load',function(){setTimeout(function(){window.print();},600);});}<\/script></body></html>`);
     win.document.close();
     // Activity log
     if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.logActivity === 'function') {
