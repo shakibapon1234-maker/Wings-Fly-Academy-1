@@ -78,9 +78,12 @@
   function isAdmin() {
     const role = getRole();
     if (role === 'admin') return true;
+    if (role === 'subaccount') return false;
     const storage = _ls();
+    // Legacy: logged in without role — only treat as admin if username is admin/missing
     if (!role && storage?.getItem('wfa_logged_in') === 'true' && storage.getItem('wfa_login_time')) {
-      return true;
+      const userName = storage.getItem('wfa_user_name');
+      return !userName || userName === 'admin';
     }
     return false;
   }

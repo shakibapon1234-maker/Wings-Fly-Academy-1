@@ -1061,6 +1061,21 @@ const Students = (() => {
 
     const due   = Math.max(0, total - paid);
 
+    // ✅ Fix: paid > 0 হলে payment method বাধ্যতামূলক — না হলে finance/balance আপডেট হয় না
+    if (!editingId && paid > 0) {
+      const method = Utils.formVal('sf-method');
+      if (!method) {
+        errEl.textContent = 'Paid amount আছে — Payment Method নির্বাচন করুন (Cash/Bank/Mobile)।';
+        errEl.classList.remove('hidden');
+        return;
+      }
+      if (!Utils.isValidPaymentMethod(method)) {
+        errEl.textContent = 'Invalid Payment Method — Accounts ট্যাবে আগে account যোগ করুন।';
+        errEl.classList.remove('hidden');
+        return;
+      }
+    }
+
     const record = {
       student_id:    Utils.formVal('sf-sid'),
       name:          name,
@@ -1963,6 +1978,30 @@ const Students = (() => {
     return { fixedCount, auditLog };
   }
 
+  /** Finance Ledger-এ missing student fee entries backfill — SupabaseSync.repairMissingStudentFinance wrapper */
+  function repairMissingFinanceEntries() {
+    if (typeof SupabaseSync.repairMissingStudentFinance !== 'function') {
+      Utils.toast('Finance repair not available — reload the page', 'error');
+      return { fixedCount: 0, totalAmount: 0 };
+    }
+    const result = SupabaseSync.repairMissingStudentFinance({ silent: false });
+    render();
+    if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') {
+      DashboardModule.render();
+    }
+    if (typeof Finance !== 'undefined' && typeof Finance.render === 'function') {
+      Finance.render();
+    }
+    if (typeof Accounts !== 'undefined' && typeof Accounts.render === 'function') {
+      Accounts.render();
+    }
+    if (typeof App !== 'undefined' && typeof App.updateNotifCount === 'function') {
+      App.updateNotifCount();
+    }
+    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { source: 'finance-repair' } }));
+    return result;
+  }
+
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
@@ -1976,6 +2015,7 @@ const Students = (() => {
     _forceSave, _resetDupWarning,
     _dateSelectHTML, _syncDate,
     reconcileAllStudents,
+    repairMissingFinanceEntries,
     editPayment, saveEditedPayment,
     editInitialPayment, saveEditedInitialPayment,
     _syncPaidDueAfterLedgerChange,

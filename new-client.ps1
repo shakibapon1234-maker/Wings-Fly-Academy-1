@@ -236,9 +236,11 @@ Write-Host "  Folder        : $CLIENT_DIR" -ForegroundColor White
 Write-Host "  Live Site     : $SITEURL" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "  NEXT STEPS:" -ForegroundColor Yellow
-Write-Host "  1. GitHub repo -> Settings -> Pages -> main branch enable করুন"
-Write-Host "  2. Main Dashboard -> Settings -> Client Manager -> License Key generate করুন"
-Write-Host "  3. Key-টি client-কে পাঠান (Incognito-তে setup করতে বলুন)"
+Write-Host "  1. Client Supabase -> SQL Editor -> CLIENT_MASTER_SETUP.sql run করুন"
+Write-Host "  2. GitHub repo -> Settings -> Pages -> main branch enable করুন"
+Write-Host "  3. Main Dashboard -> Settings -> Client Manager -> License Key generate করুন"
+Write-Host "  4. Key-টি client-কে পাঠান (Incognito-তে setup করতে বলুন)"
+Write-Host "  5. Bug fix update: main project rebuild (node build-www.js) -> client repo push"
 Write-Host ""
 } catch {
     Write-ERR "দুঃখিত, স্ক্রিপ্ট চলাকালীন একটি ত্রুটি ঘটেছে:"

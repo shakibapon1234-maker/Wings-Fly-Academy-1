@@ -1484,14 +1484,24 @@ const App = (() => {
         SystemDiagnostics.cleanupLeftovers();
       }
       if (isLoggedIn()) {
-        // ✅ Fix: যদি role না থাকে (refresh/session restore) তাহলে admin default করো
-        // কারণ sub-account logout করলে wfa_logged_in cleared হয়, কিন্তু
-        // কখনো কখনো role missing থাকে। Single-user app হওয়ায় logged_in=true মানেই admin।
-        if (window.SessionStore && !SessionStore.getRole()) {
-          SessionStore.setSession({ role: 'admin', permissions: ['*'] });
-        } else if (!localStorage.getItem('wfa_user_role')) {
-          localStorage.setItem('wfa_user_role', 'admin');
-          localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+        // ✅ Fix: refresh-এ sub-account session admin-এ promote হওয়া বন্ধ করো
+        const storedRole = window.SessionStore ? SessionStore.getRole() : localStorage.getItem('wfa_user_role');
+        const storedUser = window.SessionStore ? SessionStore.getUserName() : localStorage.getItem('wfa_user_name');
+        if (!storedRole) {
+          if (storedUser && storedUser !== 'admin') {
+            const perms = window.SessionStore ? SessionStore.getPermissions() : JSON.parse(localStorage.getItem('wfa_user_permissions') || '[]');
+            if (window.SessionStore) {
+              SessionStore.setSubSession(storedUser, perms);
+            } else {
+              localStorage.setItem('wfa_user_role', 'subaccount');
+              localStorage.setItem('wfa_user_permissions', JSON.stringify(perms));
+            }
+          } else if (window.SessionStore) {
+            SessionStore.setSession({ role: 'admin', permissions: ['*'] });
+          } else {
+            localStorage.setItem('wfa_user_role', 'admin');
+            localStorage.setItem('wfa_user_permissions', JSON.stringify(['*']));
+          }
         }
         showApp(false);
       } else {

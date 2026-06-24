@@ -2473,7 +2473,11 @@ const SupabaseSync = (() => {
           await _pushRecord('accounts', newAcc);
           return true;
         }
-        return;
+        console.warn(`[Sync] ❌ Account "${methodName}" not found — add it in Accounts first.`);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast(`⚠️ "${methodName}" account নেই — Accounts ট্যাবে আগে যোগ করুন।`, 'error', 5000);
+        }
+        return false;
       }
 
       const currentBal = parseFloat(accounts[accountIdx].balance) || 0;
@@ -2519,11 +2523,99 @@ const SupabaseSync = (() => {
     }
   }
 
+  /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
+  function ensureDefaultCashAccount() {
+    const accounts = getAll('accounts');
+    if (accounts.some(a => a.type === 'Cash')) return false;
+    insert('accounts', {
+      type: 'Cash',
+      name: 'Cash',
+      balance: 0,
+    }, { bypassLog: true });
+    console.info('[Sync] Default Cash account created.');
+    return true;
+  }
+
+  /**
+   * Student.paid আছে কিন্তু Finance Ledger-এ entry নেই — backfill করো + account balance আপডেট।
+   * Dashboard-এ collection দেখায় কিন্তু Finance/Accounts ০ থাকলে এই repair লাগে।
+   */
+  function repairMissingStudentFinance(options = {}) {
+    const silent = !!options.silent;
+    const defaultMethod = options.method || 'Cash';
+    ensureDefaultCashAccount();
+
+    const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    const studentsKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
+    const allStudents = getAll(studentsKey);
+    const allFinance  = getAll(financeKey);
+    let fixedCount = 0;
+    let totalAmount = 0;
+    const auditLog = [];
+
+    allStudents.forEach(s => {
+      if (!s || !s.id) return;
+      const ledgerPaid = allFinance
+        .filter(f => f.category === 'Student Fee' &&
+                     (f.ref_id === s.id || f.ref_id === s.student_id))
+        .reduce((sum, f) => sum + (parseFloat(f.amount) || 0), 0);
+      const unrecorded = Math.max(0, (parseFloat(s.paid) || 0) - ledgerPaid);
+      if (unrecorded <= 0) return;
+
+      insert(financeKey, {
+        type:        'Income',
+        category:    'Student Fee',
+        description: `${s.name || 'Student'} (${s.student_id || s.id}) — Admission Payment (Repaired)`,
+        amount:      unrecorded,
+        method:      defaultMethod,
+        date:        (s.admission_date || '').split('T')[0] || new Date().toISOString().split('T')[0],
+        note:        'Auto-repaired: paid amount was saved without finance ledger entry',
+        ref_id:      s.id,
+      }, { bypassLog: true });
+
+      updateAccountBalance(defaultMethod, unrecorded, 'in');
+      fixedCount++;
+      totalAmount += unrecorded;
+      auditLog.push(`${s.name} (${s.student_id}): +৳${unrecorded}`);
+    });
+
+    if (fixedCount > 0) {
+      _logActivity('system', financeKey,
+        `Finance repair: ${fixedCount} missing student fee entr${fixedCount === 1 ? 'y' : 'ies'} backfilled (৳${totalAmount.toLocaleString('en-IN')})`);
+      if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`🔧 Finance repaired: ${fixedCount} student(s), ৳${totalAmount.toLocaleString('en-IN')} added to ledger`, 'success');
+      }
+      console.info('[Sync] Finance repair:\n' + auditLog.join('\n'));
+    } else if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
+      Utils.toast('✅ Finance ledger is complete — no missing entries', 'success');
+    }
+
+    return { fixedCount, totalAmount, auditLog };
+  }
+
+  function _runStartupFinanceRepair() {
+    try {
+      ensureDefaultCashAccount();
+      if (!localStorage.getItem('wfa_finance_backfill_v1')) {
+        repairMissingStudentFinance({ silent: true });
+        localStorage.setItem('wfa_finance_backfill_v1', '1');
+      }
+    } catch (e) {
+      console.warn('[Sync] Startup finance repair failed (non-critical):', e);
+    }
+  }
+
+  if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
+    WFA_IDB.onReady(_runStartupFinanceRepair);
+  }
+
   return {
     getAll, getById, setAll, insert, update, remove, generateId, _deleteFromCloud,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
+    ensureDefaultCashAccount,
+    repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,

@@ -1333,6 +1333,21 @@ const SettingsModule = (() => {
         </div>
       </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
+        <div class="settings-card-title"><i class="fa fa-wrench"></i> Finance Ledger Repair</div>
+        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
+          Student যোগ করার সময় <strong style="color:#00ff88">Paid</strong> amount save হয়েছে কিন্তু
+          Finance Ledger / Account Balance <strong style="color:#ff4757">০</strong> দেখাচ্ছে?<br/>
+          এই বাটন missing finance entries তৈরি করবে এবং Cash account balance আপডেট করবে।
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm"
+                  style="background:linear-gradient(90deg,#00ff88,#00d9ff);border:none;padding:10px 20px;font-weight:800;"
+                  onclick="if(typeof Students!=='undefined')Students.repairMissingFinanceEntries();else if(typeof SupabaseSync!=='undefined'&&SupabaseSync.repairMissingStudentFinance)SupabaseSync.repairMissingStudentFinance();else Utils.toast('Students module not loaded','error')">
+            <i class="fa fa-wrench"></i> Repair Missing Finance Entries
+          </button>
+        </div>
+      </div>
+      <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
           যদি কোনো Student-এর <strong style="color:#00ff88">Paid</strong> বা <strong style="color:#ff4757">Due</strong>
@@ -1765,6 +1780,18 @@ const SettingsModule = (() => {
         <div style="background:var(--bg-base);padding:10px 14px;border-radius:var(--radius-sm);font-size:.82rem;color:var(--text-muted);border:1px solid var(--border)">
           <strong>Device ID:</strong> <code>${typeof SupabaseSync !== 'undefined' ? SupabaseSync._deviceId() : '—'}</code>
         </div>
+      </div>
+
+      <div class="settings-card glow-cyan">
+        <div class="settings-card-title"><i class="fa fa-wrench"></i> FINANCE LEDGER REPAIR</div>
+        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
+          Student-এ Paid amount আছে কিন্তু Finance Ledger / Account Balance ০? Missing entries backfill করুন।
+        </p>
+        <button class="btn btn-primary btn-sm"
+                style="background:linear-gradient(90deg,#00ff88,#00d9ff);border:none;padding:10px 20px;font-weight:800;"
+                onclick="if(typeof Students!=='undefined')Students.repairMissingFinanceEntries();else if(typeof SupabaseSync!=='undefined'&&SupabaseSync.repairMissingStudentFinance)SupabaseSync.repairMissingStudentFinance();else Utils.toast('Students module not loaded','error')">
+          <i class="fa fa-wrench"></i> Repair Missing Finance Entries
+        </button>
       </div>
 
       <div class="settings-card glow-cyan">
