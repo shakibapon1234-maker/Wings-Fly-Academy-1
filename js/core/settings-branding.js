@@ -89,6 +89,19 @@ window.SettingsBranding = (() => {
       const dataURL = e.target.result;
       const eng = _engine();
       if (eng) eng.setAcademyLogo(dataURL);
+
+      // Save to Supabase settings table if available
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+        cfg.logo_url = dataURL;
+        if (cfg.id) {
+          SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
+        } else {
+          cfg.id = SupabaseSync.generateId();
+          SupabaseSync.insert(DB.settings, cfg, { bypassLog: true });
+        }
+      }
+
       _applyToUI(dataURL);
       _toast('✅ লোগো সফলভাবে সেভ হয়েছে!', 'success');
       const hint = document.getElementById(ID.sizeHint);
@@ -107,6 +120,19 @@ window.SettingsBranding = (() => {
     if (!confirm('লোগো মুছে ফেলতে চান?')) return;
     const eng = _engine();
     if (eng) eng.removeAcademyLogo();
+
+    // Clear logo_url in Supabase settings table if available
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+      cfg.logo_url = '';
+      if (cfg.id) {
+        SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
+      } else {
+        cfg.id = SupabaseSync.generateId();
+        SupabaseSync.insert(DB.settings, cfg, { bypassLog: true });
+      }
+    }
+
     _applyToUI(null);
     _toast('লোগো মুছে ফেলা হয়েছে।', 'warning');
     const fi = document.getElementById(ID.fileInput);
@@ -192,8 +218,20 @@ window.SettingsBranding = (() => {
     const placeholder = document.getElementById('settings-branding-logo-panel');
     if (!placeholder) return; // panel not open yet — নো প্রবলেম
 
-    const eng = _engine();
-    const currentLogo = eng ? eng.getAcademyLogo() : null;
+    let currentLogo = null;
+    // Check SupabaseSync settings first
+    if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+      const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+      if (cfg.logo_url) {
+        currentLogo = cfg.logo_url;
+      }
+    }
+    // Fallback to localStorage
+    if (!currentLogo) {
+      const eng = _engine();
+      currentLogo = eng ? eng.getAcademyLogo() : null;
+    }
+
     placeholder.innerHTML = _buildHTML(currentLogo);
   }
 
