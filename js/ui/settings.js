@@ -6678,13 +6678,26 @@ ${expenseEntries.length > 0 ? `
     if (!isAdm) return `<div class="settings-panel" data-panel="client-manager"></div>`;
 
     const _CLIENTS_KEY = 'wfa_acadeflow_clients';
+    const _DELETED_CODES_KEY = 'wfa_acadeflow_clients_deleted';
+    function _getDeletedCodes() {
+      try { return JSON.parse(localStorage.getItem(_DELETED_CODES_KEY) || '[]'); } catch { return []; }
+    }
+    function _addDeletedCode(code) {
+      const arr = _getDeletedCodes();
+      if (!arr.includes(code)) { arr.push(code); localStorage.setItem(_DELETED_CODES_KEY, JSON.stringify(arr)); }
+    }
+
     function _loadClients() {
       let local = [];
       try { local = JSON.parse(localStorage.getItem(_CLIENTS_KEY) || '[]'); } catch { local = []; }
 
+      const deletedCodes = _getDeletedCodes();
       const autoDeployed = window.WFA_AUTO_DEPLOYED_CLIENTS || [];
       let changed = false;
       autoDeployed.forEach(ac => {
+        // ── Skip entries the admin has explicitly deleted ─────────────
+        if (deletedCodes.includes(ac.customerCode)) return;
+
         const idx = local.findIndex(lc => lc.customerCode === ac.customerCode);
         if (idx === -1) {
           // ── New client: add it ──────────────────────────────────────
@@ -6704,8 +6717,7 @@ ${expenseEntries.length > 0 ? `
           });
           changed = true;
         } else {
-          // ── FIX: Existing client — sync fields from latest metadata ──
-          // (academy name, package, supabase creds may have been corrected)
+          // ── Existing client — sync fields from latest metadata ───────
           const lc = local[idx];
           if (lc.academy     !== ac.academy)     { lc.academy     = ac.academy;     changed = true; }
           if (lc.package     !== ac.package)     { lc.package     = ac.package;     changed = true; }
@@ -6859,9 +6871,16 @@ ${expenseEntries.length > 0 ? `
 
     window._wfaClientDelete = function(idx) {
       if (!confirm('Delete this client permanently?')) return;
-      const list = _loadClients(); list.splice(idx, 1); _saveClients(list);
+      const list = _loadClients();
+      const deleted = list.splice(idx, 1)[0];
+      // ── If it came from auto-deploy metadata, blacklist its code ────
+      if (deleted?.customerCode) _addDeletedCode(deleted.customerCode);
+      _saveClients(list);
       Utils.toast('Client deleted.', 'warning');
-      SettingsModule.refreshModal();
+      // Refresh only the table (no full modal flicker)
+      const tableEl = document.getElementById('cm-clients-table');
+      if (tableEl) tableEl.innerHTML = _buildTable(_loadClients());
+      else SettingsModule.refreshModal();
     };
 
     // Assign a generated key to a selected client
@@ -6920,7 +6939,7 @@ ${expenseEntries.length > 0 ? `
 
       <div class="settings-card" style="margin-bottom:20px">
         <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
-          <button onclick="_wfaRefreshLicenseStatuses && _wfaRefreshLicenseStatuses()" title="Refresh license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
+          <button onclick="(function(){ const fresh=_loadClients(); document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh); if(typeof _wfaRefreshLicenseStatuses==='function') _wfaRefreshLicenseStatuses(); })()" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
         </div>
         <div id="cm-clients-table">${_buildTable(clients)}</div>
       </div>
