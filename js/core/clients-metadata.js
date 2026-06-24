@@ -53,5 +53,16 @@
         "supabaseKey":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1cGtoeW9zanJkdm9rY25mdWlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyOTkxMzUsImV4cCI6MjA5Nzg3NTEzNX0.cycWe9Pcn10negSxqZeG87PjlfU_7PzNrGlIt3iywPE",
         "createdAt":  "2026-06-24T07:20:52.566Z",
         "notes":  "Auto-deployed via script"
+    },
+    {
+        "id":  "e3921536-426e-40d2-9db9-1f292eca2dfe",
+        "customerCode":  "0002",
+        "academy":  "client academy",
+        "package":  "basic",
+        "licenseKey":  "",
+        "supabaseUrl":  "https://azfxhrlxnyueaifunyzh.supabase.co",
+        "supabaseKey":  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6Znhocmx4bnl1ZWFpZnVueXpoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMTA0NzQsImV4cCI6MjA5Nzg4NjQ3NH0.DexWeZmVShGHIRGJ6nPn3urVIWM90Tj0DxRNWkIadUE",
+        "createdAt":  "2026-06-24T08:49:51.417Z",
+        "notes":  "Auto-deployed via script"
     }
 ];
