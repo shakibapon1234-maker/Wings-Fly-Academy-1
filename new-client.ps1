@@ -1,4 +1,4 @@
-﻿# ================================================================
+# ================================================================
 # Wings Fly Academy — New Client Deployment Script
 # Run this script to create a new client project instantly
 # Usage: Right-click -> "Run with PowerShell"  OR  .\new-client.ps1
@@ -183,6 +183,23 @@ $new_json = ConvertTo-Json $existing_clients -Depth 10
 $new_meta_content = "window.WFA_AUTO_DEPLOYED_CLIENTS = $new_json;"
 $new_meta_content | Set-Content -Path $META_PATH -Encoding UTF8
 Write-OK "Clients metadata updated: js/core/clients-metadata.js"
+
+# ── STEP 5C: Push clients-metadata.js to main admin repo ──────
+# এটা না করলে Client Manager-এ নতুন client দেখা যাবে না (GitHub Pages পুরানো file দেখাবে)
+Write-Host ""
+Write-Title "STEP 5C: Main admin repo-তে clients-metadata.js push করা হচ্ছে..."
+Write-Host ""
+Push-Location $WFA_ROOT
+try {
+    git add "js/core/clients-metadata.js" | Out-Null
+    git commit -m "chore: add client $CODE ($ACADEMY) to clients-metadata.js" | Out-Null
+    git push | Out-Null
+    Write-OK "Main repo updated — Client Manager-এ নতুন client দেখাবে।"
+} catch {
+    Write-WARN "Main repo push করা যায়নি। পরে নিজে করুন: git add js/core/clients-metadata.js && git commit -m 'add client $CODE' && git push"
+} finally {
+    Pop-Location
+}
 
 # ── STEP 6: Create .gitattributes ─────────────────────────────
 $GA = "* text=auto`n*.js text eol=lf`n*.html text eol=lf`n*.css text eol=lf"
