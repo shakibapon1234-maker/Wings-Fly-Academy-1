@@ -434,3 +434,43 @@ drop trigger if exists cert_tokens_updated_at on public.certificate_tokens;
 create trigger cert_tokens_updated_at
   before update on public.certificate_tokens
   for each row execute function update_updated_at();
+
+-- 6. Custom RPC Functions
+drop function if exists public.wfa_verify_student_certificate(text, text);
+create or replace function public.wfa_verify_student_certificate(
+  p_student_id text,
+  p_phone_last4 text
+)
+returns table (
+  id           text,
+  student_id   text,
+  name         text,
+  course       text,
+  batch        text,
+  session      text,
+  status       text
+)
+language plpgsql
+security definer
+as $$
+begin
+  return query
+  select
+    s.id,
+    s.student_id,
+    s.name,
+    s.course,
+    s.batch,
+    s.session,
+    s.status
+  from public.students s
+  where
+    (
+      lower(s.student_id) = lower(p_student_id)
+      or lower(s.name)    = lower(p_student_id)
+    )
+    and right(regexp_replace(s.phone, '\D', '', 'g'), 4) = p_phone_last4
+    and s.status = 'Active'
+  limit 1;
+end;
+$$;

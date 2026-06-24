@@ -1,4 +1,4 @@
-﻿# ================================================================
+# ================================================================
 # Wings Fly Academy — New Client Deployment Script
 # Run this script to create a new client project instantly
 # Usage: Right-click -> "Run with PowerShell"  OR  .\new-client.ps1
@@ -135,39 +135,52 @@ $META_PATH = Join-Path $WFA_ROOT "js\core\clients-metadata.js"
 $existing_clients = @()
 if (Test-Path $META_PATH) {
     $js_content = Get-Content -Path $META_PATH -Raw -Encoding UTF8
-    if ($js_content -match '\[([\s\S]*)\]') {
-        $json_str = "[" + $Matches[1] + "]"
-        try {
-            $existing_clients = ConvertFrom-Json $json_str
-            if ($existing_clients -eq $null) { $existing_clients = @() }
-        } catch {
-            $existing_clients = @()
+
+    # ── FIX: Strip the JS wrapper reliably instead of using greedy regex ──
+    # Remove: window.WFA_AUTO_DEPLOYED_CLIENTS = ... ;
+    # Then trim whitespace so ConvertFrom-Json gets pure JSON.
+    $json_raw = $js_content -replace '^\s*window\.WFA_AUTO_DEPLOYED_CLIENTS\s*=\s*', '' `
+                            -replace ';\s*$', '' |
+               ForEach-Object { $_.Trim() }
+    try {
+        $parsed = ConvertFrom-Json $json_raw
+        if ($parsed -ne $null) {
+            $existing_clients = @($parsed)
         }
+    } catch {
+        Write-WARN "clients-metadata.js parse error — starting fresh list."
+        $existing_clients = @()
     }
 }
 
-# Ensure it behaves as an array
+# Ensure it is always a proper array
 if ($existing_clients -isnot [array]) {
     $existing_clients = @($existing_clients)
 }
 
-$new_client = [PSCustomObject]@{
-    id           = [Guid]::NewGuid().ToString()
-    customerCode = $CODE
-    academy      = $ACADEMY
-    package      = $PKG
-    licenseKey   = $LICKEY
-    supabaseUrl  = $URL
-    supabaseKey  = $KEY
-    createdAt    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
-    notes        = "Auto-deployed via script"
+# ── FIX: Check for duplicate customerCode before appending ──
+$already_exists = $existing_clients | Where-Object { $_.customerCode -eq $CODE }
+if ($already_exists) {
+    Write-WARN "customerCode '$CODE' already exists in clients-metadata.js — skipping duplicate."
+} else {
+    $new_client = [PSCustomObject]@{
+        id           = [Guid]::NewGuid().ToString()
+        customerCode = $CODE
+        academy      = $ACADEMY
+        package      = $PKG
+        licenseKey   = $LICKEY
+        supabaseUrl  = $URL
+        supabaseKey  = $KEY
+        createdAt    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+        notes        = "Auto-deployed via script"
+    }
+    $existing_clients += $new_client
 }
 
-$existing_clients += $new_client
 $new_json = ConvertTo-Json $existing_clients -Depth 10
 $new_meta_content = "window.WFA_AUTO_DEPLOYED_CLIENTS = $new_json;"
 $new_meta_content | Set-Content -Path $META_PATH -Encoding UTF8
-Write-OK "Clients metadata updated in main project: js/core/clients-metadata.js"
+Write-OK "Clients metadata updated: js/core/clients-metadata.js"
 
 # ── STEP 6: Create .gitattributes ─────────────────────────────
 $GA = "* text=auto`n*.js text eol=lf`n*.html text eol=lf`n*.css text eol=lf"

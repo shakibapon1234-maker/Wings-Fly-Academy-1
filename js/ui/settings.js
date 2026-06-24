@@ -6681,12 +6681,13 @@ ${expenseEntries.length > 0 ? `
     function _loadClients() {
       let local = [];
       try { local = JSON.parse(localStorage.getItem(_CLIENTS_KEY) || '[]'); } catch { local = []; }
-      
+
       const autoDeployed = window.WFA_AUTO_DEPLOYED_CLIENTS || [];
       let changed = false;
       autoDeployed.forEach(ac => {
-        const exists = local.some(lc => lc.customerCode === ac.customerCode);
-        if (!exists) {
+        const idx = local.findIndex(lc => lc.customerCode === ac.customerCode);
+        if (idx === -1) {
+          // ── New client: add it ──────────────────────────────────────
           local.push({
             id: ac.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
             customerCode: ac.customerCode,
@@ -6702,6 +6703,15 @@ ${expenseEntries.length > 0 ? `
             createdAt: ac.createdAt || new Date().toISOString()
           });
           changed = true;
+        } else {
+          // ── FIX: Existing client — sync fields from latest metadata ──
+          // (academy name, package, supabase creds may have been corrected)
+          const lc = local[idx];
+          if (lc.academy     !== ac.academy)     { lc.academy     = ac.academy;     changed = true; }
+          if (lc.package     !== ac.package)     { lc.package     = ac.package;     changed = true; }
+          if (lc.supabaseUrl !== ac.supabaseUrl) { lc.supabaseUrl = ac.supabaseUrl; changed = true; }
+          if (lc.supabaseKey !== ac.supabaseKey) { lc.supabaseKey = ac.supabaseKey; changed = true; }
+          // licenseKey is managed in-app, do NOT overwrite from metadata
         }
       });
       if (changed) {
@@ -6709,6 +6719,7 @@ ${expenseEntries.length > 0 ? `
       }
       return local;
     }
+
     function _saveClients(arr) {
       try { localStorage.setItem(_CLIENTS_KEY, JSON.stringify(arr)); } catch { /* ignore */ }
     }
