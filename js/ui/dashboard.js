@@ -71,8 +71,21 @@ const DashboardModule = (() => {
     ).reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const totalIncome = studentFeeTotal + otherIncome;
 
-    // All-Time: \"Total Expense\" = sum of all finance expenses (loans/investments NOT in ledger)
-    const totalExpense = finance.filter(f => f.type === 'Expense' && f.category !== 'Balance Adjustment').reduce((s, f) => s + Utils.safeNum(f.amount), 0);
+    // All-Time: "Total Expense" = sum of all finance expenses
+    // ✅ Loan Guard: Loans are NOT income or expense — they only affect account balance.
+    // Exclude: _isLoan flag, category='Loan', type contains 'Loan', or description clearly a loan transaction.
+    const isLoanEntry = f => {
+      if (f._isLoan) return true;
+      const cat  = String(f.category || '').toLowerCase();
+      if (cat === 'loan') return true;
+      const tp   = String(f.type || '').toLowerCase();
+      if (tp.includes('loan')) return true;
+      // Guard against manually-entered loan descriptions (e.g. "loan shakib", "Loan payment (shakib)")
+      const desc = String(f.description || '').toLowerCase();
+      if (/^loan[^a-z]/i.test(desc) || /loan\s+(payment|given|taken|repay)/i.test(desc)) return true;
+      return false;
+    };
+    const totalExpense = finance.filter(f => f.type === 'Expense' && f.category !== 'Balance Adjustment' && !isLoanEntry(f)).reduce((s, f) => s + Utils.safeNum(f.amount), 0);
     const netProfit    = totalIncome - totalExpense;
 
     // ── Running Batch filtered stats ──────────────────────────
@@ -105,6 +118,8 @@ const DashboardModule = (() => {
     const rTotalExpense = expStart
       ? finance.filter(f => {
           if (f.type !== 'Expense') return false;
+          // ✅ Loan Guard: skip any loan-related entry — loans only affect balance, not P&L
+          if (isLoanEntry(f)) return false;
           const fd = normDate(f.date);
           if (!fd) return false;
           if (fd < expStart) return false;
