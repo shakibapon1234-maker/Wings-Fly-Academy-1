@@ -26,8 +26,8 @@ function _resolveSupabaseCreds() {
   // ✅ FIX: Inline fallback — if supabase-secrets.js is 404 (GitHub Pages)
   // and no stored creds exist, use default project credentials.
   // Anon key is public by Supabase design; data access is controlled by RLS.
-  const _fallbackUrl = 'https://fcjjofmiulantohuxkno.supabase.co';
-  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjampvZm1pdWxhbnRvaHV4a25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjk5NjAsImV4cCI6MjA5Nzk0NTk2MH0.bWoWyv0Yf2t4IXaF3LYa34z8hzfNgsTv2ugbNMPlTqY';
+  const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
   // Deployed client credentials (secrets.url) should take precedence over stored credentials
   // to avoid cross-client credentials leak when running multiple client apps under the same origin (file:// or localhost).
   const url = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
@@ -54,10 +54,10 @@ function _purgeLocalDataForNewDb() {
     window.WFA_IDB.clearAllTables();
   } else {
     // WFA_IDB loads after this script — delete the whole IndexedDB as fallback
-    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch(e) { /* ignore */ }
+    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch { /* ignore */ }
   }
   // Remove sync-state localStorage keys so next pull is a clean full pull
-  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
   console.info('[Config] DB switch detected — local IndexedDB and sync state cleared for clean pull.');
 }
 
@@ -233,6 +233,7 @@ const DB = {
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
   student_portal_access: 'student_portal_access',
+  payment_requests: 'payment_requests',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',
@@ -312,7 +313,7 @@ window.SUPABASE_CONFIG = {
     window.SUPABASE_URL = cleanUrl;
     window.SUPABASE_ANON_KEY = anonKey.trim();
     // Record the new URL
-    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch(e) {}
+    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch { /* ignore */ }
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
     // ✅ FIX: Reset sync anchor so next pull is FULL (not incremental from stale timestamp)

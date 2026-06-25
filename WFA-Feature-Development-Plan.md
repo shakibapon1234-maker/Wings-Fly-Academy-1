@@ -38,7 +38,7 @@ main (production — কখনো সরাসরি কাজ করবেন �
 
 ---
 
-## Feature 1 — Student/Parent Portal [STATUS: COMPLETED ✅ — TESTING বাকি]
+## Feature 1 — Student/Parent Portal [STATUS: ✅ MERGED TO MAIN]
 **Branch:** `feature/student-portal`  
 **নির্ভরতা:** কোনো existing feature-এর উপর নির্ভর করে না  
 **ঝুঁকি:** কম (সম্পূর্ণ নতুন ফাইল, existing কিছু নষ্ট হবে না)
@@ -82,7 +82,7 @@ CREATE TABLE student_portal_access (
 - [x] 4. Dashboard-এ ৩টা tab: Attendance | Result | Fee Status
 - [x] 5. Admin panel settings-এ "Portal Access দাও" বাটন (`settings.js`-এ "Student Portal" tab যোগ হয়েছে)
 - [x] 6. Admin-এ student list থেকে PIN set করার option (PIN modal + Supabase upsert সম্পন্ন)
-- [ ] 7. Testing করুন → Merge
+- [x] 7. Testing ✓ → Merge → GitHub Push ✅ (main branch প্রস্তুত)
 
 ---
 

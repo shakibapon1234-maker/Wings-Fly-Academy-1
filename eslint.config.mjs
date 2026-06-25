@@ -45,6 +45,8 @@ export default [
         IDCardsModule: "readonly",
         CertificatesModule: "readonly",
         NoticeBoardModule: "readonly",
+        PaymentRequestsModule: "readonly",
+        PaymentEngine: "readonly",
         AIAssistant: "readonly",
         FaceIDModule: "readonly",
         PatternLockModule: "readonly",
