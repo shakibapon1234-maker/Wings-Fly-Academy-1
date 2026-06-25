@@ -232,6 +232,7 @@ const DB = {
   keep_records:     'keep_records',
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
+  student_portal_access: 'student_portal_access',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',

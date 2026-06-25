@@ -715,6 +715,10 @@ const Students = (() => {
       <button class="action-btn-glow btn-green" onclick="Utils.closeModal(); setTimeout(()=>Students.openEditModal('${eid}'), 400)">
         <i class="fa fa-user-pen"></i> EDIT PROFILE
       </button>
+
+      <button class="action-btn-glow btn-yellow" style="background: linear-gradient(90deg, #b224ef, #7579ff); color: white; box-shadow: 0 0 15px rgba(178, 36, 239, 0.4);" onclick="Utils.closeModal(); setTimeout(()=>Students.openPortalAccessModal('${eid}'), 400)">
+        <i class="fa fa-key"></i> PORTAL ACCESS / পিন
+      </button>
       
       <button class="action-btn-glow btn-purple" onclick="Students.printReceipt('${eid}')">
         <i class="fa fa-print"></i> PRINT RECEIPT
@@ -732,6 +736,121 @@ const Students = (() => {
         CLOSE MENU
       </button>
     `, 'modal-sm');
+  }
+
+  /* ══════════════════════════════════════════
+     PORTAL ACCESS MANAGEMENT (FEATURE 1)
+  ══════════════════════════════════════════ */
+  async function openPortalAccessModal(id) {
+    const s = SupabaseSync.getById(DB.students, id);
+    if (!s) return;
+    const eid = Utils.escAttr(id);
+
+    const accessRecords = SupabaseSync.getAll('student_portal_access') || [];
+    const access = accessRecords.find(a => a.student_id === id);
+
+    const isActive = access ? !!access.is_active : false;
+    const phone = s.phone || '';
+
+    Utils.openModal('<i class="fa fa-key"></i> Student Portal Access', `
+      <div style="margin-bottom: 16px; text-align: center;">
+        <div style="font-weight:700;font-size:1.15rem;color:var(--brand-primary);">${Utils.esc(s.name)}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:2px;">ID: ${Utils.esc(s.student_id)}</div>
+      </div>
+      
+      <div class="form-group mb-12">
+        <label class="settings-label" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="portal-active" ${isActive ? 'checked' : ''} style="width:18px;height:18px;cursor:pointer" />
+          <span>PORTAL ACCESS ENABLED (সচল করুন)</span>
+        </label>
+      </div>
+
+      <div class="form-group mb-12">
+        <label class="settings-label">REGISTERED PHONE (মোবাইল নম্বর)</label>
+        <input type="text" id="portal-phone" class="form-control" value="${Utils.escAttr(phone)}" disabled style="opacity:0.7;background:rgba(255,255,255,0.05)" />
+        <small class="settings-sublabel">স্টুডেন্ট এই মোবাইল নম্বর ব্যবহার করে লগইন করবেন।</small>
+      </div>
+
+      <div class="form-group mb-12">
+        <label class="settings-label">SET 4-DIGIT PIN (৪-ডিজিটের পিন নম্বর)</label>
+        <input type="password" id="portal-pin" class="form-control" placeholder="${access ? '•••• (পিন পরিবর্তন করতে নতুন পিন লিখুন)' : '৪ ডিজিটের পিন নম্বর লিখুন'}" maxlength="4" autocomplete="off" />
+        <small class="settings-sublabel">খালি রাখলে আগের পিন অপরিবর্তিত থাকবে। নতুন পিন সেট করতে এখানে ৪টি সংখ্যা লিখুন।</small>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:24px">
+        <button class="btn-secondary" onclick="Utils.closeModal()">CANCEL</button>
+        <button class="btn-success" onclick="Students.savePortalAccess('${eid}')">SAVE SETTINGS</button>
+      </div>
+    `, 'modal-sm');
+  }
+
+  async function savePortalAccess(id) {
+    const s = SupabaseSync.getById(DB.students, id);
+    if (!s) return;
+
+    const isActive = document.getElementById('portal-active').checked;
+    const pin = document.getElementById('portal-pin').value.trim();
+
+    const accessRecords = SupabaseSync.getAll('student_portal_access') || [];
+    const access = accessRecords.find(a => a.student_id === id);
+
+    let pinHash = access ? access.pin_hash : '';
+
+    if (pin) {
+      if (pin.length !== 4 || isNaN(pin)) {
+        Utils.toast('পিন নম্বর অবশ্যই ৪ ডিজিটের সংখ্যা হতে হবে! ❌', 'error');
+        return;
+      }
+      pinHash = await _hashPin(pin);
+    } else if (!access) {
+      Utils.toast('নতুন পোর্টাল সচল করতে পিন নম্বর সেট করা বাধ্যতামূলক! ❌', 'error');
+      return;
+    }
+
+    const record = {
+      student_id: id,
+      student_name: s.name,
+      phone: s.phone.replace(/[\s-]/g, ''),
+      pin_hash: pinHash,
+      is_active: isActive
+    };
+
+    try {
+      if (access) {
+        SupabaseSync.update('student_portal_access', access.id, record);
+      } else {
+        record.id = SupabaseSync.generateId();
+        record.created_at = new Date().toISOString();
+        SupabaseSync.insert('student_portal_access', record);
+      }
+      Utils.toast('Portal access configuration saved! ✅', 'success');
+      Utils.closeModal();
+    } catch (err) {
+      console.error('[PortalAccess] Save error:', err);
+      Utils.toast('সংরক্ষণ করতে সমস্যা হয়েছে! ❌', 'error');
+    }
+  }
+
+  async function _hashPin(pin) {
+    try {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch {
+      const salt = 'wfa_2026_';
+      const salted = salt + pin + pin.length.toString(16);
+      let h = 0x811c9dc5;
+      for (let round = 0; round < 3; round++) {
+        const input = round === 0 ? salted : salted + (h >>> 0).toString(16);
+        for (let i = 0; i < input.length; i++) {
+          h ^= input.charCodeAt(i);
+          h = Math.imul(h, 0x01000193);
+        }
+      }
+      const h1 = (h >>> 0).toString(16).padStart(8, '0');
+      const h2 = ((h >>> 0) ^ 0x9e3779b9 >>> 0).toString(16).padStart(8, '0');
+      return h1 + h2;
+    }
   }
 
   /* ══════════════════════════════════════════
@@ -2006,6 +2125,7 @@ const Students = (() => {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
     openAddModal, openEditModal, openPayModal, openManageAction,
+    openPortalAccessModal, savePortalAccess,
     calcDue, saveStudent, savePayment,
     deleteStudent, exportExcel,
     printHistory,
