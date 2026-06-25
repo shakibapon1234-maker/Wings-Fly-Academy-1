@@ -6,8 +6,8 @@
 
   // ✅ Inline fallback — if supabase-secrets.js is 404 (GitHub Pages)
   // and no stored creds exist, use default project credentials.
-  const _fallbackUrl = 'https://fcjjofmiulantohuxkno.supabase.co';
-  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjampvZm1pdWxhbnRvaHV4a25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjk5NjAsImV4cCI6MjA5Nzk0NTk2MH0.bWoWyv0Yf2t4IXaF3LYa34z8hzfNgsTv2ugbNMPlTqY';
+  const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
   let url = stored.url || secrets.url || _fallbackUrl;
   if (url && url.includes('fznhiqzrs1ldybhmgopk')) {
