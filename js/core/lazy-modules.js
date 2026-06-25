@@ -35,6 +35,8 @@ const LazyModules = (() => {
     'pattern-lock':        { src: 'js/modules/pattern-lock.js' },
     'face-id':             { src: 'js/modules/face-id.js' },
     'ai-assistant':        { src: 'js/modules/ai-assistant.js' },
+    'payment-engine':      { src: 'js/core/payment-engine.js' },
+    'payment-requests':    { src: 'js/modules/payment-requests.js', deps: ['payment-engine'] },
   };
 
   const SECTION_TO_MODULE = {
@@ -52,6 +54,7 @@ const LazyModules = (() => {
     certificates: 'certificates',
     'notice-board': 'notice-board',
     settings: 'settings',
+    'payment-requests': 'payment-requests',
   };
 
   const POST_LOGIN_IDLE = [
@@ -95,7 +98,10 @@ const LazyModules = (() => {
   function ensure(name) {
     const def = MODULES[name];
     if (!def) return Promise.reject(new Error(`Unknown module: ${name}`));
-    return loadScript(def.src);
+    const depsPromise = (def.deps && def.deps.length)
+      ? def.deps.reduce((p, depName) => p.then(() => ensure(depName)), Promise.resolve())
+      : Promise.resolve();
+    return depsPromise.then(() => loadScript(def.src));
   }
 
   function ensureSection(section) {

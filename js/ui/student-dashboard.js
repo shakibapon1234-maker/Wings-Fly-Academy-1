@@ -353,7 +353,191 @@ const StudentDashboard = (() => {
     }
 
     html += `</div>`;
+
+    // 4. Online Payment (bKash/Nagad/Bank) — submit + history
+    html += `
+      <div class="table-card animate-fade-in" style="margin-top:18px;">
+        <div class="table-header-title" style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+          <span><i class="fa fa-mobile-screen-button"></i> bKash / Nagad / Bank পেমেন্ট</span>
+          <button type="button" class="btn-primary" style="width:auto; padding:9px 18px; font-size:0.85rem;"
+            onclick="window.StudentDashboard.openSubmitPaymentModal()">
+            <i class="fa fa-plus"></i> <span>নতুন পেমেন্ট জমা দিন</span>
+          </button>
+        </div>
+        <div id="pay-req-history" style="padding:14px 0 0;">
+          <div style="text-align:center; padding:20px; color:var(--text-secondary);">
+            <div class="loading-spinner"></div>
+          </div>
+        </div>
+      </div>
+    `;
+
     container.innerHTML = html;
+    _renderPaymentRequestHistory();
+  }
+
+  // ── Render Payment Request History (bKash/Nagad/Bank submissions) ──
+  async function _renderPaymentRequestHistory() {
+    const histEl = document.getElementById('pay-req-history');
+    if (!histEl || !window.PaymentEngine) return;
+    try {
+      const requests = await window.PaymentEngine.getMyRequests(_student.student_id);
+      if (!requests || requests.length === 0) {
+        histEl.innerHTML = `<div class="no-data-msg" style="border:none; padding:16px 0;">এখনো কোনো অনলাইন পেমেন্ট রিকোয়েস্ট জমা দেওয়া হয়নি।</div>`;
+        return;
+      }
+      let h = `
+        <div style="overflow-x:auto;">
+          <table class="attendance-table">
+            <thead>
+              <tr>
+                <th>তারিখ</th>
+                <th>মেথড</th>
+                <th>Transaction ID</th>
+                <th>পরিমাণ</th>
+                <th>স্ট্যাটাস</th>
+              </tr>
+            </thead>
+            <tbody>
+      `;
+      requests.forEach(r => {
+        const status = r.status || 'pending';
+        let badgeClass = 'pending', badgeText = '⏳ পেন্ডিং';
+        if (status === 'approved') { badgeClass = 'paid'; badgeText = '✅ Approved'; }
+        else if (status === 'rejected') { badgeClass = 'due'; badgeText = '❌ Rejected' + (r.note ? ` (${_escapeHtml(r.note)})` : ''); }
+        h += `
+          <tr>
+            <td><strong>${_formatDate(r.submitted_at)}</strong></td>
+            <td><span class="badge present">${_escapeHtml(r.method || '—')}</span></td>
+            <td style="font-family:monospace;">${_escapeHtml(r.transaction_id || '—')}</td>
+            <td style="font-weight:700; color:var(--success)">৳${parseFloat(r.amount) || 0}</td>
+            <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+          </tr>
+        `;
+      });
+      h += `</tbody></table></div>`;
+      histEl.innerHTML = h;
+    } catch (err) {
+      console.error('[Dashboard] Payment history load error:', err);
+      histEl.innerHTML = `<div class="error-msg"><i class="fa fa-exclamation-triangle"></i><span>পেমেন্ট হিস্টোরি লোড করতে সমস্যা হয়েছে।</span></div>`;
+    }
+  }
+
+  // ── Submit Payment Modal (bKash/Nagad/Bank) ──
+  async function openSubmitPaymentModal() {
+    if (!window.PaymentEngine) { _showToast('Payment system লোড হয়নি, পেজ রিফ্রেশ করুন।', 'error'); return; }
+
+    let cfg;
+    try { cfg = (await window.PaymentEngine.getPublicPaymentSettings()) || {}; } catch { cfg = {}; }
+
+    if (cfg.payment_enabled === false) {
+      _showToast('এই মুহূর্তে Online Payment বন্ধ আছে। অনুগ্রহ করে অফিসে যোগাযোগ করুন।', 'error');
+      return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.className = 'wfa-modal-overlay';
+    overlay.id = 'pay-submit-overlay';
+
+    const numberLines = [];
+    if (cfg.bkash_number) numberLines.push(`<div><i class="fa fa-mobile-screen"></i> bKash: <strong>${_escapeHtml(cfg.bkash_number)}</strong></div>`);
+    if (cfg.nagad_number) numberLines.push(`<div><i class="fa fa-mobile-screen"></i> Nagad: <strong>${_escapeHtml(cfg.nagad_number)}</strong></div>`);
+    if (cfg.bank_name) numberLines.push(`<div><i class="fa fa-building-columns"></i> ${_escapeHtml(cfg.bank_name)} — ${_escapeHtml(cfg.bank_account_name || '')} (${_escapeHtml(cfg.bank_account_number || '')}${cfg.bank_branch ? ', ' + _escapeHtml(cfg.bank_branch) : ''})</div>`);
+
+    overlay.innerHTML = `
+      <div class="wfa-modal-box">
+        <div class="wfa-modal-header">
+          <h3><i class="fa fa-mobile-screen-button"></i> পেমেন্ট জমা দিন</h3>
+          <button type="button" class="wfa-modal-close" id="pay-submit-close">✕</button>
+        </div>
+        <div class="wfa-modal-body">
+          ${numberLines.length ? `<div class="wfa-pay-numbers">${numberLines.join('')}</div>` : ''}
+          <div id="pay-submit-error" class="error-msg" style="display:none;"></div>
+
+          <div class="form-group">
+            <label class="form-label">পেমেন্ট মেথড</label>
+            <select id="pay-submit-method" class="form-input">
+              <option value="bKash">bKash</option>
+              <option value="Nagad">Nagad</option>
+              <option value="Bank">Bank</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">পরিমাণ (৳)</label>
+            <input id="pay-submit-amount" type="number" min="1" class="form-input" placeholder="যেমন: 2000" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Transaction ID</label>
+            <input id="pay-submit-txid" type="text" class="form-input" placeholder="বিকাশ/নগদ থেকে পাওয়া Transaction ID" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">যে নম্বর থেকে পাঠানো হয়েছে</label>
+            <input id="pay-submit-sender" type="tel" class="form-input" placeholder="01XXXXXXXXX" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">স্ক্রিনশট (ঐচ্ছিক)</label>
+            <input id="pay-submit-shot" type="file" accept="image/*" class="form-input" style="padding:8px;" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">মন্তব্য (ঐচ্ছিক)</label>
+            <textarea id="pay-submit-note" class="form-input" rows="2"></textarea>
+          </div>
+
+          <button id="pay-submit-btn" class="btn-primary" type="button">
+            <span>জমা দিন</span> <i class="fa fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.getElementById('pay-submit-close').addEventListener('click', close);
+    document.getElementById('pay-submit-btn').addEventListener('click', () => _submitPayment(close));
+  }
+
+  async function _submitPayment(closeFn) {
+    const errEl   = document.getElementById('pay-submit-error');
+    const btn     = document.getElementById('pay-submit-btn');
+    const method  = document.getElementById('pay-submit-method').value;
+    const amount  = document.getElementById('pay-submit-amount').value;
+    const txid    = document.getElementById('pay-submit-txid').value.trim();
+    const sender  = document.getElementById('pay-submit-sender').value.trim();
+    const note    = document.getElementById('pay-submit-note').value.trim();
+    const shotFile = document.getElementById('pay-submit-shot').files[0] || null;
+
+    function showErr(msg) { errEl.textContent = msg; errEl.style.display = 'flex'; }
+    errEl.style.display = 'none';
+
+    if (!amount || parseFloat(amount) <= 0) { showErr('সঠিক পরিমাণ লিখুন।'); return; }
+    if (!txid) { showErr('Transaction ID আবশ্যক।'); return; }
+
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<div class="loading-spinner"></div> <span>জমা হচ্ছে...</span>';
+
+    try {
+      await window.PaymentEngine.submitRequest({
+        student_id:   _student.student_id,
+        student_name: _student.student_name,
+        batch_id:     _student.batch,
+        amount:       amount,
+        method:       method,
+        transaction_id: txid,
+        sender_number:  sender,
+        note:           note,
+        screenshotFile: shotFile,
+      });
+      _showToast('✅ পেমেন্ট রিকোয়েস্ট জমা হয়েছে। এডমিন যাচাই করার পর Approve হবে।', 'success');
+      closeFn();
+      _renderPaymentRequestHistory();
+    } catch (err) {
+      console.error('[Dashboard] submitPayment error:', err);
+      showErr(err.message || 'জমা দিতে ব্যর্থ হয়েছে।');
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+    }
   }
 
   // ── Helper: Format Date ──
@@ -388,7 +572,7 @@ const StudentDashboard = (() => {
     }
   }
 
-  return { init, loadTab };
+  return { init, loadTab, openSubmitPaymentModal };
 })();
 
 window.StudentDashboard = StudentDashboard;

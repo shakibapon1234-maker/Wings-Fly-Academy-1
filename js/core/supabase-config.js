@@ -54,10 +54,10 @@ function _purgeLocalDataForNewDb() {
     window.WFA_IDB.clearAllTables();
   } else {
     // WFA_IDB loads after this script — delete the whole IndexedDB as fallback
-    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch(e) { /* ignore */ }
+    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch { /* ignore */ }
   }
   // Remove sync-state localStorage keys so next pull is a clean full pull
-  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
   console.info('[Config] DB switch detected — local IndexedDB and sync state cleared for clean pull.');
 }
 
@@ -233,6 +233,7 @@ const DB = {
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
   student_portal_access: 'student_portal_access',
+  payment_requests: 'payment_requests',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',
@@ -312,7 +313,7 @@ window.SUPABASE_CONFIG = {
     window.SUPABASE_URL = cleanUrl;
     window.SUPABASE_ANON_KEY = anonKey.trim();
     // Record the new URL
-    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch(e) {}
+    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch { /* ignore */ }
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
     // ✅ FIX: Reset sync anchor so next pull is FULL (not incremental from stale timestamp)

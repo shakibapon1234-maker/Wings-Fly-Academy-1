@@ -7256,7 +7256,7 @@ ${expenseEntries.length > 0 ? `
       if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
         students = SupabaseSync.getAll('students') || [];
       }
-    } catch (e) { students = []; }
+    } catch { students = []; }
 
     _spAllStudents = students;
     _spRenderList(students);
@@ -7282,7 +7282,7 @@ ${expenseEntries.length > 0 ? `
         const accessList = SupabaseSync.getAll('student_portal_access') || [];
         accessList.forEach(a => { accessMap[a.student_id] = a; });
       }
-    } catch(e) {}
+    } catch { /* ignore */ }
 
     const rows = students.map(s => {
       const access = accessMap[s.id];
@@ -7376,7 +7376,7 @@ ${expenseEntries.length > 0 ? `
           document.getElementById('sp-modal-active').checked = existing.is_active !== false;
         }
       }
-    } catch(e) {}
+    } catch { /* ignore */ }
 
     modal.style.display = 'flex';
   }
@@ -7431,53 +7431,29 @@ ${expenseEntries.length > 0 ? `
         pinHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
       }
 
-      // Get Supabase client
-      const creds = window.WFA_STANDALONE_SUPABASE || window.WFA_SUPABASE_SECRETS;
-      if (!creds || !creds.url || !creds.key) throw new Error('Supabase config পাওয়া যায়নি।');
-      if (!window.supabase) throw new Error('Supabase library লোড হয়নি।');
+      // Upsert locally via SupabaseSync (which automatically pushes to Supabase in the background)
+      if (typeof SupabaseSync !== 'undefined') {
+        const accessList = SupabaseSync.getAll('student_portal_access') || [];
+        const existing = accessList.find(a => a.student_id === studentId);
 
-      const sb = window.supabase.createClient(creds.url, creds.key);
+        const record = {
+          student_id:   studentId,
+          student_name: studentName,
+          phone:        phone,
+          pin_hash:     pinHash,
+          is_active:    isActive,
+        };
 
-      // Upsert into student_portal_access
-      const record = {
-        student_id:   studentId,
-        student_name: studentName,
-        phone:        phone,
-        pin_hash:     pinHash,
-        is_active:    isActive,
-      };
-
-      // Check if record already exists for this student_id
-      const { data: existing } = await sb
-        .from('student_portal_access')
-        .select('id')
-        .eq('student_id', studentId)
-        .maybeSingle();
-
-      let dbErr;
-      if (existing && existing.id) {
-        // Update existing record
-        const { error } = await sb
-          .from('student_portal_access')
-          .update({ phone, pin_hash: pinHash, is_active: isActive, student_name: studentName })
-          .eq('id', existing.id);
-        dbErr = error;
-      } else {
-        // Insert new record
-        const { error } = await sb
-          .from('student_portal_access')
-          .insert([record]);
-        dbErr = error;
-      }
-
-      if (dbErr) throw new Error(dbErr.message || 'Database error');
-
-      // Also sync to local store if SupabaseSync supports it
-      try {
-        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pull) {
-          await SupabaseSync.pull('student_portal_access');
+        if (existing && existing.id) {
+          SupabaseSync.update('student_portal_access', existing.id, record);
+        } else {
+          record.id = SupabaseSync.generateId();
+          record.created_at = new Date().toISOString();
+          SupabaseSync.insert('student_portal_access', record);
         }
-      } catch(e) { /* non-critical */ }
+      } else {
+        throw new Error('SupabaseSync module is not loaded.');
+      }
 
       spClosePinModal();
       if (typeof Utils !== 'undefined' && Utils.toast) {
