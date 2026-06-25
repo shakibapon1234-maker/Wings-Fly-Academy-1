@@ -25,7 +25,8 @@ const itemsToCopy = [
   'manifest.json',
   'service-worker.js',
   'googled6196e4fd6461a39.html',
-  'sitemap.xml'
+  'sitemap.xml',
+  'version.json'
 ];
 
 function copyRecursiveSync(src, dest) {
