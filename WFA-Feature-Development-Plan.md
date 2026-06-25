@@ -23,11 +23,11 @@ main (production — কখনো সরাসরি কাজ করবেন �
 | যেকোনো feature branch | `wfa-testing` (নতুন খুলুন) | Test data, কাজ শেষে delete |
 
 ### Feature Branch-এ কাজ শুরুর আগে চেকলিস্ট
-- [ ] GitHub-এ নতুন branch তৈরি করুন
-- [ ] নতুন Supabase project খুলুন (wfa-testing)
-- [ ] `www/js/core/supabase-config.js` এ testing URL/Key বসান
-- [ ] `android/app/src/main/assets/public/js/core/supabase-config.js` একই কাজ
-- [ ] ZIP backup নিন (কাজ শুরুর আগে)
+- [x] GitHub-এ নতুন branch তৈরি করুন
+- [x] নতুন Supabase project খুলুন (wfa-testing)
+- [x] `www/js/core/supabase-config.js` এ testing URL/Key বসান
+- [x] `android/app/src/main/assets/public/js/core/supabase-config.js` একই কাজ (standalone-creds-এ করা হয়েছে)
+- [x] ZIP backup নিন (কাজ শুরুর আগে)
 
 ### Main-এ Merge করার আগে চেকলিস্ট
 - [ ] `supabase-config.js` এ production URL/Key ফিরিয়ে দিন (দুই জায়গায়)
@@ -38,22 +38,22 @@ main (production — কখনো সরাসরি কাজ করবেন �
 
 ---
 
-## Feature 1 — Student/Parent Portal
+## Feature 1 — Student/Parent Portal [STATUS: COMPLETED & READY FOR TESTING]
 **Branch:** `feature/student-portal`  
 **নির্ভরতা:** কোনো existing feature-এর উপর নির্ভর করে না  
 **ঝুঁকি:** কম (সম্পূর্ণ নতুন ফাইল, existing কিছু নষ্ট হবে না)
 
 ### কী হবে
 Student নিজে phone number + 4-digit PIN দিয়ে login করবে।  
-নিজের attendance, result, fee status দেখবে।  
+ his attendance, result, fee status দেখবে।  
 Admin আলাদাভাবে কিছু share করতে হবে না।
 
 ### নতুন ফাইল (তৈরি করতে হবে)
 ```
-student-portal.html
-www/js/core/student-auth.js
-www/js/ui/student-dashboard.js
-www/css/student-portal.css
+student-portal.html [Done]
+www/js/core/student-auth.js [Done]
+www/js/ui/student-dashboard.js [Done]
+www/css/student-portal.css [Done]
 ```
 
 ### Supabase-এ নতুন Table
@@ -72,17 +72,17 @@ CREATE TABLE student_portal_access (
 ### Existing Code-এ যা Touch হবে
 | ফাইল | কী যোগ হবে | ঝুঁকি |
 |------|-----------|-------|
-| `www/js/ui/settings.js` | Student Portal on/off toggle (settings-এ) | খুব কম |
-| `www/js/core/supabase-sync.js` | student_portal_access table-এ read permission | খুব কম |
+| `www/js/ui/settings.js` | Student Portal settings hook | খুব কম |
+| `www/js/core/supabase-sync.js` | student_portal_access table-এ read/write permission | খুব কম |
 
-### কাজের ধাপ (Session-এ আমাকে ZIP দিলে করে দেব)
-1. Supabase-এ table তৈরির SQL দেব
-2. `student-portal.html` বানাব (login page + dashboard)
-3. Phone + PIN login system
-4. Dashboard-এ ৩টা tab: Attendance | Result | Fee Status
-5. Admin panel settings-এ "Portal Access দাও" বাটন
-6. Admin-এ student list থেকে PIN set করার option
-7. Testing করুন → Merge
+### কাজের ধাপ
+- [x] 1. Supabase-এ table তৈরির SQL দেব
+- [x] 2. `student-portal.html` বানাব (login page + dashboard)
+- [x] 3. Phone + PIN login system
+- [x] 4. Dashboard-এ ৩টা tab: Attendance | Result | Fee Status
+- [x] 5. Admin panel settings-এ "Portal Access দাও" বাটন (Manage Modals-এ সংযুক্ত)
+- [x] 6. Admin-এ student list থেকে PIN set করার option
+- [ ] 7. Testing করুন → Merge
 
 ---
 
