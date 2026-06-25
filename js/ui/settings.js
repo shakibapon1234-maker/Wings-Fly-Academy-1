@@ -6843,7 +6843,7 @@ ${expenseEntries.length > 0 ? `
                 <td style="padding:9px 6px">
                   <span style="background:rgba(123,47,247,0.15);color:#b57ff7;padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700">${Utils.esc(c.package||'Basic')}</span>
                 </td>
-                <td style="padding:9px 6px;font-family:monospace;font-size:0.78rem;color:#00d9ff">
+                <td data-lickey="${Utils.escAttr(c.licenseKey || '')}" style="padding:9px 6px;font-family:monospace;font-size:0.78rem;color:#00d9ff">
                   ${c.licenseKey
                     ? `<span title="${Utils.escAttr(c.licenseKey)}">${c.licenseKey.slice(0,18)}...</span>
                        <button onclick="navigator.clipboard.writeText('${Utils.escAttr(c.licenseKey)}');Utils.toast('Key copied!','success')" style="background:none;border:none;color:#7a8baa;cursor:pointer;margin-left:4px;font-size:0.75rem">Copy</button>`
