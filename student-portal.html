@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8" />
+  <!-- Content Security Policy matching certificate.html -->
+  <meta http-equiv="Content-Security-Policy" content="
+    default-src 'self' https://fznhiqzrslldybhmgopk.supabase.co https://*.supabase.co;
+    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;
+    font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com;
+    img-src 'self' data: blob:;
+    connect-src 'self' https://*.supabase.co wss://*.supabase.co;
+    frame-src 'none'; object-src 'none';
+  " />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>স্টুডেন্ট পোর্টাল — Wings Fly Aviation Academy</title>
+  <link rel="icon" href="assets/favicon.ico" />
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="css/student-portal.css" />
+  
+  <!-- Supabase & Standalone configurations -->
+  <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+  <script src="js/core/supabase-standalone-creds.js"></script>
+  <script src="js/core/student-auth.js"></script>
+  <script src="js/ui/student-dashboard.js"></script>
+</head>
+<body>
+
+  <div class="container">
+    
+    <!-- ── 1. LOGIN VIEW ── -->
+    <div id="login-view" class="login-wrapper">
+      <div class="login-card">
+        <div class="login-logo">
+          <img src="assets/logo.png" onerror="this.onerror=null;this.src='https://fznhiqzrslldybhmgopk.supabase.co/storage/v1/object/public/assets/logo.png'" alt="WFA Logo" />
+          <h1>স্টুডেন্ট পোর্টাল</h1>
+          <p>Wings Fly Aviation Academy</p>
+        </div>
+        
+        <!-- Error Alert box -->
+        <div id="login-error-box" class="error-msg" style="display: none;">
+          <i class="fa fa-exclamation-circle"></i>
+          <span id="login-error-text">ত্রুটি ঘটেছে!</span>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="student-phone">মোবাইল নম্বর</label>
+          <div class="input-icon-wrapper">
+            <input type="tel" id="student-phone" class="form-input" placeholder="01XXXXXXXXX" autocomplete="off" />
+            <i class="fa fa-phone"></i>
+          </div>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="student-pin">৪-ডিজিট পিন নম্বর</label>
+          <div class="input-icon-wrapper">
+            <input type="password" id="student-pin" class="form-input" placeholder="••••" maxlength="4" autocomplete="off" />
+            <i class="fa fa-lock"></i>
+          </div>
+        </div>
+        
+        <button id="btn-login-submit" class="btn-primary" onclick="handleLogin()">
+          <span>লগইন করুন</span> <i class="fa fa-arrow-right"></i>
+        </button>
+      </div>
+    </div>
+    
+    <!-- ── 2. DASHBOARD VIEW ── -->
+    <div id="dashboard-view" style="display: none;">
+      
+      <!-- Profile Header -->
+      <header class="portal-header animate-fade-in">
+        <div class="student-info-header">
+          <div class="student-avatar">
+            <i class="fa fa-user"></i>
+          </div>
+          <div class="student-meta">
+            <h2 id="student-name-display">স্টুডেন্ট নাম</h2>
+            <p id="student-meta-display">
+              <!-- Rendered via Javascript -->
+            </p>
+          </div>
+        </div>
+        <button class="btn-logout" onclick="window.StudentAuth.logout()">
+          <i class="fa fa-sign-out-alt"></i> <span>লগআউট</span>
+        </button>
+      </header>
+      
+      <!-- Navigation Tabs -->
+      <nav class="portal-tabs animate-fade-in">
+        <button class="tab-btn active" data-tab="attendance" onclick="switchTab('attendance')">
+          <i class="fa fa-calendar-check"></i> <span>উপস্থিতি</span>
+        </button>
+        <button class="tab-btn" data-tab="results" onclick="switchTab('results')">
+          <i class="fa fa-file-signature"></i> <span>ফলাফল</span>
+        </button>
+        <button class="tab-btn" data-tab="fees" onclick="switchTab('fees')">
+          <i class="fa fa-credit-card"></i> <span>ফি ও পেমেন্ট</span>
+        </button>
+      </nav>
+      
+      <!-- Tabs Content Containers -->
+      <main>
+        <!-- Attendance Section -->
+        <section id="section-attendance" class="content-section active">
+          <div id="container-attendance">
+            <!-- Rendered by js/ui/student-dashboard.js -->
+          </div>
+        </section>
+        
+        <!-- Results Section -->
+        <section id="section-results" class="content-section">
+          <div id="container-results">
+            <!-- Rendered by js/ui/student-dashboard.js -->
+          </div>
+        </section>
+        
+        <!-- Fees Section -->
+        <section id="section-fees" class="content-section">
+          <div id="container-fees">
+            <!-- Rendered by js/ui/student-dashboard.js -->
+          </div>
+        </section>
+      </main>
+      
+    </div>
+    
+  </div>
+
+  <!-- Main script logic hooks -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Initialize view based on active session
+      window.StudentDashboard.init();
+      
+      // Enter key trigger for inputs
+      const phoneInput = document.getElementById('student-phone');
+      const pinInput = document.getElementById('student-pin');
+      const triggerLogin = (e) => { if (e.key === 'Enter') handleLogin(); };
+      if (phoneInput) phoneInput.addEventListener('keydown', triggerLogin);
+      if (pinInput) pinInput.addEventListener('keydown', triggerLogin);
+    });
+
+    // Handle Login Submit
+    async function handleLogin() {
+      const errorBox = document.getElementById('login-error-box');
+      const errorText = document.getElementById('login-error-text');
+      const loginBtn = document.getElementById('btn-login-submit');
+      const phone = document.getElementById('student-phone').value;
+      const pin = document.getElementById('student-pin').value;
+
+      errorBox.style.display = 'none';
+      
+      // Add loading state
+      loginBtn.disabled = true;
+      const originalText = loginBtn.innerHTML;
+      loginBtn.innerHTML = `<div class="loading-spinner"></div> <span>যাচাই হচ্ছে...</span>`;
+
+      try {
+        await window.StudentAuth.login(phone, pin);
+        // Successful login: re-initialize dashboard
+        await window.StudentDashboard.init();
+      } catch (err) {
+        errorText.textContent = err.message || 'লগইন ব্যর্থ হয়েছে। আবার চেষ্টা করুন।';
+        errorBox.style.display = 'flex';
+      } finally {
+        loginBtn.disabled = false;
+        loginBtn.innerHTML = originalText;
+      }
+    }
+
+    // Switch Tabs
+    function switchTab(tabId) {
+      window.StudentDashboard.loadTab(tabId);
+    }
+  </script>
+</body>
+</html>

@@ -26,8 +26,8 @@ function _resolveSupabaseCreds() {
   // ✅ FIX: Inline fallback — if supabase-secrets.js is 404 (GitHub Pages)
   // and no stored creds exist, use default project credentials.
   // Anon key is public by Supabase design; data access is controlled by RLS.
-  const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
-  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+  const _fallbackUrl = 'https://fcjjofmiulantohuxkno.supabase.co';
+  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZjampvZm1pdWxhbnRvaHV4a25vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzNjk5NjAsImV4cCI6MjA5Nzk0NTk2MH0.bWoWyv0Yf2t4IXaF3LYa34z8hzfNgsTv2ugbNMPlTqY';
   // Deployed client credentials (secrets.url) should take precedence over stored credentials
   // to avoid cross-client credentials leak when running multiple client apps under the same origin (file:// or localhost).
   const url = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
@@ -232,6 +232,7 @@ const DB = {
   keep_records:     'keep_records',
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
+  student_portal_access: 'student_portal_access',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',

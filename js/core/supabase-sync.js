@@ -370,6 +370,7 @@ const TABLE_COLUMNS = {
   keep_records:     ['id','title','content','color','tags','pinned','date','created','modified','created_at','updated_at'],
   custom_themes:    ['id','name','colors','variables','created_at','updated_at'],
   sub_accounts:     ['id','username','password','name','role','permissions','created_at','updated_at'],
+  student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
 };
 
 const SupabaseSync = (() => {
@@ -2008,6 +2009,7 @@ const SupabaseSync = (() => {
     staff:         ['id','name','role','phone','email','address','dob','join_date','joiningDate','salary','status','photo_url','note','staffId','staff_id'],
     visitors:      ['id','name','phone','purpose','host','visit_date','visit_time','out_time','status','note','interested_course','follow_up_date','remarks','created_at'],
     notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
+    student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
   };
 
   function _sanitizeRecord(record, tableKey) {

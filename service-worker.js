@@ -91,6 +91,10 @@ const STATIC_ASSETS = [
   './exam.html',
   './visitor-form.html',
   './idb-cleaner.html',
+  './student-portal.html',
+  './css/student-portal.css',
+  './js/core/student-auth.js',
+  './js/ui/student-dashboard.js',
   // ✅ Fix #5: version.json intentionally NOT pre-cached.
   // auto-update.js fetches it with cache:'no-store'; SW fetch handler is 'network first'
   // so a cached copy would never be served offline anyway. Removed to avoid confusion.
