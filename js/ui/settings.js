@@ -160,6 +160,7 @@ const SettingsModule = (() => {
       { id: 'monitor',        icon: 'fa-chart-line',          label: 'Monitor' },
       { id: 'syncguard',      icon: 'fa-shield-halved',       label: 'Sync Guard' },
       { id: 'ai-assistant',   icon: 'fa-robot',               label: 'AI Assistant' },
+      { id: 'student-portal', icon: 'fa-graduation-cap',      label: 'Student Portal' },
     ];
     const isClientDeployment = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.customerCode;
     return tabs
@@ -191,6 +192,7 @@ const SettingsModule = (() => {
       ${panelMonitor()}
       ${panelSyncGuard()}
       ${panelAIAssistant()}
+      ${panelStudentPortal()}
     `;
   }
 
@@ -219,6 +221,10 @@ const SettingsModule = (() => {
       SupabaseSync.pullActivityLog()
         .then(() => refreshActivityPanel())
         .catch(() => refreshActivityPanel());
+    }
+    // Student Portal tab — render student list
+    if (tab === 'student-portal') {
+      setTimeout(() => _spRenderStudentList(), 80);
     }
     // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
@@ -7134,6 +7140,363 @@ ${expenseEntries.length > 0 ? `
   }
 
   // ════════════════════════════════════════════════════════════════
+  // TAB: STUDENT PORTAL MANAGEMENT
+  // ════════════════════════════════════════════════════════════════
+
+  function panelStudentPortal() {
+    return `
+    <div class="settings-panel" data-panel="student-portal">
+      <div class="settings-card">
+        <h3 style="font-size:1.1rem;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <i class="fa fa-graduation-cap" style="color:#f59e0b"></i> Student Portal Management
+        </h3>
+        <p style="font-size:0.85rem;color:rgba(255,255,255,0.5);margin-bottom:20px">
+          নিচের তালিকা থেকে যেকোনো student-কে Portal Access দিন এবং তাদের 4-digit PIN set করুন।
+        </p>
+
+        <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+          <input type="text" id="sp-search-input"
+            placeholder="নাম বা ID দিয়ে খুঁজুন..."
+            oninput="SettingsModule.spFilterStudents(this.value)"
+            style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+                   border-radius:8px;padding:10px 14px;color:#fff;font-size:0.9rem;outline:none" />
+          <button onclick="SettingsModule.spFilterStudents('')"
+            style="padding:10px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+                   border-radius:8px;color:#aaa;cursor:pointer;font-size:0.85rem">
+            <i class="fa fa-rotate"></i> রিফ্রেশ
+          </button>
+        </div>
+
+        <div id="sp-student-list">
+          <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4)">
+            <i class="fa fa-spinner fa-spin" style="font-size:1.8rem;margin-bottom:12px;display:block"></i>
+            লোড হচ্ছে...
+          </div>
+        </div>
+      </div>
+
+      <!-- PIN Set Modal (inline, hidden by default) -->
+      <div id="sp-pin-modal" style="display:none;position:fixed;inset:0;z-index:9999;
+           background:rgba(0,0,0,0.7);backdrop-filter:blur(6px);
+           display:none;align-items:center;justify-content:center">
+        <div style="background:#111827;border:1px solid rgba(255,255,255,0.1);
+                    border-radius:20px;padding:32px;width:100%;max-width:420px;position:relative">
+          <button onclick="SettingsModule.spClosePinModal()"
+            style="position:absolute;top:14px;right:14px;background:rgba(239,68,68,0.15);
+                   border:1px solid rgba(239,68,68,0.25);color:#ef4444;border-radius:8px;
+                   width:32px;height:32px;cursor:pointer;font-size:1rem">✕</button>
+
+          <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:4px;color:#f9fafb">
+            <i class="fa fa-key" style="color:#f59e0b"></i> Portal Access সেটআপ
+          </h3>
+          <p id="sp-modal-student-name" style="font-size:0.85rem;color:#9ca3af;margin-bottom:20px"></p>
+
+          <input type="hidden" id="sp-modal-student-id" />
+          <input type="hidden" id="sp-modal-student-phone" />
+          <input type="hidden" id="sp-modal-student-name-val" />
+
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:#9ca3af;margin-bottom:8px">
+              <i class="fa fa-phone"></i> মোবাইল নম্বর (Login-এ ব্যবহার হবে)
+            </label>
+            <input type="tel" id="sp-modal-phone-input"
+              placeholder="01XXXXXXXXX"
+              style="width:100%;background:rgba(17,24,39,0.6);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:10px;padding:12px 14px;color:#fff;font-size:1rem;outline:none" />
+          </div>
+
+          <div style="margin-bottom:20px">
+            <label style="display:block;font-size:0.82rem;font-weight:600;color:#9ca3af;margin-bottom:8px">
+              <i class="fa fa-lock"></i> 4-ডিজিট PIN (Student-এর পছন্দের)
+            </label>
+            <input type="password" id="sp-modal-pin-input"
+              placeholder="••••" maxlength="4" inputmode="numeric"
+              style="width:100%;background:rgba(17,24,39,0.6);border:1px solid rgba(255,255,255,0.1);
+                     border-radius:10px;padding:12px 14px;color:#fff;font-size:1.4rem;
+                     letter-spacing:8px;text-align:center;outline:none" />
+            <p style="font-size:0.78rem;color:#6b7280;margin-top:6px">
+              ⚠️ PIN টি SHA-256 hash করে database-এ save হবে — আমরা কখনো plain PIN দেখি না।
+            </p>
+          </div>
+
+          <div style="margin-bottom:16px;display:flex;align-items:center;gap:10px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;color:#9ca3af">
+              <input type="checkbox" id="sp-modal-active" checked
+                style="width:16px;height:16px;accent-color:#f59e0b;cursor:pointer" />
+              Portal সচল রাখুন (Active)
+            </label>
+          </div>
+
+          <div id="sp-modal-error" style="display:none;background:rgba(239,68,68,0.1);
+               border:1px solid rgba(239,68,68,0.2);color:#fca5a5;
+               border-radius:10px;padding:10px 14px;font-size:0.85rem;margin-bottom:14px"></div>
+
+          <button id="sp-modal-save-btn" onclick="SettingsModule.spSavePortalAccess()"
+            style="width:100%;background:linear-gradient(135deg,#f59e0b,#d97706);
+                   border:none;border-radius:12px;padding:13px;font-size:1rem;
+                   font-weight:700;color:#0b0f19;cursor:pointer;display:flex;
+                   align-items:center;justify-content:center;gap:8px">
+            <i class="fa fa-check"></i> Portal Access সেভ করুন
+          </button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // ── Student Portal: Render Student List ──
+  let _spAllStudents = [];
+
+  function _spRenderStudentList() {
+    const container = document.getElementById('sp-student-list');
+    if (!container) return;
+
+    // Load from local SupabaseSync store
+    let students = [];
+    try {
+      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+        students = SupabaseSync.getAll('students') || [];
+      }
+    } catch (e) { students = []; }
+
+    _spAllStudents = students;
+    _spRenderList(students);
+  }
+
+  function _spRenderList(students) {
+    const container = document.getElementById('sp-student-list');
+    if (!container) return;
+
+    if (!students || students.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.35)">
+          <i class="fa fa-user-slash" style="font-size:2rem;display:block;margin-bottom:10px"></i>
+          কোনো student পাওয়া যায়নি। প্রথমে Student যোগ করুন।
+        </div>`;
+      return;
+    }
+
+    // Check which students already have portal access
+    let accessMap = {};
+    try {
+      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+        const accessList = SupabaseSync.getAll('student_portal_access') || [];
+        accessList.forEach(a => { accessMap[a.student_id] = a; });
+      }
+    } catch(e) {}
+
+    const rows = students.map(s => {
+      const access = accessMap[s.id];
+      const hasAccess = !!access;
+      const isActive = access ? access.is_active : false;
+      const statusBadge = hasAccess
+        ? (isActive
+            ? `<span style="background:rgba(16,185,129,0.15);color:#10b981;border-radius:9999px;padding:3px 10px;font-size:0.78rem;font-weight:700"><i class="fa fa-check-circle"></i> সচল</span>`
+            : `<span style="background:rgba(239,68,68,0.15);color:#ef4444;border-radius:9999px;padding:3px 10px;font-size:0.78rem;font-weight:700"><i class="fa fa-times-circle"></i> বন্ধ</span>`)
+        : `<span style="background:rgba(107,114,128,0.15);color:#6b7280;border-radius:9999px;padding:3px 10px;font-size:0.78rem;font-weight:700"><i class="fa fa-minus-circle"></i> নেই</span>`;
+
+      const phone = s.phone || s.contact || '';
+      const escapedName = Utils.esc ? Utils.esc(s.name || '—') : (s.name || '—');
+      const escapedId   = Utils.esc ? Utils.esc(s.id || '') : (s.id || '');
+      const escapedPhone= Utils.esc ? Utils.esc(phone) : phone;
+
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;
+                    padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.05);
+                    gap:12px;flex-wrap:wrap;transition:background 0.2s"
+             onmouseover="this.style.background='rgba(255,255,255,0.03)'"
+             onmouseout="this.style.background='transparent'">
+          <div style="flex:1;min-width:160px">
+            <div style="font-weight:600;color:#f9fafb;font-size:0.95rem">${escapedName}</div>
+            <div style="font-size:0.8rem;color:#6b7280;margin-top:2px">
+              <span style="margin-right:12px"><i class="fa fa-id-badge"></i> ${escapedId}</span>
+              <span><i class="fa fa-phone"></i> ${escapedPhone || 'নম্বর নেই'}</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            ${statusBadge}
+            <button
+              onclick="SettingsModule.spOpenPinModal('${escapedId}', '${escapedName}', '${escapedPhone}')"
+              style="background:linear-gradient(135deg,rgba(245,158,11,0.8),rgba(217,119,6,0.8));
+                     border:none;border-radius:8px;padding:8px 14px;
+                     color:#0b0f19;font-size:0.82rem;font-weight:700;cursor:pointer;
+                     display:flex;align-items:center;gap:6px;white-space:nowrap">
+              <i class="fa fa-key"></i> ${hasAccess ? 'আপডেট করুন' : 'Access দিন'}
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);
+                  border-radius:14px;overflow:hidden">
+        <div style="padding:12px 16px;background:rgba(255,255,255,0.03);
+                    border-bottom:1px solid rgba(255,255,255,0.07);
+                    font-size:0.8rem;color:#6b7280;display:flex;gap:20px">
+          <span><i class="fa fa-users"></i> মোট ${students.length} জন student</span>
+          <span><i class="fa fa-check"></i> ${Object.keys(accessMap).length} জনের access সচল</span>
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  function spFilterStudents(query) {
+    if (!query || query.trim() === '') {
+      _spRenderStudentList();
+      return;
+    }
+    const q = query.toLowerCase();
+    const filtered = _spAllStudents.filter(s =>
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.id || '').toLowerCase().includes(q) ||
+      (s.phone || '').includes(q)
+    );
+    _spRenderList(filtered);
+  }
+
+  function spOpenPinModal(studentId, studentName, phone) {
+    const modal = document.getElementById('sp-pin-modal');
+    if (!modal) return;
+
+    document.getElementById('sp-modal-student-id').value = studentId;
+    document.getElementById('sp-modal-student-name-val').value = studentName;
+    document.getElementById('sp-modal-phone-input').value = phone || '';
+    document.getElementById('sp-modal-student-name').textContent =
+      `Student: ${studentName} (ID: ${studentId})`;
+    document.getElementById('sp-modal-pin-input').value = '';
+    document.getElementById('sp-modal-active').checked = true;
+    document.getElementById('sp-modal-error').style.display = 'none';
+
+    // Check existing access for this student
+    try {
+      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+        const accessList = SupabaseSync.getAll('student_portal_access') || [];
+        const existing = accessList.find(a => a.student_id === studentId);
+        if (existing) {
+          document.getElementById('sp-modal-phone-input').value = existing.phone || phone || '';
+          document.getElementById('sp-modal-active').checked = existing.is_active !== false;
+        }
+      }
+    } catch(e) {}
+
+    modal.style.display = 'flex';
+  }
+
+  function spClosePinModal() {
+    const modal = document.getElementById('sp-pin-modal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async function spSavePortalAccess() {
+    const errEl = document.getElementById('sp-modal-error');
+    const saveBtn = document.getElementById('sp-modal-save-btn');
+    errEl.style.display = 'none';
+
+    const studentId   = document.getElementById('sp-modal-student-id').value.trim();
+    const studentName = document.getElementById('sp-modal-student-name-val').value.trim();
+    const phone       = document.getElementById('sp-modal-phone-input').value.replace(/[\s-]/g, '');
+    const pin         = document.getElementById('sp-modal-pin-input').value.trim();
+    const isActive    = document.getElementById('sp-modal-active').checked;
+
+    // Validation
+    if (!phone || phone.length < 10) {
+      errEl.textContent = '⚠️ বৈধ মোবাইল নম্বর দিন (কমপক্ষে ১০ ডিজিট)।';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (!pin) {
+      errEl.textContent = '⚠️ 4-ডিজিট PIN লিখুন।';
+      errEl.style.display = 'block';
+      return;
+    }
+    if (pin.length !== 4 || isNaN(pin)) {
+      errEl.textContent = '⚠️ PIN অবশ্যই ঠিক 4টি সংখ্যা হতে হবে।';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // Loading state
+    const originalHTML = saveBtn.innerHTML;
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> সেভ হচ্ছে...';
+
+    try {
+      // Hash the PIN using StudentAuth if available, otherwise fallback
+      let pinHash;
+      if (window.StudentAuth && window.StudentAuth.hashPin) {
+        pinHash = await window.StudentAuth.hashPin(pin);
+      } else {
+        // Fallback SHA-256
+        const enc = new TextEncoder();
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin));
+        pinHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      }
+
+      // Get Supabase client
+      const creds = window.WFA_STANDALONE_SUPABASE || window.WFA_SUPABASE_SECRETS;
+      if (!creds || !creds.url || !creds.key) throw new Error('Supabase config পাওয়া যায়নি।');
+      if (!window.supabase) throw new Error('Supabase library লোড হয়নি।');
+
+      const sb = window.supabase.createClient(creds.url, creds.key);
+
+      // Upsert into student_portal_access
+      const record = {
+        student_id:   studentId,
+        student_name: studentName,
+        phone:        phone,
+        pin_hash:     pinHash,
+        is_active:    isActive,
+      };
+
+      // Check if record already exists for this student_id
+      const { data: existing } = await sb
+        .from('student_portal_access')
+        .select('id')
+        .eq('student_id', studentId)
+        .maybeSingle();
+
+      let dbErr;
+      if (existing && existing.id) {
+        // Update existing record
+        const { error } = await sb
+          .from('student_portal_access')
+          .update({ phone, pin_hash: pinHash, is_active: isActive, student_name: studentName })
+          .eq('id', existing.id);
+        dbErr = error;
+      } else {
+        // Insert new record
+        const { error } = await sb
+          .from('student_portal_access')
+          .insert([record]);
+        dbErr = error;
+      }
+
+      if (dbErr) throw new Error(dbErr.message || 'Database error');
+
+      // Also sync to local store if SupabaseSync supports it
+      try {
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pull) {
+          await SupabaseSync.pull('student_portal_access');
+        }
+      } catch(e) { /* non-critical */ }
+
+      spClosePinModal();
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`✅ ${studentName}-এর portal access সেভ হয়েছে!`, 'success');
+      }
+      // Refresh list
+      setTimeout(() => _spRenderStudentList(), 300);
+
+    } catch (err) {
+      console.error('[StudentPortal] Save error:', err);
+      errEl.textContent = '❌ সেভ ব্যর্থ: ' + (err.message || err);
+      errEl.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = originalHTML;
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
   return {
@@ -7172,6 +7535,8 @@ ${expenseEntries.length > 0 ? `
     testAIApiKey,
     toggleAILocalOnly,
     refreshModal,
+    // Student Portal
+    spFilterStudents, spOpenPinModal, spClosePinModal, spSavePortalAccess,
   };
 })();
 

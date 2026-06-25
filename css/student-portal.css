@@ -166,7 +166,7 @@ body {
   background: rgba(17, 24, 39, 0.8);
 }
 
-.form-input:focus + i {
+.input-icon-wrapper:focus-within i {
   color: var(--primary);
 }
 
@@ -632,8 +632,8 @@ body {
 .loading-spinner {
   width: 20px;
   height: 20px;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #0b0f19;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
   display: inline-block;
