@@ -42,6 +42,96 @@ const SchoolEngine = (() => {
     return Math.round((sum / subjectResults.length) * 100) / 100;
   }
 
+  /** Shared academic year — marks, results, and student session stay in sync. */
+  function getDefaultAcademicYear() {
+    try {
+      const cfg = (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined')
+        ? (SupabaseSync.getAll(DB.settings)[0] || {})
+        : {};
+      const explicit = String(cfg.school_academic_year || cfg.academic_year || '').trim();
+      if (/^20\d{2}$/.test(explicit)) return explicit;
+
+      const rb = String(cfg.running_batch || '').trim();
+      const rbMatch = rb.match(/(20\d{2})/);
+      if (rbMatch) return rbMatch[1];
+    } catch (_) { /* ignore */ }
+
+    try {
+      const s = _sync();
+      if (s && typeof DB !== 'undefined') {
+        const sessions = s.getAll(DB.students)
+          .map(st => String(st.session || '').trim())
+          .filter(v => /^20\d{2}$/.test(v));
+        if (sessions.length) {
+          const counts = {};
+          sessions.forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+          return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+        }
+      }
+    } catch (_) { /* ignore */ }
+
+    const now = new Date();
+    return String(now.getFullYear());
+  }
+
+  const TEST_DATA = {
+    studentIds: ['SCH-TEST-01'],
+    studentNames: ['School Test Student'],
+    classTeacher: 'Test Teacher',
+  };
+
+  function purgeTestData() {
+    const s = _sync();
+    if (!s || typeof DB === 'undefined') {
+      return { ok: false, error: 'SupabaseSync unavailable' };
+    }
+
+    const summary = { students: 0, marks: 0, classes: 0, subjects: 0 };
+
+    s.getAll(DB.students)
+      .filter(st =>
+        TEST_DATA.studentIds.includes(String(st.student_id || '')) ||
+        TEST_DATA.studentNames.includes(String(st.name || ''))
+      )
+      .forEach(st => {
+        s.remove(DB.students, st.id);
+        summary.students++;
+      });
+
+    _all(TABLES.marks)
+      .filter(m =>
+        TEST_DATA.studentIds.includes(String(m.student_no || '')) ||
+        TEST_DATA.studentNames.includes(String(m.student_name || ''))
+      )
+      .forEach(m => {
+        s.remove(TABLES.marks, m.id);
+        summary.marks++;
+      });
+
+    const testClasses = _all(TABLES.classes)
+      .filter(c => String(c.class_teacher || '') === TEST_DATA.classTeacher);
+
+    testClasses.forEach(c => {
+      s.remove(TABLES.classes, c.id);
+      summary.classes++;
+    });
+
+    const removedClassNames = [...new Set(testClasses.map(c => c.class_name))];
+    removedClassNames.forEach((className) => {
+      const stillHasClass = getClasses().some(c => c.class_name === className);
+      if (!stillHasClass) {
+        _all(TABLES.subjects)
+          .filter(sub => sub.class_name === className)
+          .forEach(sub => {
+            s.remove(TABLES.subjects, sub.id);
+            summary.subjects++;
+          });
+      }
+    });
+
+    return { ok: true, ...summary };
+  }
+
   // ── Classes ───────────────────────────────────────────────
 
   function getClasses(activeOnly = true) {
@@ -151,7 +241,7 @@ const SchoolEngine = (() => {
       class_name:     String(entry.class_name || '').trim(),
       section:        String(entry.section || '').trim(),
       roll_no:        String(entry.roll_no || '').trim(),
-      academic_year:  String(entry.academic_year || '').trim(),
+      academic_year:  String(entry.academic_year || getDefaultAcademicYear()).trim(),
       exam_type:      String(entry.exam_type || 'Annual').trim(),
       subject_id:     String(entry.subject_id || '').trim(),
       subject_name:   String(entry.subject_name || '').trim(),
@@ -255,6 +345,9 @@ const SchoolEngine = (() => {
     getStudentsInClass,
     buildStudentResult,
     buildClassResults,
+    getDefaultAcademicYear,
+    purgeTestData,
+    TEST_DATA,
   };
 })();
 

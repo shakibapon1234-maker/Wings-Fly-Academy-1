@@ -425,7 +425,7 @@ const Students = (() => {
             </div>
             <div class="sf-field">
               <label class="sf-label">${yearLabel} <span class="req">*</span></label>
-              <input id="sf-session" class="sf-input" placeholder="e.g. 2025" />
+              <input id="sf-session" class="sf-input" placeholder="e.g. ${Utils.escAttr((window.SchoolEngine && SchoolEngine.getDefaultAcademicYear) ? SchoolEngine.getDefaultAcademicYear() : new Date().getFullYear())}" value="${Utils.escAttr((window.SchoolEngine && SchoolEngine.getDefaultAcademicYear) ? SchoolEngine.getDefaultAcademicYear() : String(new Date().getFullYear()))}" />
             </div>
           </div>
         </div>`;

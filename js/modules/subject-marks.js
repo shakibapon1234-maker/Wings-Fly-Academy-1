@@ -8,9 +8,16 @@ const SubjectMarks = (() => {
   let _class = '';
   let _section = '';
   let _exam = 'Annual';
-  let _year = new Date().getFullYear().toString();
+  let _year = '';
+
+  function _yearDefault() {
+    return (window.SchoolEngine && SchoolEngine.getDefaultAcademicYear)
+      ? SchoolEngine.getDefaultAcademicYear()
+      : String(new Date().getFullYear());
+  }
 
   function render() {
+    if (!_year) _year = _yearDefault();
     const el = document.getElementById('subject-marks-content');
     if (!el) return;
 
