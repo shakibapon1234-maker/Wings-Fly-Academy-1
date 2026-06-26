@@ -57,6 +57,12 @@ describe('SchoolEngine.calcGrade — Bangladesh SSC scale', () => {
     expect(SchoolEngine.calcGrade(20, 100).grade).toBe('F');
     expect(SchoolEngine.calcGrade(20, 100).pass).toBe(false);
   });
+  it('custom pass_marks threshold overrides default 33%', () => {
+    expect(SchoolEngine.calcGrade(45, 100, 50).grade).toBe('F');
+    expect(SchoolEngine.calcGrade(45, 100, 50).pass).toBe(false);
+    expect(SchoolEngine.calcGrade(55, 100, 50).grade).toBe('B');
+    expect(SchoolEngine.calcGrade(55, 100, 50).pass).toBe(true);
+  });
   it('any failed subject forces overall GPA to 0', () => {
     const rows = [
       { grade: 'A+', gpa: 5, pass: true, entered: true },

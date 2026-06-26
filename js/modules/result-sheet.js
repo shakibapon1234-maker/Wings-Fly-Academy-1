@@ -72,7 +72,8 @@ const ResultSheet = (() => {
     _class = Utils.formVal('rs-class');
     _section = Utils.formVal('rs-section');
     _exam = Utils.formVal('rs-exam') || 'Annual';
-    _year = Utils.formVal('rs-year') || _year;
+    const yearVal = Utils.formVal('rs-year');
+    _year = yearVal !== '' ? yearVal : _yearDefault();
     render();
   }
 
@@ -168,44 +169,82 @@ const ResultSheet = (() => {
     setTimeout(() => w.print(), 400);
   }
 
-  function isAsciiText(str) {
-    const s = String(str || '');
-    for (let i = 0; i < s.length; i++) {
-      if (s.charCodeAt(i) > 127) return false;
-    }
-    return s.length > 0;
-  }
-
   function exportPDF() {
-    const run = () => {
-      if (!window.jspdf || !window.jspdf.jsPDF) {
+    if (!_class) { Utils.toast('Class select করুন', 'warning'); return; }
+    const results = SchoolEngine.buildClassResults(_class, _section, _exam, _year);
+    if (!results.length) { Utils.toast('No data for PDF', 'warning'); return; }
+
+    const run = async () => {
+      if (typeof html2canvas === 'undefined' || !window.jspdf?.jsPDF) {
         Utils.toast('PDF library loading failed', 'danger');
         return;
       }
-      const results = SchoolEngine.buildClassResults(_class, _section, _exam, _year);
-      if (!results.length) { Utils.toast('No data for PDF', 'warning'); return; }
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const cfg = (SupabaseSync.getAll(DB.settings)[0] || {});
-      const academy = String(cfg.academy_name || 'AcadeFlow School').replace(/[^\u0020-\u007E]/g, '?');
-      pdf.setFontSize(14);
-      pdf.text(academy, 105, 15, { align: 'center' });
-      pdf.setFontSize(10);
-      pdf.text(`Class Result — ${_exam} ${_year} (Section: ${_section || 'All'})`, 105, 22, { align: 'center' });
-      let y = 32;
-      pdf.setFontSize(9);
-      results.forEach((r) => {
-        if (y > 280) { pdf.addPage(); y = 20; }
-        const label = isAsciiText(r.student_name)
-          ? r.student_name
-          : `Roll ${r.roll_no || '—'}`;
-        pdf.text(`${r.position}. Roll ${r.roll_no || '—'} | ${label} | ${r.totalObtained}/${r.totalFull} | GPA ${r.gpa} | ${r.status}`, 14, y);
-        y += 6;
-      });
-      pdf.save(`result_${_exam}_${_year}.pdf`);
+      const academy = Utils.esc(cfg.academy_name || 'AcadeFlow School');
+      const sectionLabel = Utils.esc(_section || 'All');
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:24px;width:800px;font-family:Arial,sans-serif';
+      wrapper.innerHTML = `
+        <h2 style="text-align:center;margin:0 0 8px;font-size:18px">${academy}</h2>
+        <p style="text-align:center;margin:0 0 16px;font-size:13px">
+          Class Result — ${Utils.esc(_class)} — ${Utils.esc(_exam)} ${Utils.esc(_year)} (Section: ${sectionLabel})
+        </p>
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            ${['Pos', 'Roll', 'Name', 'Total', '%', 'GPA', 'Status'].map(h =>
+              `<th style="border:1px solid #ccc;padding:6px;background:#eee">${h}</th>`
+            ).join('')}
+          </tr></thead>
+          <tbody>
+            ${results.map(r => `<tr>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${r.position}</td>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${Utils.esc(r.roll_no || '—')}</td>
+              <td style="border:1px solid #ccc;padding:6px">${Utils.esc(r.student_name)}</td>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${r.totalObtained}/${r.totalFull}</td>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${r.percentage}%</td>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${r.gpa}</td>
+              <td style="border:1px solid #ccc;padding:6px;text-align:center">${Utils.esc(r.status)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      document.body.appendChild(wrapper);
+      try {
+        const canvas = await html2canvas(wrapper, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
+        document.body.removeChild(wrapper);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const imgWidth = pageWidth;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
+        let heightLeft = imgHeight;
+        let position = 0;
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+        pdf.save(`result_${_class}_${_exam}_${_year}.pdf`);
+      } catch (err) {
+        if (wrapper.parentNode) document.body.removeChild(wrapper);
+        console.error('[ResultSheet] PDF export failed', err);
+        Utils.toast('PDF export failed', 'danger');
+      }
     };
-    if (window.LazyLibs) window.LazyLibs.load('jspdf').then(run).catch(run);
-    else run();
+
+    const loader = window.LazyLibs?.loadPdfKit
+      ? window.LazyLibs.loadPdfKit()
+      : Promise.resolve();
+    loader.then(run).catch(run);
   }
 
   return { render, onFilterChange, printIndividual, printClassSheet, exportPDF };

@@ -16,6 +16,14 @@ const SubjectMarks = (() => {
       : String(new Date().getFullYear());
   }
 
+  function _fmtNum(val) {
+    return (val === null || val === undefined || val === '') ? '—' : val;
+  }
+
+  function _fmtGpa(gpa) {
+    return Number.isFinite(gpa) ? gpa.toFixed(2) : '—';
+  }
+
   function render() {
     if (!_year) _year = _yearDefault();
     const el = document.getElementById('subject-marks-content');
@@ -72,7 +80,8 @@ const SubjectMarks = (() => {
     _class = Utils.formVal('sm-class');
     _section = Utils.formVal('sm-section');
     _exam = Utils.formVal('sm-exam') || 'Annual';
-    _year = Utils.formVal('sm-year') || _year;
+    const yearVal = Utils.formVal('sm-year');
+    _year = yearVal !== '' ? yearVal : _yearDefault();
     render();
   }
 
@@ -121,7 +130,7 @@ const SubjectMarks = (() => {
           data-subject-id="${Utils.escAttr(sub.id)}" data-subject-name="${Utils.escAttr(sub.subject_name)}"
           data-full="${sub.full_marks}" min="0" max="${sub.full_marks}" value="${val}" /></td>`;
       });
-      html += `<td>${totalO || '—'}</td><td>${pct || '—'}%</td><td>${gpa || '—'}</td><td>${grade}</td></tr>`;
+      html += `<td>${_fmtNum(totalO)}</td><td>${_fmtNum(pct)}%</td><td>${_fmtGpa(gpa)}</td><td>${grade}</td></tr>`;
     });
 
     html += '</tbody></table></div>';

@@ -14,6 +14,8 @@ export default [
         Utils: "readonly",
         Chart: "readonly",
         flatpickr: "readonly",
+        html2canvas: "readonly",
+        LazyLibs: "readonly",
         XLSX: "readonly",
         QRCode: "readonly",
         WFA_Loading: "readonly",

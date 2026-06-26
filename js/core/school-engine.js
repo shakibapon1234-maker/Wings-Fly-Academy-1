@@ -25,14 +25,16 @@ const SchoolEngine = (() => {
     return s ? (s.getAll(table) || []) : [];
   }
 
-  function calcGrade(marks, fullMarks = 100) {
+  function calcGrade(marks, fullMarks = 100, passMarksPct = 33) {
     const pct = fullMarks > 0 ? (Number(marks) / Number(fullMarks)) * 100 : 0;
+    const passThreshold = Number(passMarksPct) || 33;
+    if (pct < passThreshold) return { grade: 'F', gpa: 0.0, pass: false };
     if (pct >= 80) return { grade: 'A+', gpa: 5.0, pass: true };
     if (pct >= 70) return { grade: 'A', gpa: 4.0, pass: true };
     if (pct >= 60) return { grade: 'A-', gpa: 3.5, pass: true };
     if (pct >= 50) return { grade: 'B', gpa: 3.0, pass: true };
     if (pct >= 40) return { grade: 'C', gpa: 2.0, pass: true };
-    if (pct >= 33) return { grade: 'D', gpa: 1.0, pass: true };
+    if (pct >= passThreshold) return { grade: 'D', gpa: 1.0, pass: true };
     return { grade: 'F', gpa: 0.0, pass: false };
   }
 
@@ -61,25 +63,31 @@ const SchoolEngine = (() => {
   }
 
   function _subjectResultRow(sub, markRecord) {
+    const full = Number(sub?.full_marks) || Number(markRecord?.full_marks) || 100;
+    const passMarks = Number(sub?.pass_marks) || 33;
     if (markRecord) {
+      const graded = calcGrade(
+        markRecord.marks_obtained,
+        markRecord.full_marks || full,
+        passMarks
+      );
       return {
         subject_id: sub.id,
         subject_name: markRecord.subject_name || sub.subject_name,
         marks_obtained: Number(markRecord.marks_obtained) || 0,
-        full_marks: Number(markRecord.full_marks) || sub.full_marks || 100,
-        grade: markRecord.grade,
-        gpa: Number(markRecord.gpa) || 0,
-        pass: markRecord.pass !== false,
+        full_marks: Number(markRecord.full_marks) || full,
+        grade: graded.grade,
+        gpa: graded.gpa,
+        pass: graded.pass,
         entered: true,
       };
     }
-    const full = Number(sub.full_marks) || 100;
     return {
       subject_id: sub.id,
       subject_name: sub.subject_name,
       marks_obtained: 0,
       full_marks: full,
-      ...calcGrade(0, full),
+      ...calcGrade(0, full, passMarks),
       entered: false,
     };
   }
@@ -319,7 +327,11 @@ const SchoolEngine = (() => {
     if (!s) return null;
     const full = Number(entry.full_marks) || 100;
     const obtained = Math.max(0, Math.min(full, Number(entry.marks_obtained) || 0));
-    const { grade, gpa, pass } = calcGrade(obtained, full);
+    const subject = entry.subject_id
+      ? _all(TABLES.subjects).find(s => s.id === entry.subject_id)
+      : null;
+    const passMarks = Number(entry.pass_marks) || Number(subject?.pass_marks) || 33;
+    const { grade, gpa, pass } = calcGrade(obtained, full, passMarks);
     const record = {
       student_id:     String(entry.student_id || '').trim(),
       student_no:     String(entry.student_no || entry.student_id || '').trim(),
