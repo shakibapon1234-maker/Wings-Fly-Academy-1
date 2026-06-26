@@ -144,6 +144,10 @@ const Students = (() => {
     const totalPaid = filtered.reduce((s,r) => s + Utils.safeNum(r.paid), 0);
     const totalDue  = filtered.reduce((s,r) => s + Utils.safeNum(r.due), 0);
 
+    const courseLabel = _instLabel('course_label', 'Course');
+    const batchLabel = _instLabel('batch_label', 'Batch');
+    const sessionLabel = _instLabel('session_label', 'Session');
+
     container.innerHTML = `
       <!-- Summary Cards -->
       <div class="dashboard-grid" style="margin-bottom:16px">
@@ -157,14 +161,14 @@ const Students = (() => {
       <div class="filter-bar">
         <div class="search-input-wrapper">
           <i class="fa fa-search"></i>
-          <input id="stu-search" class="form-control" placeholder="Search by Name / ID / Phone / Batch…" value="${Utils.escAttr(searchQuery)}" oninput="Students.onSearch(this.value)" />
+          <input id="stu-search" class="form-control" placeholder="Search by Name / ID / Phone / ${Utils.esc(batchLabel)}…" value="${Utils.escAttr(searchQuery)}" oninput="Students.onSearch(this.value)" />
         </div>
         <select class="form-control" onchange="Students.onFilter('batch',this.value)">
-          <option value="">All Batches</option>
+          <option value="">All ${Utils.esc(batchLabel)}s</option>
           ${batches.map(b=>`<option value="${Utils.escAttr(b)}" ${filterBatch===b?'selected':''}>${Utils.esc(b)}</option>`).join('')}
         </select>
         <select class="form-control" onchange="Students.onFilter('course',this.value)">
-          <option value="">All Courses</option>
+          <option value="">All ${Utils.esc(courseLabel)}s</option>
           ${courses.map(c => _courseOption(c, filterCourse)).join('')}
         </select>
         <select class="form-control" onchange="Students.onFilter('status',this.value)">
@@ -187,9 +191,9 @@ const Students = (() => {
                 <th>Student ID</th>
                 <th>Name</th>
                 <th>Phone</th>
-                <th>Course</th>
-                <th>Batch</th>
-                <th>Session</th>
+                <th>${Utils.esc(courseLabel)}</th>
+                <th>${Utils.esc(batchLabel)}</th>
+                <th>${Utils.esc(sessionLabel)}</th>
                 <th>Total Fee</th>
                 <th>Pay</th>
                 <th>Due</th>

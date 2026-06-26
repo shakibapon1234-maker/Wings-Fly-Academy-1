@@ -6829,6 +6829,7 @@ ${expenseEntries.length > 0 ? `
             phone: ac.phone || '',
             email: ac.email || '',
             package: ac.package || 'Basic',
+            institutionType: ac.institutionType || 'coaching',
             licenseKey: ac.licenseKey || '',
             supabaseUrl: ac.supabaseUrl || '',
             supabaseKey: ac.supabaseKey || '',
@@ -6841,6 +6842,7 @@ ${expenseEntries.length > 0 ? `
           const lc = local[idx];
           if (lc.academy     !== ac.academy)     { lc.academy     = ac.academy;     changed = true; }
           if (lc.package     !== ac.package)     { lc.package     = ac.package;     changed = true; }
+          if (ac.institutionType && lc.institutionType !== ac.institutionType) { lc.institutionType = ac.institutionType; changed = true; }
           if (lc.supabaseUrl !== ac.supabaseUrl) { lc.supabaseUrl = ac.supabaseUrl; changed = true; }
           if (lc.supabaseKey !== ac.supabaseKey) { lc.supabaseKey = ac.supabaseKey; changed = true; }
           // licenseKey is managed in-app, do NOT overwrite from metadata
@@ -6864,6 +6866,12 @@ ${expenseEntries.length > 0 ? `
       return `<span data-status-badge style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Loading…</span>`;
     }
 
+    function _instTypeLabel(t) {
+      const m = { coaching: '🏫 Coaching', school: '🏛️ School', college: '🎓 College' };
+      const v = String(t || 'coaching').toLowerCase();
+      return m[v] || m.coaching;
+    }
+
     function _buildTable(list) {
       if (!list.length) return `<div style="text-align:center;color:#7a8baa;padding:32px;font-size:0.9rem">No clients yet. Add one below.</div>`;
       return `<div style="overflow-x:auto">
@@ -6875,6 +6883,7 @@ ${expenseEntries.length > 0 ? `
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Owner</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Phone</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Package</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Type</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">License Key</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Status</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:right">Action</th>
@@ -6890,6 +6899,7 @@ ${expenseEntries.length > 0 ? `
                 <td style="padding:9px 6px">
                   <span style="background:rgba(123,47,247,0.15);color:#b57ff7;padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700">${Utils.esc(c.package||'Basic')}</span>
                 </td>
+                <td style="padding:9px 6px;color:#ccc;font-size:0.78rem">${Utils.esc(_instTypeLabel(c.institutionType))}</td>
                 <td data-lickey="${Utils.escAttr(c.licenseKey || '')}" style="padding:9px 6px;font-family:monospace;font-size:0.78rem;color:#00d9ff">
                   ${c.licenseKey
                     ? `<span title="${Utils.escAttr(c.licenseKey)}">${c.licenseKey.slice(0,18)}...</span>
@@ -6951,6 +6961,7 @@ ${expenseEntries.length > 0 ? `
         phone:        document.getElementById('cm-phone')?.value?.trim()    || '',
         email:        document.getElementById('cm-email')?.value?.trim()    || '',
         package:      document.getElementById('cm-package')?.value          || 'Basic',
+        institutionType: document.getElementById('cm-institution-type')?.value || 'coaching',
         licenseKey:   (document.getElementById('cm-lickey')?.value?.trim()?.toUpperCase()) || '',
         supabaseUrl:  document.getElementById('cm-supurl')?.value?.trim()   || '',
         supabaseKey:  document.getElementById('cm-supkey')?.value?.trim()   || '',
@@ -6976,6 +6987,7 @@ ${expenseEntries.length > 0 ? `
         'cm-phone':         c.phone,
         'cm-email':         c.email,
         'cm-package':       c.package,
+        'cm-institution-type': c.institutionType || 'coaching',
         'cm-lickey':        c.licenseKey,
         'cm-supurl':        c.supabaseUrl,
         'cm-supkey':        c.supabaseKey,
@@ -7148,6 +7160,14 @@ ${expenseEntries.length > 0 ? `
               <option>Basic</option><option>Pro</option><option>Custom</option>
             </select>
           </div>
+          <div>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Institution Type *</label>
+            <select id="cm-institution-type" class="form-control">
+              <option value="coaching">🏫 Coaching Centre</option>
+              <option value="school">🏛️ School</option>
+              <option value="college">🎓 College</option>
+            </select>
+          </div>
           <div style="grid-column:1/-1">
             <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">License Key</label>
             <input id="cm-lickey" type="text" class="form-control" placeholder="WFA-XXXX-XXXX-XXXXXX-XXXX" style="font-family:monospace;font-size:0.78rem" />
@@ -7171,7 +7191,7 @@ ${expenseEntries.length > 0 ? `
           <button onclick="_wfaClientSave()" style="flex:1;background:linear-gradient(135deg,rgba(0,217,255,0.8),rgba(123,47,247,0.8));border:none;color:#fff;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">
             Save Client
           </button>
-          <button onclick="document.getElementById('cm-edit-id').value='';['cm-customer-code','cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-supkey','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='Add New Client';"
+          <button onclick="document.getElementById('cm-edit-id').value='';['cm-customer-code','cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-supkey','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-institution-type').value='coaching';document.getElementById('cm-form-title').textContent='Add New Client';"
             style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:8px;cursor:pointer;font-weight:600">
             Clear
           </button>

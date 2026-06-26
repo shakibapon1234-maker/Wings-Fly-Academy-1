@@ -769,6 +769,7 @@ const App = (() => {
       if (loginEl) loginEl.style.display = 'none';
       if (appEl) appEl.style.display = 'flex';
       document.body.classList.add('app-loaded');
+      if (window.InstitutionMode?.hydrateFromSettings) InstitutionMode.hydrateFromSettings();
       if (window.InstitutionMode && InstitutionMode.applySchoolNav) InstitutionMode.applySchoolNav();
       const lastSection = sessionStorage.getItem('wfa_last_section');
       const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;

@@ -69,4 +69,7 @@ CREATE POLICY "school_subjects_anon" ON public.school_subjects FOR ALL TO anon U
 DROP POLICY IF EXISTS "school_marks_anon" ON public.school_marks;
 CREATE POLICY "school_marks_anon" ON public.school_marks FOR ALL TO anon USING (true) WITH CHECK (true);
 
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS guardian_phone text;
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS institution_type text DEFAULT 'coaching';
+
 SELECT '✅ School mode tables ready' AS status;

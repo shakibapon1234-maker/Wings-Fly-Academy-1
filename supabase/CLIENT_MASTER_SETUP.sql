@@ -51,6 +51,7 @@ create table if not exists public.settings (
   recycle_bin_sync    text,
   exam_questions      jsonb,
   exam_settings       jsonb,
+  institution_type    text default 'coaching',
   created_at          timestamptz default now(),
   updated_at          timestamptz default now()
 );

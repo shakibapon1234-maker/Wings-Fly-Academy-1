@@ -2,6 +2,7 @@
 // AcadeFlow — Institution Mode Engine
 // Coaching / School / College terminology & feature gating
 // Default: coaching (existing clients unchanged)
+// Persists to settings.institution_type (cloud) + localStorage cache
 // ============================================================
 
 window.InstitutionMode = (() => {
@@ -48,12 +49,68 @@ window.InstitutionMode = (() => {
     college:  { icon: '🎓', label: 'College',         labelBn: 'কলেজ' },
   };
 
+  let _memoryType = null;
+
   function _normalize(type) {
     const t = String(type || '').toLowerCase().trim();
     return VALID.includes(t) ? t : DEFAULT;
   }
 
+  function _readSettingsRow() {
+    try {
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        const rows = SupabaseSync.getAll(DB.settings) || [];
+        return rows.find(r => r.institution_type) || rows[0] || null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  }
+
+  function _fromSettings() {
+    const row = _readSettingsRow();
+    const raw = row?.institution_type;
+    return raw ? _normalize(raw) : null;
+  }
+
+  function _fromDeploySecrets() {
+    const secrets = window.WFA_SUPABASE_SECRETS;
+    if (secrets?.institutionType) return _normalize(secrets.institutionType);
+    return null;
+  }
+
+  function _cacheLocal(type) {
+    try { localStorage.setItem(STORAGE_KEY, type); } catch { /* ignore */ }
+  }
+
+  function _persistToSettings(type) {
+    if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return false;
+    try {
+      const list = SupabaseSync.getAll(DB.settings) || [];
+      const row = list[0] || { id: 'main' };
+      const next = { ...row, institution_type: type };
+      if (row.id && list.length) {
+        SupabaseSync.update(DB.settings, row.id, next, { bypassLog: true });
+      } else {
+        next.id = next.id || (SupabaseSync.generateId ? SupabaseSync.generateId() : 'main');
+        SupabaseSync.insert(DB.settings, next, { bypassLog: true });
+      }
+      return true;
+    } catch (e) {
+      console.warn('[InstitutionMode] settings persist failed', e);
+      return false;
+    }
+  }
+
   function get() {
+    if (_memoryType) return _memoryType;
+    const fromSettings = _fromSettings();
+    if (fromSettings) {
+      _memoryType = fromSettings;
+      _cacheLocal(fromSettings);
+      return fromSettings;
+    }
+    const fromSecrets = _fromDeploySecrets();
+    if (fromSecrets) return fromSecrets;
     try {
       return _normalize(localStorage.getItem(STORAGE_KEY));
     } catch {
@@ -61,18 +118,50 @@ window.InstitutionMode = (() => {
     }
   }
 
-  function set(type) {
+  function hydrateFromSettings(options = {}) {
+    const seedIfMissing = options.seedIfMissing !== false;
+    const settingsType = _fromSettings();
+    const deployType = _fromDeploySecrets();
+    let resolved;
+
+    if (settingsType) {
+      resolved = settingsType;
+    } else if (deployType) {
+      resolved = deployType;
+      if (seedIfMissing) _persistToSettings(deployType);
+    } else {
+      try {
+        resolved = _normalize(localStorage.getItem(STORAGE_KEY));
+      } catch {
+        resolved = DEFAULT;
+      }
+    }
+
+    const prev = _memoryType ?? get();
+    _memoryType = resolved;
+    _cacheLocal(resolved);
+
+    if (prev !== resolved) {
+      window.dispatchEvent(new CustomEvent('wfa:institution-mode-changed', {
+        detail: { type: resolved, previous: prev },
+      }));
+    }
+    applySchoolNav();
+    return resolved;
+  }
+
+  function set(type, options = {}) {
     const next = _normalize(type);
     const prev = get();
-    if (prev === next) return next;
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch (e) {
-      console.warn('[InstitutionMode] save failed', e);
+    _memoryType = next;
+    _cacheLocal(next);
+    if (options.persist !== false) _persistToSettings(next);
+    if (prev !== next) {
+      window.dispatchEvent(new CustomEvent('wfa:institution-mode-changed', {
+        detail: { type: next, previous: prev },
+      }));
     }
-    window.dispatchEvent(new CustomEvent('wfa:institution-mode-changed', {
-      detail: { type: next, previous: prev },
-    }));
+    applySchoolNav();
     return next;
   }
 
@@ -105,15 +194,22 @@ window.InstitutionMode = (() => {
   }
 
   window.addEventListener('wfa:institution-mode-changed', applySchoolNav);
+  window.addEventListener('wfa:synced', () => {
+    hydrateFromSettings({ seedIfMissing: true });
+  });
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applySchoolNav);
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => hydrateFromSettings({ seedIfMissing: true }), 0);
+    });
   } else {
-    applySchoolNav();
+    setTimeout(() => hydrateFromSettings({ seedIfMissing: true }), 0);
   }
 
   return {
     get,
     set,
+    hydrateFromSettings,
     isSchool,
     isCoaching,
     isCollege,

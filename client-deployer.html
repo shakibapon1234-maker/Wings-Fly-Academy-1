@@ -169,6 +169,14 @@
           <option>Basic</option><option>Pro</option><option>Custom</option>
         </select>
       </div>
+      <div>
+        <label>Institution Type <span class="req">*</span></label>
+        <select id="dep-institution">
+          <option value="coaching">🏫 Coaching Centre</option>
+          <option value="school">🏛️ School</option>
+          <option value="college">🎓 College</option>
+        </select>
+      </div>
     </div>
     <button class="btn btn-primary" onclick="generateConfig()">
       <i class="fa fa-gear"></i> Generate Config File
@@ -230,6 +238,7 @@ function onCodeInput(code) {
     if (c.supabaseKey) document.getElementById('dep-key').value = c.supabaseKey;
     if (c.licenseKey) document.getElementById('dep-lickey').value = c.licenseKey;
     if (c.package) document.getElementById('dep-package').value = c.package;
+    if (c.institutionType) document.getElementById('dep-institution').value = c.institutionType;
     toast('Client "' + (c.academy||code) + '" লোড হয়েছে', 'success');
   }
   updatePreview();
@@ -251,6 +260,7 @@ function generateConfig() {
   const key     = (document.getElementById('dep-key').value||'').trim();
   const lickey  = (document.getElementById('dep-lickey').value||'').trim().toUpperCase();
   const pkg     = document.getElementById('dep-package').value||'Basic';
+  const instType = document.getElementById('dep-institution').value||'coaching';
 
   if (!code||code.length<2)      { toast('Customer Code দিন','error'); return; }
   if (!url||!url.startsWith('https://')) { toast('Valid Supabase URL দিন','error'); return; }
@@ -265,7 +275,7 @@ function generateConfig() {
 '// ================================================================\n'+
 '// Wings Fly Academy — Client Deployment Config\n'+
 '// Generated : '+now+'\n'+
-'// Customer  : '+(academy||code)+'  |  Code: '+code+'  |  Package: '+pkg+'\n'+
+'// Customer  : '+(academy||code)+'  |  Code: '+code+'  |  Package: '+pkg+'  |  Type: '+instType+'\n'+
 '// WARNING   : এই ফাইলে sensitive key আছে — public repo-তে সাবধানে রাখুন\n'+
 '// ================================================================\n\n'+
 'window.WFA_SUPABASE_SECRETS = {\n'+
@@ -273,6 +283,7 @@ function generateConfig() {
 '  anonKey:      "'+key+'",\n'+
 '  customerCode: "'+code+'",'+ licLine +'\n'+
 '  academyName:  "'+(academy||code)+'",\n'+
+'  institutionType: "'+instType+'",\n'+
 '  package:      "'+pkg+'",\n'+
 '  deployedAt:   "'+now+'",\n'+
 '  siteUrl:      "'+liveUrl+'",\n'+
@@ -311,6 +322,7 @@ function saveToClientManager() {
   const key     = (document.getElementById('dep-key').value||'').trim();
   const lickey  = (document.getElementById('dep-lickey').value||'').trim().toUpperCase();
   const pkg     = document.getElementById('dep-package').value||'Basic';
+  const instType = document.getElementById('dep-institution').value||'coaching';
   const repo    = (document.getElementById('dep-repo').value||'').trim();
   const ghuser  = (document.getElementById('dep-ghuser').value||'').trim();
   if (!code) { toast('Customer Code দিন','error'); return; }
@@ -321,11 +333,13 @@ function saveToClientManager() {
     if (lickey) c.licenseKey = lickey;
     if (academy) c.academy = academy;
     c.package = pkg;
+    c.institutionType = instType;
     c.siteUrl = 'https://'+ghuser+'.github.io/'+repo+'/';
     toast('"'+(academy||code)+'" আপডেট হয়েছে!','success');
   } else {
     list.push({
       id: Date.now().toString(36), customerCode: code, academy: academy, package: pkg,
+      institutionType: instType,
       supabaseUrl: url, supabaseKey: key, licenseKey: lickey,
       siteUrl: 'https://'+ghuser+'.github.io/'+repo+'/',
       createdAt: new Date().toISOString()
@@ -337,6 +351,12 @@ function saveToClientManager() {
 }
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function _instLabel(t) {
+  var m = { coaching: '🏫 Coaching', school: '🏛️ School', college: '🎓 College' };
+  var v = String(t||'coaching').toLowerCase();
+  return m[v] || m.coaching;
+}
 
 function renderClients() {
   const list = loadClients();
@@ -357,11 +377,12 @@ function renderClients() {
       '<td style="font-family:monospace;color:var(--primary);font-weight:700">'+esc(c.customerCode||'-')+'</td>'+
       '<td>'+esc(c.academy||'-')+'</td>'+
       '<td><span class="badge b-warn">'+esc(c.package||'Basic')+'</span></td>'+
+      '<td>'+esc(_instLabel(c.institutionType))+'</td>'+
       '<td>'+keyCell+'</td>'+
       '<td>'+siteCell+'</td>'+
       '</tr>';
   }).join('');
-  body.innerHTML = '<table class="ctable"><thead><tr><th>Code</th><th>Academy</th><th>Package</th><th>License Key</th><th>Site URL</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  body.innerHTML = '<table class="ctable"><thead><tr><th>Code</th><th>Academy</th><th>Package</th><th>Type</th><th>License Key</th><th>Site URL</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
 
 document.addEventListener('DOMContentLoaded', function(){

@@ -50,6 +50,18 @@ if ($GHUSER -match "\s") {
 $PKG     = (Ask "Package (Basic/Pro/Custom)" "Basic").Trim()
 
 Write-Host ""
+Write-Host "  Institution Type:" -ForegroundColor DarkGray
+Write-Host "    1 = Coaching Centre (default)" -ForegroundColor DarkGray
+Write-Host "    2 = School" -ForegroundColor DarkGray
+Write-Host "    3 = College" -ForegroundColor DarkGray
+$INST_RAW = (Ask "Institution Type (1/2/3)" "1").Trim()
+$INSTTYPE = switch ($INST_RAW) {
+    "2" { "school" }
+    "3" { "college" }
+    default { "coaching" }
+}
+
+Write-Host ""
 Write-Title "STEP 2: Supabase Credentials"
 Write-Host ""
 Write-WARN "Supabase -> Settings -> API থেকে নিন"
@@ -116,7 +128,7 @@ $SECRETS_CONTENT = @"
 // ================================================================
 // Wings Fly Academy - Client Deployment Credentials
 // Generated : $TODAY
-// Customer  : $ACADEMY  |  Code: $CODE  |  Package: $PKG
+// Customer  : $ACADEMY  |  Code: $CODE  |  Package: $PKG  |  Type: $INSTTYPE
 // ================================================================
 //
 // ✅ This file is loaded AFTER supabase-secrets.stub.js in all HTML files.
@@ -134,6 +146,7 @@ window.WFA_SUPABASE_SECRETS = {
   anonKey:      "$KEY",
   customerCode: "$CODE",$LICLINE
   package:      "$PKG",
+  institutionType: "$INSTTYPE",
   deployedAt:   "$TODAY",
   siteUrl:      "$SITEURL",
 };
@@ -187,6 +200,7 @@ if ($already_exists) {
         customerCode = $CODE
         academy      = $ACADEMY
         package      = $PKG
+        institutionType = $INSTTYPE
         licenseKey   = $LICKEY
         supabaseUrl  = $URL
         supabaseKey  = $KEY

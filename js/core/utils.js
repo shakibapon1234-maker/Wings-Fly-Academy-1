@@ -578,10 +578,16 @@ const Utils = (() => {
 
   // ── Student ID Generator ──────────────────────────────────
   function generateStudentId(existingIds) {
-    const prefix = 'WFA-';
+    const prefixKey = (window.InstitutionMode && InstitutionMode.getLabel)
+      ? InstitutionMode.getLabel('student_id_prefix')
+      : 'STU';
+    const prefix = String(prefixKey || 'STU').toUpperCase().replace(/[^A-Z0-9]/g, '') + '-';
     let num = 1001;
     if (existingIds && existingIds.length) {
-      const numbers = existingIds.map(id => parseInt((id || '').replace(/\D/g, '')) || 0);
+      const numbers = existingIds.map((id) => {
+        const m = String(id || '').match(/(\d+)\s*$/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
       num = Math.max(...numbers, 1000) + 1;
     }
     return prefix + num;
