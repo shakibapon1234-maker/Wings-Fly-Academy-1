@@ -127,7 +127,7 @@ window.SettingsInstitution = (() => {
           _toast('Institution type unchanged.', 'info');
           return;
         }
-        _toast(`✅ Institution type saved: ${InstitutionMode.getMeta(next).label} (cloud synced)`, 'success');
+        _toast(`Reloading to apply ${InstitutionMode.getMeta(next).label}…`, 'info');
         setTimeout(() => window.location.reload(), 900);
       });
     }

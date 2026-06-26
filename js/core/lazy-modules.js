@@ -71,7 +71,6 @@ const LazyModules = (() => {
   };
 
   const POST_LOGIN_IDLE = [
-    'institution-mode',
     'integrity-guard', 'system-diagnostics', 'settings-diagnostics', 'backup-restore',
     'auto-update', 'push-notifications', 'offline-mode', 'admin-panel',
     'settings-branding', 'settings-institution', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
@@ -113,6 +112,7 @@ const LazyModules = (() => {
   function ensure(name) {
     const def = MODULES[name];
     if (!def) return Promise.reject(new Error(`Unknown module: ${name}`));
+    if (name === 'institution-mode' && window.InstitutionMode) return Promise.resolve();
     const depsPromise = (def.deps && def.deps.length)
       ? def.deps.reduce((p, depName) => p.then(() => ensure(depName)), Promise.resolve())
       : Promise.resolve();

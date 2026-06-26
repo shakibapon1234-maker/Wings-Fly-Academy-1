@@ -5,6 +5,10 @@
 // Persists to settings.institution_type (cloud) + localStorage cache
 // ============================================================
 
+if (window.InstitutionMode && typeof window.InstitutionMode.get === 'function') {
+  // Already loaded via index.html — skip re-execution (lazy-modules dep load)
+} else {
+
 window.InstitutionMode = (() => {
   const STORAGE_KEY = 'wfa_institution_type';
   const VALID = ['coaching', 'school', 'college'];
@@ -103,14 +107,18 @@ window.InstitutionMode = (() => {
 
   function get() {
     if (_memoryType) return _memoryType;
+    const fromSecrets = _fromDeploySecrets();
+    if (fromSecrets) {
+      _memoryType = fromSecrets;
+      _cacheLocal(fromSecrets);
+      return fromSecrets;
+    }
     const fromSettings = _fromSettings();
     if (fromSettings) {
       _memoryType = fromSettings;
       _cacheLocal(fromSettings);
       return fromSettings;
     }
-    const fromSecrets = _fromDeploySecrets();
-    if (fromSecrets) return fromSecrets;
     try {
       return _normalize(localStorage.getItem(STORAGE_KEY));
     } catch {
@@ -118,17 +126,18 @@ window.InstitutionMode = (() => {
     }
   }
 
-  function hydrateFromSettings(options = {}) {
-    const seedIfMissing = options.seedIfMissing !== false;
+  function hydrateFromSettings(_options = {}) {
+    const prev = _memoryType ?? get();
+    _memoryType = null;
     const settingsType = _fromSettings();
     const deployType = _fromDeploySecrets();
     let resolved;
 
-    if (settingsType) {
-      resolved = settingsType;
-    } else if (deployType) {
+    if (deployType) {
       resolved = deployType;
-      if (seedIfMissing) _persistToSettings(deployType);
+      _persistToSettings(deployType);
+    } else if (settingsType) {
+      resolved = settingsType;
     } else {
       try {
         resolved = _normalize(localStorage.getItem(STORAGE_KEY));
@@ -137,7 +146,6 @@ window.InstitutionMode = (() => {
       }
     }
 
-    const prev = _memoryType ?? get();
     _memoryType = resolved;
     _cacheLocal(resolved);
 
@@ -195,15 +203,15 @@ window.InstitutionMode = (() => {
 
   window.addEventListener('wfa:institution-mode-changed', applySchoolNav);
   window.addEventListener('wfa:synced', () => {
-    hydrateFromSettings({ seedIfMissing: true });
+    hydrateFromSettings();
   });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(() => hydrateFromSettings({ seedIfMissing: true }), 0);
+      setTimeout(() => hydrateFromSettings(), 0);
     });
   } else {
-    setTimeout(() => hydrateFromSettings({ seedIfMissing: true }), 0);
+    setTimeout(() => hydrateFromSettings(), 0);
   }
 
   return {
@@ -224,3 +232,5 @@ window.InstitutionMode = (() => {
     STORAGE_KEY,
   };
 })();
+
+}

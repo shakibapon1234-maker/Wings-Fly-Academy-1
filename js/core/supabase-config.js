@@ -79,6 +79,7 @@ const _LS_KEYS_TO_PURGE = [
   'wfa_license_key', 'wfa_gemini_key', 'wfa_gemini_key_2',
   'wfa_gemini_key_3', 'wfa_ai_local_only', 'wfa_debug_logs',
   'wfa_user_id',
+  'wfa_institution_type',
 ];
 
 function _purgeLocalDataForNewDb() {
