@@ -92,7 +92,6 @@ const SubjectMarks = (() => {
 
     const existing = SchoolEngine.getMarks({
       class_name: _class,
-      section: _section || undefined,
       exam_type: _exam,
       academic_year: _year,
     });
@@ -104,23 +103,24 @@ const SubjectMarks = (() => {
     </tr></thead><tbody>`;
 
     students.forEach(st => {
-      const rowMarks = [];
+      const studentMarks = existing.filter(m => m.student_id === st.id);
+      const subjectRows = SchoolEngine.buildSubjectResults(_class, st.id, _exam, _year, studentMarks);
+      const totalO = subjectRows.reduce((a, r) => a + r.marks_obtained, 0);
+      const totalF = subjectRows.reduce((a, r) => a + r.full_marks, 0);
+      const pct = totalF ? Math.round((totalO / totalF) * 100) : 0;
+      const gpa = SchoolEngine.calcGPA(subjectRows);
+      const grade = SchoolEngine.overallLetterGrade(subjectRows);
       html += `<tr><td>${Utils.esc(st.roll_no || '—')}</td><td>${Utils.esc(st.name)}</td>`;
       subjects.forEach(sub => {
-        const found = existing.find(m => m.student_id === st.id && m.subject_id === sub.id);
+        const found = studentMarks.find(m => m.subject_id === sub.id);
         const val = found ? found.marks_obtained : '';
         html += `<td><input type="number" class="form-control sm-mark" style="width:70px;padding:4px 6px"
           data-student-id="${Utils.escAttr(st.id)}" data-student-no="${Utils.escAttr(st.student_id)}"
           data-student-name="${Utils.escAttr(st.name)}" data-roll="${Utils.escAttr(st.roll_no || '')}"
+          data-section="${Utils.escAttr(st.batch || '')}"
           data-subject-id="${Utils.escAttr(sub.id)}" data-subject-name="${Utils.escAttr(sub.subject_name)}"
           data-full="${sub.full_marks}" min="0" max="${sub.full_marks}" value="${val}" /></td>`;
-        if (val !== '') rowMarks.push({ marks_obtained: Number(val), full_marks: sub.full_marks, ...SchoolEngine.calcGrade(val, sub.full_marks) });
       });
-      const totalO = rowMarks.reduce((a, r) => a + r.marks_obtained, 0);
-      const totalF = rowMarks.reduce((a, r) => a + r.full_marks, 0);
-      const pct = totalF ? Math.round((totalO / totalF) * 100) : 0;
-      const gpa = SchoolEngine.calcGPA(rowMarks);
-      const grade = rowMarks.length ? (gpa >= 4 ? 'A' : gpa >= 3 ? 'B' : gpa >= 2 ? 'C' : 'D') : '—';
       html += `<td>${totalO || '—'}</td><td>${pct || '—'}%</td><td>${gpa || '—'}</td><td>${grade}</td></tr>`;
     });
 
@@ -131,26 +131,31 @@ const SubjectMarks = (() => {
   function saveAll() {
     if (!_class) { Utils.toast('Class select করুন', 'warning'); return; }
     const inputs = document.querySelectorAll('.sm-mark');
-    let count = 0;
+    let saved = 0;
+    let cleared = 0;
     inputs.forEach((inp) => {
-      if (inp.value === '') return;
-      SchoolEngine.saveMark({
+      const section = inp.dataset.section || '';
+      const base = {
         student_id: inp.dataset.studentId,
         student_no: inp.dataset.studentNo,
         student_name: inp.dataset.studentName,
         roll_no: inp.dataset.roll,
         class_name: _class,
-        section: _section,
+        section,
         academic_year: _year,
         exam_type: _exam,
         subject_id: inp.dataset.subjectId,
         subject_name: inp.dataset.subjectName,
-        marks_obtained: inp.value,
         full_marks: inp.dataset.full,
-      });
-      count++;
+      };
+      if (inp.value === '') {
+        if (SchoolEngine.deleteMark(base)) cleared++;
+        return;
+      }
+      SchoolEngine.saveMark({ ...base, marks_obtained: inp.value });
+      saved++;
     });
-    Utils.toast(`✅ ${count} marks saved`, 'success');
+    Utils.toast(`✅ ${saved} saved${cleared ? `, ${cleared} cleared` : ''}`, 'success');
     render();
   }
 
@@ -169,8 +174,8 @@ const SubjectMarks = (() => {
         <div class="form-group"><label>Full Marks</label><input id="sm-new-full" type="number" class="form-control" value="100" /></div>
       </div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Close</button>
-        <button class="btn-primary" onclick="SubjectMarks.addSubject()"><i class="fa fa-plus"></i> Add Subject</button>
+        <button class="btn btn-secondary" onclick="Utils.closeModal()">Close</button>
+        <button class="btn btn-primary" onclick="SubjectMarks.addSubject()"><i class="fa fa-plus"></i> Add Subject</button>
       </div>
     `);
   }

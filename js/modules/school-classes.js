@@ -118,8 +118,8 @@ const SchoolClasses = (() => {
       </div>
       <div id="sc-error" class="form-error hidden"></div>
       <div class="form-actions">
-        <button class="btn-secondary" onclick="Utils.closeModal()">Cancel</button>
-        <button class="btn-primary" onclick="SchoolClasses.save('${Utils.escAttr(row?.id || '')}')"><i class="fa fa-floppy-disk"></i> Save</button>
+        <button class="btn btn-secondary" onclick="Utils.closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="SchoolClasses.save('${Utils.escAttr(row?.id || '')}')"><i class="fa fa-floppy-disk"></i> Save</button>
       </div>
     `);
   }

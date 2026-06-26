@@ -51,6 +51,7 @@ CREATE INDEX IF NOT EXISTS idx_school_marks_class ON public.school_marks (class_
 
 -- students table: add school columns if missing
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS mother_name text;
+ALTER TABLE public.students ADD COLUMN IF NOT EXISTS guardian_phone text;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS roll_no text;
 ALTER TABLE public.students ADD COLUMN IF NOT EXISTS shift text;
 

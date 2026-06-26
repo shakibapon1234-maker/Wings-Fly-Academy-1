@@ -38,8 +38,71 @@ const SchoolEngine = (() => {
 
   function calcGPA(subjectResults) {
     if (!subjectResults || !subjectResults.length) return 0;
+    // Bangladesh rule: any failed subject → overall GPA 0.00
+    if (subjectResults.some(r => r.grade === 'F' || r.pass === false || Number(r.gpa) === 0)) {
+      return 0;
+    }
     const sum = subjectResults.reduce((a, r) => a + (Number(r.gpa) || 0), 0);
     return Math.round((sum / subjectResults.length) * 100) / 100;
+  }
+
+  function overallLetterGrade(subjectRows) {
+    if (!subjectRows || !subjectRows.length) return '—';
+    if (subjectRows.some(r => r.entered === false)) return 'Inc.';
+    if (subjectRows.some(r => r.grade === 'F' || r.pass === false)) return 'F';
+    const gpa = calcGPA(subjectRows);
+    if (gpa >= 5) return 'A+';
+    if (gpa >= 4) return 'A';
+    if (gpa >= 3.5) return 'A-';
+    if (gpa >= 3) return 'B';
+    if (gpa >= 2) return 'C';
+    if (gpa >= 1) return 'D';
+    return 'F';
+  }
+
+  function _subjectResultRow(sub, markRecord) {
+    if (markRecord) {
+      return {
+        subject_id: sub.id,
+        subject_name: markRecord.subject_name || sub.subject_name,
+        marks_obtained: Number(markRecord.marks_obtained) || 0,
+        full_marks: Number(markRecord.full_marks) || sub.full_marks || 100,
+        grade: markRecord.grade,
+        gpa: Number(markRecord.gpa) || 0,
+        pass: markRecord.pass !== false,
+        entered: true,
+      };
+    }
+    const full = Number(sub.full_marks) || 100;
+    return {
+      subject_id: sub.id,
+      subject_name: sub.subject_name,
+      marks_obtained: 0,
+      full_marks: full,
+      ...calcGrade(0, full),
+      entered: false,
+    };
+  }
+
+  function buildSubjectResults(className, studentId, examType, academicYear, markRecords) {
+    const marks = markRecords || getMarks({ student_id: studentId, exam_type: examType, academic_year: academicYear });
+    const catalog = getSubjects(className);
+    if (catalog.length) {
+      return catalog.map(sub => {
+        const m = marks.find(x => x.subject_id === sub.id);
+        return _subjectResultRow(sub, m);
+      });
+    }
+    return marks.map(m => ({
+      subject_id: m.subject_id,
+      subject_name: m.subject_name,
+      marks_obtained: Number(m.marks_obtained) || 0,
+      full_marks: Number(m.full_marks) || 100,
+      grade: m.grade,
+      gpa: Number(m.gpa) || 0,
+      pass: m.pass !== false,
+      entered: true,
+    }));
   }
 
   /** Shared academic year — marks, results, and student session stay in sync. */
@@ -54,7 +117,7 @@ const SchoolEngine = (() => {
       const rb = String(cfg.running_batch || '').trim();
       const rbMatch = rb.match(/(20\d{2})/);
       if (rbMatch) return rbMatch[1];
-    } catch (_) { /* ignore */ }
+    } catch { /* ignore */ }
 
     try {
       const s = _sync();
@@ -68,7 +131,7 @@ const SchoolEngine = (() => {
           return Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
         }
       }
-    } catch (_) { /* ignore */ }
+    } catch { /* ignore */ }
 
     const now = new Date();
     return String(now.getFullYear());
@@ -142,6 +205,7 @@ const SchoolEngine = (() => {
   function saveClass(entry) {
     const s = _sync();
     if (!s) return null;
+    const prior = entry.id ? s.getById(TABLES.classes, entry.id) : null;
     const sections = Array.isArray(entry.sections)
       ? entry.sections
       : String(entry.sections || '').split(',').map(x => x.trim()).filter(Boolean);
@@ -151,11 +215,14 @@ const SchoolEngine = (() => {
       shift:         String(entry.shift || 'Day').trim(),
       class_teacher: String(entry.class_teacher || '').trim(),
       is_active:     entry.is_active !== false,
-      created_at:    entry.created_at || new Date().toISOString(),
+      created_at:    entry.created_at || prior?.created_at || new Date().toISOString(),
       updated_at:    new Date().toISOString(),
     };
     if (entry.id) {
       record.id = entry.id;
+      if (prior && prior.class_name && prior.class_name !== record.class_name) {
+        _renameClassName(prior.class_name, record.class_name);
+      }
       s.update(TABLES.classes, record.id, record);
     } else {
       record.id = Utils.generateId();
@@ -164,10 +231,28 @@ const SchoolEngine = (() => {
     return record;
   }
 
+  function _renameClassName(oldName, newName) {
+    const s = _sync();
+    if (!s || typeof DB === 'undefined' || !oldName || !newName || oldName === newName) return;
+
+    s.getAll(DB.students)
+      .filter(st => String(st.course || '').trim() === String(oldName).trim())
+      .forEach(st => s.update(DB.students, st.id, { ...st, course: newName }));
+
+    _all(TABLES.subjects)
+      .filter(sub => String(sub.class_name || '').trim() === String(oldName).trim())
+      .forEach(sub => s.update(TABLES.subjects, sub.id, { ...sub, class_name: newName }));
+
+    _all(TABLES.marks)
+      .filter(m => String(m.class_name || '').trim() === String(oldName).trim())
+      .forEach(m => s.update(TABLES.marks, m.id, { ...m, class_name: newName }));
+  }
+
   function removeClass(id) {
     const s = _sync();
+    if (!s) return;
     const existing = s.getById(TABLES.classes, id);
-    if (!existing || !s) return;
+    if (!existing) return;
     s.update(TABLES.classes, id, { ...existing, is_active: false, updated_at: new Date().toISOString() });
   }
 
@@ -204,8 +289,9 @@ const SchoolEngine = (() => {
 
   function removeSubject(id) {
     const s = _sync();
+    if (!s) return;
     const existing = s.getById(TABLES.subjects, id);
-    if (!existing || !s) return;
+    if (!existing) return;
     s.update(TABLES.subjects, id, { ...existing, is_active: false, updated_at: new Date().toISOString() });
   }
 
@@ -272,6 +358,20 @@ const SchoolEngine = (() => {
     return record;
   }
 
+  function deleteMark(criteria) {
+    const s = _sync();
+    if (!s) return false;
+    const existing = _all(TABLES.marks).find(m =>
+      m.student_id === criteria.student_id &&
+      m.subject_id === criteria.subject_id &&
+      m.exam_type === criteria.exam_type &&
+      m.academic_year === criteria.academic_year
+    );
+    if (!existing) return false;
+    s.remove(TABLES.marks, existing.id);
+    return true;
+  }
+
   function getStudentsInClass(className, section, academicYear) {
     const students = _sync() ? _sync().getAll(DB.students) : [];
     return students.filter((st) => {
@@ -287,26 +387,26 @@ const SchoolEngine = (() => {
   }
 
   function buildStudentResult(studentId, examType, academicYear) {
+    const s = _sync();
+    const student = s && typeof DB !== 'undefined' ? s.getById(DB.students, studentId) : null;
     const marks = getMarks({ student_id: studentId, exam_type: examType, academic_year: academicYear });
-    if (!marks.length) return null;
-    const subjects = marks.map(m => ({
-      subject_name: m.subject_name,
-      marks_obtained: m.marks_obtained,
-      full_marks: m.full_marks,
-      grade: m.grade,
-      gpa: m.gpa,
-      pass: m.pass,
-    }));
-    const totalObtained = subjects.reduce((a, s) => a + s.marks_obtained, 0);
-    const totalFull = subjects.reduce((a, s) => a + s.full_marks, 0);
+    const className = marks[0]?.class_name || student?.course || '';
+    if (!className) return null;
+
+    const subjects = buildSubjectResults(className, studentId, examType, academicYear, marks);
+    if (!subjects.length) return null;
+
+    const incomplete = subjects.some(r => r.entered === false);
+    const totalObtained = subjects.reduce((a, row) => a + row.marks_obtained, 0);
+    const totalFull = subjects.reduce((a, row) => a + row.full_marks, 0);
     const gpa = calcGPA(subjects);
-    const allPass = subjects.every(s => s.pass);
+    const allPass = !incomplete && subjects.every(r => r.pass);
     return {
       student_id: studentId,
-      student_name: marks[0].student_name,
-      class_name: marks[0].class_name,
-      section: marks[0].section,
-      roll_no: marks[0].roll_no,
+      student_name: marks[0]?.student_name || student?.name || '',
+      class_name: className,
+      section: marks[0]?.section || student?.batch || '',
+      roll_no: marks[0]?.roll_no || student?.roll_no || '',
       exam_type: examType,
       academic_year: academicYear,
       subjects,
@@ -314,14 +414,19 @@ const SchoolEngine = (() => {
       totalFull,
       percentage: totalFull ? Math.round((totalObtained / totalFull) * 10000) / 100 : 0,
       gpa,
-      status: allPass ? 'Pass' : 'Fail',
+      grade: overallLetterGrade(subjects),
+      status: incomplete ? 'Incomplete' : (allPass ? 'Pass' : 'Fail'),
     };
   }
 
   function buildClassResults(className, section, examType, academicYear) {
     const students = getStudentsInClass(className, section, academicYear);
     const results = students.map(st => buildStudentResult(st.id, examType, academicYear)).filter(Boolean);
-    results.sort((a, b) => b.gpa - a.gpa || b.percentage - a.percentage);
+    results.sort((a, b) => {
+      if (a.status === 'Incomplete' && b.status !== 'Incomplete') return 1;
+      if (b.status === 'Incomplete' && a.status !== 'Incomplete') return -1;
+      return b.gpa - a.gpa || b.percentage - a.percentage;
+    });
     results.forEach((r, i) => { r.position = i + 1; });
     return results;
   }
@@ -333,6 +438,8 @@ const SchoolEngine = (() => {
     DEFAULT_SUBJECTS,
     calcGrade,
     calcGPA,
+    overallLetterGrade,
+    buildSubjectResults,
     getClasses,
     saveClass,
     removeClass,
@@ -342,6 +449,7 @@ const SchoolEngine = (() => {
     seedSubjectsForClass,
     getMarks,
     saveMark,
+    deleteMark,
     getStudentsInClass,
     buildStudentResult,
     buildClassResults,

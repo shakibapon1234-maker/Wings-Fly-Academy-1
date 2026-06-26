@@ -57,6 +57,13 @@ describe('SchoolEngine.calcGrade — Bangladesh SSC scale', () => {
     expect(SchoolEngine.calcGrade(20, 100).grade).toBe('F');
     expect(SchoolEngine.calcGrade(20, 100).pass).toBe(false);
   });
+  it('any failed subject forces overall GPA to 0', () => {
+    const rows = [
+      { grade: 'A+', gpa: 5, pass: true, entered: true },
+      { grade: 'F', gpa: 0, pass: false, entered: true },
+    ];
+    expect(SchoolEngine.calcGPA(rows)).toBe(0);
+  });
 });
 
 describe('SchoolEngine.getDefaultAcademicYear', () => {
@@ -108,6 +115,34 @@ describe('SchoolEngine marks workflow', () => {
     const subs = SchoolEngine.getSubjects('৯ম');
     expect(subs.length).toBeGreaterThan(0);
 
+    subs.forEach((sub) => {
+      SchoolEngine.saveMark({
+        student_id: 'stu-1',
+        student_no: 'SCH001',
+        student_name: 'Test Student',
+        class_name: '৯ম',
+        section: 'A',
+        roll_no: '12',
+        academic_year: '2025',
+        exam_type: 'Annual',
+        subject_id: sub.id,
+        subject_name: sub.subject_name,
+        marks_obtained: 85,
+        full_marks: 100,
+      });
+    });
+
+    const result = SchoolEngine.buildStudentResult('stu-1', 'Annual', '2025');
+    expect(result).not.toBeNull();
+    expect(result.subjects.length).toBe(subs.length);
+    expect(result.gpa).toBe(5.0);
+    expect(result.status).toBe('Pass');
+  });
+
+  it('partial marks → Incomplete status and GPA 0 when fail subjects included', () => {
+    SchoolEngine.saveClass({ class_name: '৯ম', sections: ['A'], shift: 'Day' });
+    SchoolEngine.seedSubjectsForClass('৯ম');
+    const subs = SchoolEngine.getSubjects('৯ম');
     SchoolEngine.saveMark({
       student_id: 'stu-1',
       student_no: 'SCH001',
@@ -124,10 +159,8 @@ describe('SchoolEngine marks workflow', () => {
     });
 
     const result = SchoolEngine.buildStudentResult('stu-1', 'Annual', '2025');
-    expect(result).not.toBeNull();
-    expect(result.subjects.length).toBe(1);
-    expect(result.gpa).toBe(5.0);
-    expect(result.status).toBe('Pass');
+    expect(result.status).toBe('Incomplete');
+    expect(result.gpa).toBe(0);
   });
 
   it('class merit list orders by GPA', () => {

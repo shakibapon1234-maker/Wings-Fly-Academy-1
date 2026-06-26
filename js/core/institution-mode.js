@@ -56,7 +56,7 @@ window.InstitutionMode = (() => {
   function get() {
     try {
       return _normalize(localStorage.getItem(STORAGE_KEY));
-    } catch (_) {
+    } catch {
       return DEFAULT;
     }
   }

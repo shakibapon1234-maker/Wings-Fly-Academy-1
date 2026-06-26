@@ -1270,29 +1270,29 @@ const Students = (() => {
       errEl.classList.remove('hidden'); return;
     }
 
-    // Course & Batch required for new students
-    if (!editingId) {
-      const courseLabel = _instLabel('course_label', 'Course');
-      const batchLabel = _instLabel('batch_label', 'Batch');
-      const yearLabel = _instLabel('session_label', 'Session');
+    // Course & Batch required (school mode: also on edit)
+    const courseLabel = _instLabel('course_label', 'Course');
+    const batchLabel = _instLabel('batch_label', 'Batch');
+    const yearLabel = _instLabel('session_label', 'Session');
+    if (_isSchoolMode() || !editingId) {
       if (!course) { errEl.textContent = `${courseLabel} is required`; errEl.classList.remove('hidden'); return; }
       if (!batch) { errEl.textContent = `${batchLabel} is required`; errEl.classList.remove('hidden'); return; }
-      if (_isSchoolMode()) {
-        const guardian = Utils.formVal('sf-guardian-phone');
-        const roll = Utils.formVal('sf-roll');
-        const year = Utils.formVal('sf-session');
-        if (!guardian) {
-          errEl.textContent = 'Guardian phone is required';
-          errEl.classList.remove('hidden'); return;
-        }
-        if (!roll) {
-          errEl.textContent = 'Roll number is required';
-          errEl.classList.remove('hidden'); return;
-        }
-        if (!year) {
-          errEl.textContent = `${yearLabel} is required`;
-          errEl.classList.remove('hidden'); return;
-        }
+    }
+    if (_isSchoolMode()) {
+      const guardian = Utils.formVal('sf-guardian-phone');
+      const roll = Utils.formVal('sf-roll');
+      const year = Utils.formVal('sf-session');
+      if (!guardian) {
+        errEl.textContent = 'Guardian phone is required';
+        errEl.classList.remove('hidden'); return;
+      }
+      if (!roll) {
+        errEl.textContent = 'Roll number is required';
+        errEl.classList.remove('hidden'); return;
+      }
+      if (!year) {
+        errEl.textContent = `${yearLabel} is required`;
+        errEl.classList.remove('hidden'); return;
       }
     }
 

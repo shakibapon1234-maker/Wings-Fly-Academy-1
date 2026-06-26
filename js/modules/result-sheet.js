@@ -168,6 +168,14 @@ const ResultSheet = (() => {
     setTimeout(() => w.print(), 400);
   }
 
+  function isAsciiText(str) {
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) {
+      if (s.charCodeAt(i) > 127) return false;
+    }
+    return s.length > 0;
+  }
+
   function exportPDF() {
     const run = () => {
       if (!window.jspdf || !window.jspdf.jsPDF) {
@@ -179,18 +187,22 @@ const ResultSheet = (() => {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const cfg = (SupabaseSync.getAll(DB.settings)[0] || {});
+      const academy = String(cfg.academy_name || 'AcadeFlow School').replace(/[^\u0020-\u007E]/g, '?');
       pdf.setFontSize(14);
-      pdf.text(cfg.academy_name || 'AcadeFlow School', 105, 15, { align: 'center' });
+      pdf.text(academy, 105, 15, { align: 'center' });
       pdf.setFontSize(10);
-      pdf.text(`Class Result: ${_class} ${_section || ''} — ${_exam} ${_year}`, 105, 22, { align: 'center' });
+      pdf.text(`Class Result — ${_exam} ${_year} (Section: ${_section || 'All'})`, 105, 22, { align: 'center' });
       let y = 32;
       pdf.setFontSize(9);
       results.forEach((r) => {
         if (y > 280) { pdf.addPage(); y = 20; }
-        pdf.text(`${r.position}. Roll ${r.roll_no || '—'} | ${r.student_name} | ${r.totalObtained}/${r.totalFull} | GPA ${r.gpa} | ${r.status}`, 14, y);
+        const label = isAsciiText(r.student_name)
+          ? r.student_name
+          : `Roll ${r.roll_no || '—'}`;
+        pdf.text(`${r.position}. Roll ${r.roll_no || '—'} | ${label} | ${r.totalObtained}/${r.totalFull} | GPA ${r.gpa} | ${r.status}`, 14, y);
         y += 6;
       });
-      pdf.save(`result_${_class}_${_year}.pdf`);
+      pdf.save(`result_${_exam}_${_year}.pdf`);
     };
     if (window.LazyLibs) window.LazyLibs.load('jspdf').then(run).catch(run);
     else run();
