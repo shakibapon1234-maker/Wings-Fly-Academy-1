@@ -11,7 +11,7 @@
 // Do not treat hardcoded URL/key as a vulnerability without verifying RLS in Supabase Dashboard.
 //
 
-const WFA_SUPABASE_URL_TYPO = 'fznhiqzrs1ldybhmgopk';
+const WFA_SUPABASE_URL_TYPO    = 'fznhiqzrs1ldybhmgopk';
 const WFA_SUPABASE_URL_CORRECT = 'fznhiqzrslldybhmgopk';
 
 /** One-time fix for legacy typo saved in SecureStorage / settings (not for built-in fallbacks). */
@@ -22,54 +22,101 @@ function _fixLegacySupabaseUrlTypo(url) {
 
 function _resolveSupabaseCreds() {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
-  const stored = window.__WFA_SUPABASE_CREDS || {};
-  // ✅ FIX: Inline fallback — if supabase-secrets.js is 404 (GitHub Pages)
-  // and no stored creds exist, use default project credentials.
+  const stored  = window.__WFA_SUPABASE_CREDS  || {};
+
+  // ✅ FIX: Inline fallback — only used on the MAIN project (GitHub Pages root).
+  // Deployed clients ALWAYS have secrets.url set via supabase-secrets.js,
+  // so the fallback is NEVER reached on a client deployment.
   // Anon key is public by Supabase design; data access is controlled by RLS.
   const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
   const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
-  // Deployed client credentials (secrets.url) should take precedence over stored credentials
-  // to avoid cross-client credentials leak when running multiple client apps under the same origin (file:// or localhost).
-  const url = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
+
+  // Priority: secrets.js (client deploy) > stored (settings-saved) > fallback (main project only)
+  const url    = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
   const anonKey = secrets.anonKey || secrets.anon_key || stored.anonKey || _fallbackKey;
   return { url, anonKey };
 }
 
 let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 
-// ✅ DB-SWITCH ISOLATION FIX
-// When the same browser / origin is reused across different client projects
-// (e.g. multiple GitHub Pages sites under the same domain), we must wipe the
-// local IndexedDB + sync-state keys so stale data cannot bleed through.
+// ============================================================
+// ✅ DB-SWITCH ISOLATION — Client Cross-Contamination Prevention
+//
+// Problem: GitHub Pages shares the same origin (shakibapon1234-maker.github.io)
+// across the main project (/) and all client sub-paths (/Client-1/, /Client-2/ …).
+// localStorage, IndexedDB, and SecureStorage are ALL shared across that origin.
+//
+// Solution: Namespace ALL localStorage keys and IndexedDB by the active Supabase URL.
+// When the URL changes (= different client or switching to main project), ALL local
+// data is purged — IndexedDB tables, sync state, settings, session, auth, everything.
+// This guarantees a brand-new browser opening a client URL sees only client data.
+// ============================================================
+
 const _LS_LAST_URL_KEY = 'wfa_last_supabase_url';
+
+// Keys to purge on DB switch — MUST cover every piece of app state
+// so no data from a different client/project bleeds through.
 const _LS_KEYS_TO_PURGE = [
+  // Sync state
   'wfa_idb_migrated_v1', 'wfa_stale_cleanup_v1', 'wfa_finance_backfill_v1',
   'wfa_activity_log', 'wfa_recent_changes', 'wfa_balance_alerts',
-  'wfa_retry_queue', 'wfa_rls_reminder_shown'
+  'wfa_retry_queue', 'wfa_rls_reminder_shown',
+  // Session / auth
+  'wfa_logged_in', 'wfa_login_time', 'wfa_user_role',
+  'wfa_user_name', 'wfa_user_permissions', 'wfa_session_token',
+  'wfa_login_attempts', 'wfa_login_lockout_until',
+  // Settings & local data that are project-specific
+  'wfa_settings', 'wfa_sub_accounts', 'wfa_questions', 'wfa_results',
+  'wfa_custom_themes', 'wfa_theme', 'wfa_language',
+  'wfa_advance_payments', 'wfa_investments', 'wfa_keep_records',
+  // Auth credentials (SecureStorage stores these in localStorage)
+  'wfa_supabase_url', 'wfa_supabase_anon_key',
+  'wfa_admin_pattern', 'wfa_admin_pass', 'wfa_admin_face_descriptor',
+  // Device / misc
+  'wfa_device_id', 'wfa_deletedItems', 'wfa_recycle_bin',
+  'wfa_auto_snapshots', 'wfa_last_auto_download', 'wfa_last_update_check',
+  'wfa_sg_last_disc_sig', 'wfa_update_in_progress', 'wfa_app_version',
+  'wfa_license_key', 'wfa_gemini_key', 'wfa_gemini_key_2',
+  'wfa_gemini_key_3', 'wfa_ai_local_only', 'wfa_debug_logs',
+  'wfa_user_id',
 ];
 
 function _purgeLocalDataForNewDb() {
-  // Clear all IndexedDB tables (if WFA_IDB is already loaded)
+  // 1. Clear all IndexedDB tables (if WFA_IDB is already loaded)
   if (window.WFA_IDB && typeof window.WFA_IDB.clearAllTables === 'function') {
     window.WFA_IDB.clearAllTables();
   } else {
     // WFA_IDB loads after this script — delete the whole IndexedDB as fallback
-    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch { /* ignore */ }
+    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch(e) { /* ignore */ }
   }
-  // Remove sync-state localStorage keys so next pull is a clean full pull
-  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
-  console.info('[Config] DB switch detected — local IndexedDB and sync state cleared for clean pull.');
+
+  // 2. Remove ALL known localStorage keys so no project data bleeds through
+  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+
+  // 3. Also sweep any remaining supabase auth tokens (sb-* pattern)
+  try {
+    const keysToDelete = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('sb-') || k.includes('supabase.auth.token'))) {
+        keysToDelete.push(k);
+      }
+    }
+    keysToDelete.forEach(k => localStorage.removeItem(k));
+  } catch(e) { /* ignore */ }
+
+  console.info('[Config] DB switch detected — ALL local data purged for clean start.');
 }
 
-// Run check as early as possible (synchronously after creds are resolved)
+// Run check synchronously, as early as possible, before any module reads localStorage
 (function _checkAndHandleDbSwitch() {
   try {
     const lastUrl = localStorage.getItem(_LS_LAST_URL_KEY);
     if (lastUrl && lastUrl !== SUPABASE_URL) {
-      console.warn(`[Config] Supabase URL changed (${lastUrl} → ${SUPABASE_URL}). Purging stale local data.`);
+      console.warn(`[Config] Supabase URL changed (${lastUrl} → ${SUPABASE_URL}). Purging ALL local data.`);
       _purgeLocalDataForNewDb();
     }
-    // Always keep the current URL recorded
+    // Always record the current URL so the next load can detect a switch
     localStorage.setItem(_LS_LAST_URL_KEY, SUPABASE_URL);
   } catch(e) {
     console.warn('[Config] DB switch check failed (non-critical):', e.message);
@@ -79,11 +126,14 @@ function _purgeLocalDataForNewDb() {
 // Re-read from SecureStorage after login (Settings-saved credentials)
 async function _hydrateSupabaseCredsFromStorage() {
   if (typeof SecureStorage === 'undefined') return;
-  // If this is a client deployment with fixed credentials, do NOT load from localStorage/SecureStorage
+
+  // ✅ STRICT GUARD: deployed client has secrets.url baked in via supabase-secrets.js.
+  // SecureStorage holds the MAIN project's credentials — must NEVER override client creds.
   if (window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.url) {
-    console.info('[Config] Deployed client environment detected. Skipping SecureStorage credentials hydrate.');
+    console.info('[Config] Deployed client environment — SecureStorage hydrate skipped.');
     return;
   }
+
   try {
     let url = await SecureStorage.getItem('wfa_supabase_url');
     const key = await SecureStorage.getItem('wfa_supabase_anon_key');
@@ -94,9 +144,13 @@ async function _hydrateSupabaseCredsFromStorage() {
       await SecureStorage.setItem('wfa_supabase_url', url);
     }
     if (url && key) {
+      // Extra guard: if resolved URL is already correct, don't reinit unnecessarily
+      if (url === SUPABASE_URL && window.supabaseClient) return;
       window.__WFA_SUPABASE_CREDS = { url, anonKey: key };
-      window.SUPABASE_URL = url;
+      window.SUPABASE_URL    = url;
       window.SUPABASE_ANON_KEY = key;
+      SUPABASE_URL    = url;
+      SUPABASE_ANON_KEY = key;
       _reinitSupabaseClient();
     }
   } catch (e) {
@@ -106,9 +160,9 @@ async function _hydrateSupabaseCredsFromStorage() {
 
 function _reinitSupabaseClient() {
   if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
-  
+
   // ✅ Prevent Multiple GoTrueClient instances warning
-  if (window.supabaseClient && window.__WFA_SUPABASE_CREDS && window.supabaseClient.supabaseUrl === SUPABASE_URL) {
+  if (window.supabaseClient && window.supabaseClient.supabaseUrl === SUPABASE_URL) {
     return; // Already initialized with same credentials
   }
 
@@ -181,21 +235,17 @@ if (!navigator.onLine) {
 }
 
 // BUG-11 Fix: _reinitSupabaseClient() call করার আগে window.supabase load হয়েছে কিনা check করো।
-// যদি না হয়, supabase.min.js defer/async load শেষ হলে retry করো।
 (function _initOrRetrySupabaseClient() {
   if (window.supabase) {
     _reinitSupabaseClient();
   } else {
-    // supabase lib এখনো ready নয় — script load হলে retry করো
     const waitForLib = setInterval(function() {
       if (window.supabase) {
         clearInterval(waitForLib);
         _reinitSupabaseClient();
-        // const update করা যাবে না, তাই window থেকে নাও
         window.supabaseClient = window.supabaseClient || null;
       }
     }, 50);
-    // 10 সেকেন্ড পরে give up
     setTimeout(function() { clearInterval(waitForLib); }, 10000);
   }
 })();
@@ -233,14 +283,12 @@ const DB = {
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
   student_portal_access: 'student_portal_access',
-  payment_requests: 'payment_requests',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',
 };
 
 // Static reminder only — app cannot read Supabase RLS status from the browser.
-// Skip when Supabase Auth session is active (Settings → Cloud API sign-in).
 window.addEventListener('load', () => {
   const supabaseClient = window.supabaseClient;
   if (!supabaseClient || typeof supabaseClient.auth === 'undefined') return;
@@ -301,28 +349,35 @@ window.SUPABASE_CONFIG = {
   saveCloudCredentials: async (url, anonKey) => {
     if (typeof SecureStorage === 'undefined') throw new Error('SecureStorage unavailable');
     let cleanUrl = _fixLegacySupabaseUrlTypo(url.trim());
-    // ✅ DB-SWITCH ISOLATION: If URL is changing, wipe local data before switching
+
+    // ✅ DB-SWITCH ISOLATION: URL পরিবর্তন হলে আগের সব local data purge করো
     const previousUrl = localStorage.getItem(_LS_LAST_URL_KEY);
     if (previousUrl && previousUrl !== cleanUrl) {
-      console.warn(`[Config] saveCloudCredentials: URL changed. Purging stale local data for clean start.`);
+      console.warn(`[Config] saveCloudCredentials: URL changed. Purging ALL local data for clean start.`);
       _purgeLocalDataForNewDb();
     }
+
     await SecureStorage.setItem('wfa_supabase_url', cleanUrl);
     await SecureStorage.setItem('wfa_supabase_anon_key', anonKey.trim());
     window.__WFA_SUPABASE_CREDS = { url: cleanUrl, anonKey: anonKey.trim() };
-    window.SUPABASE_URL = cleanUrl;
+    window.SUPABASE_URL    = cleanUrl;
     window.SUPABASE_ANON_KEY = anonKey.trim();
-    // Record the new URL
-    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch { /* ignore */ }
+    SUPABASE_URL    = cleanUrl;
+    SUPABASE_ANON_KEY = anonKey.trim();
+
+    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch(e) {}
+
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;
-    // ✅ FIX: Reset sync anchor so next pull is FULL (not incremental from stale timestamp)
+
+    // Reset sync anchor so next pull is FULL (not incremental from stale timestamp)
     if (window.SyncEngine && typeof window.SyncEngine.resetSyncAnchor === 'function') {
       window.SyncEngine.resetSyncAnchor();
     }
     return window.supabaseClient;
   },
 };
-window.DB = DB;
-window.SUPABASE_URL = SUPABASE_URL;
+
+window.DB             = DB;
+window.SUPABASE_URL   = SUPABASE_URL;
 window.SUPABASE_ANON_KEY = SUPABASE_ANON_KEY;

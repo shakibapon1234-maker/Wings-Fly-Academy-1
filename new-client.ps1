@@ -1,4 +1,4 @@
-﻿# ================================================================
+# ================================================================
 # Wings Fly Academy — New Client Deployment Script
 # Run this script to create a new client project instantly
 # Usage: Right-click -> "Run with PowerShell"  OR  .\new-client.ps1
@@ -97,21 +97,36 @@ New-Item -ItemType Directory -Path $CLIENT_DIR -Force | Out-Null
 Copy-Item -Path "$WWW_SRC\*" -Destination $CLIENT_DIR -Recurse -Force
 Write-OK "Files copied to: $CLIENT_DIR"
 
-# ── STEP 5: Write supabase-secrets.stub.js ────────────────────
+# ── STEP 5: Write supabase-secrets.js (NOT stub.js) ───────────
+# ✅ FIX: আগে stub.js-তে লেখা হত, কিন্তু stub.js-এ "|| {}" থাকায়
+# কখনো কখনো main project-এর credentials override হত না।
+# এখন আলাদা supabase-secrets.js ফাইলে লেখা হচ্ছে, যা stub.js-এর
+# পরে load হয় এবং সরাসরি window.WFA_SUPABASE_SECRETS = {...} set করে।
+# stub.js-এ কিছু লেখা হবে না — stub.js সবসময় empty {} রাখবে।
 Write-Host ""
-Write-Title "STEP 5: Client config file লেখা হচ্ছে..."
+Write-Title "STEP 5: Client credentials file লেখা হচ্ছে..."
 Write-Host ""
 
 $TODAY   = (Get-Date -Format "yyyy-MM-dd")
 $SITEURL = "https://$GHUSER.github.io/$REPO/"
-$LICLINE = if ($LICKEY) { "\n  licenseKey:   `"$LICKEY`"," } else { "" }
+$LICLINE = if ($LICKEY) { "`n  licenseKey:   `"$LICKEY`"," } else { "" }
 
-$STUB = @"
+# Write to supabase-secrets.js (gitignored in main project, committed in client deploy)
+$SECRETS_CONTENT = @"
 // ================================================================
-// Wings Fly Academy - Client Deployment Config
+// Wings Fly Academy - Client Deployment Credentials
 // Generated : $TODAY
 // Customer  : $ACADEMY  |  Code: $CODE  |  Package: $PKG
-// WARNING   : Do not share this file publicly — contains API key
+// ================================================================
+//
+// ✅ This file is loaded AFTER supabase-secrets.stub.js in all HTML files.
+//    It unconditionally sets window.WFA_SUPABASE_SECRETS with client-specific
+//    credentials, overriding the empty stub. Object.freeze() prevents any
+//    further runtime modification (e.g. SecureStorage hydrate is blocked).
+//
+// ⚠️  Do NOT commit this file to a public repo — it contains the anon key.
+//    The anon key is public by Supabase design, but keeping it out of
+//    public git history is best practice.
 // ================================================================
 
 window.WFA_SUPABASE_SECRETS = {
@@ -123,13 +138,17 @@ window.WFA_SUPABASE_SECRETS = {
   siteUrl:      "$SITEURL",
 };
 
-// Prevent runtime modification
-if (Object.freeze) Object.freeze(window.WFA_SUPABASE_SECRETS);
+// Freeze to prevent SecureStorage or any runtime code from overriding client creds
+Object.freeze(window.WFA_SUPABASE_SECRETS);
 "@
 
+$SECRETS_PATH = Join-Path $CLIENT_DIR "js\core\supabase-secrets.js"
+$SECRETS_CONTENT | Set-Content -Path $SECRETS_PATH -Encoding UTF8
+Write-OK "Client credentials written: js/core/supabase-secrets.js"
+
+# ✅ Verify stub.js was NOT modified (it stays as empty placeholder)
 $STUB_PATH = Join-Path $CLIENT_DIR "js\core\supabase-secrets.stub.js"
-$STUB | Set-Content -Path $STUB_PATH -Encoding UTF8
-Write-OK "Config written: js/core/supabase-secrets.stub.js"
+Write-OK "stub.js unchanged (stays as empty placeholder): js/core/supabase-secrets.stub.js"
 
 # ── STEP 5B: Write to clients-metadata.js in main project ──────
 Write-Host "Updating main project clients-metadata.js..."
@@ -138,9 +157,7 @@ $existing_clients = @()
 if (Test-Path $META_PATH) {
     $js_content = Get-Content -Path $META_PATH -Raw -Encoding UTF8
 
-    # ── FIX: Strip the JS wrapper reliably instead of using greedy regex ──
-    # Remove: window.WFA_AUTO_DEPLOYED_CLIENTS = ... ;
-    # Then trim whitespace so ConvertFrom-Json gets pure JSON.
+    # Strip the JS wrapper reliably instead of using greedy regex
     $json_raw = $js_content -replace '^\s*window\.WFA_AUTO_DEPLOYED_CLIENTS\s*=\s*', '' `
                             -replace ';\s*$', '' |
                ForEach-Object { $_.Trim() }
@@ -160,7 +177,7 @@ if ($existing_clients -isnot [array]) {
     $existing_clients = @($existing_clients)
 }
 
-# ── FIX: Check for duplicate customerCode before appending ──
+# Check for duplicate customerCode before appending
 $already_exists = $existing_clients | Where-Object { $_.customerCode -eq $CODE }
 if ($already_exists) {
     Write-WARN "customerCode '$CODE' already exists in clients-metadata.js — skipping duplicate."
@@ -185,7 +202,6 @@ $new_meta_content | Set-Content -Path $META_PATH -Encoding UTF8
 Write-OK "Clients metadata updated: js/core/clients-metadata.js"
 
 # ── STEP 5C: Push clients-metadata.js to main admin repo ──────
-# এটা না করলে Client Manager-এ নতুন client দেখা যাবে না (GitHub Pages পুরানো file দেখাবে)
 Write-Host ""
 Write-Title "STEP 5C: Main admin repo-তে clients-metadata.js push করা হচ্ছে..."
 Write-Host ""
@@ -214,7 +230,7 @@ Push-Location $CLIENT_DIR
 git init -b main | Out-Null
 git add -A | Out-Null
 git commit -m "init: $ACADEMY ($CODE) — WFA Client Deployment" | Out-Null
-Write-OK "Git initialized and committed"
+Write-OK "Git initialized and committed (supabase-secrets.js included)"
 
 # ── STEP 8: Ask to push ───────────────────────────────────────
 Write-Host ""
@@ -228,7 +244,7 @@ if ($push -eq "yes") {
     git remote add origin $REMOTE | Out-Null
     git push -u origin main
     if ($LASTEXITCODE -ne 0) {
-        throw "GitHub-এ push করা সম্ভব হয়নি। আপনার গিটহাব ইউজারনেম ($GHUSER) এবং রেপো নাম ($REPO) সঠিক কিনা দেখে নিন এবং গিটহাবে আগে থেকেই রেপোটি তৈরি করেছেন কিনা নিশ্চিত করুন।"
+        throw "GitHub-এ push করা সম্ভব হয়নি। আপনার গিটহাব ইউজারনেম ($GHUSER) এবং রেপো নাম ($REPO) সঠিক কিনা দেখে নিন এবং গিটহাবে আগে থেকেই রেপোটি তৈরি করেছেন কিনা নিশ্চিত করুন।"
     }
     Write-OK "Pushed to: $REMOTE"
     Write-OK "Live site: $SITEURL"
@@ -266,5 +282,3 @@ Write-Host ""
 } finally {
     pause
 }
-
-

@@ -725,6 +725,8 @@
 
 <script defer src="js/lib/supabase.min.js"></script>
 <script defer src="js/core/supabase-secrets.stub.js"></script>
+  <!-- ✅ Client deploy: supabase-secrets.js overrides stub with client-specific credentials -->
+  <script defer src="js/core/supabase-secrets.js" onerror="/* main project: no secrets.js — stub values are used */"></script>
 <script defer src="js/core/secure-storage.js"></script>
 <script defer src="js/core/session-store.js"></script>
 <script defer src="js/core/supabase-standalone-creds.js"></script>

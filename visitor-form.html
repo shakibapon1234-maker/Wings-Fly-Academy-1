@@ -20,6 +20,8 @@
   <!-- ✅ Bug #5 Fix: All scripts consolidated in <head> with defer for correct load order -->
   <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
   <script defer src="js/core/supabase-secrets.stub.js"></script>
+  <!-- ✅ Client deploy: supabase-secrets.js overrides stub with client-specific credentials -->
+  <script defer src="js/core/supabase-secrets.js" onerror="/* main project: no secrets.js — stub values are used */"></script>
   <script defer src="js/core/secure-storage.js"></script>
   <script defer src="js/core/session-store.js"></script>
   <script defer src="js/core/supabase-standalone-creds.js"></script>
