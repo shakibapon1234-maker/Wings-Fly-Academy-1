@@ -1,0 +1,190 @@
+/* ============================================================
+   AcadeFlow — Subject & Marks Entry (School Mode)
+   ============================================================ */
+
+const SubjectMarks = (() => {
+  'use strict';
+
+  let _class = '';
+  let _section = '';
+  let _exam = 'Annual';
+  let _year = new Date().getFullYear().toString();
+
+  function render() {
+    const el = document.getElementById('subject-marks-content');
+    if (!el) return;
+
+    if (!window.InstitutionMode || !InstitutionMode.isSchoolLike()) {
+      el.innerHTML = `<div class="empty-state" style="text-align:center;padding:60px;color:var(--text-muted)">
+        <p>School/College mode-এ Marks Entry চালু হবে।</p>
+      </div>`;
+      return;
+    }
+
+    const classes = SchoolEngine.getClasses();
+    const classLabel = InstitutionMode.getLabel('course_label');
+    const sectionLabel = InstitutionMode.getLabel('batch_label');
+    const sections = _class
+      ? (classes.find(c => c.class_name === _class)?.sections || [])
+      : [];
+
+    el.innerHTML = `
+      <div class="filter-bar" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:flex-end">
+        <div class="form-group" style="margin:0">
+          <label>${Utils.esc(classLabel)}</label>
+          <select id="sm-class" class="form-control" onchange="SubjectMarks.onFilterChange()">
+            <option value="">— Select —</option>
+            ${classes.map(c => `<option value="${Utils.escAttr(c.class_name)}" ${_class === c.class_name ? 'selected' : ''}>${Utils.esc(c.class_name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>${Utils.esc(sectionLabel)}</label>
+          <select id="sm-section" class="form-control" onchange="SubjectMarks.onFilterChange()">
+            <option value="">— All —</option>
+            ${(Array.isArray(sections) ? sections : []).map(s => `<option value="${Utils.escAttr(s)}" ${_section === s ? 'selected' : ''}>${Utils.esc(s)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>Exam Type</label>
+          <select id="sm-exam" class="form-control" onchange="SubjectMarks.onFilterChange()">
+            ${SchoolEngine.EXAM_TYPES.map(e => `<option ${_exam === e ? 'selected' : ''}>${e}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin:0">
+          <label>${Utils.esc(InstitutionMode.getLabel('session_label'))}</label>
+          <input id="sm-year" class="form-control" value="${Utils.escAttr(_year)}" onchange="SubjectMarks.onFilterChange()" />
+        </div>
+        <button class="btn btn-secondary" onclick="SubjectMarks.openSubjectModal()"><i class="fa fa-book"></i> Subjects</button>
+        <button class="btn btn-primary" onclick="SubjectMarks.saveAll()"><i class="fa fa-floppy-disk"></i> Save Marks</button>
+      </div>
+      <div id="sm-grid-wrap">${_class ? _renderGrid() : '<p style="color:var(--text-muted)">Class নির্বাচন করুন।</p>'}</div>
+    `;
+  }
+
+  function onFilterChange() {
+    _class = Utils.formVal('sm-class');
+    _section = Utils.formVal('sm-section');
+    _exam = Utils.formVal('sm-exam') || 'Annual';
+    _year = Utils.formVal('sm-year') || _year;
+    render();
+  }
+
+  function _renderGrid() {
+    const subjects = SchoolEngine.getSubjects(_class);
+    const students = SchoolEngine.getStudentsInClass(_class, _section, _year);
+    if (!subjects.length) {
+      return `<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted)">
+        <p>এই class-এ কোনো subject নেই। "Subjects" বাটনে ক্লিক করে যোগ করুন।</p>
+      </div>`;
+    }
+    if (!students.length) {
+      return `<div class="empty-state" style="padding:40px;text-align:center;color:var(--text-muted)">
+        <p>এই class/section-এ কোনো student পাওয়া যায়নি। Students ট্যাবে student যোগ করুন।</p>
+      </div>`;
+    }
+
+    const existing = SchoolEngine.getMarks({
+      class_name: _class,
+      section: _section || undefined,
+      exam_type: _exam,
+      academic_year: _year,
+    });
+
+    let html = `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
+      <th>Roll</th><th>Name</th>
+      ${subjects.map(s => `<th>${Utils.esc(s.subject_name)}<br><small>/${s.full_marks}</small></th>`).join('')}
+      <th>Total</th><th>%</th><th>GPA</th><th>Grade</th>
+    </tr></thead><tbody>`;
+
+    students.forEach(st => {
+      const rowMarks = [];
+      html += `<tr><td>${Utils.esc(st.roll_no || '—')}</td><td>${Utils.esc(st.name)}</td>`;
+      subjects.forEach(sub => {
+        const found = existing.find(m => m.student_id === st.id && m.subject_id === sub.id);
+        const val = found ? found.marks_obtained : '';
+        html += `<td><input type="number" class="form-control sm-mark" style="width:70px;padding:4px 6px"
+          data-student-id="${Utils.escAttr(st.id)}" data-student-no="${Utils.escAttr(st.student_id)}"
+          data-student-name="${Utils.escAttr(st.name)}" data-roll="${Utils.escAttr(st.roll_no || '')}"
+          data-subject-id="${Utils.escAttr(sub.id)}" data-subject-name="${Utils.escAttr(sub.subject_name)}"
+          data-full="${sub.full_marks}" min="0" max="${sub.full_marks}" value="${val}" /></td>`;
+        if (val !== '') rowMarks.push({ marks_obtained: Number(val), full_marks: sub.full_marks, ...SchoolEngine.calcGrade(val, sub.full_marks) });
+      });
+      const totalO = rowMarks.reduce((a, r) => a + r.marks_obtained, 0);
+      const totalF = rowMarks.reduce((a, r) => a + r.full_marks, 0);
+      const pct = totalF ? Math.round((totalO / totalF) * 100) : 0;
+      const gpa = SchoolEngine.calcGPA(rowMarks);
+      const grade = rowMarks.length ? (gpa >= 4 ? 'A' : gpa >= 3 ? 'B' : gpa >= 2 ? 'C' : 'D') : '—';
+      html += `<td>${totalO || '—'}</td><td>${pct || '—'}%</td><td>${gpa || '—'}</td><td>${grade}</td></tr>`;
+    });
+
+    html += '</tbody></table></div>';
+    return html;
+  }
+
+  function saveAll() {
+    if (!_class) { Utils.toast('Class select করুন', 'warning'); return; }
+    const inputs = document.querySelectorAll('.sm-mark');
+    let count = 0;
+    inputs.forEach((inp) => {
+      if (inp.value === '') return;
+      SchoolEngine.saveMark({
+        student_id: inp.dataset.studentId,
+        student_no: inp.dataset.studentNo,
+        student_name: inp.dataset.studentName,
+        roll_no: inp.dataset.roll,
+        class_name: _class,
+        section: _section,
+        academic_year: _year,
+        exam_type: _exam,
+        subject_id: inp.dataset.subjectId,
+        subject_name: inp.dataset.subjectName,
+        marks_obtained: inp.value,
+        full_marks: inp.dataset.full,
+      });
+      count++;
+    });
+    Utils.toast(`✅ ${count} marks saved`, 'success');
+    render();
+  }
+
+  function openSubjectModal() {
+    if (!_class) { Utils.toast('আগে class select করুন', 'warning'); return; }
+    const subjects = SchoolEngine.getSubjects(_class);
+    Utils.openModal(`<i class="fa fa-book"></i> Subjects — ${Utils.esc(_class)}`, `
+      <div style="margin-bottom:12px">
+        ${subjects.map(s => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+          <span>${Utils.esc(s.subject_name)} <small style="color:#888">/${s.full_marks} (pass ${s.pass_marks})</small></span>
+          <button class="btn btn-sm btn-danger" onclick="SubjectMarks.removeSubject('${Utils.escAttr(s.id)}')"><i class="fa fa-trash"></i></button>
+        </div>`).join('') || '<p style="color:#888">No subjects yet.</p>'}
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Subject Name</label><input id="sm-new-subject" class="form-control" placeholder="বাংলা" /></div>
+        <div class="form-group"><label>Full Marks</label><input id="sm-new-full" type="number" class="form-control" value="100" /></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn-secondary" onclick="Utils.closeModal()">Close</button>
+        <button class="btn-primary" onclick="SubjectMarks.addSubject()"><i class="fa fa-plus"></i> Add Subject</button>
+      </div>
+    `);
+  }
+
+  function addSubject() {
+    const name = Utils.formVal('sm-new-subject');
+    if (!name) return;
+    SchoolEngine.saveSubject({ class_name: _class, subject_name: name, full_marks: Utils.formVal('sm-new-full') || 100 });
+    Utils.closeModal();
+    openSubjectModal();
+    render();
+  }
+
+  function removeSubject(id) {
+    if (!confirm('Remove subject?')) return;
+    SchoolEngine.removeSubject(id);
+    openSubjectModal();
+    render();
+  }
+
+  return { render, onFilterChange, saveAll, openSubjectModal, addSubject, removeSubject };
+})();
+
+window.SubjectMarks = SubjectMarks;

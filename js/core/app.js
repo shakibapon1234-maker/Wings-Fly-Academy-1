@@ -109,7 +109,8 @@ const App = (() => {
   const SECTIONS = [
     'dashboard', 'students', 'finance', 'accounts', 'loans',
     'exam', 'attendance', 'salary', 'hr-staff',
-    'visitors', 'id-cards', 'certificates', 'notice-board', 'payment-requests', 'routine-builder', 'settings'
+    'visitors', 'id-cards', 'certificates', 'notice-board', 'payment-requests',
+    'routine-builder', 'school-classes', 'subject-marks', 'result-sheet', 'settings'
   ];
 
   // ── SHA-256 password hashing (settings.js এর মতো একই logic) ──────────
@@ -170,6 +171,9 @@ const App = (() => {
     'notice-board': '📢 Notice Board',
     'payment-requests': '💳 Payment Requests',
     'routine-builder':  '📅 Class Routine',
+    'school-classes':   '🏫 Class & Section',
+    'subject-marks':    '📝 Subject & Marks',
+    'result-sheet':     '📊 Result Sheet',
     settings:       '⚙️ Settings',
   };
 
@@ -238,6 +242,9 @@ const App = (() => {
       'notice-board': 'Notice Board',
       'payment-requests': 'Payment Requests',
       'routine-builder':  'Class Routine',
+      'school-classes':   'Students',
+      'subject-marks':    'Students',
+      'result-sheet':     'Students',
       settings:       'Settings',
       // dashboard সবসময় দেখা যাবে
       // settings শুধু admin দেখবে (navigateTo()-এ আলাদা block আছে)
@@ -762,6 +769,7 @@ const App = (() => {
       if (loginEl) loginEl.style.display = 'none';
       if (appEl) appEl.style.display = 'flex';
       document.body.classList.add('app-loaded');
+      if (window.InstitutionMode && InstitutionMode.applySchoolNav) InstitutionMode.applySchoolNav();
       const lastSection = sessionStorage.getItem('wfa_last_section');
       const target = (fromLogin || !lastSection) ? 'dashboard' : lastSection;
       navigateTo(target);
@@ -921,6 +929,9 @@ const App = (() => {
       'salary':    'salary-content',
       'payment-requests': 'payment-requests-content',
       'routine-builder':  'routine-builder-content',
+      'school-classes':   'school-classes-content',
+      'subject-marks':    'subject-marks-content',
+      'result-sheet':     'result-sheet-content',
     };
     const containerId = heavyModules[section];
     if (containerId) {
@@ -959,6 +970,9 @@ const App = (() => {
         case 'notice-board':  if (typeof NoticeBoardModule !== 'undefined')  NoticeBoardModule.render(); break;
         case 'payment-requests': if (typeof PaymentRequestsModule !== 'undefined') PaymentRequestsModule.render(); break;
         case 'routine-builder':  if (typeof RoutineBuilder !== 'undefined')        RoutineBuilder.init(); break;
+        case 'school-classes':   if (typeof SchoolClasses !== 'undefined')       SchoolClasses.render(); break;
+        case 'subject-marks':    if (typeof SubjectMarks !== 'undefined')        SubjectMarks.render(); break;
+        case 'result-sheet':     if (typeof ResultSheet !== 'undefined')         ResultSheet.render(); break;
         case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
       }
       // ✅ Req 4: After every module renders, initialize DD/MM/YYYY flatpickr

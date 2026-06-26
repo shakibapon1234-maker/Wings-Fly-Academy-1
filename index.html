@@ -210,6 +210,15 @@
         <button class="nav-item" data-section="routine-builder" aria-label="Class Routine">
           <i class="fa fa-calendar-week nav-icon"></i><span>Class Routine</span>
         </button>
+        <button class="nav-item school-only" data-section="school-classes" aria-label="Class and Section" style="display:none">
+          <i class="fa fa-layer-group nav-icon"></i><span>Class & Section</span>
+        </button>
+        <button class="nav-item school-only" data-section="subject-marks" aria-label="Subject and Marks" style="display:none">
+          <i class="fa fa-book nav-icon"></i><span>Subject & Marks</span>
+        </button>
+        <button class="nav-item school-only" data-section="result-sheet" aria-label="Result Sheet" style="display:none">
+          <i class="fa fa-file-lines nav-icon"></i><span>Result Sheet</span>
+        </button>
         <button class="nav-item" data-section="settings" aria-label="Settings">
           <i class="fa fa-gear nav-icon"></i><span>Settings</span>
         </button>
@@ -404,6 +413,30 @@
           <div id="routine-builder-content"></div>
         </div>
 
+        <!-- ▸ SCHOOL MODE: Class & Section -->
+        <div id="section-school-classes" class="page-section school-only" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-layer-group"></i> Class & Section</h2>
+          </div>
+          <div id="school-classes-content"></div>
+        </div>
+
+        <!-- ▸ SCHOOL MODE: Subject & Marks -->
+        <div id="section-subject-marks" class="page-section school-only" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-book"></i> Subject & Marks</h2>
+          </div>
+          <div id="subject-marks-content"></div>
+        </div>
+
+        <!-- ▸ SCHOOL MODE: Result Sheet -->
+        <div id="section-result-sheet" class="page-section school-only" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-file-lines"></i> Result Sheet</h2>
+          </div>
+          <div id="result-sheet-content"></div>
+        </div>
+
         <!-- ▸ SETTINGS (modal-based — placeholder required for SECTIONS hide-loop) -->
         <div id="section-settings" class="page-section" style="display:none" aria-hidden="true"></div>
 
@@ -472,6 +505,15 @@
       </button>
       <button class="more-item" data-section="routine-builder">
         <i class="fa fa-calendar-week"></i><span>Routine</span>
+      </button>
+      <button class="more-item school-only" data-section="school-classes" style="display:none">
+        <i class="fa fa-layer-group"></i><span>Class & Section</span>
+      </button>
+      <button class="more-item school-only" data-section="subject-marks" style="display:none">
+        <i class="fa fa-book"></i><span>Subject & Marks</span>
+      </button>
+      <button class="more-item school-only" data-section="result-sheet" style="display:none">
+        <i class="fa fa-file-lines"></i><span>Result Sheet</span>
       </button>
       <button class="more-item" data-section="settings">
         <i class="fa fa-gear"></i><span>Settings</span>
@@ -547,6 +589,7 @@
   <script src="js/core/app.js" defer></script>
   <!-- ✅ License Manager v2: generate/revoke/batch-validate — extracted from settings.js -->
   <script src="js/core/license-manager.js" defer></script>
+  <script src="js/core/institution-mode.js" defer></script>
 
   <!-- UI — login only; dashboard/settings/modules lazy-loaded via lazy-modules.js -->
   <script src="js/ui/login.js" defer></script>

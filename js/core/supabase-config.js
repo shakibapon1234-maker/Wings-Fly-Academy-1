@@ -283,6 +283,9 @@ const DB = {
   custom_themes:    'custom_themes',
   sub_accounts:     'sub_accounts',
   student_portal_access: 'student_portal_access',
+  school_classes:   'school_classes',
+  school_subjects:  'school_subjects',
+  school_marks:     'school_marks',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',

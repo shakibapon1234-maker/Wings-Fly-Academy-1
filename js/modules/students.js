@@ -314,6 +314,198 @@ const Students = (() => {
   function changePage(p) { currentPage = p; _saveFilterState(); render(); }
   function changePageSize(s) { pageSize = parseInt(s, 10); currentPage = 1; _saveFilterState(); render(); }
 
+  function _isSchoolMode() {
+    return !!(window.InstitutionMode && InstitutionMode.isSchoolLike());
+  }
+
+  function _instLabel(key, fallback) {
+    return (window.InstitutionMode && InstitutionMode.getLabel(key)) || fallback;
+  }
+
+  const _SCHOOL_CLASSES = ['৬ষ্ঠ', '৭ম', '৮ম', '৯ম', '১০ম', 'একাদশ', 'দ্বাদশ'];
+  const _SCHOOL_SECTIONS = ['A', 'B', 'C', 'D', 'E'];
+  const _SCHOOL_SHIFTS = ['Morning', 'Day', 'Evening'];
+
+  function _schoolClassOptions(selected) {
+    return _SCHOOL_CLASSES.map((c) => {
+      const sel = selected && _normCourse(selected) === c ? 'selected' : '';
+      return `<option value="${Utils.escAttr(c)}" ${sel}>${Utils.esc(c)}</option>`;
+    }).join('');
+  }
+
+  function _schoolSectionOptions(selected) {
+    const val = String(selected || '').trim().toUpperCase();
+    const opts = _SCHOOL_SECTIONS.map((sec) =>
+      `<option value="${sec}" ${val === sec ? 'selected' : ''}>${sec}</option>`
+    ).join('');
+    return `<option value="">-- Section --</option>${opts}`;
+  }
+
+  function _schoolShiftOptions(selected) {
+    const val = String(selected || '').trim();
+    return _SCHOOL_SHIFTS.map((shift) =>
+      `<option value="${shift}" ${val === shift ? 'selected' : ''}>${shift}</option>`
+    ).join('');
+  }
+
+  function _buildAddFamilyFields() {
+    if (!_isSchoolMode()) return '';
+    return `
+          <div class="sf-grid-2" style="margin-top:12px;">
+            <div class="sf-field">
+              <label class="sf-label">Mother's Name</label>
+              <input id="sf-mother" class="sf-input" placeholder="Mother's name" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Guardian Phone <span class="req">*</span></label>
+              <input id="sf-guardian-phone" class="sf-input" placeholder="Guardian contact number" maxlength="25" inputmode="tel" />
+            </div>
+          </div>`;
+  }
+
+  function _buildAddCourseBatchSection(courses) {
+    if (!_isSchoolMode()) {
+      return `
+        <!-- SECTION: Course -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-graduation-cap"></i> Course & Batch</div>
+          <div class="sf-grid-3">
+            <div class="sf-field">
+              <label class="sf-label">Course <span class="req">*</span></label>
+              <select id="sf-course" class="sf-input sf-select">
+                <option value="">-- Select Course --</option>
+                ${courses.map(c => _courseOption(c)).join('')}
+              </select>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Batch <span class="req">*</span></label>
+              <input id="sf-batch" class="sf-input" placeholder="e.g.: Batch-12" />
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Session</label>
+              <input id="sf-session" class="sf-input" placeholder="e.g.: 2024-25" />
+            </div>
+          </div>
+        </div>`;
+    }
+
+    const classLabel = _instLabel('course_label', 'Class');
+    const sectionLabel = _instLabel('batch_label', 'Section');
+    const yearLabel = _instLabel('session_label', 'Academic Year');
+    return `
+        <!-- SECTION: School Class -->
+        <div class="sf-section">
+          <div class="sf-section-title"><i class="fa fa-school"></i> ${classLabel} & ${sectionLabel}</div>
+          <div class="sf-grid-3" style="margin-bottom:12px;">
+            <div class="sf-field">
+              <label class="sf-label">${classLabel} <span class="req">*</span></label>
+              <select id="sf-course" class="sf-input sf-select">
+                <option value="">-- Select ${classLabel} --</option>
+                ${_schoolClassOptions()}
+              </select>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">${sectionLabel} <span class="req">*</span></label>
+              <select id="sf-batch" class="sf-input sf-select">
+                ${_schoolSectionOptions()}
+              </select>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">Roll No <span class="req">*</span></label>
+              <input id="sf-roll" class="sf-input" placeholder="e.g. 15" inputmode="numeric" />
+            </div>
+          </div>
+          <div class="sf-grid-2">
+            <div class="sf-field">
+              <label class="sf-label">Shift</label>
+              <select id="sf-shift" class="sf-input sf-select">
+                <option value="">-- Shift --</option>
+                ${_schoolShiftOptions()}
+              </select>
+            </div>
+            <div class="sf-field">
+              <label class="sf-label">${yearLabel} <span class="req">*</span></label>
+              <input id="sf-session" class="sf-input" placeholder="e.g. 2025" />
+            </div>
+          </div>
+        </div>`;
+  }
+
+  function _buildEditFamilyFields(s) {
+    if (!_isSchoolMode()) return '';
+    return `
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mother's Name</label>
+          <input id="sf-mother" class="form-control" value="${Utils.escAttr(s.mother_name || '')}" />
+        </div>
+        <div class="form-group">
+          <label>Guardian Phone <span class="req">*</span></label>
+          <input id="sf-guardian-phone" class="form-control" value="${Utils.escAttr(s.guardian_phone || '')}" maxlength="25" inputmode="tel" />
+        </div>
+      </div>`;
+  }
+
+  function _buildEditCourseBatchSection(courses, s) {
+    if (!_isSchoolMode()) {
+      return `
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>Course</label>
+          <select id="sf-course" class="form-control">
+            <option value="">-- Select Course --</option>
+            ${courses.map(c => _courseOption(c, s.course)).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Batch</label>
+          <input id="sf-batch" class="form-control" value="${Utils.escAttr(s.batch||'')}" />
+        </div>
+        <div class="form-group">
+          <label>Session</label>
+          <input id="sf-session" class="form-control" value="${Utils.escAttr(s.session||'')}" />
+        </div>
+      </div>`;
+    }
+
+    const classLabel = _instLabel('course_label', 'Class');
+    const sectionLabel = _instLabel('batch_label', 'Section');
+    const yearLabel = _instLabel('session_label', 'Academic Year');
+    return `
+      <div class="form-row-3">
+        <div class="form-group">
+          <label>${classLabel}</label>
+          <select id="sf-course" class="form-control">
+            <option value="">-- Select ${classLabel} --</option>
+            ${_schoolClassOptions(s.course)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>${sectionLabel}</label>
+          <select id="sf-batch" class="form-control">
+            ${_schoolSectionOptions(s.batch)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Roll No</label>
+          <input id="sf-roll" class="form-control" value="${Utils.escAttr(s.roll_no || '')}" inputmode="numeric" />
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Shift</label>
+          <select id="sf-shift" class="form-control">
+            <option value="">-- Shift --</option>
+            ${_schoolShiftOptions(s.shift)}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>${yearLabel}</label>
+          <input id="sf-session" class="form-control" value="${Utils.escAttr(s.session || '')}" placeholder="e.g. 2025" />
+        </div>
+      </div>`;
+  }
+
   /* ══════════════════════════════════════════
      ADD MODAL
   ══════════════════════════════════════════ */
@@ -452,29 +644,10 @@ const Students = (() => {
               <input id="sf-father" class="sf-input" placeholder="Father's name" />
             </div>
           </div>
+          ${_buildAddFamilyFields()}
         </div>
 
-        <!-- SECTION: Course -->
-        <div class="sf-section">
-          <div class="sf-section-title"><i class="fa fa-graduation-cap"></i> Course & Batch</div>
-          <div class="sf-grid-3">
-            <div class="sf-field">
-              <label class="sf-label">Course <span class="req">*</span></label>
-              <select id="sf-course" class="sf-input sf-select">
-                <option value="">-- Select Course --</option>
-                ${courses.map(c => _courseOption(c)).join('')}
-              </select>
-            </div>
-            <div class="sf-field">
-              <label class="sf-label">Batch <span class="req">*</span></label>
-              <input id="sf-batch" class="sf-input" placeholder="e.g.: Batch-12" />
-            </div>
-            <div class="sf-field">
-              <label class="sf-label">Session</label>
-              <input id="sf-session" class="sf-input" placeholder="e.g.: 2024-25" />
-            </div>
-          </div>
-        </div>
+        ${_buildAddCourseBatchSection(courses)}
 
         <!-- SECTION: Fee -->
         <div class="sf-section">
@@ -588,23 +761,8 @@ const Students = (() => {
           <input id="sf-father" class="form-control" value="${Utils.escAttr(s.father_name||'')}" />
         </div>
       </div>
-      <div class="form-row-3">
-        <div class="form-group">
-          <label>Course</label>
-          <select id="sf-course" class="form-control">
-            <option value="">-- Select Course --</option>
-            ${courses.map(c => _courseOption(c, s.course)).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Batch</label>
-          <input id="sf-batch" class="form-control" value="${Utils.escAttr(s.batch||'')}" />
-        </div>
-        <div class="form-group">
-          <label>Session</label>
-          <input id="sf-session" class="form-control" value="${Utils.escAttr(s.session||'')}" />
-        </div>
-      </div>
+      ${_buildEditFamilyFields(s)}
+      ${_buildEditCourseBatchSection(courses, s)}
       <div class="form-row-3">
         <div class="form-group">
           <label>Total Fee (৳)</label>
@@ -1114,8 +1272,28 @@ const Students = (() => {
 
     // Course & Batch required for new students
     if (!editingId) {
-      if (!course) { errEl.textContent='Course is required'; errEl.classList.remove('hidden'); return; }
-      if (!batch) { errEl.textContent='Batch is required'; errEl.classList.remove('hidden'); return; }
+      const courseLabel = _instLabel('course_label', 'Course');
+      const batchLabel = _instLabel('batch_label', 'Batch');
+      const yearLabel = _instLabel('session_label', 'Session');
+      if (!course) { errEl.textContent = `${courseLabel} is required`; errEl.classList.remove('hidden'); return; }
+      if (!batch) { errEl.textContent = `${batchLabel} is required`; errEl.classList.remove('hidden'); return; }
+      if (_isSchoolMode()) {
+        const guardian = Utils.formVal('sf-guardian-phone');
+        const roll = Utils.formVal('sf-roll');
+        const year = Utils.formVal('sf-session');
+        if (!guardian) {
+          errEl.textContent = 'Guardian phone is required';
+          errEl.classList.remove('hidden'); return;
+        }
+        if (!roll) {
+          errEl.textContent = 'Roll number is required';
+          errEl.classList.remove('hidden'); return;
+        }
+        if (!year) {
+          errEl.textContent = `${yearLabel} is required`;
+          errEl.classList.remove('hidden'); return;
+        }
+      }
     }
 
     errEl.classList.add('hidden');
@@ -1212,6 +1390,13 @@ const Students = (() => {
       status:        Utils.formVal('sf-status') || 'Active',
       note:          Utils.formVal('sf-note'),
     };
+
+    if (_isSchoolMode()) {
+      record.mother_name = Utils.formVal('sf-mother');
+      record.guardian_phone = Utils.formVal('sf-guardian-phone');
+      record.roll_no = Utils.formVal('sf-roll');
+      record.shift = Utils.formVal('sf-shift');
+    }
 
     if (editingId) {
       // Recalculate paid/due from finance ledger — never trust the locked form fields

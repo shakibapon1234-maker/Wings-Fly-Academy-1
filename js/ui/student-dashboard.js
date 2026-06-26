@@ -26,8 +26,9 @@ const StudentDashboard = (() => {
     document.getElementById('student-name-display').textContent = _student.student_name || 'Student';
     document.getElementById('student-meta-display').innerHTML = `
       <span><i class="fa fa-id-card"></i> ID: ${_student.student_no || '—'}</span>
-      <span><i class="fa fa-layer-group"></i> ব্যাচ: ${_student.batch || '—'}</span>
-      <span><i class="fa fa-graduation-cap"></i> কোর্স: ${_student.course || '—'}</span>
+      <span><i class="fa fa-layer-group"></i> ${_student.batch ? `Section: ${_student.batch}` : '—'}</span>
+      <span><i class="fa fa-graduation-cap"></i> ${_student.course ? `Class: ${_student.course}` : '—'}</span>
+      ${_student.roll_no ? `<span><i class="fa fa-hashtag"></i> Roll: ${_student.roll_no}</span>` : ''}
     `;
 
     // Connect to Supabase
@@ -195,8 +196,62 @@ const StudentDashboard = (() => {
     container.innerHTML = html;
   }
 
-  // ── Render Results (Exams) Tab ──
+  // ── Render Results (School marks + legacy exams) ──
   async function _renderResults(container) {
+    const sid = _student.student_id;
+    const sno = _student.student_no;
+
+    const { data: schoolMarks, error: smErr } = await _supabase
+      .from('school_marks')
+      .select('*')
+      .or(`student_id.eq.${sid},student_no.eq.${sno}`)
+      .order('academic_year', { ascending: false });
+
+    if (smErr) console.warn('[Portal] school_marks fetch:', smErr.message);
+
+    if (schoolMarks && schoolMarks.length) {
+      const groups = {};
+      schoolMarks.forEach((m) => {
+        const key = `${m.exam_type || 'Exam'}|${m.academic_year || ''}`;
+        if (!groups[key]) groups[key] = { exam_type: m.exam_type, academic_year: m.academic_year, subjects: [] };
+        groups[key].subjects.push(m);
+      });
+
+      let html = `<div class="exam-grid animate-fade-in">`;
+      Object.values(groups).forEach((g) => {
+        const totalO = g.subjects.reduce((a, s) => a + (parseFloat(s.marks_obtained) || 0), 0);
+        const totalF = g.subjects.reduce((a, s) => a + (parseFloat(s.full_marks) || 100), 0);
+        const pct = totalF ? Math.round((totalO / totalF) * 100) : 0;
+        const gpas = g.subjects.map(s => parseFloat(s.gpa) || 0);
+        const gpa = gpas.length ? (Math.round((gpas.reduce((a, b) => a + b, 0) / gpas.length) * 100) / 100) : 0;
+        const allPass = g.subjects.every(s => s.pass !== false && String(s.grade || '').toUpperCase() !== 'F');
+        const subRows = g.subjects.map(s =>
+          `<tr><td>${_escapeHtml(s.subject_name || '—')}</td><td style="text-align:center">${s.marks_obtained}/${s.full_marks}</td><td style="text-align:center">${_escapeHtml(s.grade || '—')}</td></tr>`
+        ).join('');
+
+        html += `
+          <div class="exam-card" style="grid-column:1/-1;max-width:100%">
+            <div class="exam-card-header">
+              <div>
+                <div class="exam-subject">${_escapeHtml(g.exam_type || 'Exam')} — ${_escapeHtml(g.academic_year || '')}</div>
+                <div class="exam-date">GPA: ${gpa} | ${pct}% | ${allPass ? 'Pass' : 'Fail'}</div>
+              </div>
+              <div class="exam-grade">${allPass ? '✓ Pass' : '✗ Fail'}</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;margin-top:10px;font-size:0.85rem">
+              <thead><tr style="border-bottom:1px solid rgba(255,255,255,0.1)">
+                <th style="text-align:left;padding:6px">Subject</th>
+                <th style="padding:6px">Marks</th><th style="padding:6px">Grade</th>
+              </tr></thead>
+              <tbody>${subRows}</tbody>
+            </table>
+          </div>`;
+      });
+      html += '</div>';
+      container.innerHTML = html;
+      return;
+    }
+
     const { data: records, error } = await _supabase
       .from('exams')
       .select('*')

@@ -108,6 +108,7 @@ const StudentAuth = (() => {
       phone: studentInfo.phone,
       batch: studentInfo.batch,
       course: studentInfo.course,
+      roll_no: studentInfo.roll_no,
       login_time: Date.now()
     };
 

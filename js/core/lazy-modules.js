@@ -18,8 +18,10 @@ const LazyModules = (() => {
     'admin-panel':         { src: 'js/core/admin-panel.js' },
     dashboard:             { src: 'js/ui/dashboard.js' },
     settings:              { src: 'js/ui/settings.js' },
-    'settings-branding':   { src: 'js/core/settings-branding.js' },
-    students:              { src: 'js/modules/students.js' },
+    'institution-mode':      { src: 'js/core/institution-mode.js' },
+    'settings-branding':     { src: 'js/core/settings-branding.js' },
+    'settings-institution':  { src: 'js/core/settings-institution.js', deps: ['institution-mode'] },
+    students:              { src: 'js/modules/students.js', deps: ['institution-mode'] },
     finance:               { src: 'js/modules/finance.js' },
     accounts:              { src: 'js/modules/accounts.js' },
     loans:                 { src: 'js/modules/loans.js' },
@@ -40,6 +42,10 @@ const LazyModules = (() => {
     'sms-engine':          { src: 'js/core/sms-engine.js' },
     'routine-engine':      { src: 'js/core/routine-engine.js' },
     'routine-builder':     { src: 'js/modules/routine-builder.js', deps: ['routine-engine'] },
+    'school-engine':       { src: 'js/core/school-engine.js' },
+    'school-classes':      { src: 'js/modules/school-classes.js', deps: ['institution-mode', 'school-engine'] },
+    'subject-marks':       { src: 'js/modules/subject-marks.js', deps: ['institution-mode', 'school-engine'] },
+    'result-sheet':        { src: 'js/modules/result-sheet.js', deps: ['institution-mode', 'school-engine'] },
   };
 
   const SECTION_TO_MODULE = {
@@ -59,12 +65,16 @@ const LazyModules = (() => {
     settings: 'settings',
     'payment-requests': 'payment-requests',
     'routine-builder':  'routine-builder',
+    'school-classes':   'school-classes',
+    'subject-marks':    'subject-marks',
+    'result-sheet':     'result-sheet',
   };
 
   const POST_LOGIN_IDLE = [
+    'institution-mode',
     'integrity-guard', 'system-diagnostics', 'settings-diagnostics', 'backup-restore',
     'auto-update', 'push-notifications', 'offline-mode', 'admin-panel',
-    'settings-branding', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
+    'settings-branding', 'settings-institution', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
     'sms-engine',
   ];
 

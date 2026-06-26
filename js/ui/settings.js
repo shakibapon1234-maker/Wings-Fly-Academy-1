@@ -57,6 +57,13 @@ const SettingsModule = (() => {
           window.SettingsBranding && window.SettingsBranding.inject();
         });
       }
+      if (window.SettingsInstitution) {
+        window.SettingsInstitution.inject();
+      } else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-institution').then(() => {
+          window.SettingsInstitution && window.SettingsInstitution.inject();
+        });
+      }
     }, 10);
     
     document.body.style.overflow = 'hidden';
@@ -144,6 +151,7 @@ const SettingsModule = (() => {
 
     const tabs = [
       { id: 'general',        icon: 'fa-sliders',             label: 'General Settings' },
+      { id: 'institution',    icon: 'fa-building',            label: 'Institution Type' },
       { id: 'theme',          icon: 'fa-palette',             label: 'Theme / Appearance' },
       { id: 'categories',     icon: 'fa-tags',                label: 'Categories & Courses' },
       { id: 'data',           icon: 'fa-database',            label: 'Data Management' },
@@ -179,6 +187,7 @@ const SettingsModule = (() => {
   function buildAllPanels() {
     return `
       ${panelGeneral()}
+      ${panelInstitution()}
       ${panelTheme()}
       ${panelCategories()}
       ${panelData()}
@@ -231,6 +240,17 @@ const SettingsModule = (() => {
     // SMS Settings tab — refresh log
     if (tab === 'sms-settings') {
       setTimeout(() => window._smsRefreshLog && window._smsRefreshLog(), 80);
+    }
+    if (tab === 'institution') {
+      setTimeout(() => {
+        if (window.SettingsInstitution) {
+          window.SettingsInstitution.inject();
+        } else if (window.LazyModules) {
+          window.LazyModules.ensure('settings-institution').then(() => {
+            window.SettingsInstitution && window.SettingsInstitution.inject();
+          });
+        }
+      }, 50);
     }
     // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
@@ -811,6 +831,15 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   // TAB 1: GENERAL SETTINGS
   // ════════════════════════════════════════════════════════════════
+
+  function panelInstitution() {
+    return `
+    <div class="settings-panel ${activeTab === 'institution' ? 'active' : ''}" data-panel="institution">
+      <div id="settings-institution-panel">
+        <span style="color:#7a8baa;font-size:0.82rem"><i class="fa fa-rotate fa-spin"></i> লোডিং...</span>
+      </div>
+    </div>`;
+  }
 
   function panelGeneral() {
     const cfg = getConfig();
@@ -3164,6 +3193,12 @@ ${expenseEntries.length > 0 ? `
       else if (window.LazyModules) {
         window.LazyModules.ensure('settings-branding').then(() => {
           window.SettingsBranding && window.SettingsBranding.inject();
+        });
+      }
+      if (window.SettingsInstitution) window.SettingsInstitution.inject();
+      else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-institution').then(() => {
+          window.SettingsInstitution && window.SettingsInstitution.inject();
         });
       }
     }, 50);
