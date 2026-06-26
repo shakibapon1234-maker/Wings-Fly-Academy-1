@@ -1340,6 +1340,11 @@ const Students = (() => {
     }
 
     Utils.toast('Payment saved \u2713 \u09F3' + Utils.formatMoneyPlain(amount), 'success');
+    // ── Feature 4: SMS — fee_due reminder if still has balance ──
+    if (typeof SMSEngine !== 'undefined') {
+      const updatedStudent = SupabaseSync.getById(DB.students, studentId);
+      if (updatedStudent) SMSEngine.sendFeeDue(updatedStudent);
+    }
     openPayModal(studentId);
     render();
     App.updateNotifCount();

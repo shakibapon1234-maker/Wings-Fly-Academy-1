@@ -49,6 +49,7 @@ export default [
         PaymentEngine: "readonly",
         RoutineEngine: "readonly",
         RoutineBuilder: "readonly",
+        SMSEngine: "readonly",
         AIAssistant: "readonly",
         FaceIDModule: "readonly",
         PatternLockModule: "readonly",

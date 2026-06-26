@@ -138,7 +138,7 @@ CREATE TABLE payment_requests (
 - Payment on/off toggle
 
 ### কাজের ধাপ
-- [x] 1. Supabase table তৈরির SQL দেব (`supabase_feature3_class_routines.sql`)
+1. Supabase table তৈরির SQL দেব
 2. Student Portal-এ payment submission form
 3. Admin panel-এ Payment Requests section (pending list)
 4. Approve button → existing fee record auto-mark as paid
@@ -190,13 +190,13 @@ CREATE TABLE class_routines (
 | Existing batch/teacher/course data | শুধু read করবে | কোনো ঝুঁকি নেই |
 
 ### কাজের ধাপ
-- [x] 1. Supabase table তৈরির SQL দেব (`supabase_feature3_class_routines.sql`)
-- [x] 2. Admin-এ weekly grid routine builder (Sat–Fri, time slot) — `routine-builder.js`
-- [x] 3. Teacher conflict detection ও warning — `routine-engine.js` `checkConflict()`
-- [x] 4. Batch-wise routine আলাদা view (grid + list toggle)
-- [x] 5. Print / PDF export — `printRoutine()` function
-- [ ] 6. Student Portal-এ routine দেখানো (পরবর্তী ধাপ — student-dashboard.js-এ tab যোগ)
-- [ ] 7. Testing করুন → Merge
+1. Supabase table তৈরির SQL দেব
+2. Admin-এ weekly grid routine builder (Sat–Fri, time slot)
+3. Teacher conflict detection ও warning
+4. Batch-wise routine আলাদা view
+5. Print / PDF export
+6. Student Portal-এ routine দেখানো
+7. Testing করুন → Merge
 
 ---
 
@@ -252,15 +252,16 @@ CREATE TABLE sms_logs (
 - Payment SMS on/off
 
 ### কাজের ধাপ
-1. Green Web BD-তে account খুলুন, API key নিন
-2. `sms-engine.js` তৈরি (send + log function)
-3. Settings-এ SMS configuration panel
-4. Fee due → monthly auto SMS
-5. Result publish → auto SMS
-6. Absent → auto SMS
-7. Payment approve/reject → auto SMS
-8. SMS log history admin panel-এ
-9. Testing করুন → Merge
+- [ ] 1. Green Web BD-তে account খুলুন, API key নিন (admin করবেন)
+- [x] 2. `sms-engine.js` তৈরি (send + log function + conflict-safe async)
+- [x] 3. Settings-এ SMS configuration panel (API key, sender ID, per-event toggles, test SMS, log viewer)
+- [x] 4. Fee due → SMS trigger in `students.js` `savePayment()`
+- [x] 5. Result publish → SMS trigger in `exam.js` after grade save
+- [x] 6. Absent → SMS trigger in `attendance.js` `saveAllAttendance()`
+- [x] 7. Payment approve/reject → SMS trigger in `payment-engine.js`
+- [x] 8. SMS log history — Settings → SMS Notifications tab-এ log table
+- [x] 9. Student Portal Routine tab — `student-dashboard.js` `_renderRoutine()` + `student-portal.html`
+- [ ] 10. Testing করুন → Merge
 
 ---
 

@@ -354,7 +354,7 @@ document.addEventListener('visibilitychange', () => {
 const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
   // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase (sync only these columns)
-  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config'],
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config','sms_config'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
   students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','installment_plan'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -373,6 +373,7 @@ const TABLE_COLUMNS = {
   student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
   payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
   class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
+  sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
 };
 
 const SupabaseSync = (() => {
@@ -2000,7 +2001,7 @@ const SupabaseSync = (() => {
   const _TABLE_COLS = {
     // ✅ keep_records + recycle_bin_sync added for cross-device sync via settings table
     // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config'],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config','sms_config'],
     salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
     students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
@@ -2014,6 +2015,7 @@ const SupabaseSync = (() => {
     student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
     payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
     class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
+    sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
   };
 
   function _sanitizeRecord(record, tableKey) {

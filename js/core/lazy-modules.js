@@ -37,6 +37,7 @@ const LazyModules = (() => {
     'ai-assistant':        { src: 'js/modules/ai-assistant.js' },
     'payment-engine':      { src: 'js/core/payment-engine.js' },
     'payment-requests':    { src: 'js/modules/payment-requests.js', deps: ['payment-engine'] },
+    'sms-engine':          { src: 'js/core/sms-engine.js' },
     'routine-engine':      { src: 'js/core/routine-engine.js' },
     'routine-builder':     { src: 'js/modules/routine-builder.js', deps: ['routine-engine'] },
   };
@@ -64,6 +65,7 @@ const LazyModules = (() => {
     'integrity-guard', 'system-diagnostics', 'settings-diagnostics', 'backup-restore',
     'auto-update', 'push-notifications', 'offline-mode', 'admin-panel',
     'settings-branding', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
+    'sms-engine',
   ];
 
   const PREFETCH_MODULES = ['students', 'finance', 'settings'];

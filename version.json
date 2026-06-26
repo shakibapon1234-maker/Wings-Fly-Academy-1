@@ -1,7 +1,7 @@
 {
-  "version": "5.0.0",
-  "deploy_id": "20260625-feature3-routine-builder",
-  "changelog": "Feature 3: Class Routine Builder — weekly grid/list view, teacher conflict detection, batch-wise filtering, print/PDF export. New files: routine-engine.js, routine-builder.js. New Supabase table: class_routines.",
+  "version": "5.1.0",
+  "deploy_id": "20260626-feature4-sms-notifications",
+  "changelog": "Feature 4: SMS Notification System — new sms-engine.js (Green Web BD API, 5 trigger types, sms_logs IDB+cloud); SMS triggers in students.js (fee due), attendance.js (absent), exam.js (result), payment-engine.js (approve/reject); SMS Settings tab in Settings panel with API key config, per-event toggles, test SMS, log viewer; Student Portal Routine tab added (student-dashboard.js + student-portal.html); class_routines + sms_logs added to supabase-sync TABLE_COLUMNS.",
   "size": "~2MB",
-  "released": "2026-06-25"
+  "released": "2026-06-26"
 }

@@ -735,6 +735,24 @@ const Attendance = (() => {
 
     save();
     if (typeof Utils !== 'undefined') Utils.toast(`${count} জন এর Attendance Save হয়েছে ✓`, 'success');
+    // ── Feature 4: SMS — absent notification ──
+    if (typeof SMSEngine !== 'undefined') {
+      const allStudents = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll('students') || []) : [];
+      document.querySelectorAll('#att-sheet-table tbody tr').forEach(row => {
+        const activeBtn = row.querySelector('.att-status-btn.att-st-absent.active');
+        if (!activeBtn) return;
+        const entityId = row.dataset.entityId || '';
+        const student  = allStudents.find(s => s.id === entityId || s.student_id === entityId);
+        const phone    = student ? (student.guardian_phone || student.phone || '') : '';
+        if (!phone) return;
+        SMSEngine.sendAbsent({
+          entityName: row.dataset.name || '',
+          entityId,
+          batch: row.dataset.batch || '',
+          date:  document.getElementById('att-date-sel')?.value || today(),
+        }, phone);
+      });
+    }
   }
 
   /* ─── Monthly Report ─── */

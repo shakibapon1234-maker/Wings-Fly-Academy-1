@@ -30,6 +30,7 @@
   <script src="js/core/supabase-standalone-creds.js"></script>
   <script src="js/core/student-auth.js"></script>
   <script src="js/core/payment-engine.js"></script>
+  <script src="js/core/routine-engine.js"></script>
   <script src="js/ui/student-dashboard.js"></script>
 </head>
 <body>
@@ -105,6 +106,9 @@
         <button class="tab-btn" data-tab="fees" onclick="switchTab('fees')">
           <i class="fa fa-credit-card"></i> <span>ফি ও পেমেন্ট</span>
         </button>
+        <button class="tab-btn" data-tab="routine" onclick="switchTab('routine')">
+          <i class="fa fa-calendar-week"></i> <span>রুটিন</span>
+        </button>
       </nav>
       
       <!-- Tabs Content Containers -->
@@ -126,6 +130,13 @@
         <!-- Fees Section -->
         <section id="section-fees" class="content-section">
           <div id="container-fees">
+            <!-- Rendered by js/ui/student-dashboard.js -->
+          </div>
+        </section>
+
+        <!-- Routine Section -->
+        <section id="section-routine" class="content-section">
+          <div id="container-routine">
             <!-- Rendered by js/ui/student-dashboard.js -->
           </div>
         </section>

@@ -69,7 +69,7 @@ const RoutineEngine = (() => {
       record.id = entry.id;
       SupabaseSync.update(TABLE, record.id, record);
     } else {
-      record.id = Utils.uuid();
+      record.id = Utils.generateId();
       SupabaseSync.insert(TABLE, record);
     }
     _logActivity(isEdit ? 'update' : 'add', record);

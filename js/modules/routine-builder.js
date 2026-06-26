@@ -47,6 +47,9 @@ const RoutineBuilder = (() => {
           <button class="btn btn-sm ${_viewMode==='list'?'btn-primary':'btn-secondary'}" onclick="RoutineBuilder.setView('list')" title="List View">
             <i class="fa fa-list"></i>
           </button>
+          <button class="btn btn-sm btn-secondary" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9;" onclick="RoutineBuilder.openImportModal()" title="Import JSON / HTML">
+            <i class="fa fa-upload"></i> Import
+          </button>
           <button class="btn btn-sm btn-secondary" onclick="RoutineBuilder.printRoutine()" title="Print">
             <i class="fa fa-print"></i> Print
           </button>
@@ -423,6 +426,286 @@ const RoutineBuilder = (() => {
     win.document.close();
   }
 
+  // ── Import / Upload Routine ───────────────────────────────
+
+  function openImportModal() {
+    const batches = RoutineEngine.getBatchList();
+    const importHTML = `
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div class="form-group">
+          <label class="form-label" style="font-weight:600;">রুটিন ফাইল আপলোড করুন (.json, .html) <span style="color:red">*</span></label>
+          <input type="file" id="rb-import-file" class="form-control" accept=".json,.html" style="padding:6px 12px;" onchange="RoutineBuilder.onImportFileChange(this)">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight:600;">টার্গেট ব্যাচ <span style="color:red">*</span></label>
+          <select id="rb-import-batch" class="form-control">
+            <option value="">— ফাইল থেকে অটো-ডিটেক্ট করুন —</option>
+            ${batches.map(b => `<option value="${Utils.escAttr(b)}" ${_activeBatch===b?'selected':''}>${Utils.esc(b)}</option>`).join('')}
+          </select>
+          <div style="font-size:0.75rem;color:var(--text-secondary);margin-top:4px;">
+            ফাইলে যদি ব্যাচ উল্লেখ থাকে তবে সেটি স্বয়ংক্রিয়ভাবে ডিটেক্ট করা হবে।
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="font-weight:600;">ইম্পোর্ট মোড</label>
+          <div style="display:flex;gap:16px;margin-top:6px;">
+            <label style="cursor:pointer;font-size:0.87rem;">
+              <input type="radio" name="rb-import-mode" value="merge" checked style="margin-right:6px;"> Merge (নতুন ক্লাস যুক্ত করুন)
+            </label>
+            <label style="cursor:pointer;font-size:0.87rem;">
+              <input type="radio" name="rb-import-mode" value="replace" style="margin-right:6px;"> Replace (ব্যাচের বর্তমান রুটিন মুছে দিন)
+            </label>
+          </div>
+        </div>
+
+        <div id="rb-import-preview-box" style="display:none;background:rgba(255,255,255,0.04);border:1px solid var(--border-color);border-radius:8px;padding:12px 14px;">
+          <h4 style="margin:0 0 6px;font-size:0.85rem;color:var(--brand-primary);"><i class="fa fa-magnifying-glass-chart"></i> ফাইলের তথ্য:</h4>
+          <div style="font-size:0.8rem;line-height:1.5;" id="rb-import-preview-details"></div>
+        </div>
+
+        <div id="rb-import-conflict-warning" style="display:none;padding:10px 14px;background:rgba(255,160,0,0.15);border:1px solid rgba(255,160,0,0.4);border-radius:8px;color:var(--warning,#f59e0b);font-size:0.85rem;">
+          <i class="fa fa-triangle-exclamation"></i> <strong>শিক্ষক শিডিউল দ্বন্দ্ব (Conflict)!</strong>
+          <div id="rb-import-conflict-detail" style="margin-top:4px;font-size:0.8rem;max-height:80px;overflow-y:auto;"></div>
+        </div>
+
+        <div id="rb-import-error" class="form-error" style="display:none;color:red;font-size:0.85rem;"></div>
+
+        <div style="font-size:0.82rem;background:rgba(14,165,233,0.08);border:1px solid rgba(14,165,233,0.2);padding:10px;border-radius:6px;color:#e0f2fe;">
+          <i class="fa fa-circle-question" style="color:#38bdf8;margin-right:4px;"></i> রুটিন PDF বা ইমেজ থেকে কনভার্ট করতে চান? 
+          <a href="routine-converter.html" target="_blank" style="color:var(--brand-primary);text-decoration:underline;font-weight:600;">রুটিন কনভার্টার টুল ব্যবহার করুন</a>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px;">
+        <button class="btn btn-secondary" onclick="Utils.closeModal()">বাতিল</button>
+        <button class="btn btn-primary" id="rb-import-btn" disabled onclick="RoutineBuilder.executeImport()">
+          <i class="fa fa-upload"></i> ইম্পোর্ট করুন
+        </button>
+      </div>
+    `;
+
+    Utils.openModal('<i class="fa fa-upload" style="color:var(--brand-primary)"></i> রুটিন ইম্পোর্ট করুন', importHTML);
+    window._importedData = null;
+  }
+
+  function onImportFileChange(input) {
+    const file = input.files[0];
+    const previewBox = document.getElementById('rb-import-preview-box');
+    const previewDetails = document.getElementById('rb-import-preview-details');
+    const importBtn = document.getElementById('rb-import-btn');
+    const errEl = document.getElementById('rb-import-error');
+
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    if (previewBox) previewBox.style.display = 'none';
+    if (importBtn) importBtn.disabled = true;
+
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const content = e.target.result;
+        let list = null;
+        let fileType = '';
+
+        if (file.name.endsWith('.html') || file.type === 'text/html') {
+          fileType = 'HTML';
+          const doc = new DOMParser().parseFromString(content, 'text/html');
+          const scriptEl = doc.getElementById('wfa-routine-data');
+          if (!scriptEl) {
+            throw new Error('এই HTML ফাইলে কোনো ইম্পোর্টযোগ্য রুটিন ডেটা পাওয়া যায়নি। অনুগ্রহ করে রুটিন কনভার্টার থেকে জেনারেট করা HTML ব্যবহার করুন।');
+          }
+          list = JSON.parse(scriptEl.textContent);
+        } else {
+          fileType = 'JSON';
+          list = JSON.parse(content);
+        }
+
+        if (!Array.isArray(list)) {
+          throw new Error('রুটিন ডেটা সঠিক নয়। ক্লাস লিস্টের একটি অ্যারে (Array) হতে হবে।');
+        }
+
+        if (list.length === 0) {
+          throw new Error('ফাইলের ভেতর কোনো ক্লাস পাওয়া যায়নি।');
+        }
+
+        const detectedBatch = list[0].batch_id || '';
+        const batchSelect = document.getElementById('rb-import-batch');
+        if (detectedBatch && batchSelect) {
+          let found = false;
+          for (let i = 0; i < batchSelect.options.length; i++) {
+            if (batchSelect.options[i].value === detectedBatch) {
+              batchSelect.selectedIndex = i;
+              found = true;
+              break;
+            }
+          }
+          if (!found) {
+            const opt = document.createElement('option');
+            opt.value = detectedBatch;
+            opt.textContent = detectedBatch + ' (New)';
+            opt.selected = true;
+            batchSelect.appendChild(opt);
+          }
+        }
+
+        window._importedData = list;
+
+        if (previewBox && previewDetails) {
+          previewBox.style.display = 'block';
+          previewDetails.innerHTML = `
+            ফাইল টাইপ: <strong>${fileType}</strong><br>
+            মোট ক্লাস সংখ্যা: <strong>${list.length}টি</strong><br>
+            ডিটেক্ট করা ব্যাচ: <strong>${Utils.esc(detectedBatch || '—')}</strong>
+          `;
+        }
+
+        if (importBtn) importBtn.disabled = false;
+        _checkImportConflicts(list);
+      } catch (err) {
+        if (errEl) {
+          errEl.textContent = 'ত্রুটি: ' + err.message;
+          errEl.style.display = 'block';
+        }
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  function _checkImportConflicts(list) {
+    const warning = document.getElementById('rb-import-conflict-warning');
+    const detail = document.getElementById('rb-import-conflict-detail');
+    if (!warning || !detail) return;
+
+    warning.style.display = 'none';
+
+    const staffList = RoutineEngine.getTeacherList();
+    const conflicts = [];
+
+    list.forEach(slot => {
+      let teacher_id = slot.teacher_id || '';
+      if (teacher_id) {
+        const resolved = staffList.find(s => 
+          String(s.name).toLowerCase().trim() === String(teacher_id).toLowerCase().trim() ||
+          String(s.id).toLowerCase().trim() === String(teacher_id).toLowerCase().trim()
+        );
+        if (resolved) teacher_id = resolved.id;
+      }
+
+      let day = slot.day;
+      const DAY_MAP = {
+        'sat': 'Sat', 'saturday': 'Sat', 'শনি': 'Sat', 'শনিবার': 'Sat',
+        'sun': 'Sun', 'sunday': 'Sun', 'রবি': 'Sun', 'রবিবার': 'Sun',
+        'mon': 'Mon', 'monday': 'Mon', 'সোম': 'Mon', 'সোমবার': 'Mon',
+        'tue': 'Tue', 'tuesday': 'Tue', 'মঙ্গল': 'Tue', 'মঙ্গলবার': 'Tue',
+        'wed': 'Wed', 'wednesday': 'Wed', 'বুধ': 'Wed', 'বুধবার': 'Wed',
+        'thu': 'Thu', 'thursday': 'Thu', 'বৃহস্পতি': 'Thu', 'বৃহস্পতিবার': 'Thu',
+        'fri': 'Fri', 'friday': 'Fri', 'শুক্র': 'Fri', 'শুক্রবার': 'Fri'
+      };
+      if (day && DAY_MAP[String(day).toLowerCase()]) {
+        day = DAY_MAP[String(day).toLowerCase()];
+      }
+
+      const overlaps = RoutineEngine.checkConflict({
+        teacher_id,
+        day,
+        start_time: slot.start_time,
+        end_time: slot.end_time
+      });
+
+      if (overlaps.length) {
+        overlaps.forEach(c => {
+          conflicts.push(`শিক্ষক: <strong>${Utils.esc(RoutineEngine.getTeacherName(teacher_id))}</strong> (${Utils.esc(day)} ${RoutineEngine.formatTime(slot.start_time)}–${RoutineEngine.formatTime(slot.end_time)}) — Batch: ${Utils.esc(c.batch_id)} এর সাথে ওভারল্যাপ করছে।`);
+        });
+      }
+    });
+
+    if (conflicts.length) {
+      warning.style.display = 'block';
+      detail.innerHTML = conflicts.join('<br>');
+    }
+  }
+
+  function executeImport() {
+    const list = window._importedData;
+    const errEl = document.getElementById('rb-import-error');
+    if (!list) {
+      if (errEl) { errEl.textContent = 'কোনো ডেটা পাওয়া যায়নি।'; errEl.style.display = 'block'; }
+      return;
+    }
+
+    const batchSelect = document.getElementById('rb-import-batch');
+    const batchId = batchSelect ? batchSelect.value : '';
+    if (!batchId) {
+      if (errEl) { errEl.textContent = 'অনুগ্রহ করে টার্কেট ব্যাচ নির্বাচন করুন।'; errEl.style.display = 'block'; }
+      return;
+    }
+
+    const importMode = document.querySelector('input[name="rb-import-mode"]:checked').value;
+
+    try {
+      if (importMode === 'replace') {
+        const existing = RoutineEngine.getByBatch(batchId);
+        existing.forEach(r => {
+          RoutineEngine.remove(r.id);
+        });
+      }
+
+      const staffList = RoutineEngine.getTeacherList();
+      const DAY_MAP = {
+        'sat': 'Sat', 'saturday': 'Sat', 'শনি': 'Sat', 'শনিবার': 'Sat',
+        'sun': 'Sun', 'sunday': 'Sun', 'রবি': 'Sun', 'রবিবার': 'Sun',
+        'mon': 'Mon', 'monday': 'Mon', 'সোম': 'Mon', 'সোমবার': 'Mon',
+        'tue': 'Tue', 'tuesday': 'Tue', 'মঙ্গল': 'Tue', 'মঙ্গলবার': 'Tue',
+        'wed': 'Wed', 'wednesday': 'Wed', 'বুধ': 'Wed', 'বুধবার': 'Wed',
+        'thu': 'Thu', 'thursday': 'Thu', 'বৃহস্পতি': 'Thu', 'বৃহস্পতিবার': 'Thu',
+        'fri': 'Fri', 'friday': 'Fri', 'শুক্র': 'Fri', 'শুক্রবার': 'Fri'
+      };
+
+      list.forEach(slot => {
+        let teacher_id = slot.teacher_id || '';
+        if (teacher_id) {
+          const resolved = staffList.find(s => 
+            String(s.name).toLowerCase().trim() === String(teacher_id).toLowerCase().trim() ||
+            String(s.id).toLowerCase().trim() === String(teacher_id).toLowerCase().trim()
+          );
+          if (resolved) teacher_id = resolved.id;
+        }
+
+        let day = slot.day;
+        if (day && DAY_MAP[String(day).toLowerCase()]) {
+          day = DAY_MAP[String(day).toLowerCase()];
+        }
+        if (!RoutineEngine.DAYS.includes(day)) {
+          day = 'Sat';
+        }
+
+        RoutineEngine.save({
+          batch_id: batchId,
+          day: day,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          subject: slot.subject || 'Routine Class',
+          teacher_id: teacher_id,
+          room: slot.room || ''
+        });
+      });
+
+      Utils.closeModal();
+      Utils.toast(`${list.length}টি ক্লাস সফলভাবে ইম্পোর্ট করা হয়েছে!`, 'success');
+      
+      _activeBatch = batchId;
+      render();
+    } catch (e) {
+      if (errEl) {
+        errEl.textContent = 'ইম্পোর্ট করতে সমস্যা হয়েছে: ' + (e.message || e);
+        errEl.style.display = 'block';
+      }
+    }
+  }
+
   // ── Public API ─────────────────────────────────────────────
 
   function onBatchChange(val) {
@@ -444,6 +727,9 @@ const RoutineBuilder = (() => {
     openEditModal,
     printRoutine,
     _saveForm,
+    openImportModal,
+    onImportFileChange,
+    executeImport,
   };
 })();
 

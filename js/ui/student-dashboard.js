@@ -71,6 +71,8 @@ const StudentDashboard = (() => {
         await _renderResults(container);
       } else if (tabId === 'fees') {
         await _renderFees(container);
+      } else if (tabId === 'routine') {
+        await _renderRoutine(container);
       }
     } catch (err) {
       console.error('[Dashboard] Load tab error:', err);
@@ -570,6 +572,91 @@ const StudentDashboard = (() => {
     } else {
       alert(msg);
     }
+  }
+
+  // ── Render Routine Tab ──────────────────────────────────────
+  async function _renderRoutine(container) {
+    const batchId = _student.batch || '';
+    if (!batchId) {
+      container.innerHTML = `<div class="no-data-msg"><i class="fa fa-calendar-xmark"></i> ব্যাচ তথ্য পাওয়া যায়নি।</div>`;
+      return;
+    }
+
+    let routines;
+    // Use RoutineEngine standalone fetch if available, otherwise direct Supabase query
+    if (typeof RoutineEngine !== 'undefined' && RoutineEngine.fetchForStudent) {
+      routines = await RoutineEngine.fetchForStudent(batchId);
+    } else {
+      const { data, error } = await _supabase
+        .from('class_routines')
+        .select('*')
+        .eq('batch_id', batchId)
+        .eq('is_active', true);
+      if (error) throw error;
+      routines = data || [];
+    }
+
+    if (!routines.length) {
+      container.innerHTML = `<div class="no-data-msg"><i class="fa fa-calendar-xmark"></i> এই ব্যাচের কোনো রুটিন এখনো তৈরি হয়নি।</div>`;
+      return;
+    }
+
+    const DAYS = ['Sat','Sun','Mon','Tue','Wed','Thu','Fri'];
+    const DAY_BN = { Sat:'শনি', Sun:'রবি', Mon:'সোম', Tue:'মঙ্গল', Wed:'বুধ', Thu:'বৃহস্পতি', Fri:'শুক্র' };
+
+    const byDay = {};
+    DAYS.forEach(d => { byDay[d] = []; });
+    routines.forEach(r => { if (byDay[r.day]) byDay[r.day].push(r); });
+    DAYS.forEach(d => { byDay[d].sort((a,b) => (a.start_time||'').localeCompare(b.start_time||'')); });
+    const activeDays = DAYS.filter(d => byDay[d].length > 0);
+
+    function fmt(t) {
+      if (!t) return '—';
+      const [h,m] = String(t).split(':').map(Number);
+      if (isNaN(h)) return t;
+      const suf = h >= 12 ? 'PM' : 'AM';
+      const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      return `${h12}:${String(m||0).padStart(2,'0')} ${suf}`;
+    }
+
+    function esc(s) {
+      return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    container.innerHTML = `
+      <div style="margin-bottom:12px;">
+        <h3 style="margin:0 0 4px;font-size:1rem;color:var(--text-primary,#fff);">
+          <i class="fa fa-calendar-week" style="color:var(--brand-primary,#00d9ff);margin-right:6px;"></i>
+          সাপ্তাহিক ক্লাস রুটিন
+        </h3>
+        <p style="margin:0;font-size:0.82rem;color:var(--text-secondary,#aaa);">ব্যাচ: ${esc(batchId)}</p>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;min-width:320px;">
+          <thead>
+            <tr>
+              ${activeDays.map(d => `
+                <th style="background:var(--brand-primary,#00d9ff);color:#000;padding:8px 6px;text-align:center;font-size:0.8rem;border:1px solid rgba(255,255,255,0.1);">
+                  ${esc(d)}<br><small style="font-weight:400;opacity:0.8;">${esc(DAY_BN[d])}</small>
+                </th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            <tr style="vertical-align:top;">
+              ${activeDays.map(d => `
+                <td style="padding:5px;border:1px solid rgba(255,255,255,0.08);min-width:110px;">
+                  ${byDay[d].map(r => `
+                    <div style="background:rgba(0,217,255,0.07);border:1px solid rgba(0,217,255,0.2);border-radius:7px;padding:6px 8px;margin-bottom:5px;">
+                      <div style="font-size:0.72rem;color:var(--brand-primary,#00d9ff);font-weight:600;">${esc(fmt(r.start_time))}–${esc(fmt(r.end_time))}</div>
+                      <div style="font-weight:600;font-size:0.82rem;margin:2px 0;">${esc(r.subject||'—')}</div>
+                      ${r.room ? `<div style="font-size:0.72rem;color:var(--text-secondary,#aaa);"><i class="fa fa-door-open"></i> ${esc(r.room)}</div>` : ''}
+                    </div>`).join('')}
+                </td>`).join('')}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
   }
 
   return { init, loadTab, openSubmitPaymentModal };

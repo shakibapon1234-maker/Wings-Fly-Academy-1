@@ -161,6 +161,7 @@ const SettingsModule = (() => {
       { id: 'syncguard',      icon: 'fa-shield-halved',       label: 'Sync Guard' },
       { id: 'ai-assistant',   icon: 'fa-robot',               label: 'AI Assistant' },
       { id: 'student-portal', icon: 'fa-graduation-cap',      label: 'Student Portal' },
+      { id: 'sms-settings',   icon: 'fa-comment-sms',         label: 'SMS Notifications' },
     ];
     const isClientDeployment = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.customerCode;
     return tabs
@@ -193,6 +194,7 @@ const SettingsModule = (() => {
       ${panelSyncGuard()}
       ${panelAIAssistant()}
       ${panelStudentPortal()}
+      ${panelSMSSettings()}
     `;
   }
 
@@ -225,6 +227,10 @@ const SettingsModule = (() => {
     // Student Portal tab — render student list
     if (tab === 'student-portal') {
       setTimeout(() => _spRenderStudentList(), 80);
+    }
+    // SMS Settings tab — refresh log
+    if (tab === 'sms-settings') {
+      setTimeout(() => window._smsRefreshLog && window._smsRefreshLog(), 80);
     }
     // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
@@ -7243,6 +7249,19 @@ ${expenseEntries.length > 0 ? `
     </div>`;
   }
 
+  // ════════════════════════════════════════════════════════════════
+  // TAB: SMS NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════
+
+  function panelSMSSettings() {
+    // Delegates to the injected helper (defined outside IIFE to avoid size bloat)
+    return (typeof window._panelSMSSettings_html === 'function')
+      ? window._panelSMSSettings_html()
+      : `<div data-panel="sms-settings" class="settings-panel" style="display:none;">
+           <p style="padding:20px;color:var(--text-muted);">SMS Engine লোড হয়নি। পৃষ্ঠা Refresh করুন।</p>
+         </div>`;
+  }
+
   // ── Student Portal: Render Student List ──
   let _spAllStudents = [];
 
@@ -7642,3 +7661,159 @@ ${expenseEntries.length > 0 ? `
 
 // ✅ S-2 Fix: Export after theme CSS injections are complete (regression fix — export was accidentally removed)
 window.SettingsModule = SettingsModule;
+
+/* ============================================================
+   Feature 4 — SMS Settings Panel (injected into SettingsModule)
+   ============================================================ */
+(function _injectSMSPanel() {
+  // panel HTML builder
+  window._panelSMSSettings_html = function() {
+    const cfg = (typeof SMSEngine !== 'undefined') ? SMSEngine.getConfig() : {};
+    const chk = (val) => val ? 'checked' : '';
+    return `
+      <div data-panel="sms-settings" class="settings-panel" style="display:none;">
+        <div class="card" style="margin-bottom:18px;">
+          <div class="card-header" style="display:flex;align-items:center;gap:10px;">
+            <i class="fa fa-comment-sms" style="color:var(--brand-primary);font-size:1.2rem;"></i>
+            <h3 class="card-title" style="margin:0;">SMS Notification সেটিংস</h3>
+          </div>
+          <div class="card-body" style="padding:18px;">
+
+            <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.83rem;">
+              <strong><i class="fa fa-triangle-exclamation" style="color:#f59e0b;"></i> Green Web BD API</strong><br>
+              <a href="https://greenweb.com.bd" target="_blank" style="color:var(--brand-primary);">greenweb.com.bd</a>-এ account খুলুন → API Token নিন → এখানে বসান।
+              প্রতি SMS ≈ ৳০.৩০–০.৫০।
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+              <div class="form-group" style="grid-column:1/-1;">
+                <label class="form-label">API Key (Green Web BD Token) <span style="color:red">*</span></label>
+                <input id="sms-api-key" class="form-control" type="password" placeholder="আপনার API Token" value="${Utils.escAttr(cfg.api_key||'')}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sender ID</label>
+                <input id="sms-sender-id" class="form-control" placeholder="WFA" value="${Utils.escAttr(cfg.sender_id||'WFA')}">
+              </div>
+              <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+                  <input type="checkbox" id="sms-enabled" ${chk(cfg.sms_enabled)} style="width:18px;height:18px;accent-color:var(--brand-primary);">
+                  SMS চালু করুন (Global)
+                </label>
+              </div>
+            </div>
+
+            <fieldset style="border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:8px;padding:14px;margin-bottom:16px;">
+              <legend style="padding:0 8px;font-size:0.85rem;color:var(--text-secondary);">কোন কোন ক্ষেত্রে SMS যাবে</legend>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                ${[
+                  ['sms-fee-due', 'fee_due_sms', 'fa-money-bill', 'ফি বকেয়া থাকলে'],
+                  ['sms-absent', 'absent_sms', 'fa-user-xmark', 'Absent হলে'],
+                  ['sms-result', 'result_sms', 'fa-file-signature', 'ফলাফল দেওয়া হলে'],
+                  ['sms-payment', 'payment_sms', 'fa-mobile-screen', 'Payment Approve/Reject হলে'],
+                ].map(([id, key, icon, label]) => `
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;">
+                    <input type="checkbox" id="${id}" ${chk(cfg[key])} style="width:16px;height:16px;accent-color:var(--brand-primary);">
+                    <i class="fa ${icon}" style="color:var(--brand-primary);width:16px;text-align:center;"></i>
+                    ${label}
+                  </label>`).join('')}
+              </div>
+            </fieldset>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+              <button class="btn btn-primary" onclick="_smsSaveConfig()">
+                <i class="fa fa-save"></i> সেটিংস সেভ করুন
+              </button>
+              <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:200px;">
+                <input id="sms-test-phone" class="form-control" placeholder="01XXXXXXXXX" style="flex:1;">
+                <button class="btn btn-secondary" onclick="_smsSendTest()">
+                  <i class="fa fa-paper-plane"></i> টেস্ট SMS
+                </button>
+              </div>
+            </div>
+
+            <hr style="border-color:var(--border-color,rgba(255,255,255,0.1));margin:16px 0;">
+            <h4 style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">
+              <i class="fa fa-clock-rotate-left"></i> SMS Log (সর্বশেষ ৫০টি)
+            </h4>
+            <div id="sms-log-container">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);">
+                <i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Save config
+  function _smsSaveConfig() {
+    if (typeof SMSEngine === 'undefined') { alert('SMS Engine লোড হয়নি।'); return; }
+    const cfg = {
+      api_key:     (document.getElementById('sms-api-key')?.value || '').trim(),
+      sender_id:   (document.getElementById('sms-sender-id')?.value || 'WFA').trim(),
+      sms_enabled: document.getElementById('sms-enabled')?.checked || false,
+      fee_due_sms: document.getElementById('sms-fee-due')?.checked || false,
+      absent_sms:  document.getElementById('sms-absent')?.checked  || false,
+      result_sms:  document.getElementById('sms-result')?.checked  || false,
+      payment_sms: document.getElementById('sms-payment')?.checked || false,
+    };
+    SMSEngine.saveConfig(cfg);
+  }
+  window._smsSaveConfig = _smsSaveConfig;
+
+  // Test SMS
+  async function _smsSendTest() {
+    if (typeof SMSEngine === 'undefined') { alert('SMS Engine লোড হয়নি।'); return; }
+    const phone = (document.getElementById('sms-test-phone')?.value || '').trim();
+    if (!phone) { Utils.toast('ফোন নম্বর দিন।', 'error'); return; }
+    Utils.toast('টেস্ট SMS পাঠানো হচ্ছে...', 'info');
+    const result = await SMSEngine.sendTest(phone);
+    if (result.ok) {
+      Utils.toast('টেস্ট SMS সফলভাবে পাঠানো হয়েছে!', 'success');
+    } else {
+      Utils.toast('SMS পাঠাতে সমস্যা: ' + (result.reason || 'unknown'), 'error');
+    }
+    _smsRefreshLog();
+  }
+  window._smsSendTest = _smsSendTest;
+
+  // Refresh log table
+  function _smsRefreshLog() {
+    const container = document.getElementById('sms-log-container');
+    if (!container) return;
+    if (typeof SMSEngine === 'undefined') {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">SMS Engine লোড হয়নি।</p>';
+      return;
+    }
+    const logs = SMSEngine.getLogs().slice(0, 50);
+    if (!logs.length) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:16px;">কোনো SMS লগ নেই।</p>';
+      return;
+    }
+    const statusColor = { sent: '#10b981', failed: '#ef4444', skipped: '#f59e0b', pending: '#6b7280' };
+    container.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;font-size:0.8rem;">
+          <thead><tr>
+            <th>সময়</th><th>প্রাপক</th><th>ধরন</th><th>বার্তা</th><th style="text-align:center;">স্ট্যাটাস</th>
+          </tr></thead>
+          <tbody>
+            ${logs.map(l => `
+              <tr>
+                <td style="white-space:nowrap;">${Utils.esc(l.sent_at ? new Date(l.sent_at).toLocaleString('bn-BD') : '—')}</td>
+                <td>${Utils.esc(l.recipient||'—')}</td>
+                <td><span class="badge badge-blue" style="font-size:0.72rem;">${Utils.esc(l.type||'—')}</span></td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${Utils.escAttr(l.message||'')}">${Utils.esc((l.message||'').slice(0,60))}…</td>
+                <td style="text-align:center;">
+                  <span style="font-size:0.75rem;font-weight:700;color:${statusColor[l.status]||'#aaa'};">${Utils.esc(l.status||'—')}</span>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  window._smsRefreshLog = _smsRefreshLog;
+})();

@@ -494,6 +494,12 @@ const Exam = (() => {
         `গ্রেড নির্ধারণ: ${e?.student_name||'Unknown'} (${e?.student_id||''}) — ${e?.subject||''} → গ্রেড: ${grade}, নম্বর: ${marks}%, স্ট্যাটাস: ${status}`
       );
     }
+    // ── Feature 4: SMS — result notification ──
+    if (typeof SMSEngine !== 'undefined') {
+      const allStudents = SupabaseSync.getAll(DB.students) || [];
+      const student = allStudents.find(s => s.student_id === (e?.student_id || ''));
+      if (student) SMSEngine.sendResult(student, { subject: e?.subject, grade, marks });
+    }
     Utils.toast('Grade Saved ✓', 'success');
     Utils.closeModal();
     render();

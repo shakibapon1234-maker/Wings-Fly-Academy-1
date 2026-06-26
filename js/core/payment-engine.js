@@ -218,6 +218,8 @@ const PaymentEngine = (() => {
       SupabaseSync.logActivity('payment', TABLE,
         'পেমেন্ট Approve: ' + (student?.name || req.student_name || req.student_id) + ' — ৳' + Utils.formatMoneyPlain(amount) + ' (' + req.method + ')');
     }
+    // ── Feature 4: SMS — payment approved ──
+    if (typeof SMSEngine !== 'undefined') SMSEngine.sendPaymentApproved(req);
 
     return true;
   }
@@ -239,6 +241,8 @@ const PaymentEngine = (() => {
       SupabaseSync.logActivity('delete', TABLE,
         'পেমেন্ট Reject: ' + (req.student_name || req.student_id) + ' — ৳' + Utils.formatMoneyPlain(Utils.safeNum(req.amount)) + (note ? ' — কারণ: ' + note : ''));
     }
+    // ── Feature 4: SMS — payment rejected ──
+    if (typeof SMSEngine !== 'undefined') SMSEngine.sendPaymentRejected(req, note);
     return true;
   }
 

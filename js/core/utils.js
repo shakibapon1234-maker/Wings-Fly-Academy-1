@@ -1025,6 +1025,10 @@ const Utils = (() => {
         const rand = crypto.getRandomValues(new Uint32Array(2));
         return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
       },
+      uuid: () => {
+        const rand = crypto.getRandomValues(new Uint32Array(2));
+        return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
+      },
       // BUG #4: Input validation helper
       validateForm,
       // Req 4: Filter bar flatpickr DD/MM/YYYY initializer
