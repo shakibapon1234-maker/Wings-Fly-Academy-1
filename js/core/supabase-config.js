@@ -87,11 +87,11 @@ function _purgeLocalDataForNewDb() {
     window.WFA_IDB.clearAllTables();
   } else {
     // WFA_IDB loads after this script — delete the whole IndexedDB as fallback
-    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch(e) { /* ignore */ }
+    try { indexedDB.deleteDatabase('WingsAcademyDB'); } catch { /* ignore */ }
   }
 
   // 2. Remove ALL known localStorage keys so no project data bleeds through
-  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+  _LS_KEYS_TO_PURGE.forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
 
   // 3. Also sweep any remaining supabase auth tokens (sb-* pattern)
   try {
@@ -103,7 +103,7 @@ function _purgeLocalDataForNewDb() {
       }
     }
     keysToDelete.forEach(k => localStorage.removeItem(k));
-  } catch(e) { /* ignore */ }
+  } catch { /* ignore */ }
 
   console.info('[Config] DB switch detected — ALL local data purged for clean start.');
 }
@@ -365,7 +365,7 @@ window.SUPABASE_CONFIG = {
     SUPABASE_URL    = cleanUrl;
     SUPABASE_ANON_KEY = anonKey.trim();
 
-    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch(e) {}
+    try { localStorage.setItem(_LS_LAST_URL_KEY, cleanUrl); } catch { /* ignore */ }
 
     _reinitSupabaseClient();
     window.SUPABASE_CONFIG.client = window.supabaseClient;

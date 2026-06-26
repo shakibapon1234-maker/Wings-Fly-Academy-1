@@ -109,7 +109,7 @@ const App = (() => {
   const SECTIONS = [
     'dashboard', 'students', 'finance', 'accounts', 'loans',
     'exam', 'attendance', 'salary', 'hr-staff',
-    'visitors', 'id-cards', 'certificates', 'notice-board', 'payment-requests', 'settings'
+    'visitors', 'id-cards', 'certificates', 'notice-board', 'payment-requests', 'routine-builder', 'settings'
   ];
 
   // ── SHA-256 password hashing (settings.js এর মতো একই logic) ──────────
@@ -169,6 +169,7 @@ const App = (() => {
     certificates:   '🏆 Certificates',
     'notice-board': '📢 Notice Board',
     'payment-requests': '💳 Payment Requests',
+    'routine-builder':  '📅 Class Routine',
     settings:       '⚙️ Settings',
   };
 
@@ -236,6 +237,7 @@ const App = (() => {
       certificates:   'Certificates',
       'notice-board': 'Notice Board',
       'payment-requests': 'Payment Requests',
+      'routine-builder':  'Class Routine',
       settings:       'Settings',
       // dashboard সবসময় দেখা যাবে
       // settings শুধু admin দেখবে (navigateTo()-এ আলাদা block আছে)
@@ -918,6 +920,7 @@ const App = (() => {
       'visitors':  'visitors-content',
       'salary':    'salary-content',
       'payment-requests': 'payment-requests-content',
+      'routine-builder':  'routine-builder-content',
     };
     const containerId = heavyModules[section];
     if (containerId) {
@@ -955,6 +958,7 @@ const App = (() => {
         case 'certificates':  if (typeof CertificatesModule !== 'undefined') CertificatesModule.render(); break;
         case 'notice-board':  if (typeof NoticeBoardModule !== 'undefined')  NoticeBoardModule.render(); break;
         case 'payment-requests': if (typeof PaymentRequestsModule !== 'undefined') PaymentRequestsModule.render(); break;
+        case 'routine-builder':  if (typeof RoutineBuilder !== 'undefined')        RoutineBuilder.init(); break;
         case 'settings':      if (typeof SettingsModule !== 'undefined')     SettingsModule.render(); break;
       }
       // ✅ Req 4: After every module renders, initialize DD/MM/YYYY flatpickr

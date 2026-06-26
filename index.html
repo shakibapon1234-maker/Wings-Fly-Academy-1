@@ -204,6 +204,12 @@
           <i class="fa fa-bullhorn nav-icon"></i><span class="bn">নোটিস বোর্ড</span>
           <span id="notice-dot" style="display:none;width:8px;height:8px;border-radius:50%;background:#00ff88;box-shadow:0 0 6px #00ff88;margin-left:auto;" aria-hidden="true"></span>
         </button>
+        <button class="nav-item" data-section="payment-requests" aria-label="Payment Requests">
+          <i class="fa fa-money-bill-transfer nav-icon"></i><span>Payment Requests</span>
+        </button>
+        <button class="nav-item" data-section="routine-builder" aria-label="Class Routine">
+          <i class="fa fa-calendar-week nav-icon"></i><span>Class Routine</span>
+        </button>
         <button class="nav-item" data-section="settings" aria-label="Settings">
           <i class="fa fa-gear nav-icon"></i><span>Settings</span>
         </button>
@@ -376,6 +382,25 @@
           <div id="notice-board-content"></div>
         </div>
 
+        <!-- ▸ PAYMENT REQUESTS -->
+        <div id="section-payment-requests" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-money-bill-transfer"></i> Payment Requests</h2>
+            <div class="toolbar">
+            </div>
+          </div>
+          <div id="payment-requests-content"></div>
+        </div>
+
+        <!-- ▸ ROUTINE BUILDER -->
+        <div id="section-routine-builder" class="page-section" style="display:none">
+          <div class="page-header">
+            <h2><i class="fa fa-calendar-week"></i> Class Routine Builder</h2>
+            <div class="toolbar"></div>
+          </div>
+          <div id="routine-builder-content"></div>
+        </div>
+
         <!-- ▸ ATTENDANCE (modal-based — placeholder required for SECTIONS hide-loop) -->
         <div id="section-attendance" class="page-section" style="display:none" aria-hidden="true"></div>
 
@@ -442,6 +467,12 @@
       <button class="more-item" data-section="notice-board">
         <i class="fa fa-bullhorn"></i><span>Notice</span>
       </button>
+      <button class="more-item" data-section="payment-requests">
+        <i class="fa fa-money-bill-transfer"></i><span>Payments</span>
+      </button>
+      <button class="more-item" data-section="routine-builder">
+        <i class="fa fa-calendar-week"></i><span>Routine</span>
+      </button>
       <button class="more-item" data-section="settings">
         <i class="fa fa-gear"></i><span>Settings</span>
       </button>
@@ -498,8 +529,6 @@
   <script src="js/core/secure-storage.js" defer></script>
   <script src="js/core/clients-metadata.js" defer></script>
   <script src="js/core/supabase-secrets.stub.js" defer></script>
-  <!-- ✅ Client deploy: supabase-secrets.js overrides stub with client-specific credentials -->
-  <script src="js/core/supabase-secrets.js" defer onerror="/* main project: no secrets.js — stub values are used */"></script>
   <!-- BUG-S6 fix: standalone creds fallback — present in admin/cert/exam.html but was missing here -->
   <script src="js/core/supabase-standalone-creds.js" defer></script>
   <script src="js/core/session-store.js" defer></script>

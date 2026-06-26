@@ -372,6 +372,7 @@ const TABLE_COLUMNS = {
   sub_accounts:     ['id','username','password','name','role','permissions','created_at','updated_at'],
   student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
   payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
+  class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
 };
 
 const SupabaseSync = (() => {
@@ -2012,6 +2013,7 @@ const SupabaseSync = (() => {
     notices:       ['id','title','text','type','created_at','updated_at','expires_at','is_pinned'],
     student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
     payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
+    class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
   };
 
   function _sanitizeRecord(record, tableKey) {

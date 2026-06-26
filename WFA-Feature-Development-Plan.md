@@ -138,7 +138,7 @@ CREATE TABLE payment_requests (
 - Payment on/off toggle
 
 ### কাজের ধাপ
-1. Supabase table তৈরির SQL দেব
+- [x] 1. Supabase table তৈরির SQL দেব (`supabase_feature3_class_routines.sql`)
 2. Student Portal-এ payment submission form
 3. Admin panel-এ Payment Requests section (pending list)
 4. Approve button → existing fee record auto-mark as paid
@@ -190,13 +190,13 @@ CREATE TABLE class_routines (
 | Existing batch/teacher/course data | শুধু read করবে | কোনো ঝুঁকি নেই |
 
 ### কাজের ধাপ
-1. Supabase table তৈরির SQL দেব
-2. Admin-এ weekly grid routine builder (Sat–Fri, time slot)
-3. Teacher conflict detection ও warning
-4. Batch-wise routine আলাদা view
-5. Print / PDF export
-6. Student Portal-এ routine দেখানো
-7. Testing করুন → Merge
+- [x] 1. Supabase table তৈরির SQL দেব (`supabase_feature3_class_routines.sql`)
+- [x] 2. Admin-এ weekly grid routine builder (Sat–Fri, time slot) — `routine-builder.js`
+- [x] 3. Teacher conflict detection ও warning — `routine-engine.js` `checkConflict()`
+- [x] 4. Batch-wise routine আলাদা view (grid + list toggle)
+- [x] 5. Print / PDF export — `printRoutine()` function
+- [ ] 6. Student Portal-এ routine দেখানো (পরবর্তী ধাপ — student-dashboard.js-এ tab যোগ)
+- [ ] 7. Testing করুন → Merge
 
 ---
 

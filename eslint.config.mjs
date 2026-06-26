@@ -47,6 +47,8 @@ export default [
         NoticeBoardModule: "readonly",
         PaymentRequestsModule: "readonly",
         PaymentEngine: "readonly",
+        RoutineEngine: "readonly",
+        RoutineBuilder: "readonly",
         AIAssistant: "readonly",
         FaceIDModule: "readonly",
         PatternLockModule: "readonly",

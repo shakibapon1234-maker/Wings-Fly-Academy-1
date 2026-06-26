@@ -37,6 +37,8 @@ const LazyModules = (() => {
     'ai-assistant':        { src: 'js/modules/ai-assistant.js' },
     'payment-engine':      { src: 'js/core/payment-engine.js' },
     'payment-requests':    { src: 'js/modules/payment-requests.js', deps: ['payment-engine'] },
+    'routine-engine':      { src: 'js/core/routine-engine.js' },
+    'routine-builder':     { src: 'js/modules/routine-builder.js', deps: ['routine-engine'] },
   };
 
   const SECTION_TO_MODULE = {
@@ -55,6 +57,7 @@ const LazyModules = (() => {
     'notice-board': 'notice-board',
     settings: 'settings',
     'payment-requests': 'payment-requests',
+    'routine-builder':  'routine-builder',
   };
 
   const POST_LOGIN_IDLE = [
