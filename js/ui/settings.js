@@ -7626,7 +7626,7 @@ ${expenseEntries.length > 0 ? `
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spOpenPinModal, spClosePinModal, spSavePortalAccess,
+    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess,
   };
 })();
 
