@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // Wings Fly Aviation Academy — Settings Module (Full Parity)
 // 11 Tabs matching legacy app design
 // ============================================================
@@ -7224,6 +7224,9 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
 
   function panelStudentPortal() {
+    const base = window.location.href.split(/[?#]/)[0];
+    const portalUrl = base.substring(0, base.lastIndexOf('/')) + '/student-portal.html';
+
     return `
     <div class="settings-panel" data-panel="student-portal">
       <div class="settings-card">
@@ -7233,6 +7236,26 @@ ${expenseEntries.length > 0 ? `
         <p style="font-size:0.85rem;color:rgba(255,255,255,0.5);margin-bottom:20px">
           নিচের তালিকা থেকে যেকোনো student-কে Portal Access দিন এবং তাদের 4-digit PIN set করুন।
         </p>
+
+        <!-- Dynamic Portal Link Copy & Share Panel -->
+        <div style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="flex:1;min-width:240px">
+            <div style="font-size:0.75rem;font-weight:700;color:#00d9ff;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">
+              Student Portal Link (স্টুডেন্ট পোর্টাল লিংক)
+            </div>
+            <div id="sp-portal-link-text" style="font-size:0.82rem;color:rgba(255,255,255,0.7);word-break:break-all;font-family:monospace">${portalUrl}</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="navigator.clipboard.writeText(document.getElementById('sp-portal-link-text').textContent.trim()).then(()=>Utils.toast('Portal Link Copied!','success'))"
+              style="padding:10px 16px;background:#00d9ff;border:none;border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:6px;transition:opacity 0.2s">
+              <i class="fa fa-copy"></i> কপি করুন
+            </button>
+            <button onclick="if(navigator.share){navigator.share({title:'Student Portal',url:document.getElementById('sp-portal-link-text').textContent.trim()})}else{navigator.clipboard.writeText(document.getElementById('sp-portal-link-text').textContent.trim()).then(()=>Utils.toast('Portal Link Copied!','success'))}"
+              style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;cursor:pointer;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:6px;transition:background 0.2s">
+              <i class="fa fa-share-nodes"></i> শেয়ার করুন
+            </button>
+          </div>
+        </div>
 
         <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="sp-search-input"
