@@ -2,7 +2,7 @@ window.WFA_AUTO_DEPLOYED_CLIENTS = [
     {
         "id":  "756d52a5-e902-4b78-8ffc-a63d1d3d98f0",
         "customerCode":  "S001",
-        "academy":  "school",
+        "academy":  "safa",
         "package":  "Pro",
         "institutionType":  "school",
         "licenseKey":  "",
