@@ -2759,40 +2759,9 @@ const SupabaseSync = (() => {
         localStorage.setItem('wfa_finance_backfill_v1', '1');
       }
       
-      // ✅ ONE-TIME BALANCE RECOVERY FROM BACKUP
-      const RECOVER_FLAG = 'wfa_balance_recovery_2026_06_27_v1';
-      if (!localStorage.getItem(RECOVER_FLAG)) {
-        const accounts = getAll('accounts');
-        let changed = false;
-        accounts.forEach(acc => {
-          if (acc.name === 'Cash' || acc.type === 'Cash') {
-            if ((parseFloat(acc.balance) || 0) < 37001) {
-              console.info(`[Recovery] Updating Cash balance from ৳${acc.balance} to ৳37001`);
-              acc.balance = 37001;
-              acc.updated_at = new Date().toISOString();
-              changed = true;
-            }
-          }
-          if (acc.name === 'Bikash') {
-            if ((parseFloat(acc.balance) || 0) < 8519) {
-              console.info(`[Recovery] Updating Bikash balance from ৳${acc.balance} to ৳8519`);
-              acc.balance = 8519;
-              acc.updated_at = new Date().toISOString();
-              changed = true;
-            }
-          }
-        });
-        if (changed) {
-          setAll('accounts', accounts);
-          accounts.forEach(acc => {
-            if (acc.name === 'Cash' || acc.name === 'Bikash') {
-              try { _pushRecord('accounts', acc); } catch(e) { console.warn('[Recovery] Cloud push failed:', e); }
-            }
-          });
-          console.info('[Recovery] Successfully restored Cash and Bikash balance from backup data.');
-        }
-        localStorage.setItem(RECOVER_FLAG, 'done');
-      }
+      // ✅ Hardcoded balance recovery removed (was forcing Cash=37001, Bikash=8519
+      //    on every new browser/device session — root cause of recurring balance corruption).
+      //    Account balances are the source of truth in Supabase. Do NOT hardcode them here.
     } catch (e) {
       console.warn('[Sync] Startup finance repair failed (non-critical):', e);
     }
