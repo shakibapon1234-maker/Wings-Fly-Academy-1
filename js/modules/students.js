@@ -981,7 +981,7 @@ const Students = (() => {
       if (access) {
         SupabaseSync.update('student_portal_access', access.id, record);
       } else {
-        record.id = SupabaseSync.generateId();
+        record.id = SupabaseSync.generateUUID();
         record.created_at = new Date().toISOString();
         SupabaseSync.insert('student_portal_access', record);
       }

@@ -584,6 +584,16 @@ const SupabaseSync = (() => {
     return ts + buf[0].toString(36).toUpperCase() + buf[1].toString(36).toUpperCase();
   }
 
+  function generateUUID() {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   function _logRecentChange(table, action, record) {
     try {
       if (!record || typeof record !== 'object') return;
@@ -2815,10 +2825,54 @@ const SupabaseSync = (() => {
     return { fixedCount, totalAmount, auditLog };
   }
 
+  function _migrateStudentPortalAccessIds() {
+    try {
+      const accessList = getAll('student_portal_access') || [];
+      let changed = false;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      const migratedList = accessList.map(item => {
+        if (item.id && !uuidRegex.test(item.id)) {
+          console.info(`[Sync] Migrating student_portal_access ID from custom format to UUID: ${item.id}`);
+          const oldId = item.id;
+          
+          // Generate a deterministic UUID from the old custom ID
+          let hex = '';
+          for (let j = 0; j < 4; j++) {
+            let h = 0;
+            for (let i = 0; i < oldId.length; i++) {
+              h = (h * 31 + oldId.charCodeAt(i) + j) & 0xffffffff;
+            }
+            hex += (h >>> 0).toString(16).padStart(8, '0');
+          }
+          const newUUID = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
+          
+          item.id = newUUID;
+          item.updated_at = new Date().toISOString();
+          
+          // Delete old record from cloud (using old ID)
+          _deleteFromCloud('student_portal_access', oldId);
+          _trackDeletion('student_portal_access', oldId);
+          
+          changed = true;
+        }
+        return item;
+      });
+      
+      if (changed) {
+        setAll('student_portal_access', migratedList);
+        console.info('[Sync] Successfully migrated student_portal_access IDs to UUIDs.');
+      }
+    } catch (e) {
+      console.warn('[Sync] student_portal_access ID migration failed:', e);
+    }
+  }
+
   function _runStartupFinanceRepair() {
     try {
       cleanupDuplicateCashAccounts();
       ensureDefaultCashAccount();
+      _migrateStudentPortalAccessIds();
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
@@ -2833,7 +2887,7 @@ const SupabaseSync = (() => {
   }
 
   return {
-    getAll, getById, setAll, insert, update, remove, generateId, _deleteFromCloud,
+    getAll, getById, setAll, insert, update, remove, generateId, generateUUID, _deleteFromCloud,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,

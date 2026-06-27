@@ -7593,7 +7593,7 @@ ${expenseEntries.length > 0 ? `
         if (existing && existing.id) {
           SupabaseSync.update('student_portal_access', existing.id, record);
         } else {
-          record.id = SupabaseSync.generateId();
+          record.id = SupabaseSync.generateUUID();
           record.created_at = new Date().toISOString();
           SupabaseSync.insert('student_portal_access', record);
         }

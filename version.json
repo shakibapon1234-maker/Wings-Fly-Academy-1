@@ -1,7 +1,7 @@
 {
-  "version": "5.1.4",
-  "deploy_id": "20260627-student-portal-layout-and-login-fixes",
-  "changelog": "Filter out placeholder credentials to allow fallback to real project credentials locally, and center student-portal login page perfectly by refactoring container class wrapping.",
+  "version": "5.1.5",
+  "deploy_id": "20260627-database-restore-and-portal-uuid-fix",
+  "changelog": "Database restoration from backup fix.json, and convert student_portal_access ID formats from custom to standard UUID to resolve login and sync errors.",
   "size": "~2MB",
   "released": "2026-06-27"
 }
