@@ -2614,12 +2614,23 @@ const SupabaseSync = (() => {
   function ensureDefaultCashAccount() {
     const accounts = getAll('accounts');
     if (accounts.some(a => a.type === 'Cash')) return false;
+
+    // ✅ Race condition guard: যদি Supabase initial sync এখনো হয়নি,
+    // Cash account তৈরি করো না। IDB সাময়িক খালি থাকতে পারে — এটা
+    // "Cash নেই" বোঝায় না, Supabase-এ থাকতে পারে।
+    // Duplicate Cash তৈরির মূল কারণ ছিল এই guard না থাকা।
+    if (!localStorage.getItem('wfa_initial_sync_done')) {
+      console.info('[Sync] ensureDefaultCashAccount: skipped — waiting for initial Supabase sync');
+      return false;
+    }
+
+    // Only create if truly no Cash account exists after sync has confirmed
     insert('accounts', {
       type: 'Cash',
       name: 'Cash',
       balance: 0,
     }, { bypassLog: true });
-    console.info('[Sync] Default Cash account created.');
+    console.info('[Sync] Default Cash account created (post-sync verified).');
     return true;
   }
 
@@ -2630,7 +2641,8 @@ const SupabaseSync = (() => {
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
-    ensureDefaultCashAccount();
+    // ✅ Fix: ensureDefaultCashAccount() removed from here — it has its own sync guard.
+    // Calling it here before sync could create duplicate Cash accounts.
 
     const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
     const studentsKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
@@ -2753,15 +2765,18 @@ const SupabaseSync = (() => {
 
   function _runStartupFinanceRepair() {
     try {
-      ensureDefaultCashAccount();
+      // ✅ Fix: ensureDefaultCashAccount() removed from startup repair.
+      // Root cause of 32+ duplicate Cash accounts:
+      //   WFA_IDB.onReady fires BEFORE Supabase pull completes.
+      //   IDB is empty → "no Cash found" → new Cash created → Supabase push.
+      //   Later, real Cash pulled from Supabase → now 2 Cash accounts exist.
+      //   This repeated on every fresh browser session, cleared cache, or new tab.
+      // ensureDefaultCashAccount() is now guarded by wfa_initial_sync_done flag.
+
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
       }
-      
-      // ✅ Hardcoded balance recovery removed (was forcing Cash=37001, Bikash=8519
-      //    on every new browser/device session — root cause of recurring balance corruption).
-      //    Account balances are the source of truth in Supabase. Do NOT hardcode them here.
     } catch (e) {
       console.warn('[Sync] Startup finance repair failed (non-critical):', e);
     }
@@ -3093,6 +3108,11 @@ const SyncEngine = (() => {
           'success'
         );
       }
+
+      // ✅ Mark that at least one Supabase pull has completed successfully.
+      // ensureDefaultCashAccount() uses this flag to avoid creating duplicate
+      // Cash accounts when IDB is temporarily empty before sync.
+      localStorage.setItem('wfa_initial_sync_done', '1');
 
       if (hasChanges) {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
