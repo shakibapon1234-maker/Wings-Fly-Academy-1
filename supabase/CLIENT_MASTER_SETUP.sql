@@ -403,6 +403,18 @@ create table if not exists public.school_marks (
   updated_at     timestamptz default now()
 );
 
+-- ── 1.23 student_portal_access ───────────────────────────────────────────────
+create table if not exists public.student_portal_access (
+  id           text primary key,
+  student_id   text not null,
+  student_name text,
+  phone        text not null,
+  pin_hash     text not null,
+  is_active    boolean default true,
+  created_at   timestamptz default now(),
+  updated_at   timestamptz default now()
+);
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 2 — INDEXES (fast query support)
@@ -452,7 +464,7 @@ begin
     'settings','students','staff','salary','finance_ledger','accounts',
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts','certificate_tokens',
-    'school_classes','school_subjects','school_marks'
+    'school_classes','school_subjects','school_marks','student_portal_access'
   ] loop
     if not exists (
       select 1 from pg_trigger
@@ -643,6 +655,11 @@ drop policy if exists wfa_school_marks_all on public.school_marks;
 create policy wfa_school_marks_all on public.school_marks
   for all using (true) with check (true);
 
+-- ── student_portal_access ─────────────────────────────────────────────────────
+alter table public.student_portal_access enable row level security;
+drop policy if exists wfa_student_portal_access_all on public.student_portal_access;
+create policy wfa_student_portal_access_all on public.student_portal_access
+  for all using (true) with check (true);
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 5 — STORAGE BUCKET (photos)
@@ -691,7 +708,7 @@ begin
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
     'activity_log','certificate_tokens',
-    'school_classes','school_subjects','school_marks'
+    'school_classes','school_subjects','school_marks','student_portal_access'
   ] loop
     begin
       execute format(
@@ -763,7 +780,7 @@ where schemaname = 'public'
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
     'activity_log','certificate_tokens','push_subscriptions',
-    'school_classes','school_subjects','school_marks'
+    'school_classes','school_subjects','school_marks','student_portal_access'
   )
 order by tablename;
 

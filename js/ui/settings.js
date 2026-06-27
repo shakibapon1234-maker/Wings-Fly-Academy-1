@@ -7215,14 +7215,24 @@ ${expenseEntries.length > 0 ? `
           নিচের তালিকা থেকে যেকোনো student-কে Portal Access দিন এবং তাদের 4-digit PIN set করুন।
         </p>
 
-        <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+        <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="sp-search-input"
-            placeholder="নাম বা ID দিয়ে খুঁজুন..."
+            placeholder="নাম, ID বা ফোন দিয়ে খুঁজুন..."
             oninput="SettingsModule.spFilterStudents(this.value)"
-            style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+            style="flex:1;min-width:180px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;padding:10px 14px;color:#fff;font-size:0.9rem;outline:none" />
-          <button onclick="SettingsModule.spFilterStudents('')"
-            style="padding:10px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+          <button id="sp-filter-all" onclick="SettingsModule.spSetFilter('all')"
+            style="padding:10px 14px;background:rgba(245,158,11,0.8);border:none;
+                   border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.82rem;font-weight:700">
+            <i class="fa fa-users"></i> সবাই
+          </button>
+          <button id="sp-filter-access" onclick="SettingsModule.spSetFilter('access')"
+            style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+                   border-radius:8px;color:#10b981;cursor:pointer;font-size:0.82rem;font-weight:700">
+            <i class="fa fa-check-circle"></i> Access প্রাপ্ত
+          </button>
+          <button onclick="SettingsModule.spSetFilter('all')"
+            style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;color:#aaa;cursor:pointer;font-size:0.85rem">
             <i class="fa fa-rotate"></i> রিফ্রেশ
           </button>
@@ -7414,6 +7424,8 @@ ${expenseEntries.length > 0 ? `
   }
 
   function spFilterStudents(query) {
+    const searchInput = document.getElementById('sp-search-input');
+    if (searchInput && query !== undefined) searchInput.value = query;
     if (!query || query.trim() === '') {
       _spRenderStudentList();
       return;
@@ -7425,6 +7437,34 @@ ${expenseEntries.length > 0 ? `
       (s.phone || '').includes(q)
     );
     _spRenderList(filtered);
+  }
+
+  function spSetFilter(mode) {
+    // Update button styles
+    const btnAll    = document.getElementById('sp-filter-all');
+    const btnAccess = document.getElementById('sp-filter-access');
+    if (btnAll)    btnAll.style.background    = mode === 'all'    ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.06)';
+    if (btnAll)    btnAll.style.color         = mode === 'all'    ? '#0b0f19' : '#aaa';
+    if (btnAccess) btnAccess.style.background = mode === 'access' ? 'rgba(16,185,129,0.8)' : 'rgba(255,255,255,0.06)';
+    if (btnAccess) btnAccess.style.color      = mode === 'access' ? '#fff' : '#10b981';
+
+    const searchInput = document.getElementById('sp-search-input');
+    if (searchInput) searchInput.value = '';
+
+    if (mode === 'access') {
+      // Show only students who have portal access
+      let accessMap = {};
+      try {
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+          const accessList = SupabaseSync.getAll('student_portal_access') || [];
+          accessList.forEach(a => { accessMap[a.student_id] = a; });
+        }
+      } catch { /* ignore */ }
+      const accessStudents = _spAllStudents.filter(s => !!accessMap[s.id]);
+      _spRenderList(accessStudents);
+    } else {
+      _spRenderStudentList();
+    }
   }
 
   function spOpenPinModal(studentId, studentName, phone) {
