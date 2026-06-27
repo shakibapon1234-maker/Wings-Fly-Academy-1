@@ -1,7 +1,7 @@
 {
-  "version": "5.1.2",
-  "deploy_id": "20260627-dynamic-client-refresh",
-  "changelog": "Fix duplicate Cash accounts race condition, and implement dynamic cache-busting clients metadata loading for Client Manager.",
+  "version": "5.1.4",
+  "deploy_id": "20260627-student-portal-layout-and-login-fixes",
+  "changelog": "Filter out placeholder credentials to allow fallback to real project credentials locally, and center student-portal login page perfectly by refactoring container class wrapping.",
   "size": "~2MB",
   "released": "2026-06-27"
 }

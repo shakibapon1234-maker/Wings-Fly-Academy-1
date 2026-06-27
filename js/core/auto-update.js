@@ -10,7 +10,7 @@ const AutoUpdateModule = (() => {
       : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}version.json`;
   }
   const LOCAL_VERSION_KEY = 'wfa_app_version';
-  const LOCAL_VERSION_FALLBACK = '5.1.2';
+  const LOCAL_VERSION_FALLBACK = '5.1.4';
   const LAST_CHECK_KEY = 'wfa_last_update_check';
   const CHECK_INTERVAL_HOURS = 24; // Check once per day to avoid 503 spam
 

@@ -449,7 +449,12 @@ const IntegrityGuard = (() => {
             const results = await Promise.all(
               files.map(f =>
                 fetch(baseUrl + f.substring(1), { method: 'HEAD' })
-                  .then(r => ({ f, ok: r.ok }))
+                  .then(async r => {
+                    if (r.ok) return { f, ok: true };
+                    // Fallback to GET if HEAD method is not supported/allowed on the local server
+                    const getRes = await fetch(baseUrl + f.substring(1), { method: 'GET' }).catch(() => null);
+                    return { f, ok: getRes ? getRes.ok : false };
+                  })
                   .catch(() => ({ f, ok: false }))
               )
             );
