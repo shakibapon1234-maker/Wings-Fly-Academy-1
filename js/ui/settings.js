@@ -7257,6 +7257,28 @@ ${expenseEntries.length > 0 ? `
           </div>
         </div>
 
+        <!-- Batch-wise Portal Access Panel -->
+        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:20px">
+          <h4 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:#f59e0b;display:flex;align-items:center;gap:6px">
+            <i class="fa fa-users-gear"></i> Batch-wise Portal Access (ব্যাচ ভিত্তিক অ্যাক্সেস)
+          </h4>
+          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+            <div style="flex:1;min-width:180px">
+              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase">Select Batch (ব্যাচ নির্বাচন করুন)</label>
+              <select id="sp-batch-select" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;outline:none">
+                <option value="">-- ব্যাচ নির্বাচন করুন --</option>
+              </select>
+            </div>
+            <div style="width:120px">
+              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase">Common PIN (পিন)</label>
+              <input type="text" id="sp-batch-pin" placeholder="1234" maxlength="4" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;text-align:center;outline:none" />
+            </div>
+            <button onclick="SettingsModule.spGiveBatchAccess()" style="padding:10px 18px;background:#f59e0b;border:none;border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.85rem;font-weight:700;display:flex;align-items:center;gap:6px">
+              <i class="fa fa-key"></i> অ্যাক্সেস দিন
+            </button>
+          </div>
+        </div>
+
         <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="sp-search-input"
             placeholder="নাম, ID বা ফোন দিয়ে খুঁজুন..."
@@ -7385,6 +7407,7 @@ ${expenseEntries.length > 0 ? `
     } catch { students = []; }
 
     _spAllStudents = students;
+    _spPopulateBatchList();
     _spRenderList(students);
   }
 
@@ -7628,6 +7651,116 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
+  // ── Student Portal: Populate Batch Dropdown ──
+  function _spPopulateBatchList() {
+    const batchSelect = document.getElementById('sp-batch-select');
+    if (!batchSelect) return;
+
+    let students = [];
+    try {
+      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+        students = SupabaseSync.getAll('students') || [];
+      }
+    } catch { students = []; }
+
+    const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
+    const esc = Utils.esc || (x => x);
+
+    // Keep current selected value if any
+    const currVal = batchSelect.value;
+
+    batchSelect.innerHTML = '<option value="">-- ব্যাচ নির্বাচন করুন --</option>' +
+      batches.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
+
+    if (currVal && batches.includes(currVal)) {
+      batchSelect.value = currVal;
+    }
+  }
+
+  // ── Student Portal: Save Batch Portal Access ──
+  async function spGiveBatchAccess() {
+    const batch = document.getElementById('sp-batch-select').value;
+    const pin = document.getElementById('sp-batch-pin').value.trim();
+
+    if (!batch) {
+      Utils.toast('⚠️ অনুগ্রহ করে একটি ব্যাচ সিলেক্ট করুন।', 'error');
+      return;
+    }
+    if (!pin) {
+      Utils.toast('⚠️ কমন PIN লিখুন।', 'error');
+      return;
+    }
+    if (pin.length !== 4 || isNaN(pin)) {
+      Utils.toast('⚠️ PIN অবশ্যই ঠিক 4টি সংখ্যা হতে হবে।', 'error');
+      return;
+    }
+
+    // Hash the PIN
+    let pinHash;
+    try {
+      if (window.StudentAuth && window.StudentAuth.hashPin) {
+        pinHash = await window.StudentAuth.hashPin(pin);
+      } else {
+        const enc = new TextEncoder();
+        const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin));
+        pinHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+      }
+    } catch (err) {
+      console.error('[StudentPortal] Hash error:', err);
+      Utils.toast('PIN হ্যাশ করতে সমস্যা হয়েছে।', 'error');
+      return;
+    }
+
+    if (typeof SupabaseSync === 'undefined') {
+      Utils.toast('SupabaseSync module is not loaded.', 'error');
+      return;
+    }
+
+    const students = _spAllStudents.filter(s => s.batch === batch);
+    if (students.length === 0) {
+      Utils.toast('⚠️ এই ব্যাচে কোনো স্টুডেন্ট পাওয়া যায়নি।', 'error');
+      return;
+    }
+
+    const accessList = SupabaseSync.getAll('student_portal_access') || [];
+    let successCount = 0;
+    let skipCount = 0;
+
+    students.forEach(s => {
+      const phone = (s.phone || s.contact || '').replace(/[\s-]/g, '');
+      if (!phone || phone.length < 10) {
+        skipCount++;
+        return; // Skip student without a valid phone
+      }
+
+      const existing = accessList.find(a => a.student_id === s.id);
+      const record = {
+        student_id: s.id,
+        student_name: s.name || '',
+        phone: phone,
+        pin_hash: pinHash,
+        is_active: true
+      };
+
+      if (existing && existing.id) {
+        SupabaseSync.update('student_portal_access', existing.id, record);
+      } else {
+        record.id = SupabaseSync.generateId();
+        record.created_at = new Date().toISOString();
+        SupabaseSync.insert('student_portal_access', record);
+      }
+      successCount++;
+    });
+
+    Utils.toast(`✅ ${batch}-এর ${successCount} জন স্টুডেন্টকে অ্যাক্সেস দেওয়া হয়েছে!${skipCount > 0 ? ` (${skipCount} জনের ফোন নম্বর না থাকায় বাদ দেওয়া হয়েছে)` : ''}`, 'success');
+
+    // Clear PIN field
+    document.getElementById('sp-batch-pin').value = '';
+    
+    // Refresh student list UI
+    setTimeout(() => _spRenderStudentList(), 300);
+  }
+
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
@@ -7668,7 +7801,7 @@ ${expenseEntries.length > 0 ? `
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess,
+    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess,
   };
 })();
 
