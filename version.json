@@ -1,7 +1,7 @@
 {
-  "version": "5.1.1",
-  "deploy_id": "20260627-fix-duplicate-cash-accounts",
-  "changelog": "Fix duplicate Cash accounts race condition and restore correct account balance display.",
+  "version": "5.1.2",
+  "deploy_id": "20260627-dynamic-client-refresh",
+  "changelog": "Fix duplicate Cash accounts race condition, and implement dynamic cache-busting clients metadata loading for Client Manager.",
   "size": "~2MB",
   "released": "2026-06-27"
 }

@@ -7057,6 +7057,38 @@ ${expenseEntries.length > 0 ? `
       };
     }
 
+    async function _fetchAndRefreshClients() {
+      try {
+        const res = await fetch('js/core/clients-metadata.js?t=' + Date.now(), { cache: 'no-store' });
+        if (res.ok) {
+          const text = await res.text();
+          const match = text.match(/window\.WFA_AUTO_DEPLOYED_CLIENTS\s*=\s*([\s\S]*?);/);
+          if (match) {
+            let list;
+            try {
+              list = JSON.parse(match[1]);
+            } catch {
+              list = (new Function('return ' + match[1]))();
+            }
+            if (Array.isArray(list)) {
+              window.WFA_AUTO_DEPLOYED_CLIENTS = list;
+              const fresh = _loadClients();
+              const el = document.getElementById('cm-clients-table');
+              if (el) el.innerHTML = _buildTable(fresh);
+              const sumEl = document.getElementById('cm-summary-container');
+              if (sumEl) sumEl.innerHTML = _summary(fresh);
+              if (typeof window._wfaRefreshLicenseStatuses === 'function') {
+                window._wfaRefreshLicenseStatuses();
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[ClientManager] Metadata fetch error:', err);
+      }
+    }
+    window._wfaFetchAndRefreshClients = _fetchAndRefreshClients;
+
     // Trigger async panel-ready hook after DOM renders
     setTimeout(() => { if (typeof window._wfaLicenseManagerOnPanelReady === 'function') window._wfaLicenseManagerOnPanelReady(); }, 200);
 
@@ -7067,11 +7099,11 @@ ${expenseEntries.length > 0 ? `
         <span style="font-size:0.72rem;font-weight:500;color:#7a8baa;margin-left:8px">Admin Only &mdash; All client info &amp; Licenses</span>
       </div>
 
-      ${_summary(clients)}
+      <div id="cm-summary-container">${_summary(clients)}</div>
 
       <div class="settings-card" style="margin-bottom:20px">
         <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
-          <button onclick="(function(){ const fresh=_loadClients(); document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh); if(typeof _wfaRefreshLicenseStatuses==='function') _wfaRefreshLicenseStatuses(); })()" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
+          <button onclick="if(typeof window._wfaFetchAndRefreshClients==='function'){this.innerHTML='🔄 Loading…';const me=this;window._wfaFetchAndRefreshClients().finally(()=>me.innerHTML='🔄 Refresh');}else{const fresh=_loadClients();document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh);if(typeof _wfaRefreshLicenseStatuses==='function')_wfaRefreshLicenseStatuses();}" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
         </div>
         <div id="cm-clients-table">${_buildTable(clients)}</div>
       </div>
