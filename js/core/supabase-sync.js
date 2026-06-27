@@ -2758,6 +2758,41 @@ const SupabaseSync = (() => {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
       }
+      
+      // ✅ ONE-TIME BALANCE RECOVERY FROM BACKUP
+      const RECOVER_FLAG = 'wfa_balance_recovery_2026_06_27_v1';
+      if (!localStorage.getItem(RECOVER_FLAG)) {
+        const accounts = getAll('accounts');
+        let changed = false;
+        accounts.forEach(acc => {
+          if (acc.name === 'Cash' || acc.type === 'Cash') {
+            if ((parseFloat(acc.balance) || 0) < 37001) {
+              console.info(`[Recovery] Updating Cash balance from ৳${acc.balance} to ৳37001`);
+              acc.balance = 37001;
+              acc.updated_at = new Date().toISOString();
+              changed = true;
+            }
+          }
+          if (acc.name === 'Bikash') {
+            if ((parseFloat(acc.balance) || 0) < 8519) {
+              console.info(`[Recovery] Updating Bikash balance from ৳${acc.balance} to ৳8519`);
+              acc.balance = 8519;
+              acc.updated_at = new Date().toISOString();
+              changed = true;
+            }
+          }
+        });
+        if (changed) {
+          setAll('accounts', accounts);
+          accounts.forEach(acc => {
+            if (acc.name === 'Cash' || acc.name === 'Bikash') {
+              try { _pushRecord('accounts', acc); } catch(e) { console.warn('[Recovery] Cloud push failed:', e); }
+            }
+          });
+          console.info('[Recovery] Successfully restored Cash and Bikash balance from backup data.');
+        }
+        localStorage.setItem(RECOVER_FLAG, 'done');
+      }
     } catch (e) {
       console.warn('[Sync] Startup finance repair failed (non-critical):', e);
     }
@@ -2982,6 +3017,36 @@ const SyncEngine = (() => {
           });
         }
 
+        // ✅ BALANCE PROTECTION FIX: accounts table-এর balance সবসময় local value জিতবে।
+        // কারণ: balance live-update হয় updateAccountBalance() দিয়ে transaction-এর সময়।
+        // কিন্তু Supabase cloud-এ accounts row-এর updated_at অনেক সময় local-এর চেয়ে
+        // পুরনো থাকে — ফলে cloud-এর stale balance local-এর সঠিক balance overwrite করে।
+        // Fix: merge-এর পর accounts-এ local balance > cloud balance হলে local value রাখো।
+        // তারপর Supabase-এ সঠিক balance push করো যাতে পরের sync-এ আর সমস্যা না হয়।
+        if (key === 'accounts' && merged.length > 0 && localRows.length > 0) {
+          const localBalMap = new Map();
+          localRows.forEach(a => localBalMap.set(a.id, parseFloat(a.balance) || 0));
+          let balanceFixed = false;
+          merged = merged.map(acc => {
+            const localBal = localBalMap.get(acc.id);
+            if (localBal === undefined) return acc; // new from cloud — keep as-is
+            const cloudBal = parseFloat(acc.balance) || 0;
+            if (localBal !== cloudBal) {
+              // Local balance জিতবে — এটাই সত্যিকারের running total
+              console.info(`[SyncBalance] Account "${acc.name || acc.type}" balance: cloud=৳${cloudBal} < local=৳${localBal}. Keeping local.`);
+              balanceFixed = true;
+              return { ...acc, balance: localBal, updated_at: new Date().toISOString() };
+            }
+            return acc;
+          });
+          // Supabase-এ সঠিক balance push করো — পরের sync-এ আর সমস্যা হবে না
+          if (balanceFixed) {
+            merged.forEach(acc => {
+              try { _pushRecord('accounts', acc); } catch(e) {/* ignore */}
+            });
+          }
+        }
+
         const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
         const exKey  = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
         if (key === salKey && merged.length > 0 && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
@@ -3143,6 +3208,16 @@ const SyncEngine = (() => {
             }
             merged.set(row.id, existing);
           }
+          // ✅ BALANCE FIX (mergeRows): accounts-এর balance সবসময় local জিতবে
+          // (mergeRows caller-এ আলাদা block দিয়েও handle হয়, কিন্তু এখানেও guard রাখা হলো)
+          if (existing.balance !== undefined && row.balance !== undefined) {
+            const localAccBal = parseFloat(row.balance) || 0;
+            const cloudAccBal = parseFloat(existing.balance) || 0;
+            if (localAccBal !== cloudAccBal) {
+              existing.balance = localAccBal;
+              merged.set(row.id, existing);
+            }
+          }
         }
       }
     });
@@ -3275,6 +3350,16 @@ const SyncEngine = (() => {
             if (_localPaid > 0 && _cloudPaid === 0 && cloudRow.paidAmount === undefined && cloudRow.paid_amount === undefined) {
               const salMerged = { ...cloudRow, paidAmount: _localPaid, paid_amount: _localPaid };
               localMap.set(cloudRow.id, salMerged);
+            } else if (localRow.balance !== undefined && cloudRow.balance !== undefined) {
+              // ✅ BALANCE FIX (mergeIncremental): accounts-এর balance সবসময় local জিতবে
+              // Cloud-এ stale balance আসলে local-এর সঠিক running-total preserve করো
+              const _localBal = parseFloat(localRow.balance) || 0;
+              const _cloudBal = parseFloat(cloudRow.balance) || 0;
+              if (_localBal !== _cloudBal) {
+                localMap.set(cloudRow.id, { ...cloudRow, balance: _localBal, updated_at: new Date().toISOString() });
+              } else {
+                localMap.set(cloudRow.id, cloudRow);
+              }
             } else {
               localMap.set(cloudRow.id, cloudRow);
             }
