@@ -42,18 +42,20 @@ create table if not exists public.settings (
   expense_month       text,
   expense_start_date  text,
   expense_end_date    text,
-  income_categories   jsonb,
-  expense_categories  jsonb,
-  courses             jsonb,
-  employee_roles      jsonb,
-  admin_username      text,
-  keep_records        text,
-  recycle_bin_sync    text,
-  exam_questions      jsonb,
-  exam_settings       jsonb,
-  institution_type    text default 'coaching',
-  created_at          timestamptz default now(),
-  updated_at          timestamptz default now()
+  income_categories      jsonb,
+  expense_categories     jsonb,
+  courses                jsonb,
+  employee_roles         jsonb,
+  admin_username         text,
+  keep_records           text,
+  recycle_bin_sync       text,
+  exam_questions         jsonb,
+  exam_settings          jsonb,
+  institution_type       text default 'coaching',
+  payment_gateway_config jsonb,
+  sms_config             jsonb,
+  created_at             timestamptz default now(),
+  updated_at             timestamptz default now()
 );
 
 -- ── 1.2  students ─────────────────────────────────────────────────────────
@@ -77,7 +79,10 @@ create table if not exists public.students (
   photo_url        text,
   guardian_name    text,
   father_name      text,
+  mother_name      text,
   guardian_phone   text,
+  roll_no          text,
+  shift            text,
   note             text,
   installment_plan jsonb,
   created_at       timestamptz default now(),
@@ -352,6 +357,52 @@ create table if not exists public.push_subscriptions (
   last_seen  timestamptz default now()
 );
 
+-- ── 1.20 school_classes (School / College mode) ───────────────────────────
+create table if not exists public.school_classes (
+  id            text primary key,
+  class_name    text not null,
+  sections      jsonb default '[]'::jsonb,
+  shift         text default 'Day',
+  class_teacher text default '',
+  is_active     boolean default true,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+-- ── 1.21 school_subjects ──────────────────────────────────────────────────
+create table if not exists public.school_subjects (
+  id            text primary key,
+  class_name    text not null,
+  subject_name  text not null,
+  full_marks    numeric default 100,
+  pass_marks    numeric default 33,
+  is_active     boolean default true,
+  created_at    timestamptz default now(),
+  updated_at    timestamptz default now()
+);
+
+-- ── 1.22 school_marks ─────────────────────────────────────────────────────
+create table if not exists public.school_marks (
+  id             text primary key,
+  student_id     text not null,
+  student_no     text,
+  student_name   text,
+  class_name     text,
+  section        text,
+  roll_no        text,
+  academic_year  text,
+  exam_type      text default 'Annual',
+  subject_id     text,
+  subject_name   text,
+  marks_obtained numeric default 0,
+  full_marks     numeric default 100,
+  grade          text,
+  gpa            numeric default 0,
+  pass           boolean default false,
+  created_at     timestamptz default now(),
+  updated_at     timestamptz default now()
+);
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 2 — INDEXES (fast query support)
@@ -368,11 +419,15 @@ create index if not exists idx_finance_ledger_account  on public.finance_ledger(
 create index if not exists idx_exams_student_id        on public.exams(student_id);
 create index if not exists idx_attendance_person_id    on public.attendance(person_id);
 create index if not exists idx_attendance_date         on public.attendance(date);
-create index if not exists idx_visitors_visit_date     on public.visitors(visit_date);
-create index if not exists idx_activity_log_created_at on public.activity_log(created_at);
-create index if not exists idx_cert_tokens_token       on public.certificate_tokens(token);
-create index if not exists idx_cert_tokens_student_id  on public.certificate_tokens(student_id);
-create index if not exists idx_push_subs_endpoint      on public.push_subscriptions(endpoint);
+create index if not exists idx_visitors_visit_date       on public.visitors(visit_date);
+create index if not exists idx_activity_log_created_at   on public.activity_log(created_at);
+create index if not exists idx_cert_tokens_token         on public.certificate_tokens(token);
+create index if not exists idx_cert_tokens_student_id    on public.certificate_tokens(student_id);
+create index if not exists idx_push_subs_endpoint        on public.push_subscriptions(endpoint);
+create index if not exists idx_school_classes_active     on public.school_classes(is_active);
+create index if not exists idx_school_subjects_class     on public.school_subjects(class_name);
+create index if not exists idx_school_marks_student      on public.school_marks(student_id, exam_type, academic_year);
+create index if not exists idx_school_marks_class        on public.school_marks(class_name, section, exam_type);
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -396,7 +451,8 @@ begin
   foreach tbl in array array[
     'settings','students','staff','salary','finance_ledger','accounts',
     'loans','exams','attendance','visitors','notices','advance_payments',
-    'investments','keep_records','custom_themes','sub_accounts','certificate_tokens'
+    'investments','keep_records','custom_themes','sub_accounts','certificate_tokens',
+    'school_classes','school_subjects','school_marks'
   ] loop
     if not exists (
       select 1 from pg_trigger
@@ -569,6 +625,24 @@ create policy wfa_push_subs_delete on public.push_subscriptions
 -- NOTE: No SELECT policy for anon/authenticated.
 -- Only service_role key (Edge Function) can SELECT all subscriptions.
 
+-- ── school_classes ────────────────────────────────────────────────────────
+alter table public.school_classes enable row level security;
+drop policy if exists wfa_school_classes_all on public.school_classes;
+create policy wfa_school_classes_all on public.school_classes
+  for all using (true) with check (true);
+
+-- ── school_subjects ───────────────────────────────────────────────────────
+alter table public.school_subjects enable row level security;
+drop policy if exists wfa_school_subjects_all on public.school_subjects;
+create policy wfa_school_subjects_all on public.school_subjects
+  for all using (true) with check (true);
+
+-- ── school_marks ──────────────────────────────────────────────────────────
+alter table public.school_marks enable row level security;
+drop policy if exists wfa_school_marks_all on public.school_marks;
+create policy wfa_school_marks_all on public.school_marks
+  for all using (true) with check (true);
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 5 — STORAGE BUCKET (photos)
@@ -616,7 +690,8 @@ begin
     'settings','students','staff','salary','finance_ledger','accounts',
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
-    'activity_log','certificate_tokens'
+    'activity_log','certificate_tokens',
+    'school_classes','school_subjects','school_marks'
   ] loop
     begin
       execute format(
@@ -687,7 +762,8 @@ where schemaname = 'public'
     'settings','students','staff','salary','finance_ledger','accounts',
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
-    'activity_log','certificate_tokens','push_subscriptions'
+    'activity_log','certificate_tokens','push_subscriptions',
+    'school_classes','school_subjects','school_marks'
   )
 order by tablename;
 
