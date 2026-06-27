@@ -7090,7 +7090,6 @@ ${expenseEntries.length > 0 ? `
       <div class="settings-card" style="margin-bottom:20px">
         <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
           <button onclick="(function(){ const fresh=_loadClients(); document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh); if(typeof _wfaRefreshLicenseStatuses==='function') _wfaRefreshLicenseStatuses(); })()" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
-          <button onclick="_wfaRestoreAutoDeployedClients && _wfaRestoreAutoDeployedClients()" title="Clear deleted-codes blacklist and restore all auto-deployed clients from clients-metadata.js" style="margin-left:6px;background:rgba(0,255,136,0.08);border:1px solid rgba(0,255,136,0.2);color:#00ff88;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">♻️ Restore Auto-Deployed</button>
         </div>
         <div id="cm-clients-table">${_buildTable(clients)}</div>
       </div>

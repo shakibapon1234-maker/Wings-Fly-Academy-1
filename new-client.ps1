@@ -243,15 +243,27 @@ Write-Title "STEP 5C: Main admin repo-te clients-metadata.js push hochhe..."
 Write-Host ""
 Push-Location $WFA_ROOT
 try {
-    git add "js/core/clients-metadata.js" | Out-Null
-    git commit -m "chore: add client $CODE ($ACADEMY) to clients-metadata.js" | Out-Null
-    git push | Out-Null
-    Write-OK "Main repo updated - Client Manager-e notun client dekhabe."
+    # NOTE: | Out-Null was removed — git output must be visible to detect failures.
+    # $ErrorActionPreference = "Stop" does NOT catch native command failures;
+    # we must check $LASTEXITCODE manually after each git call.
+
+    git add "js/core/clients-metadata.js"
+    if ($LASTEXITCODE -ne 0) { throw "git add failed (exit $LASTEXITCODE)" }
+
+    git commit -m "chore: add client $CODE ($ACADEMY) to clients-metadata.js"
+    if ($LASTEXITCODE -ne 0) { throw "git commit failed (exit $LASTEXITCODE)" }
+
+    git push
+    if ($LASTEXITCODE -ne 0) { throw "git push failed (exit $LASTEXITCODE)" }
+
+    Write-OK "Main repo updated — Client Manager-e notun client dekhabe."
 } catch {
-    Write-WARN "Main repo push hoyni. Pore nije korun:"
+    Write-ERR "Main repo update hoyni: $($_.Exception.Message)"
+    Write-WARN "Pore nije korun:"
     Write-Host "  git add js/core/clients-metadata.js" -ForegroundColor DarkGray
     Write-Host "  git commit -m 'add client $CODE'" -ForegroundColor DarkGray
     Write-Host "  git push" -ForegroundColor DarkGray
+    Write-WARN "Eta na korle Client Manager-e notun client dekhabe na!"
 } finally {
     Pop-Location
 }
