@@ -32,47 +32,64 @@
   <script src="js/core/payment-engine.js"></script>
   <script src="js/core/routine-engine.js"></script>
   <script src="js/ui/student-dashboard.js"></script>
+  <script src="js/lib/qrcode.min.js"></script>
+  <script src="js/ui/portal-background.js" defer></script>
 </head>
 <body>
 
-  <div class="container">
-    
-    <!-- ── 1. LOGIN VIEW ── -->
-    <div id="login-view" class="login-wrapper">
-      <div class="login-card">
-        <div class="login-logo">
-          <img src="assets/logo.png" onerror="this.onerror=null;this.src='https://fznhiqzrslldybhmgopk.supabase.co/storage/v1/object/public/assets/logo.png'" alt="WFA Logo" />
-          <h1>স্টুডেন্ট পোর্টাল</h1>
-          <p>Wings Fly Aviation Academy</p>
-        </div>
-        
-        <!-- Error Alert box -->
-        <div id="login-error-box" class="error-msg" style="display: none;">
-          <i class="fa fa-exclamation-circle"></i>
-          <span id="login-error-text">ত্রুটি ঘটেছে!</span>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label" for="student-phone">মোবাইল নম্বর</label>
-          <div class="input-icon-wrapper">
-            <input type="tel" id="student-phone" class="form-input" placeholder="01XXXXXXXXX" autocomplete="off" />
-            <i class="fa fa-phone"></i>
-          </div>
-        </div>
-        
-        <div class="form-group">
-          <label class="form-label" for="student-pin">৪-ডিজিট পিন নম্বর</label>
-          <div class="input-icon-wrapper">
-            <input type="password" id="student-pin" class="form-input" placeholder="••••" maxlength="4" autocomplete="off" />
-            <i class="fa fa-lock"></i>
-          </div>
-        </div>
-        
-        <button id="btn-login-submit" class="btn-primary" onclick="handleLogin()">
-          <span>লগইন করুন</span> <i class="fa fa-arrow-right"></i>
-        </button>
-      </div>
+  <!-- Animated Background Canvas -->
+  <canvas id="bg-canvas"></canvas>
+
+  <!-- ── 1. LOGIN VIEW ── -->
+  <div id="login-view" class="login-wrapper">
+    <!-- Plane SVG decoration -->
+    <div class="login-plane-deco" aria-hidden="true">
+      <svg viewBox="0 0 200 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 40 L180 20 L160 40 L180 60 Z" fill="rgba(0,217,255,0.07)" stroke="rgba(0,217,255,0.18)" stroke-width="1"/>
+        <path d="M140 30 L160 40 L140 50 Z" fill="rgba(0,217,255,0.12)"/>
+        <line x1="10" y1="40" x2="180" y2="40" stroke="rgba(0,217,255,0.06)" stroke-width="1" stroke-dasharray="4 6"/>
+      </svg>
     </div>
+
+    <div class="login-card">
+      <div class="login-logo">
+        <picture>
+          <source srcset="assets/logo.webp" type="image/webp" />
+          <img src="assets/logo.jpg" alt="WFA Logo" />
+        </picture>
+        <h1>স্টুডেন্ট পোর্টাল</h1>
+        <p>Wings Fly Aviation Academy</p>
+      </div>
+      
+      <!-- Error Alert box -->
+      <div id="login-error-box" class="error-msg" style="display: none;">
+        <i class="fa fa-exclamation-circle"></i>
+        <span id="login-error-text">ত্রুটি ঘটেছে!</span>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="student-phone">মোবাইল নম্বর</label>
+        <div class="input-icon-wrapper">
+          <input type="tel" id="student-phone" class="form-input" placeholder="01XXXXXXXXX" autocomplete="off" />
+          <i class="fa fa-phone"></i>
+        </div>
+      </div>
+      
+      <div class="form-group">
+        <label class="form-label" for="student-pin">৪-ডিজিট পিন নম্বর</label>
+        <div class="input-icon-wrapper">
+          <input type="password" id="student-pin" class="form-input" placeholder="••••" maxlength="4" autocomplete="off" />
+          <i class="fa fa-lock"></i>
+        </div>
+      </div>
+      
+      <button id="btn-login-submit" class="btn-primary" onclick="handleLogin()">
+        <span>লগইন করুন</span> <i class="fa fa-arrow-right"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="container">
     
     <!-- ── 2. DASHBOARD VIEW ── -->
     <div id="dashboard-view" style="display: none;">
@@ -109,6 +126,9 @@
         <button class="tab-btn" data-tab="routine" onclick="switchTab('routine')">
           <i class="fa fa-calendar-week"></i> <span>রুটিন</span>
         </button>
+        <button class="tab-btn" data-tab="certificate" onclick="switchTab('certificate')">
+          <i class="fa fa-certificate"></i> <span>সার্টিফিকেট</span>
+        </button>
       </nav>
       
       <!-- Tabs Content Containers -->
@@ -137,6 +157,13 @@
         <!-- Routine Section -->
         <section id="section-routine" class="content-section">
           <div id="container-routine">
+            <!-- Rendered by js/ui/student-dashboard.js -->
+          </div>
+        </section>
+
+        <!-- Certificate Section -->
+        <section id="section-certificate" class="content-section">
+          <div id="container-certificate">
             <!-- Rendered by js/ui/student-dashboard.js -->
           </div>
         </section>

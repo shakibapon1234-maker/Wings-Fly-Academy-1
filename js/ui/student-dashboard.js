@@ -74,6 +74,8 @@ const StudentDashboard = (() => {
         await _renderFees(container);
       } else if (tabId === 'routine') {
         await _renderRoutine(container);
+      } else if (tabId === 'certificate') {
+        await _renderCertificate(container);
       }
     } catch (err) {
       console.error('[Dashboard] Load tab error:', err);
@@ -714,7 +716,110 @@ const StudentDashboard = (() => {
     `;
   }
 
-  return { init, loadTab, openSubmitPaymentModal };
+  // ── Render Certificate Tab ─────────────────────────────────
+  async function _renderCertificate(container) {
+    const sid = _student.student_id || _student.id;
+    const sdbid = _student.id;
+    const phone = (_student.phone || '').replace(/\D/g, '');
+
+    // 1. Fetch token from certificate_tokens
+    let token = null;
+    try {
+      const { data: existing } = await _supabase
+        .from('certificate_tokens')
+        .select('token')
+        .eq('student_id', sid)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (existing) {
+        token = existing.token;
+      } else {
+        // If not exists, let's create it if the student has a valid phone
+        if (phone && phone.length >= 4) {
+          const { data, error } = await _supabase
+            .from('certificate_tokens')
+            .insert({ student_id: sid, student_db_id: sdbid, phone_hash: phone.slice(-4) })
+            .select('token')
+            .single();
+          if (data) token = data.token;
+          if (error) console.error('[Dashboard] Create cert token error:', error.message);
+        }
+      }
+    } catch (err) {
+      console.error('[Dashboard] Cert token fetch error:', err);
+    }
+
+    if (!token) {
+      container.innerHTML = `
+        <div class="no-data-msg">
+          <i class="fa fa-certificate"></i>
+          আপনার জন্য কোনো সার্টিফিকেট লিংক বা টোকেন তৈরি করা হয়নি অথবা আপনার প্রোফাইলে সচল মোবাইল নম্বর নেই।
+        </div>
+      `;
+      return;
+    }
+
+    // 2. Generate certificate URL
+    const baseHref = window.location.href.replace(/student-portal\.html.*$/, '');
+    const certUrl = `${baseHref}certificate.html?token=${encodeURIComponent(token)}`;
+
+    // 3. Render QR Code and Link Copy UI
+    container.innerHTML = `
+      <div class="table-card animate-fade-in" style="text-align: center; padding: 44px 24px; max-width: 600px; margin: 0 auto;">
+        <div style="font-size: 3rem; color: var(--primary); margin-bottom: 16px;">
+          <i class="fa fa-ribbon"></i>
+        </div>
+        <h3 style="font-size: 1.35rem; font-weight: 700; margin-bottom: 10px; color: var(--text-primary);">আপনার ডিজিটাল সার্টিফিকেট পোর্টাল</h3>
+        <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 500px; margin: 0 auto 24px; line-height: 1.6;">
+          নিচের QR কোডটি স্ক্যান করে অথবা লিংকটি কপি করে যেকোনো ব্রাউজার থেকে আপনার ভেরিফাইড সার্টিফিকেট ডাউনলোড করতে পারেন।
+        </p>
+
+        <div id="portal-qr-target" style="display: flex; justify-content: center; margin-bottom: 28px;"></div>
+
+        <div class="input-icon-wrapper" style="max-width: 480px; margin: 0 auto 20px; position: relative;">
+          <input type="text" id="cert-copy-input" class="form-input" value="${_escapeHtml(certUrl)}" readonly style="padding: 15px 120px 15px 16px; text-align: left; direction: ltr;" />
+          <button onclick="StudentDashboard.copyCertLink()" style="position: absolute; right: 6px; top: 50%; transform: translateY(-50%); background: var(--primary); border: none; border-radius: 10px; padding: 9px 16px; font-size: 0.85rem; font-weight: 700; color: #0b0f19; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: var(--transition);">
+            <i class="fa fa-copy"></i> কপি করুন
+          </button>
+        </div>
+
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <i class="fa fa-shield-halved" style="color: var(--success); font-size: 1rem;"></i> আপনার মোবাইল নম্বরের শেষ ৪ ডিজিট দিয়ে ভেরিফাই করতে হবে।
+        </p>
+      </div>
+    `;
+
+    // 4. Render QR Code
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(document.getElementById('portal-qr-target'), {
+        text: certUrl, width: 180, height: 180,
+        colorDark: '#080c14', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.H,
+      });
+    } else {
+      // Fallback
+      document.getElementById('portal-qr-target').innerHTML = `
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(certUrl)}" width="180" height="180" style="border: 6px solid white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);" />
+      `;
+    }
+  }
+
+  function copyCertLink() {
+    const input = document.getElementById('cert-copy-input');
+    if (!input) return;
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value)
+      .then(() => {
+        _showToast('✅ সার্টিফিকেট লিংক কপি করা হয়েছে!', 'success');
+      })
+      .catch((err) => {
+        console.error('Failed to copy: ', err);
+        _showToast('লিংক কপি করতে সমস্যা হয়েছে!', 'error');
+      });
+  }
+
+  return { init, loadTab, openSubmitPaymentModal, copyCertLink };
 })();
 
 window.StudentDashboard = StudentDashboard;
