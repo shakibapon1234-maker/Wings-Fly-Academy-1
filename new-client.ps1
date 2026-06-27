@@ -186,17 +186,21 @@ $existing_clients = @()
 if (Test-Path $META_PATH) {
     $js_content = Get-Content -Path $META_PATH -Raw -Encoding UTF8
 
-    $json_raw = $js_content -replace '^\s*window\.WFA_AUTO_DEPLOYED_CLIENTS\s*=\s*', '' `
-                            -replace ';\s*$', '' |
-               ForEach-Object { $_.Trim() }
-    try {
-        $parsed = ConvertFrom-Json $json_raw
-        if ($parsed -ne $null) {
-            $existing_clients = @($parsed)
+    # Robust JSON extraction: strip BOM and extract between [ and ]
+    $clean_content = $js_content -replace "^\uFEFF", ""
+    $first_b = $clean_content.IndexOf('[')
+    $last_b  = $clean_content.LastIndexOf(']')
+    if ($first_b -ge 0 -and $last_b -gt $first_b) {
+        $json_raw = $clean_content.Substring($first_b, $last_b - $first_b + 1)
+        try {
+            $parsed = ConvertFrom-Json $json_raw
+            if ($parsed -ne $null) {
+                $existing_clients = @($parsed)
+            }
+        } catch {
+            Write-WARN "clients-metadata.js parse error - starting fresh list."
+            $existing_clients = @()
         }
-    } catch {
-        Write-WARN "clients-metadata.js parse error - starting fresh list."
-        $existing_clients = @()
     }
 }
 
@@ -216,9 +220,6 @@ if ($already_exists) {
         institutionType = $INSTTYPE
         licenseKey   = $LICKEY
         supabaseUrl  = $URL
-        # FIX 5: supabaseKey intentionally omitted — it would be pushed to the
-        # public GitHub repo inside clients-metadata.js. The key lives only in
-        # the client's own supabase-secrets.js (gitignored in main repo).
         createdAt    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
         notes        = "Auto-deployed via script"
     }
@@ -231,8 +232,6 @@ $new_meta_content | Set-Content -Path $META_PATH -Encoding UTF8
 Write-OK "Clients metadata updated: js/core/clients-metadata.js"
 
 # -- FIX 2: Also sync www/js/core/clients-metadata.js ----------------------
-# Without this the Client Manager does not show the new client until someone
-# manually runs `node build-www.js`.
 $WWW_META_PATH = Join-Path $WFA_ROOT "www\js\core\clients-metadata.js"
 $new_meta_content | Set-Content -Path $WWW_META_PATH -Encoding UTF8
 Write-OK "www/js/core/clients-metadata.js also synced (no manual build-www.js needed)"
@@ -243,20 +242,25 @@ Write-Title "STEP 5C: Main admin repo-te clients-metadata.js push hochhe..."
 Write-Host ""
 Push-Location $WFA_ROOT
 try {
-    # NOTE: | Out-Null was removed — git output must be visible to detect failures.
-    # $ErrorActionPreference = "Stop" does NOT catch native command failures;
-    # we must check $LASTEXITCODE manually after each git call.
-
     git add "js/core/clients-metadata.js"
-    if ($LASTEXITCODE -ne 0) { throw "git add failed (exit $LASTEXITCODE)" }
+    
+    # Check if there are staged changes before committing
+    $staged = git status --porcelain "js/core/clients-metadata.js"
+    if ($staged) {
+        git commit -m "chore: add client $CODE ($ACADEMY) to clients-metadata.js"
+        if ($LASTEXITCODE -ne 0) { throw "git commit failed (exit $LASTEXITCODE)" }
 
-    git commit -m "chore: add client $CODE ($ACADEMY) to clients-metadata.js"
-    if ($LASTEXITCODE -ne 0) { throw "git commit failed (exit $LASTEXITCODE)" }
-
-    git push
-    if ($LASTEXITCODE -ne 0) { throw "git push failed (exit $LASTEXITCODE)" }
-
-    Write-OK "Main repo updated — Client Manager-e notun client dekhabe."
+        git push
+        if ($LASTEXITCODE -ne 0) {
+            Write-WARN "git push failed, attempting git pull --rebase..."
+            git pull --rebase
+            git push
+            if ($LASTEXITCODE -ne 0) { throw "git push failed after rebase (exit $LASTEXITCODE)" }
+        }
+        Write-OK "Main repo updated — Client Manager-e notun client dekhabe."
+    } else {
+        Write-OK "No changes to commit for clients-metadata.js."
+    }
 } catch {
     Write-ERR "Main repo update hoyni: $($_.Exception.Message)"
     Write-WARN "Pore nije korun:"
