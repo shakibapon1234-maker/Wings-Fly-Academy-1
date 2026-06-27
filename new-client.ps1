@@ -204,24 +204,34 @@ if (Test-Path $META_PATH) {
     }
 }
 
-if ($existing_clients -isnot [array]) {
-    $existing_clients = @($existing_clients)
+$existing_idx = -1
+for ($i = 0; $i -lt $existing_clients.Count; $i++) {
+    if ($existing_clients[$i].customerCode -eq $CODE) {
+        $existing_idx = $i
+        break
+    }
 }
 
-$already_exists = $existing_clients | Where-Object { $_.customerCode -eq $CODE }
-if ($already_exists) {
-    Write-WARN "customerCode '$CODE' already exists in clients-metadata.js - skipping duplicate."
+if ($existing_idx -ge 0) {
+    Write-WARN "customerCode '$CODE' already exists in clients-metadata.js - updating entry with new deployment info."
+    $existing_clients[$existing_idx].academy         = $ACADEMY
+    $existing_clients[$existing_idx].package         = $PKG
+    $existing_clients[$existing_idx].institutionType = $INSTTYPE
+    if ($LICKEY) { $existing_clients[$existing_idx].licenseKey = $LICKEY }
+    $existing_clients[$existing_idx].supabaseUrl     = $URL
+    $existing_clients[$existing_idx].createdAt       = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+    $existing_clients[$existing_idx].notes           = "Updated via script on " + (Get-Date -Format "yyyy-MM-dd")
 } else {
     $new_client = [PSCustomObject]@{
-        id           = [Guid]::NewGuid().ToString()
-        customerCode = $CODE
-        academy      = $ACADEMY
-        package      = $PKG
+        id              = [Guid]::NewGuid().ToString()
+        customerCode    = $CODE
+        academy         = $ACADEMY
+        package         = $PKG
         institutionType = $INSTTYPE
-        licenseKey   = $LICKEY
-        supabaseUrl  = $URL
-        createdAt    = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
-        notes        = "Auto-deployed via script"
+        licenseKey      = $LICKEY
+        supabaseUrl     = $URL
+        createdAt       = (Get-Date -Format "yyyy-MM-ddTHH:mm:ss.fffZ")
+        notes           = "Auto-deployed via script"
     }
     $existing_clients += $new_client
 }
