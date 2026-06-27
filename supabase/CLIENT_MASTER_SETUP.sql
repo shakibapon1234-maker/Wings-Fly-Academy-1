@@ -415,6 +415,52 @@ create table if not exists public.student_portal_access (
   updated_at   timestamptz default now()
 );
 
+-- ── 1.24 payment_requests (bKash/Nagad/Bank Payment Gateway) ─────────────────
+create table if not exists public.payment_requests (
+  id             text primary key,
+  student_id     text not null,
+  student_name   text,
+  batch_id       text,
+  amount         numeric not null,
+  method         text not null,
+  transaction_id text not null,
+  sender_number  text,
+  screenshot_url text,
+  status         text default 'pending',
+  submitted_at   timestamptz default now(),
+  reviewed_at    timestamptz,
+  reviewed_by    text,
+  note           text,
+  created_at     timestamptz default now(),
+  updated_at     timestamptz default now()
+);
+
+-- ── 1.25 class_routines (Class Schedule / Routine Builder) ───────────────────
+create table if not exists public.class_routines (
+  id         text primary key,
+  batch_id   text not null,
+  day        text not null,
+  start_time text not null,
+  end_time   text not null,
+  subject    text,
+  teacher_id text,
+  room       text,
+  is_active  boolean default true,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- ── 1.26 sms_logs (SMS Notification Logs) ────────────────────────────────────
+create table if not exists public.sms_logs (
+  id                text primary key,
+  recipient         text not null,
+  message           text not null,
+  type              text not null default 'general',
+  status            text not null default 'pending',
+  provider_response text,
+  sent_at           timestamptz default now()
+);
+
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 2 — INDEXES (fast query support)
@@ -423,6 +469,15 @@ create index if not exists idx_students_student_id     on public.students(studen
 create index if not exists idx_students_status         on public.students(status);
 create index if not exists idx_students_batch          on public.students(batch);
 create index if not exists idx_staff_status            on public.staff(status);
+create index if not exists idx_school_marks_student      on public.school_marks(student_id, exam_type, academic_year);
+create index if not exists idx_school_marks_class        on public.school_marks(class_name, section, exam_type);
+create index if not exists idx_spa_phone                 on public.student_portal_access(phone);
+create index if not exists idx_spa_student_id            on public.student_portal_access(student_id);
+create index if not exists idx_payment_requests_student  on public.payment_requests(student_id);
+create index if not exists idx_payment_requests_status   on public.payment_requests(status);
+create index if not exists idx_class_routines_batch_day  on public.class_routines(batch_id, day);
+create index if not exists idx_sms_logs_sent_at          on public.sms_logs(sent_at desc);
+create index if not exists idx_sms_logs_status           on public.sms_logs(status);
 create index if not exists idx_salary_staff_id         on public.salary(staff_id);
 create index if not exists idx_salary_month_year       on public.salary(month, year);
 create index if not exists idx_finance_ledger_date     on public.finance_ledger(date);
@@ -464,7 +519,8 @@ begin
     'settings','students','staff','salary','finance_ledger','accounts',
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts','certificate_tokens',
-    'school_classes','school_subjects','school_marks','student_portal_access'
+    'school_classes','school_subjects','school_marks','student_portal_access',
+    'payment_requests','class_routines'
   ] loop
     if not exists (
       select 1 from pg_trigger
@@ -661,6 +717,30 @@ drop policy if exists wfa_student_portal_access_all on public.student_portal_acc
 create policy wfa_student_portal_access_all on public.student_portal_access
   for all using (true) with check (true);
 
+-- ── payment_requests ──────────────────────────────────────────────────────
+alter table public.payment_requests enable row level security;
+drop policy if exists wfa_payment_requests_all on public.payment_requests;
+create policy wfa_payment_requests_all on public.payment_requests
+  for all using (true) with check (true);
+
+-- ── class_routines ────────────────────────────────────────────────────────
+alter table public.class_routines enable row level security;
+drop policy if exists wfa_class_routines_all on public.class_routines;
+create policy wfa_class_routines_all on public.class_routines
+  for all using (true) with check (true);
+
+-- ── sms_logs ──────────────────────────────────────────────────────────────
+alter table public.sms_logs enable row level security;
+drop policy if exists wfa_sms_logs_all on public.sms_logs;
+create policy wfa_sms_logs_all on public.sms_logs
+  for all using (true) with check (true);
+
+-- ── settings: নতুন কলাম (যদি না থাকে) ────────────────────────────────────
+alter table public.settings
+  add column if not exists institution_type       text default 'coaching',
+  add column if not exists payment_gateway_config jsonb default '{}'::jsonb,
+  add column if not exists sms_config             jsonb default '{}'::jsonb;
+
 -- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 5 — STORAGE BUCKET (photos)
 -- ─────────────────────────────────────────────────────────────────────────────
@@ -708,7 +788,8 @@ begin
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
     'activity_log','certificate_tokens',
-    'school_classes','school_subjects','school_marks','student_portal_access'
+    'school_classes','school_subjects','school_marks','student_portal_access',
+    'payment_requests','class_routines','sms_logs'
   ] loop
     begin
       execute format(
@@ -780,7 +861,8 @@ where schemaname = 'public'
     'loans','exams','attendance','visitors','notices','advance_payments',
     'investments','keep_records','custom_themes','sub_accounts',
     'activity_log','certificate_tokens','push_subscriptions',
-    'school_classes','school_subjects','school_marks','student_portal_access'
+    'school_classes','school_subjects','school_marks','student_portal_access',
+    'payment_requests','class_routines','sms_logs'
   )
 order by tablename;
 
