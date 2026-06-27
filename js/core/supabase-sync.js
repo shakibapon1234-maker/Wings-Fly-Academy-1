@@ -2610,10 +2610,74 @@ const SupabaseSync = (() => {
     }
   }
 
+  /** Duplicate Cash accounts merge করে এবং redundant গুলো delete করে */
+  function cleanupDuplicateCashAccounts() {
+    try {
+      const accounts = getAll('accounts') || [];
+      const cashAccounts = accounts.filter(a => a.type === 'Cash');
+      if (cashAccounts.length <= 1) return false;
+
+      console.info(`[Sync] Found ${cashAccounts.length} duplicate Cash accounts. Merging...`);
+
+      // Find the primary one (preferably MO32YQP5Z7NXK6 or oldest by date, or first one)
+      let primary = cashAccounts.find(a => a.id === 'MO32YQP5Z7NXK6');
+      if (!primary) {
+        cashAccounts.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+        primary = cashAccounts[0];
+      }
+
+      let totalBalance = 0;
+      const toDelete = [];
+
+      cashAccounts.forEach(a => {
+        totalBalance += parseFloat(a.balance) || 0;
+        if (a.id !== primary.id) {
+          toDelete.push(a);
+        }
+      });
+
+      // Update primary account balance
+      primary.balance = Math.round(totalBalance * 100) / 100;
+      primary.updated_at = new Date().toISOString();
+
+      // Filter out duplicate accounts
+      const filteredAccounts = accounts.filter(a => !toDelete.some(d => d.id === a.id));
+
+      // Save back locally
+      setAll('accounts', filteredAccounts);
+
+      // Push primary update to cloud
+      _pushRecord('accounts', primary).catch(() => {});
+
+      // Delete duplicates from cloud and track deletions
+      toDelete.forEach(d => {
+        _deleteFromCloud('accounts', d.id);
+        _trackDeletion('accounts', d.id);
+      });
+
+      console.info(`[Sync] Merged duplicate Cash accounts. Primary ID: ${primary.id}, New balance: ৳${primary.balance}. Deleted ${toDelete.length} duplicates.`);
+      return true;
+    } catch (err) {
+      console.warn('[Sync] cleanupDuplicateCashAccounts error:', err);
+      return false;
+    }
+  }
+
   /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
   function ensureDefaultCashAccount() {
     const accounts = getAll('accounts');
     if (accounts.some(a => a.type === 'Cash')) return false;
+
+    // Check if the database is completely empty (no accounts, no settings, no students)
+    // If it's completely empty and we haven't synced yet, do not create it yet (wait for sync pull)
+    const settings = getAll('settings') || [];
+    const students = getAll('students') || [];
+    const hasPulled = window.SyncEngine && typeof window.SyncEngine.getLastPullTimestamp === 'function' && window.SyncEngine.getLastPullTimestamp();
+    if (accounts.length === 0 && settings.length === 0 && students.length === 0 && !hasPulled) {
+      console.info('[Sync] Database is empty and first pull has not run yet. Delaying default Cash account creation.');
+      return false;
+    }
+
     insert('accounts', {
       type: 'Cash',
       name: 'Cash',
@@ -2753,6 +2817,7 @@ const SupabaseSync = (() => {
 
   function _runStartupFinanceRepair() {
     try {
+      cleanupDuplicateCashAccounts();
       ensureDefaultCashAccount();
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
@@ -2773,6 +2838,7 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     ensureDefaultCashAccount,
+    cleanupDuplicateCashAccounts,
     repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
@@ -3049,6 +3115,13 @@ const SyncEngine = (() => {
 
       _lastSyncTime     = Date.now();
       _lastPullTimestamp = pullStartedAt;
+
+      // ✅ Deduplicate and ensure default cash account after pull completes
+      const didClean = typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.cleanupDuplicateCashAccounts === 'function' && SupabaseSync.cleanupDuplicateCashAccounts();
+      const didCreate = typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.ensureDefaultCashAccount === 'function' && SupabaseSync.ensureDefaultCashAccount();
+      if (didClean || didCreate) {
+        hasChanges = true;
+      }
 
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
 
@@ -3570,6 +3643,7 @@ const SyncEngine = (() => {
 
   return {
     pull, push, syncAll, fullPull, resetSyncAnchor,
+    getLastPullTimestamp: () => _lastPullTimestamp,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,

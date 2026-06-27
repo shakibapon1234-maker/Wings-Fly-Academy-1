@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260606-cert-login-fix)
-const DEPLOY_ID = '20260626-feature4-sms-notifications';
+const DEPLOY_ID = '20260627-fix-duplicate-cash-accounts';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
@@ -95,6 +95,17 @@ const STATIC_ASSETS = [
   './css/student-portal.css',
   './js/core/student-auth.js',
   './js/ui/student-dashboard.js',
+  './js/core/institution-mode.js',
+  './js/core/school-engine.js',
+  './js/core/settings-institution.js',
+  './js/core/payment-engine.js',
+  './js/core/routine-engine.js',
+  './js/core/sms-engine.js',
+  './js/modules/school-classes.js',
+  './js/modules/subject-marks.js',
+  './js/modules/result-sheet.js',
+  './js/modules/payment-requests.js',
+  './js/modules/routine-builder.js',
   // ✅ Fix #5: version.json intentionally NOT pre-cached.
   // auto-update.js fetches it with cache:'no-store'; SW fetch handler is 'network first'
   // so a cached copy would never be served offline anyway. Removed to avoid confusion.

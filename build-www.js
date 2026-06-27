@@ -22,6 +22,7 @@ const itemsToCopy = [
   'idb-cleaner.html',
   'migrate.html',
   'visitor-form.html',
+  'student-portal.html',
   'manifest.json',
   'service-worker.js',
   'googled6196e4fd6461a39.html',

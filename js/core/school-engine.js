@@ -385,7 +385,8 @@ const SchoolEngine = (() => {
   }
 
   function getStudentsInClass(className, section, academicYear) {
-    const students = _sync() ? _sync().getAll(DB.students) : [];
+    if (!_sync() || typeof DB === 'undefined') return [];
+    const students = _sync().getAll(DB.students);
     return students.filter((st) => {
       if (String(st.course || '').trim() !== String(className).trim()) return false;
       if (section && String(st.batch || '').trim().toUpperCase() !== String(section).trim().toUpperCase()) return false;
