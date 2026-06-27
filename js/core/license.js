@@ -162,10 +162,7 @@ const LicenseEngine = (() => {
   async function validate(key) {
     if (!key || typeof key !== 'string') return { ok: false, reason: 'no_key' };
 
-    let clean = key.trim().toUpperCase().replace(/\s/g, '');
-    // Auto-normalize letter 'O' to number '0' to prevent user typo confusion (e.g. SOO1 vs S001)
-    clean = clean.replace(/O/g, '0');
-    
+    const clean = key.trim().toUpperCase().replace(/\s/g, '');
     const parts = clean.split('-');
     if (parts.length !== 5 || parts[0] !== 'WFA') {
       return { ok: false, reason: 'invalid_format' };
@@ -180,15 +177,14 @@ const LicenseEngine = (() => {
     if (cfg) {
       try {
         const result = await _postToServer('validate-license', { key: clean });
-        // ── Migration-window fallback: if server says key is not found / unknown
+        // ── Migration-window fallback: if server says key is not valid/found/tampered
         // (happens for keys generated locally when server was temporarily down),
         // try the legacy checksum validator before returning invalid.
         const inMigrationWindow = new Date() <= new Date(_MIGRATION_FALLBACK_UNTIL);
-        if (!result.ok && inMigrationWindow &&
-            (result.reason === 'not_found' || result.reason === 'key_not_found' || !result.reason)) {
+        if (!result.ok && inMigrationWindow) {
           const legacy = _legacyValidate(clean);
           if (legacy.ok || legacy.inGrace) {
-            console.info('[LicenseEngine] Server said not_found but local checksum valid — migration fallback used.');
+            console.info('[LicenseEngine] Server validation failed but local checksum valid — migration fallback used.');
             return { ...legacy, _fromMigrationFallback: true };
           }
         }
