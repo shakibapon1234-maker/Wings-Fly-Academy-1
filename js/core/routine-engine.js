@@ -100,11 +100,13 @@ const RoutineEngine = (() => {
 
   function _logActivity(action, r) {
     try {
-      if (typeof Utils !== 'undefined' && Utils.logActivity) {
+      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
         const label = action === 'add'    ? 'রুটিন যোগ'
                     : action === 'update' ? 'রুটিন আপডেট'
                     :                      'রুটিন মুছে ফেলা';
-        Utils.logActivity(`${label}: ${r.batch_id} — ${r.day} ${r.start_time}–${r.end_time} (${r.subject || '—'})`);
+        const actAction = action === 'delete' ? 'delete' : action === 'update' ? 'edit' : 'add';
+        SupabaseSync.logActivity(actAction, 'routine',
+          `${label}: ${r.batch_id} — ${r.day} ${r.start_time}–${r.end_time} (${r.subject || '—'})`);
       }
     } catch { /* non-critical */ }
   }

@@ -149,6 +149,10 @@ const ResultSheet = (() => {
   function printIndividual(studentId) {
     const result = SchoolEngine.buildStudentResult(studentId, _exam, _year);
     if (!result) { Utils.toast('No marks found', 'warning'); return; }
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+      SupabaseSync.logActivity('print', 'result_sheet',
+        `Individual মার্কশিট প্রিন্ট: ${result.student_name || studentId} — ${_exam} ${_year}`);
+    }
     const w = window.open('', '_blank');
     w.document.write(_marksheetHTML(result));
     w.document.close();
@@ -160,6 +164,10 @@ const ResultSheet = (() => {
     if (!_class) return;
     const table = document.getElementById('rs-class-table');
     if (!table) { Utils.toast('No results to print', 'warning'); return; }
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+      SupabaseSync.logActivity('print', 'result_sheet',
+        `ক্লাস রেজাল্ট প্রিন্ট: ${_class} ${_section ? '— ' + _section : ''} (${_exam} ${_year})`);
+    }
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html><head><title>Class Result</title>
       <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;font-size:12px}th{background:#eee}</style></head>
@@ -234,6 +242,10 @@ const ResultSheet = (() => {
           heightLeft -= pageHeight;
         }
         pdf.save(`result_${_class}_${_exam}_${_year}.pdf`);
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+          SupabaseSync.logActivity('export', 'result_sheet',
+            `PDF এক্সপোর্ট: ${_class} ${_section ? '— ' + _section : ''} (${_exam} ${_year}) — ${results.length} জন ছাত্র`);
+        }
       } catch (err) {
         if (wrapper.parentNode) document.body.removeChild(wrapper);
         console.error('[ResultSheet] PDF export failed', err);

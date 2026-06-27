@@ -328,7 +328,7 @@ const StudentDashboard = (() => {
       .from('finance_ledger')
       .select('*')
       .eq('ref_id', _student.student_id)
-      .in('category', ['Student Fee', 'Student Installment', 'Student Payment'])
+      .eq('category', 'Student Fee')
       .order('date', { ascending: false });
 
     if (tErr) throw tErr;

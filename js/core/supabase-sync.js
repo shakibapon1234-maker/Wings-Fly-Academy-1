@@ -584,16 +584,6 @@ const SupabaseSync = (() => {
     return ts + buf[0].toString(36).toUpperCase() + buf[1].toString(36).toUpperCase();
   }
 
-  function generateUUID() {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
   function _logRecentChange(table, action, record) {
     try {
       if (!record || typeof record !== 'object') return;
@@ -2620,74 +2610,10 @@ const SupabaseSync = (() => {
     }
   }
 
-  /** Duplicate Cash accounts merge করে এবং redundant গুলো delete করে */
-  function cleanupDuplicateCashAccounts() {
-    try {
-      const accounts = getAll('accounts') || [];
-      const cashAccounts = accounts.filter(a => a.type === 'Cash');
-      if (cashAccounts.length <= 1) return false;
-
-      console.info(`[Sync] Found ${cashAccounts.length} duplicate Cash accounts. Merging...`);
-
-      // Find the primary one (preferably MO32YQP5Z7NXK6 or oldest by date, or first one)
-      let primary = cashAccounts.find(a => a.id === 'MO32YQP5Z7NXK6');
-      if (!primary) {
-        cashAccounts.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
-        primary = cashAccounts[0];
-      }
-
-      let totalBalance = 0;
-      const toDelete = [];
-
-      cashAccounts.forEach(a => {
-        totalBalance += parseFloat(a.balance) || 0;
-        if (a.id !== primary.id) {
-          toDelete.push(a);
-        }
-      });
-
-      // Update primary account balance
-      primary.balance = Math.round(totalBalance * 100) / 100;
-      primary.updated_at = new Date().toISOString();
-
-      // Filter out duplicate accounts
-      const filteredAccounts = accounts.filter(a => !toDelete.some(d => d.id === a.id));
-
-      // Save back locally
-      setAll('accounts', filteredAccounts);
-
-      // Push primary update to cloud
-      _pushRecord('accounts', primary).catch(() => {});
-
-      // Delete duplicates from cloud and track deletions
-      toDelete.forEach(d => {
-        _deleteFromCloud('accounts', d.id);
-        _trackDeletion('accounts', d.id);
-      });
-
-      console.info(`[Sync] Merged duplicate Cash accounts. Primary ID: ${primary.id}, New balance: ৳${primary.balance}. Deleted ${toDelete.length} duplicates.`);
-      return true;
-    } catch (err) {
-      console.warn('[Sync] cleanupDuplicateCashAccounts error:', err);
-      return false;
-    }
-  }
-
   /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
   function ensureDefaultCashAccount() {
     const accounts = getAll('accounts');
     if (accounts.some(a => a.type === 'Cash')) return false;
-
-    // Check if the database is completely empty (no accounts, no settings, no students)
-    // If it's completely empty and we haven't synced yet, do not create it yet (wait for sync pull)
-    const settings = getAll('settings') || [];
-    const students = getAll('students') || [];
-    const hasPulled = window.SyncEngine && typeof window.SyncEngine.getLastPullTimestamp === 'function' && window.SyncEngine.getLastPullTimestamp();
-    if (accounts.length === 0 && settings.length === 0 && students.length === 0 && !hasPulled) {
-      console.info('[Sync] Database is empty and first pull has not run yet. Delaying default Cash account creation.');
-      return false;
-    }
-
     insert('accounts', {
       type: 'Cash',
       name: 'Cash',
@@ -2825,54 +2751,9 @@ const SupabaseSync = (() => {
     return { fixedCount, totalAmount, auditLog };
   }
 
-  function _migrateStudentPortalAccessIds() {
-    try {
-      const accessList = getAll('student_portal_access') || [];
-      let changed = false;
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      
-      const migratedList = accessList.map(item => {
-        if (item.id && !uuidRegex.test(item.id)) {
-          console.info(`[Sync] Migrating student_portal_access ID from custom format to UUID: ${item.id}`);
-          const oldId = item.id;
-          
-          // Generate a deterministic UUID from the old custom ID
-          let hex = '';
-          for (let j = 0; j < 4; j++) {
-            let h = 0;
-            for (let i = 0; i < oldId.length; i++) {
-              h = (h * 31 + oldId.charCodeAt(i) + j) & 0xffffffff;
-            }
-            hex += (h >>> 0).toString(16).padStart(8, '0');
-          }
-          const newUUID = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
-          
-          item.id = newUUID;
-          item.updated_at = new Date().toISOString();
-          
-          // Delete old record from cloud (using old ID)
-          _deleteFromCloud('student_portal_access', oldId);
-          _trackDeletion('student_portal_access', oldId);
-          
-          changed = true;
-        }
-        return item;
-      });
-      
-      if (changed) {
-        setAll('student_portal_access', migratedList);
-        console.info('[Sync] Successfully migrated student_portal_access IDs to UUIDs.');
-      }
-    } catch (e) {
-      console.warn('[Sync] student_portal_access ID migration failed:', e);
-    }
-  }
-
   function _runStartupFinanceRepair() {
     try {
-      cleanupDuplicateCashAccounts();
       ensureDefaultCashAccount();
-      _migrateStudentPortalAccessIds();
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
@@ -2887,12 +2768,11 @@ const SupabaseSync = (() => {
   }
 
   return {
-    getAll, getById, setAll, insert, update, remove, generateId, generateUUID, _deleteFromCloud,
+    getAll, getById, setAll, insert, update, remove, generateId, _deleteFromCloud,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     ensureDefaultCashAccount,
-    cleanupDuplicateCashAccounts,
     repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
@@ -3169,13 +3049,6 @@ const SyncEngine = (() => {
 
       _lastSyncTime     = Date.now();
       _lastPullTimestamp = pullStartedAt;
-
-      // ✅ Deduplicate and ensure default cash account after pull completes
-      const didClean = typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.cleanupDuplicateCashAccounts === 'function' && SupabaseSync.cleanupDuplicateCashAccounts();
-      const didCreate = typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.ensureDefaultCashAccount === 'function' && SupabaseSync.ensureDefaultCashAccount();
-      if (didClean || didCreate) {
-        hasChanges = true;
-      }
 
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
 
@@ -3697,7 +3570,6 @@ const SyncEngine = (() => {
 
   return {
     pull, push, syncAll, fullPull, resetSyncAnchor,
-    getLastPullTimestamp: () => _lastPullTimestamp,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,

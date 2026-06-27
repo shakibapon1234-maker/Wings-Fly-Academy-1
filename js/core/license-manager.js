@@ -198,10 +198,6 @@
     _restoreAdminSecret();
     // Kick off async batch status refresh (non-blocking)
     setTimeout(() => window._wfaRefreshLicenseStatuses(), 400);
-    // Fetch fresh clients metadata dynamically (bypassing SW/HTTP cache)
-    if (typeof window._wfaFetchAndRefreshClients === 'function') {
-      window._wfaFetchAndRefreshClients();
-    }
   };
 
   console.log('[LicenseManager v2] loaded ✓');

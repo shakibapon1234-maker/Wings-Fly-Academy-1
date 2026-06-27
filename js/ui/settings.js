@@ -3407,6 +3407,12 @@ ${expenseEntries.length > 0 ? `
     notices:        { icon:'fa-bullhorn',              label:'নোটিশ',           color:'#ffa502' },
     system:         { icon:'fa-gear',                  label:'সিস্টেম',         color:'#666666' },
     note:           { icon:'fa-bookmark',              label:'নোট',             color:'#b537f2' },
+    school_classes:    { icon:'fa-school',             label:'ক্লাস ব্যবস্থাপনা', color:'#00d9ff' },
+    subject_marks:     { icon:'fa-pencil',             label:'বিষয় ও মার্ক',   color:'#ffd700' },
+    result_sheet:      { icon:'fa-ranking-star',       label:'রেজাল্ট শিট',    color:'#00ff88' },
+    payment_requests:  { icon:'fa-mobile-screen',      label:'পেমেন্ট রিকোয়েস্ট', color:'#ff6b35' },
+    routine:           { icon:'fa-calendar-days',      label:'ক্লাস রুটিন',    color:'#b537f2' },
+    sms:               { icon:'fa-comment-sms',        label:'SMS',             color:'#00d9ff' },
   };
   const _ACT_ACTION_META = {
     add:      { badge:'ADD',      color:'#00ff88', bg:'rgba(0,255,136,0.12)',   icon:'fa-plus-circle' },
@@ -7057,38 +7063,6 @@ ${expenseEntries.length > 0 ? `
       };
     }
 
-    async function _fetchAndRefreshClients() {
-      try {
-        const res = await fetch('js/core/clients-metadata.js?t=' + Date.now(), { cache: 'no-store' });
-        if (res.ok) {
-          const text = await res.text();
-          const match = text.match(/window\.WFA_AUTO_DEPLOYED_CLIENTS\s*=\s*([\s\S]*?);/);
-          if (match) {
-            let list;
-            try {
-              list = JSON.parse(match[1]);
-            } catch {
-              list = (new Function('return ' + match[1]))();
-            }
-            if (Array.isArray(list)) {
-              window.WFA_AUTO_DEPLOYED_CLIENTS = list;
-              const fresh = _loadClients();
-              const el = document.getElementById('cm-clients-table');
-              if (el) el.innerHTML = _buildTable(fresh);
-              const sumEl = document.getElementById('cm-summary-container');
-              if (sumEl) sumEl.innerHTML = _summary(fresh);
-              if (typeof window._wfaRefreshLicenseStatuses === 'function') {
-                window._wfaRefreshLicenseStatuses();
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('[ClientManager] Metadata fetch error:', err);
-      }
-    }
-    window._wfaFetchAndRefreshClients = _fetchAndRefreshClients;
-
     // Trigger async panel-ready hook after DOM renders
     setTimeout(() => { if (typeof window._wfaLicenseManagerOnPanelReady === 'function') window._wfaLicenseManagerOnPanelReady(); }, 200);
 
@@ -7099,11 +7073,11 @@ ${expenseEntries.length > 0 ? `
         <span style="font-size:0.72rem;font-weight:500;color:#7a8baa;margin-left:8px">Admin Only &mdash; All client info &amp; Licenses</span>
       </div>
 
-      <div id="cm-summary-container">${_summary(clients)}</div>
+      ${_summary(clients)}
 
       <div class="settings-card" style="margin-bottom:20px">
         <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
-          <button onclick="if(typeof window._wfaFetchAndRefreshClients==='function'){this.innerHTML='🔄 Loading…';const me=this;window._wfaFetchAndRefreshClients().finally(()=>me.innerHTML='🔄 Refresh');}else{const fresh=_loadClients();document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh);if(typeof _wfaRefreshLicenseStatuses==='function')_wfaRefreshLicenseStatuses();}" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
+          <button onclick="(function(){ const fresh=_loadClients(); document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh); if(typeof _wfaRefreshLicenseStatuses==='function') _wfaRefreshLicenseStatuses(); })()" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
         </div>
         <div id="cm-clients-table">${_buildTable(clients)}</div>
       </div>
@@ -7593,7 +7567,7 @@ ${expenseEntries.length > 0 ? `
         if (existing && existing.id) {
           SupabaseSync.update('student_portal_access', existing.id, record);
         } else {
-          record.id = SupabaseSync.generateUUID();
+          record.id = SupabaseSync.generateId();
           record.created_at = new Date().toISOString();
           SupabaseSync.insert('student_portal_access', record);
         }

@@ -27,8 +27,6 @@
   
   <!-- Supabase & Standalone configurations -->
   <script src="js/lib/supabase.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
-  <!-- Client deploy: supabase-secrets.js overrides stub with client-specific credentials -->
-  <script src="js/core/supabase-secrets.js" onerror="/* main project: no secrets.js — stub values are used */"></script>
   <script src="js/core/supabase-standalone-creds.js"></script>
   <script src="js/core/student-auth.js"></script>
   <script src="js/core/payment-engine.js"></script>
@@ -37,8 +35,10 @@
 </head>
 <body>
 
-  <!-- ── 1. LOGIN VIEW ── -->
-  <div id="login-view" class="login-wrapper">
+  <div class="container">
+    
+    <!-- ── 1. LOGIN VIEW ── -->
+    <div id="login-view" class="login-wrapper">
       <div class="login-card">
         <div class="login-logo">
           <img src="assets/logo.png" onerror="this.onerror=null;this.src='https://fznhiqzrslldybhmgopk.supabase.co/storage/v1/object/public/assets/logo.png'" alt="WFA Logo" />
@@ -75,7 +75,7 @@
     </div>
     
     <!-- ── 2. DASHBOARD VIEW ── -->
-    <div id="dashboard-view" class="container" style="display: none;">
+    <div id="dashboard-view" style="display: none;">
       
       <!-- Profile Header -->
       <header class="portal-header animate-fade-in">
@@ -143,6 +143,8 @@
       </main>
       
     </div>
+    
+  </div>
 
   <!-- Main script logic hooks -->
   <script>

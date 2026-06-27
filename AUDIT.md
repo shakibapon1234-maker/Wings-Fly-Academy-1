@@ -62,7 +62,6 @@ Max 10 items total unless you found new Critical issues.
 | `const AIAssistant` without `window` in closure | Exposed as `window.AIAssistant` at end of `ai-assistant.js` | `ai-assistant.js` |
 | Different script lists per HTML page | Standalone pages load minimal stack by design | `exam.html`, `admin.html` |
 | `Utils.esc` missing on numeric stats (counts) | Numbers from `.length` / filters — not user HTML | `visitors.js` stats row |
-| `routine-converter.html` not in Android build / `itemsToCopy` | Dedicated utility tool for admin/operators to convert raw routine data — intentional to not bundle in mobile app | `build-www.js` |
 
 ---
 
@@ -139,7 +138,6 @@ IntegrityGuard.run()           // modules, DOM, vital URLs
 
 | Date | Change |
 |------|--------|
-| 2026-06-26 | **Post-Audit Fixes:** Added `institution-mode.js` tag in `www/index.html`; Added `student-portal.html` to `itemsToCopy` in `build-www.js` and synced mobile assets; Added new JS files to SW precache array; Added `DB` initialization guard in `school-engine.js` `getStudentsInClass()`; Documented `routine-converter.html` exclusion in `AUDIT.md` |
 | 2026-06-26 | **Feature 4 — SMS Notification System (v5.1.0):** New `js/core/sms-engine.js` (Green Web BD API, async send, IDB+cloud logging to `sms_logs`); SMS triggers added to `students.js` (fee due after payment), `attendance.js` (absent after saveAllAttendance), `exam.js` (result after grade save), `payment-engine.js` (approve + reject); SMS Settings panel + tab injected into `js/ui/settings.js` (API key, sender ID, per-event toggles, test SMS, log viewer); Student Portal Routine tab: `student-portal.html` + `student-dashboard.js` (`_renderRoutine`), `routine-engine.js` added as script tag; `supabase-sync.js` `class_routines` + `sms_logs` + `settings.sms_config` columns added (both TABLE_COLUMNS blocks); `lazy-modules.js` `sms-engine` registered in MODULES + POST_LOGIN_IDLE, `routine-engine`/`routine-builder` registered; `index.html` + `app.js` updated for `routine-builder` section; SW `DEPLOY_ID` → `20260626-feature4-sms-notifications` |
 | 2026-06-14 | **Security + restore fixes:** `notice-board.js` TYPE_CFG lookup hardened with `Object.prototype.hasOwnProperty.call()` (prototype pollution prevention); `visitor-form.html` `session-store.js` added; `supabase-sync.js` student restore recalculates `paid`/`due` from full ledger after installment restore; `vercel.json` `Content-Security-Policy` HTTP header added; `AUDIT.md` changelog table structure fixed |
 | 2026-06-08 | **XSS + security fixes (v4.9.9):** `salary.js` `r.method` wrapped with `Utils.esc()` in both salary cards (line ~322) and history table (line ~843); `dashboard.js` `runningBatch` and `expenseMonth` wrapped with `Utils.esc()` in 3 innerHTML interpolation points; `certificate.html` missing `i18n.js` and `loading-state.js` added; `vercel.json` HTTP security headers added (`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`, `X-XSS-Protection`); `manifest.json` screenshot `form_factor` changed from `narrow` to `wide` (square 512×512 is not valid narrow); bumped SW `DEPLOY_ID` to `20260608-xss-security-fixes` |
