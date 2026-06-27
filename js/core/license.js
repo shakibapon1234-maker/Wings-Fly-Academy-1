@@ -162,7 +162,10 @@ const LicenseEngine = (() => {
   async function validate(key) {
     if (!key || typeof key !== 'string') return { ok: false, reason: 'no_key' };
 
-    const clean = key.trim().toUpperCase().replace(/\s/g, '');
+    let clean = key.trim().toUpperCase().replace(/\s/g, '');
+    // Auto-normalize letter 'O' to number '0' to prevent user typo confusion (e.g. SOO1 vs S001)
+    clean = clean.replace(/O/g, '0');
+    
     const parts = clean.split('-');
     if (parts.length !== 5 || parts[0] !== 'WFA') {
       return { ok: false, reason: 'invalid_format' };
