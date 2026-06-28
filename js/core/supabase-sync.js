@@ -2371,20 +2371,47 @@ const SupabaseSync = (() => {
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
         queue = SupabaseSync.getAll('retry_queue') || [];
       }
-      
+
       if (!queue.length) return;
-      
+
+      // ✅ PERMANENT FIX: Strip out any stale Cash account INSERT operations.
+      // Root cause of recurring duplicates: before the fix, ensureDefaultCashAccount()
+      // was creating Cash accounts that failed to push (network issues) and ended up
+      // in the retry queue. When network recovered, these old queued inserts would
+      // push duplicate Cash accounts to Supabase. We block that here permanently.
+      const beforeCount = queue.length;
+      queue = queue.filter(item => {
+        // Drop: any accounts insert where type === 'Cash' (not a delete operation)
+        if (
+          item.table === 'accounts' &&
+          item.record &&
+          item.record._deleteOnly !== true &&
+          item.record.type === 'Cash'
+        ) {
+          console.info('[Sync] 🗑️ Dropped stale Cash account insert from retry queue:', item.record?.id);
+          return false; // drop it
+        }
+        return true;
+      });
+      if (beforeCount !== queue.length) {
+        // Save immediately so stale items don't survive a crash
+        SupabaseSync.setAll('retry_queue', queue);
+        console.info(`[Sync] ✅ Purged ${beforeCount - queue.length} stale Cash account insert(s) from retry queue.`);
+      }
+
+      if (!queue.length) return;
+
       const { client } = window.SUPABASE_CONFIG;
       if (!client) return; // Supabase not ready — retry later
       const remaining = [];
       let successCount = 0;
       let droppedCount = 0;
-      
+
       for (const item of queue) {
         try {
           // Track retry attempts
           item.attempts = (item.attempts || 0) + 1;
-          
+
           if (item.record && item.record._deleteOnly === true) {
             const { error } = await client.from(item.table).delete().eq('id', item.record.id);
             if (error) throw error;
@@ -2395,7 +2422,7 @@ const SupabaseSync = (() => {
             if (error) throw error;
             successCount++;
           }
-        } catch (e) { 
+        } catch (e) {
           // Keep failed items for next retry (max 5 attempts)
           if ((item.attempts || 0) < 5) {
             item.lastError = e.message;
@@ -2406,19 +2433,19 @@ const SupabaseSync = (() => {
           }
         }
       }
-      
+
       // Save remaining back to IDB
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
         SupabaseSync.setAll('retry_queue', remaining);
       }
-      
+
       if (successCount > 0) {
         console.log(`[Sync] Retry queue processed: ${successCount} succeeded, ${remaining.length} remaining`);
       }
       if (droppedCount > 0 && typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast(`⚠️ ${droppedCount} sync item(s) failed permanently after max retries.`, 'warning', 6000);
       }
-    } catch (e) { 
+    } catch (e) {
       console.warn('[Sync] processRetryQueue failed:', e);
       if (typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast('❌ Sync retry queue processing failed. Check connection and try Sync now.', 'error', 5000);
@@ -2610,28 +2637,72 @@ const SupabaseSync = (() => {
     }
   }
 
-  /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
+  /**
+   * Default Cash account ensure — PERMANENTLY DISABLED.
+   * ডুপ্লিকেট তৈরির root cause ছিল এই function।
+   * Supabase-এ Cash account আগে থেকেই আছে — নতুন তৈরি হবে না।
+   * যদি ভবিষ্যতে নতুন deployment লাগে, setup-wizard.js সেটা নিয়ন্ত্রণ করবে।
+   */
   function ensureDefaultCashAccount() {
-    const accounts = getAll('accounts');
-    if (accounts.some(a => a.type === 'Cash')) return false;
+    // ⛔ DISABLED — Do not re-enable. This was the root cause of 60+ duplicate Cash accounts.
+    // _autoCleanDuplicateAccounts() now handles cleanup on every startup.
+    return false;
+  }
 
-    // ✅ Race condition guard: যদি Supabase initial sync এখনো হয়নি,
-    // Cash account তৈরি করো না। IDB সাময়িক খালি থাকতে পারে — এটা
-    // "Cash নেই" বোঝায় না, Supabase-এ থাকতে পারে।
-    // Duplicate Cash তৈরির মূল কারণ ছিল এই guard না থাকা।
-    if (!localStorage.getItem('wfa_initial_sync_done')) {
-      console.info('[Sync] ensureDefaultCashAccount: skipped — waiting for initial Supabase sync');
-      return false;
+  /**
+   * ডুপ্লিকেট Cash account আপনা থেকেই মুছে ফেলে (IDB + Supabase cloud).
+   * প্রতিটি pull-এর শেষে silently চলে — যদি কোনোভাবে duplicate তৈরি হয়, সেগুলো স্বয়ংস্ক্রিয়ত মুছে যায়।
+   * সাথে retry queue থেকেও stale Cash inserts পরিষ্কার করে।
+   */
+  async function _autoCleanDuplicateAccounts() {
+    try {
+      // 1. Purge stale Cash inserts from retry queue first
+      const rq = getAll('retry_queue') || [];
+      const rqBefore = rq.length;
+      const rqClean = rq.filter(item =>
+        !(item.table === 'accounts' && item.record && item.record._deleteOnly !== true && item.record.type === 'Cash')
+      );
+      if (rqClean.length !== rqBefore) {
+        setAll('retry_queue', rqClean);
+        console.info(`[Sync] ✅ Purged ${rqBefore - rqClean.length} stale Cash insert(s) from retry queue.`);
+      }
+
+      // 2. Check for duplicate Cash accounts in IDB
+      const allAccounts = getAll('accounts');
+      const cashAccounts = allAccounts.filter(a => a.type === 'Cash');
+      if (cashAccounts.length <= 1) return; // nothing to clean
+
+      console.warn(`[Sync] ⚠️ Found ${cashAccounts.length} Cash accounts — auto-cleaning...`);
+
+      // Keep the one with highest balance, tiebreak: oldest created_at = original
+      const sorted = [...cashAccounts].sort((a, b) => {
+        const balDiff = (parseFloat(b.balance) || 0) - (parseFloat(a.balance) || 0);
+        if (balDiff !== 0) return balDiff;
+        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      });
+      const keepAcc  = sorted[0];
+      const toDelete = sorted.slice(1);
+
+      // Remove from local IDB
+      const cleanedLocal = allAccounts.filter(a => !toDelete.some(d => d.id === a.id));
+      setAll('accounts', cleanedLocal);
+
+      // Remove from Supabase cloud
+      const client = window.SUPABASE_CONFIG?.client;
+      if (client) {
+        for (const acc of toDelete) {
+          try {
+            await client.from('accounts').delete().eq('id', acc.id);
+          } catch (e) {
+            console.warn('[Sync] Could not delete duplicate Cash from cloud:', acc.id, e?.message);
+          }
+        }
+      }
+
+      console.info(`[Sync] ✅ Auto-cleaned ${toDelete.length} duplicate Cash account(s). Kept: ${keepAcc.id} (balance=৳${keepAcc.balance})`);
+    } catch (e) {
+      console.warn('[Sync] _autoCleanDuplicateAccounts failed (non-critical):', e);
     }
-
-    // Only create if truly no Cash account exists after sync has confirmed
-    insert('accounts', {
-      type: 'Cash',
-      name: 'Cash',
-      balance: 0,
-    }, { bypassLog: true });
-    console.info('[Sync] Default Cash account created (post-sync verified).');
-    return true;
   }
 
   /**
@@ -2792,6 +2863,7 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     ensureDefaultCashAccount,
+    _autoCleanDuplicateAccounts,
     repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
@@ -3119,6 +3191,10 @@ const SyncEngine = (() => {
       }
 
       await SupabaseSync.processRetryQueue();
+
+      // ✅ Safety net: duplicate Cash account হলে এখনই মুছে ফেলো
+      // retry queue purge-এর পরে call হয়, তাই stale inserts আর নেই
+      await _autoCleanDuplicateAccounts();
 
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
