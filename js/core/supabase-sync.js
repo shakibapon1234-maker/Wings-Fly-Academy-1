@@ -29,7 +29,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const WFA_IDB = (() => {
-  const DB_NAME    = 'WingsAcademyDB';
+  const DB_NAME    = (window._wfaGetDbName ? window._wfaGetDbName() : 'WingsAcademyDB');
   const DB_VERSION = 3;
   const STORE_NAME = 'tables';
 

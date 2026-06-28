@@ -302,14 +302,20 @@ try {
 $GA = "* text=auto`n*.js text eol=lf`n*.html text eol=lf`n*.css text eol=lf"
 $GA | Set-Content -Path (Join-Path $CLIENT_DIR ".gitattributes") -Encoding UTF8
 
-# -- FIX 1: Create .gitignore in client folder BEFORE git add -A --
-# supabase-secrets.js contains the client's Supabase URL + Anon Key.
-# Without this .gitignore, "git add -A" would commit it to the PUBLIC GitHub repo,
-# exposing credentials to anyone. The file must exist in the client folder but
-# NEVER be tracked by git - it is deployed directly, not via version control.
+# -- FIX 1 (REVISED): do NOT gitignore supabase-secrets.js in the client repo.
+# GitHub Pages is a STATIC file host — there is no server-side secret injection.
+# If this file isn't committed, it never reaches the live site, and index.html's
+# only source of real credentials disappears. That forced the app to silently
+# fall through to shared-origin SecureStorage / admin fallback values, which is
+# exactly how client data ended up bleeding into/from the main project.
+# This is safe to commit: WFA_SUPABASE_ANON key is PUBLIC BY DESIGN (Supabase
+# anon keys are meant to be exposed client-side) and access is enforced by RLS
+# policies in the database, not by hiding this key.
 $CLIENT_GITIGNORE = @"
-# WFA Client Deployment - credentials file (never commit to public repo)
-js/core/supabase-secrets.js
+# WFA Client Deployment
+# NOTE: js/core/supabase-secrets.js is intentionally NOT listed here.
+# It must be committed so GitHub Pages actually serves it to the client's browser.
+# Anon key exposure is safe by Supabase design as long as RLS policies are ON.
 
 # OS / editor noise
 .DS_Store
@@ -317,7 +323,7 @@ Thumbs.db
 desktop.ini
 "@
 $CLIENT_GITIGNORE | Set-Content -Path (Join-Path $CLIENT_DIR ".gitignore") -Encoding UTF8
-Write-OK ".gitignore created - supabase-secrets.js excluded from git (credentials safe)"
+Write-OK ".gitignore created - supabase-secrets.js is INCLUDED so the live site actually gets it"
 
 # -- STEP 7: Git init and first commit ----------------------------
 Write-Host ""
@@ -328,7 +334,7 @@ Push-Location $CLIENT_DIR
 git init -b main | Out-Null
 git add -A | Out-Null
 git commit -m "init: $ACADEMY ($CODE) - WFA Client Deployment" | Out-Null
-Write-OK "Git initialized and committed (supabase-secrets.js gitignored - credentials NOT in repo)"
+Write-OK "Git initialized and committed (supabase-secrets.js included - the live site will receive real credentials)"
 
 # -- STEP 8: Ask to push ------------------------------------------
 Write-Host ""

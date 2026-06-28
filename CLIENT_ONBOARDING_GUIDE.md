@@ -25,29 +25,24 @@ Supabase Dashboard → Settings → API:
 - **Project URL**: `https://XXXXXXXX.supabase.co` ← এটা নোট করুন
 - **anon / public key**: `eyJhbGci...` ← এটা নোট করুন
 
-## ✅ STEP 4 — Client App Deploy করুন
+## ✅ STEP 4 — Client App Deploy করুন (FIXED: এখন `new-client.ps1` ব্যবহার করুন)
 
-### GitHub-এ নতুন Repository তৈরি:
-1. https://github.com এ লগইন করুন (আপনার account)
-2. "New Repository" → Name: `client-[academy-short-name]`
-   উদাহরণ: `client-greenleaf`, `client-skybird`
-3. Public → "Create repository"
+> ⚠️ **পুরনো manual পদ্ধতি (clone → copy → secrets.js এডিট → push) ব্যবহার করবেন না।**
+> আগে এই পদ্ধতিতে client folder-এর `.gitignore` ভুলভাবে `supabase-secrets.js`-কে git থেকে বাদ
+> দিয়ে দিত, ফলে এই ফাইল কখনো GitHub Pages-এ deploy-ই হতো না — এবং deploy হওয়া client app
+> credential না পেয়ে silently মেইন admin project-এর Supabase-এ কানেক্ট হয়ে যেত (এটাই
+> "মেইন প্রজেক্টের ডেটা client-এ চলে আসা" বাগের মূল কারণ ছিল)। এখন এটা ফিক্স করা হয়েছে।
 
-### Code Push করুন (PowerShell):
 ```powershell
-# Wings-Fly-Academy-1 folder-এ এই command চালান
-git clone https://github.com/YOUR_USERNAME/client-greenleaf.git temp_client
-Copy-Item -Recurse E:\DESKTOP\Wings-Fly-Academy-1\www\* temp_client\
-cd temp_client
-
-# Client-এর Supabase credentials সেট করুন
-# supabase-secrets.js ফাইলটি edit করুন:
-# const WFA_SUPABASE_SECRETS = { url: 'CLIENT_URL', anonKey: 'CLIENT_KEY' };
-
-git add .
-git commit -m "Initial client deployment"
-git push origin main
+.\new-client.ps1
 ```
+
+স্ক্রিপ্ট নিজে থেকেই:
+1. Client-এর folder তৈরি করবে এবং `www/*` কপি করবে
+2. আপনার দেওয়া Supabase URL/Anon Key দিয়ে `js/core/supabase-secrets.js` লিখবে (এবং `Object.freeze()` করে দেবে যাতে runtime-এ override না হয়)
+3. `js/core/supabase-standalone-creds.js`-ও client-এর own credentials দিয়ে overwrite করবে
+4. একটা `.gitignore` লিখবে যেখানে **`supabase-secrets.js` বাদ দেওয়া হয় না** — কারণ GitHub Pages static hosting, secret hide করার কোনো server-side উপায় নেই; anon key RLS-এর কারণে public হওয়াই নিরাপদ
+5. `git init` → commit → (চাইলে) push করে দেবে
 
 ### GitHub Pages চালু করুন:
 1. Repository → Settings → Pages
