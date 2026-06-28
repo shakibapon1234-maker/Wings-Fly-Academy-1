@@ -24,8 +24,14 @@ const Accounts = (() => {
   function getPrimaryCashAccount(accounts) {
     const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
     if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
+    // ✅ Bug Fix: was using < (minimum balance) — picked ৳0 accounts over real ৳37,001 account.
+    // Now picks highest balance; tiebreak = oldest created_at (original account).
     return cashAccounts.reduce((best, a) => {
-      return Math.abs(Utils.safeNum(a.balance)) < Math.abs(Utils.safeNum(best.balance)) ? a : best;
+      const aBal = Math.abs(Utils.safeNum(a.balance));
+      const bestBal = Math.abs(Utils.safeNum(best.balance));
+      if (aBal !== bestBal) return aBal > bestBal ? a : best;
+      // tiebreak: prefer older (original) account
+      return new Date(a.created_at || 0) < new Date(best.created_at || 0) ? a : best;
     });
   }
 
