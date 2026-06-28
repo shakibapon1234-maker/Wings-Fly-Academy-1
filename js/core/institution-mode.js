@@ -18,7 +18,7 @@ window.InstitutionMode = (() => {
     coaching: {
       course_label: 'Course',
       batch_label: 'Batch',
-      student_id_prefix: 'STU',
+      student_id_prefix: 'WF',
       session_label: 'Session',
       fee_label: 'Course Fee',
       nav_classes: '—',

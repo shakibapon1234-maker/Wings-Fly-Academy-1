@@ -7391,12 +7391,48 @@ ${expenseEntries.length > 0 ? `
          </div>`;
   }
 
+  // ── Student Portal: Generate UUID ──
+  function _spGenerateUUID() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      const r = Math.random() * 16 | 0;
+      const v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
   // ── Student Portal: Render Student List ──
   let _spAllStudents = [];
 
   function _spRenderStudentList() {
     const container = document.getElementById('sp-student-list');
     if (!container) return;
+
+    // Auto-fix any legacy alphanumeric IDs in local student_portal_access storage
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+      try {
+        const accessList = SupabaseSync.getAll('student_portal_access') || [];
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        accessList.forEach(a => {
+          if (a && a.id && !uuidRegex.test(a.id)) {
+            const oldId = a.id;
+            const newId = _spGenerateUUID();
+            const cloned = { ...a, id: newId };
+            
+            // Delete old local alphanumeric record
+            SupabaseSync.remove('student_portal_access', oldId, { bypassLog: true });
+            
+            // Insert new UUID record locally and push to cloud
+            SupabaseSync.insert('student_portal_access', cloned, { bypassLog: true });
+          }
+        });
+      } catch (err) {
+        console.error('[StudentPortal] Auto-fix ID error:', err);
+      }
+    }
 
     // Load from local SupabaseSync store
     let students = [];
@@ -7626,7 +7662,7 @@ ${expenseEntries.length > 0 ? `
         if (existing && existing.id) {
           SupabaseSync.update('student_portal_access', existing.id, record);
         } else {
-          record.id = SupabaseSync.generateId();
+          record.id = _spGenerateUUID();
           record.created_at = new Date().toISOString();
           SupabaseSync.insert('student_portal_access', record);
         }
@@ -7745,7 +7781,7 @@ ${expenseEntries.length > 0 ? `
       if (existing && existing.id) {
         SupabaseSync.update('student_portal_access', existing.id, record);
       } else {
-        record.id = SupabaseSync.generateId();
+        record.id = _spGenerateUUID();
         record.created_at = new Date().toISOString();
         SupabaseSync.insert('student_portal_access', record);
       }
