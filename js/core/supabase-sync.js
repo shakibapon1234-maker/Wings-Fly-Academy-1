@@ -2694,12 +2694,13 @@ const SupabaseSync = (() => {
 
       console.warn(`[Sync] ⚠️ Found ${cashAccounts.length} Cash accounts — auto-cleaning...`);
 
-      // Keep the one with highest balance, tiebreak: oldest created_at = original
-      const sorted = [...cashAccounts].sort((a, b) => {
-        const balDiff = (parseFloat(b.balance) || 0) - (parseFloat(a.balance) || 0);
-        if (balDiff !== 0) return balDiff;
-        return new Date(a.created_at || 0) - new Date(b.created_at || 0);
-      });
+      // ✅ Keep the OLDEST account (by created_at) — that is always the original real account.
+      // Do NOT sort by balance: balance can be 0 or negative legitimately,
+      // which would cause a wrong duplicate to be kept.
+      // Original Cash: created April 2026. Duplicates: created later. Oldest always wins.
+      const sorted = [...cashAccounts].sort(
+        (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
+      );
       const keepAcc  = sorted[0];
       const toDelete = sorted.slice(1);
 
