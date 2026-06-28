@@ -24,16 +24,20 @@ function _resolveSupabaseCreds() {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
   const stored  = window.__WFA_SUPABASE_CREDS  || {};
 
-  // ✅ FIX: Inline fallback — only used on the MAIN project (GitHub Pages root).
-  // Deployed clients ALWAYS have secrets.url set via supabase-secrets.js,
-  // so the fallback is NEVER reached on a client deployment.
-  // Anon key is public by Supabase design; data access is controlled by RLS.
-  const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
-  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
+  // ✅ SECURITY FIX: restrict fallback credentials to main admin project path or local dev only.
+  // This prevents newly deployed client repositories from auto-connecting to the admin's database.
+  const isMainAdminDeployment = 
+    window.location.pathname.includes('/Wings-Fly-Academy-1/') || 
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' || 
+    window.location.protocol === 'file:';
+
+  const _fallbackUrl = isMainAdminDeployment ? 'https://fznhiqzrslldybhmgopk.supabase.co' : null;
+  const _fallbackKey = isMainAdminDeployment ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw' : null;
 
   // Priority: secrets.js (client deploy) > stored (settings-saved) > fallback (main project only)
-  const url    = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
-  const anonKey = secrets.anonKey || secrets.anon_key || stored.anonKey || _fallbackKey;
+  const url    = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl || '');
+  const anonKey = secrets.anonKey || secrets.anon_key || stored.anonKey || _fallbackKey || '';
   return { url, anonKey };
 }
 
