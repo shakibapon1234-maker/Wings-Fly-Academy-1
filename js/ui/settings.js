@@ -3072,66 +3072,17 @@ ${expenseEntries.length > 0 ? `
   // TAB 11: MONITOR
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
-    // wfa_recent_changes — শুধু finance transactions (supabase-sync.js)
-    const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
-
-    // Transaction type badge color
-    const txBadge = type => {
-      const t = String(type || '').toLowerCase();
-      if (t === 'income')           return 'badge-success';
-      if (t === 'expense')          return 'badge-error';
-      if (t.startsWith('transfer')) return 'badge-warning';
-      if (t === 'loan giving')      return 'badge-warning';
-      if (t === 'loan receiving')   return 'badge-info';
-      return 'badge-info';
-    };
-
-    return `
-    <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
-      <div class="settings-card glow-purple">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
-          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
-            <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsModule.rebuildMonitorData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
-          </div>
-        </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
-
-        <div class="table-wrapper">
-          <table>
-            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
-            <tbody>
-              ${transactions.length === 0 ?
-                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
-                transactions.map((c, i) => {
-                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
-                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
-                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
-                  // ✅ Rebuilt vs Real snapshot indicator
-                  const snapshotBadge = c.rebuilt
-                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
-                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>';
-                  return `
-                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
-                    <td>${i + 1}${snapshotBadge}</td>
-                    <td style="font-size:.82rem">${c.date || '—'}</td>
-                    <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
-                    <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
-                    <td style="font-size:.82rem">${c.category || '—'}</td>
-                    <td style="font-size:.82rem">${c.person || '—'}</td>
-                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
-                  </tr>
-                  <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
-                }).join('')
-              }
-            </tbody>
-          </table>
-        </div>
+    // settings-monitor.js-এ delegate করা হয়েছে
+    if (window.SettingsMonitor && typeof window.SettingsMonitor.buildPanelHTML === 'function') {
+      return window.SettingsMonitor.buildPanelHTML(activeTab);
+    }
+    return `<div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
+      <div class="settings-card glow-purple" style="text-align:center;color:var(--text-muted);padding:40px">
+        <i class="fa fa-spinner fa-spin"></i> Data Monitor লোড হচ্ছে...
       </div>
     </div>`;
   }
-  // ════════════════════════════════════════════════════════════════
+    // ════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
   // ════════════════════════════════════════════════════════════════
 
@@ -7847,7 +7798,7 @@ ${expenseEntries.length > 0 ? `
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
     applyCardPreset,
-    viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
+    viewTableData, showLiveAccountSnapshot, exportAllData,
     startMigration, importFromJSON, importFromJSONWithDate,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
@@ -7866,8 +7817,9 @@ ${expenseEntries.length > 0 ? `
     addBalanceAdjustment, saveBalanceAdjustment, deleteBalanceAdjustment,
     openSettingsInternalModal, closeSettingsInternalModal,
     runAutoHeal, runSyncCheck, runAutoFix, runCloudPullDiag, runCloudPushDiag,
-    rebuildMonitorData,
-    refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
+    rebuildMonitorData: () => { if(window.SettingsMonitor) window.SettingsMonitor.rebuildData(); else rebuildMonitorData(); },
+    showMonitorSnapshot: (i) => { if(window.SettingsMonitor) window.SettingsMonitor.showSnapshot(i); else showMonitorSnapshot(i); },
+    refreshMonitor: () => { if(window.SettingsMonitor) window.SettingsMonitor.refresh(); else { refreshModal(); Utils.toast('Refreshed', 'info'); } },
     saveAIApiKey,
     saveAIBackupKeys,
     testAIApiKey,

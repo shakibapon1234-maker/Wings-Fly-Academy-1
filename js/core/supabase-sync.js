@@ -605,12 +605,23 @@ const SupabaseSync = (() => {
 
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
-      // ✅ Deferred Snapshot: snapshot নেওয়া হবে updateAccountBalance() complete হওয়ার পরে।
-      // এটা pure screenshot — accounts.balance সরাসরি পড়ে, কোনো calculation নেই।
-      // _pendingSnapshot: true মানে balance update এখনো pending আছে।
-      const _mid = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+      // ✅ ROOT CAUSE FIX (2025):
+      // আগের implementation: entry তৈরি করো _pendingSnapshot:true দিয়ে, তারপর
+      // updateAccountBalance() শেষে _finalizeMonitorSnapshot() call করো।
+      // কিন্তু finance.js-এ order হল: updateAccountBalance() → insert()।
+      // তাই _logRecentChange call হয় balance update শেষ হওয়ার পরে।
+      // _finalizeMonitorSnapshot() কিন্তু insert() এর আগেই call হয়ে যায় —
+      // তখন wfa_recent_changes-এ কোনো _pendingSnapshot entry নেই, তাই idx=-1, early return।
+      // ফলে 2s timeout fallback দিয়ে finalize হয় কিন্তু isFallback=true তাই
+      // mismatch check হয় না।
+      //
+      // FIX: balance ইতিমধ্যে update হয়ে গেছে, তাই এখনই snapshot নাও।
+      // _pendingSnapshot mechanism এখন শুধু loan types এর জন্য যেখানে
+      // updateAccountBalance() call নাও হতে পারে সেক্ষেত্রে 500ms পরে নেওয়া হবে।
+      const immediateSnapshot = _getMonitorSnapshot();
+
       const entry = {
-        _mid,
         date: new Date().toLocaleString(),
         action,
         type: record.type,
@@ -622,8 +633,7 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         recordId: record.id,
         recordAt: record.created_at || record.updated_at || record.date || null,
-        snapshot: {},
-        _pendingSnapshot: true,
+        snapshot: immediateSnapshot,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
@@ -642,12 +652,6 @@ const SupabaseSync = (() => {
           } catch { /* keep trimming */ }
         }
       }
-
-      // Fallback: loan types বা balance-neutral entries-এর জন্য যেখানে
-      // updateAccountBalance() call নাও হতে পারে — 2s পরে finalize করো
-      // ✅ Fix: was 500ms, raced with async balance update → false mismatch alerts.
-      // isFallback=true tells _finalizeMonitorSnapshot to skip mismatch comparison.
-      setTimeout(() => _finalizeMonitorSnapshot(_mid, true), 2000);
     } catch (err) {
       console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
     }
@@ -3193,7 +3197,7 @@ const SyncEngine = (() => {
 
       // ✅ Safety net: duplicate Cash account হলে এখনই মুছে ফেলো
       // retry queue purge-এর পরে call হয়, তাই stale inserts আর নেই
-      await _autoCleanDuplicateAccounts();
+      await SupabaseSync._autoCleanDuplicateAccounts();
 
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
