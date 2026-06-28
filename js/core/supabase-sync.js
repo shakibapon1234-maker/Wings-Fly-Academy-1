@@ -3093,35 +3093,13 @@ const SyncEngine = (() => {
           });
         }
 
-        // ✅ BALANCE PROTECTION FIX: accounts table-এর balance সবসময় local value জিতবে।
-        // কারণ: balance live-update হয় updateAccountBalance() দিয়ে transaction-এর সময়।
-        // কিন্তু Supabase cloud-এ accounts row-এর updated_at অনেক সময় local-এর চেয়ে
-        // পুরনো থাকে — ফলে cloud-এর stale balance local-এর সঠিক balance overwrite করে।
-        // Fix: merge-এর পর accounts-এ local balance > cloud balance হলে local value রাখো।
-        // তারপর Supabase-এ সঠিক balance push করো যাতে পরের sync-এ আর সমস্যা না হয়।
-        if (key === 'accounts' && merged.length > 0 && localRows.length > 0) {
-          const localBalMap = new Map();
-          localRows.forEach(a => localBalMap.set(a.id, parseFloat(a.balance) || 0));
-          let balanceFixed = false;
-          merged = merged.map(acc => {
-            const localBal = localBalMap.get(acc.id);
-            if (localBal === undefined) return acc; // new from cloud — keep as-is
-            const cloudBal = parseFloat(acc.balance) || 0;
-            if (localBal !== cloudBal) {
-              // Local balance জিতবে — এটাই সত্যিকারের running total
-              console.info(`[SyncBalance] Account "${acc.name || acc.type}" balance: cloud=৳${cloudBal} < local=৳${localBal}. Keeping local.`);
-              balanceFixed = true;
-              return { ...acc, balance: localBal, updated_at: new Date().toISOString() };
-            }
-            return acc;
-          });
-          // Supabase-এ সঠিক balance push করো — পরের sync-এ আর সমস্যা হবে না
-          if (balanceFixed) {
-            merged.forEach(acc => {
-              try { _pushRecord('accounts', acc); } catch(e) {/* ignore */}
-            });
-          }
-        }
+        // ✅ REMOVED: "local balance always wins" block.
+        // That block caused balance corruption:
+        //   - Duplicate Cash (balance=0) in IDB → local=0, cloud=37001
+        //   - Block forced local (0) to win → overwrote cloud with 0
+        // Supabase is the ground truth for balances.
+        // Legitimate pending transactions win via timestamp: if you made a
+        // local transaction, its updated_at is newer → mergeRows already picks it.
 
         const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
         const exKey  = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
@@ -3293,16 +3271,11 @@ const SyncEngine = (() => {
             }
             merged.set(row.id, existing);
           }
-          // ✅ BALANCE FIX (mergeRows): accounts-এর balance সবসময় local জিতবে
-          // (mergeRows caller-এ আলাদা block দিয়েও handle হয়, কিন্তু এখানেও guard রাখা হলো)
-          if (existing.balance !== undefined && row.balance !== undefined) {
-            const localAccBal = parseFloat(row.balance) || 0;
-            const cloudAccBal = parseFloat(existing.balance) || 0;
-            if (localAccBal !== cloudAccBal) {
-              existing.balance = localAccBal;
-              merged.set(row.id, existing);
-            }
-          }
+          // ✅ REMOVED: unconditional local balance override.
+          // Timestamp-based merge above already handles this correctly:
+          // if local is newer (pending transaction), localTime > cloudTime → local wins.
+          // Forcing local.balance unconditionally caused 0-balance duplicates to
+          // overwrite correct Supabase balances.
         }
       }
     });
