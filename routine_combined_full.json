@@ -1,0 +1,302 @@
+[
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 01 (26-Jun-2026) [Visa]: Passport & India Visa — Passport & Visa Definition, Types of Visa, Indian Tourist Visa & Indian Medical Visa. (Practical: E-passport & Indian Visa online apply). [COMPLETED]",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 01 (26-Jun-2026) [Ticket]: Introduction to Geography — Introduction to Geography, IATA Geography basic, Journey Concept, Phonetic Alphabet. [COMPLETED]",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 02 (27-Jun-2026) [Ticket]: Introduction to GDS Basic — Introduction to Airlines industry & Ticketing systems, BSP Airlines list & codes, Airport codes. [COMPLETED]",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 02 (03-Jul-2026) [Visa]: Thailand, Malaysia, Singapore Visa — Visa Types, Briefing Supportive Visa and Documents. (Practical: Thailand visa submission, Handover supportive docs).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 03 (03-Jul-2026) [Ticket]: Galileo GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 04 (04-Jul-2026) [Ticket]: Galileo GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share a booking (PNR), Divide booking (Split PNR), Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 03 (04-Jul-2026) [Visa]: Japan & Korea Visa — Japan & Korea Visa Processing, Step-by-Step Application Guide, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 04 (10-Jul-2026) [Visa]: UK Visa Processing — UK Visa Processing, Step-by-Step Application Guide, Interview Details, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 05 (10-Jul-2026) [Ticket]: Galileo GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 06 (11-Jul-2026) [Ticket]: Galileo Review & Live Practice — Full Galileo course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 05 (11-Jul-2026) [Visa]: USA Visa Processing (Part 1) — USA Visa Processing, Step-by-Step Application Guide, Interview Details, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 06 (17-Jul-2026) [Visa]: USA Visa Processing (Part 2) — USA Visa Processing Lecture 2, Step-by-Step Application Guide, Interview Details, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 07 (17-Jul-2026) [Ticket]: Sabre GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 08 (18-Jul-2026) [Ticket]: Sabre GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 07 (18-Jul-2026) [Visa]: Australia Visa Processing — Australia Visa Processing, Step-by-Step Application Guide, E-Visa, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 08 (24-Jul-2026) [Visa]: Canada Visa Processing — Canada Visa Processing, Step-by-Step Application Guide, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 09 (24-Jul-2026) [Ticket]: Sabre GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 10 (25-Jul-2026) [Ticket]: Sabre Review & Live Practice — Full Sabre course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 09 (25-Jul-2026) [Visa]: Schengen Visa Processing (Part 1) — Schengen Visa Processing, Step-by-Step Application Guide, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 10 (31-Jul-2026) [Visa]: Schengen Visa Processing (Part 2) — Schengen Visa Processing Lecture 2, Step-by-Step Application Guide, Briefing supportive docs. (Practical: Submission & doc preparation).",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 11 (31-Jul-2026) [Ticket]: Amadeus GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 12 (01-Aug-2026) [Ticket]: Amadeus GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 11 (01-Aug-2026) [Visa]: Hong Kong, Malaysia, Philippines, Hajj, Umrah & Middle East — Session 1: Course Summary, Air Ticket Reservation. Session 2: Business Setup, Branding, Marketing Guideline, Q/A.",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 12 (07-Aug-2026) [Visa]: Hotel Booking, Tour Package & Business Setup — Session 1: Hotel Room Reservation, Tour Operation, Business Documentation. Session 2: Business Setup, Branding, Marketing Guideline, Q/A.",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 13 (07-Aug-2026) [Ticket]: Amadeus GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 14 (08-Aug-2026) [Ticket]: Amadeus Review & Live Practice — Full Amadeus course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 13 (08-Aug-2026) [Visa]: Class Test & Viva — Full syllabus evaluation preparation, live Q/A and interview simulation.",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 14 (14-Aug-2026) [Visa]: Final Board Exam — Written, Viva and Practical Board Examination.",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 15 (14-Aug-2026) [Ticket]: Class Test (Practical & Viva) — Full syllabus evaluation covering Galileo, Sabre, and Amadeus GDS systems.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 16 (15-Aug-2026) [Ticket]: Final Board Exam — Practical and Viva Voce final exam on ticketing systems.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  }
+]

@@ -96,7 +96,11 @@ const RoutineBuilder = (() => {
       if (byDay[r.day]) byDay[r.day].push(r);
     });
     DAYS.forEach(d => {
-      byDay[d].sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+      byDay[d].sort((a, b) => {
+        const timeCompare = (a.start_time || '').localeCompare(b.start_time || '');
+        if (timeCompare !== 0) return timeCompare;
+        return (a.subject || '').localeCompare(b.subject || '');
+      });
     });
 
     const activeDays = DAYS.filter(d => byDay[d].length > 0);
@@ -143,10 +147,14 @@ const RoutineBuilder = (() => {
         <div style="font-weight:600;font-size:0.88rem;margin:2px 0;">${Utils.esc(r.subject || '—')}</div>
         ${teacher && teacher !== '—' ? `<div style="font-size:0.78rem;color:var(--text-secondary);"><i class="fa fa-user-tie" style="margin-right:4px;"></i>${Utils.esc(teacher)}</div>` : ''}
         ${r.room ? `<div style="font-size:0.75rem;color:var(--text-secondary);margin-top:2px;"><i class="fa fa-door-open" style="margin-right:4px;"></i>${Utils.esc(r.room)}</div>` : ''}
-        <div style="text-align:right;margin-top:4px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <button class="btn btn-sm" style="padding:2px 8px;font-size:0.72rem;background:rgba(0,212,255,0.15);border:1px solid rgba(0,212,255,0.3);color:#00d4ff;"
+                  onclick="event.stopPropagation(); RoutineBuilder.openEditModal('${Utils.escAttr(r.id)}')">
+            <i class="fa fa-edit" style="margin-right:3px;"></i> এডিট
+          </button>
           <button class="btn btn-sm btn-danger" style="padding:2px 8px;font-size:0.72rem;" data-action="rb-delete" data-id="${Utils.escAttr(r.id)}"
                   onclick="event.stopPropagation()">
-            <i class="fa fa-trash"></i>
+            <i class="fa fa-trash"></i> মুছুন
           </button>
         </div>
       </div>
@@ -168,7 +176,9 @@ const RoutineBuilder = (() => {
     const sorted = [...routines].sort((a, b) => {
       const di = RoutineEngine.DAYS.indexOf(a.day) - RoutineEngine.DAYS.indexOf(b.day);
       if (di !== 0) return di;
-      return (a.start_time || '').localeCompare(b.start_time || '');
+      const timeCompare = (a.start_time || '').localeCompare(b.start_time || '');
+      if (timeCompare !== 0) return timeCompare;
+      return (a.subject || '').localeCompare(b.subject || '');
     });
 
     return `
