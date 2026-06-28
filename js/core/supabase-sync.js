@@ -2249,6 +2249,18 @@ const SupabaseSync = (() => {
 
   async function _pushRecord(table, record) {
     try {
+      // ✅ ULTIMATE BLOCK: Prevent any NEW Cash account from being pushed to Supabase.
+      // A "new" Cash account = type:'Cash' but id does NOT exist in current IDB accounts.
+      // Updates to the existing Cash account (balance changes) are allowed.
+      if (table === 'accounts' && record && record.type === 'Cash' && record._deleteOnly !== true) {
+        const existingAccounts = getAll('accounts');
+        const isKnownAccount = existingAccounts.some(a => a.id === record.id && a.type === 'Cash');
+        if (!isKnownAccount) {
+          console.warn('[Sync] ⛔ BLOCKED: Attempted to push unknown Cash account to Supabase. id:', record?.id);
+          return; // Hard block — never push unknown Cash accounts
+        }
+      }
+
       const { client } = window.SUPABASE_CONFIG;
       if (!client) {
         // If Supabase is configured but client is temporarily unavailable, queue for retry
@@ -2321,6 +2333,14 @@ const SupabaseSync = (() => {
 
   function _queueRetry(table, record) {
     try {
+      // ✅ HARD BLOCK: Cash account inserts must NEVER enter retry queue.
+      // ensureDefaultCashAccount() is disabled, but as a secondary defence:
+      // if any code path tries to push a new Cash account insert, block it here.
+      if (table === 'accounts' && record && record._deleteOnly !== true && record.type === 'Cash') {
+        console.warn('[Sync] ⛔ Blocked Cash account insert from retry queue. id:', record?.id);
+        return;
+      }
+
       // ✅ FIX: Use IndexedDB (persistent) instead of localStorage (5MB limit)
       // Queue records separately for better reliability
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
