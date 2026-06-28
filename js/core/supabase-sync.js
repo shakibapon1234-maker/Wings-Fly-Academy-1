@@ -3456,8 +3456,26 @@ const SyncEngine = (() => {
         const rows = SupabaseSync.getAll(key);
         if (!rows.length) continue;
         const cleanRows = rows.map(r => SupabaseSync._prepareRecordForCloud(key, r));
+        
         const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
-        if (error) console.error(`[Sync] Push failed for "${key}":`, error);
+        if (error) {
+          console.warn(`[Sync] Batch push failed for "${key}", trying one-by-one fallback. Error:`, error);
+          
+          // One-by-one fallback
+          let singleFailCount = 0;
+          for (const row of cleanRows) {
+            const { error: singleErr } = await client.from(key).upsert([row], { onConflict: 'id' });
+            if (singleErr) {
+              singleFailCount++;
+              console.error(`[Sync] Individual push failed for table "${key}" row "${row.id}":`, singleErr);
+            }
+          }
+          if (singleFailCount === cleanRows.length) {
+            console.error(`[Sync] Push failed completely for table "${key}".`);
+          } else if (singleFailCount > 0) {
+            console.warn(`[Sync] Push partially successful for table "${key}": ${cleanRows.length - singleFailCount} succeeded, ${singleFailCount} failed.`);
+          }
+        }
       }
       setStatus('synced');
       if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');

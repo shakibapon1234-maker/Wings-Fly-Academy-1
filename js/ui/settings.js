@@ -7295,10 +7295,10 @@ ${expenseEntries.length > 0 ? `
                    border-radius:8px;color:#10b981;cursor:pointer;font-size:0.82rem;font-weight:700">
             <i class="fa fa-check-circle"></i> Access প্রাপ্ত
           </button>
-          <button onclick="SettingsModule.spSetFilter('all')"
+          <button onclick="SettingsModule.spRefresh()"
             style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;color:#aaa;cursor:pointer;font-size:0.85rem">
-            <i class="fa fa-rotate"></i> রিফ্রেশ
+            <i class="fa fa-rotate"></i> সিঙ্ক ও রিফ্রেশ
           </button>
         </div>
 
@@ -7445,6 +7445,13 @@ ${expenseEntries.length > 0 ? `
     _spAllStudents = students;
     _spPopulateBatchList();
     _spRenderList(students);
+
+    // Trigger background sync to make sure any local additions/fixes upload
+    if (typeof SyncEngine !== 'undefined' && SyncEngine.push) {
+      SyncEngine.push({ silent: true, forcePush: true }).catch(err => {
+        console.warn('[StudentPortal] Auto-push failed:', err);
+      });
+    }
   }
 
   function _spRenderList(students) {
@@ -7566,6 +7573,36 @@ ${expenseEntries.length > 0 ? `
     } else {
       _spRenderStudentList();
     }
+  }
+
+  async function spRefresh() {
+    const refreshBtn = document.querySelector('button[onclick*="spRefresh"]');
+    let originalHTML = '';
+    if (refreshBtn) {
+      originalHTML = refreshBtn.innerHTML;
+      refreshBtn.disabled = true;
+      refreshBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> সিঙ্ক হচ্ছে...';
+    }
+    
+    if (typeof SyncEngine !== 'undefined' && SyncEngine.syncAll) {
+      try {
+        await SyncEngine.syncAll({ silent: true });
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('ডাটা সিঙ্ক্রোনাইজেশন সফল হয়েছে ✅', 'success');
+        }
+      } catch (err) {
+        console.error('[StudentPortal] Sync failed:', err);
+        if (typeof Utils !== 'undefined' && Utils.toast) {
+          Utils.toast('সিঙ্ক করা যায়নি, ইন্টারনেট চেক করুন ❌', 'error');
+        }
+      }
+    }
+    
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.innerHTML = originalHTML;
+    }
+    spSetFilter('all');
   }
 
   function spOpenPinModal(studentId, studentName, phone) {
@@ -7837,7 +7874,7 @@ ${expenseEntries.length > 0 ? `
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess,
+    spFilterStudents, spSetFilter, spRefresh, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess,
   };
 })();
 
