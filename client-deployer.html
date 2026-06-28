@@ -227,8 +227,37 @@
   </div>
 
 </div>
+<script src="js/core/clients-metadata.js"></script>
 <script>
 const _CK = 'wfa_acadeflow_clients';
+
+// FIX 5: Merge clients-metadata.js entries (written by new-client.ps1) into localStorage.
+// Previously these were two separate stores — ps1 wrote to clients-metadata.js while
+// client-deployer.html only read/wrote localStorage. Any client created via ps1 would
+// be invisible here until manually re-entered. Now we merge on every page load.
+(function _mergeScriptClients() {
+  var scriptClients = (window.WFA_AUTO_DEPLOYED_CLIENTS || []);
+  if (!scriptClients.length) return;
+  try {
+    var stored = JSON.parse(localStorage.getItem(_CK) || '[]');
+    var merged = stored.slice();
+    scriptClients.forEach(function(sc) {
+      var exists = merged.find(function(m) { return m.customerCode === sc.customerCode; });
+      if (!exists) {
+        merged.push(sc);
+      } else {
+        // Script-deployed entry wins on supabaseUrl & institutionType (more authoritative)
+        exists.supabaseUrl     = sc.supabaseUrl     || exists.supabaseUrl;
+        exists.institutionType = sc.institutionType || exists.institutionType;
+        exists.academy         = sc.academy         || exists.academy;
+        exists.package         = sc.package         || exists.package;
+        if (sc.licenseKey) exists.licenseKey = sc.licenseKey;
+      }
+    });
+    localStorage.setItem(_CK, JSON.stringify(merged));
+  } catch(e) { console.warn('[client-deployer] merge failed', e); }
+})();
+
 function loadClients() { try { return JSON.parse(localStorage.getItem(_CK)||'[]'); } catch { return []; } }
 function saveClients(l) { try { localStorage.setItem(_CK, JSON.stringify(l)); } catch {} }
 

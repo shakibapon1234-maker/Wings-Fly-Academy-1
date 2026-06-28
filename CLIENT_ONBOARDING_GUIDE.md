@@ -54,7 +54,10 @@ git push origin main
 2. Branch: `main` → Save
 3. কয়েক মিনিট পর URL পাবেন: `https://YOUR_USERNAME.github.io/client-greenleaf/`
 
-## ✅ STEP 5 — License Key Generate করুন
+## ✅ STEP 5 — License Key Generate করুন [REQUIRED]
+
+> [!IMPORTANT]
+> এই ধাপটি **আবশ্যিক (REQUIRED)**। License Key ছাড়া ক্লায়েন্ট প্রথমবার অ্যাপ ওপেন করতে গেলে অ্যাপটি **LOCK** হয়ে যাবে এবং কোনো ডাটা দেখতে পারবে না। তাই ডেপ্লয় করার আগেই License Key জেনারেট করে ক্লায়েন্টকে পাঠানো নিশ্চিত করুন।
 
 1. আপনার Wings Fly Academy app খুলুন
 2. Settings → Client Manager

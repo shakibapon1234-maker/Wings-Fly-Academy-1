@@ -75,6 +75,22 @@ if (!$KEY -or $KEY.Length -lt 30) { Write-ERR "Valid Anon Key din!"; pause; exit
 
 $LICKEY  = (Ask "License Key (optional, Enter to skip)").Trim().ToUpper()
 
+# FIX 4: License Key ছাড়া deploy করলে client প্রথমবার app খুলতেই LOCK হয়ে যাবে।
+# Warning দেখিয়ে confirmation নিন — এটা skip করা কঠিন করুন।
+if (!$LICKEY) {
+    Write-Host ""
+    Write-WARN "License Key dewa hoyni!"
+    Write-Host "  [!] Client prothombar app khulei LOCK hoe jabe — kono data dekhte parbena." -ForegroundColor Red
+    Write-Host "  [!] Deployment-er age Client Manager theke key generate kore ekhane den." -ForegroundColor Red
+    Write-Host ""
+    $licConfirm = Ask "Tao ki License Key CHARA deploy korben? (yes/no)" "no"
+    if ($licConfirm -ne "yes") {
+        Write-WARN "Deploy cancel kora hoeche. Client Manager theke key generate korun, tarpor abar chalun."
+        pause; exit 0
+    }
+    Write-WARN "Thik ache — License Key chara continue kora hochhe. Deploy-er por JODI KEY PATHATE BHOLEN client kono kichu korte parbena!"
+}
+
 # -- STEP 3: Find source www/ folder -----------------------------
 Write-Host ""
 Write-Title "STEP 3: Source Project khoja hochhe..."
@@ -286,6 +302,23 @@ try {
 $GA = "* text=auto`n*.js text eol=lf`n*.html text eol=lf`n*.css text eol=lf"
 $GA | Set-Content -Path (Join-Path $CLIENT_DIR ".gitattributes") -Encoding UTF8
 
+# -- FIX 1: Create .gitignore in client folder BEFORE git add -A --
+# supabase-secrets.js contains the client's Supabase URL + Anon Key.
+# Without this .gitignore, "git add -A" would commit it to the PUBLIC GitHub repo,
+# exposing credentials to anyone. The file must exist in the client folder but
+# NEVER be tracked by git — it is deployed directly, not via version control.
+$CLIENT_GITIGNORE = @"
+# WFA Client Deployment — credentials file (never commit to public repo)
+js/core/supabase-secrets.js
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+"@
+$CLIENT_GITIGNORE | Set-Content -Path (Join-Path $CLIENT_DIR ".gitignore") -Encoding UTF8
+Write-OK ".gitignore created — supabase-secrets.js excluded from git (credentials safe)"
+
 # -- STEP 7: Git init and first commit ----------------------------
 Write-Host ""
 Write-Title "STEP 6: Git setup hochhe..."
@@ -295,7 +328,7 @@ Push-Location $CLIENT_DIR
 git init -b main | Out-Null
 git add -A | Out-Null
 git commit -m "init: $ACADEMY ($CODE) - WFA Client Deployment" | Out-Null
-Write-OK "Git initialized and committed (supabase-secrets.js included)"
+Write-OK "Git initialized and committed (supabase-secrets.js gitignored — credentials NOT in repo)"
 
 # -- STEP 8: Ask to push ------------------------------------------
 Write-Host ""

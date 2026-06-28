@@ -80,6 +80,10 @@ const _LS_KEYS_TO_PURGE = [
   'wfa_gemini_key_3', 'wfa_ai_local_only', 'wfa_debug_logs',
   'wfa_user_id',
   'wfa_institution_type',
+  // FIX 2: Client Manager & license admin keys — were missing from purge list.
+  // Without these, switching between main project and a client deployment would
+  // leave the client list and admin secret visible across origins (data bleed).
+  'wfa_acadeflow_clients', 'wfa_license_admin_secret',
 ];
 
 function _purgeLocalDataForNewDb() {
