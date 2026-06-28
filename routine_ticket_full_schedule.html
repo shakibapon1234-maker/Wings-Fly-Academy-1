@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Ticketing & GDS Class Routine — Air Ticketing & GDS</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&display=swap" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(20, 26, 46, 0.75);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --brand-primary: #00ff88;
+            --text-main: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --success: #10b981;
+            --header-gradient: linear-gradient(135deg, #0284c7, #0369a1);
+        }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: 'Hind Siliguri', 'Exo 2', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 90px 20px 40px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
+        }
+        /* Floating Control Bar */
+        .control-bar {
+            position: fixed;
+            top: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 22, 42, 0.9);
+            border: 1px solid var(--border-color);
+            border-radius: 30px;
+            padding: 8px 24px;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(10px);
+        }
+        .control-bar .bar-logo {
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .control-btn {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 6px 14px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: var(--text-secondary);
+        }
+        .control-btn.btn-active {
+            background: var(--brand-primary);
+            color: #060913;
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+        }
+        .control-btn.btn-save {
+            background: var(--success);
+            color: white;
+            border-color: var(--success);
+        }
+        .control-btn.btn-save:hover {
+            background: #059669;
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+        }
+        
+        .schedule-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 1100px;
+            overflow: hidden;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 500px;
+            height: 500px;
+            background-image: url('assets/logo.png'), url('assets/logo.jpg'), url('assets/logo.webp'), url('https://raw.githubusercontent.com/shakibapon1234-maker/Wings-Fly-Academy-1/main/assets/logo.jpg');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            opacity: 0.035;
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .header {
+            background: var(--header-gradient);
+            padding: 26px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .header-content {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header-logo {
+            height: 60px;
+            width: 60px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.4);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+        }
+        .header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 4px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .header p {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 0.95rem;
+        }
+        .header .badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            font-weight: 600;
+        }
+        .table-container {
+            padding: 20px;
+            overflow-x: auto;
+            position: relative;
+            z-index: 2;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+        th {
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 2px solid var(--border-color);
+            color: var(--text-secondary);
+            font-weight: 600;
+            padding: 14px 16px;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+        td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.9rem;
+            vertical-align: middle;
+            transition: background 0.15s;
+        }
+        tr:hover td {
+            background: rgba(255, 255, 255, 0.015);
+        }
+        .row-done td {
+            opacity: 0.55;
+            background: rgba(255, 255, 255, 0.005);
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-align: center;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s;
+        }
+        .status-done {
+            background: rgba(16, 185, 129, 0.15);
+            color: #10b981;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+        .status-done:hover {
+            background: rgba(16, 185, 129, 0.25);
+        }
+        .status-pending {
+            background: rgba(0, 217, 255, 0.1);
+            color: var(--brand-primary);
+            border: 1px solid rgba(0, 217, 255, 0.25);
+        }
+        .status-pending:hover {
+            background: rgba(0, 217, 255, 0.2);
+        }
+        
+        /* Edit Mode Styles */
+        .edit-active .editable {
+            outline: 1px dashed rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: text;
+        }
+        .edit-active .editable:focus {
+            outline: 2px solid var(--brand-primary);
+            background: rgba(0, 0, 0, 0.3);
+        }
+        
+        .btn-delete {
+            background: transparent;
+            border: none;
+            color: #ef4444;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 4px;
+            font-size: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.15s;
+        }
+        .edit-active .btn-delete {
+            opacity: 0.8;
+            pointer-events: auto;
+        }
+        .edit-active .btn-delete:hover {
+            opacity: 1;
+            background: rgba(239, 68, 68, 0.15);
+        }
+        .col-action {
+            width: 50px;
+            display: none;
+        }
+        .edit-active .col-action {
+            display: table-cell;
+        }
+        
+        .footer {
+            padding: 20px 30px;
+            background: rgba(0,0,0,0.2);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            position: relative;
+            z-index: 2;
+        }
+        
+        @media print {
+            body {
+                background: #fff;
+                color: #000;
+                padding: 0;
+            }
+            .control-bar, .no-print, .col-action {
+                display: none !important;
+            }
+            .schedule-card {
+                box-shadow: none;
+                border: none;
+                background: transparent;
+                max-width: 100%;
+            }
+            th {
+                color: #333;
+                border-bottom-color: #000;
+            }
+            td {
+                color: #111;
+                border-bottom-color: #ddd;
+            }
+            .header {
+                background: #f3f4f6;
+                color: #000;
+                border-bottom: 2px solid #000;
+            }
+            .header h1 {
+                color: #000;
+            }
+            .header p {
+                color: #333;
+            }
+            .status-done, .status-pending {
+                border: 1px solid #777;
+                color: #000;
+                background: transparent;
+            }
+            .row-done td {
+                opacity: 0.6;
+            }
+            .watermark {
+                opacity: 0.05;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Importer Data Tag Required by routine-builder.js -->
+    <script id="wfa-routine-data" type="application/json">
+[
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 01: Introduction to Geography — Introduction to Geography, IATA Geography basic, Journey Concept, Phonetic Alphabet.",
+    "teacher_id": "",
+    "room": "",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 02: Introduction to GDS Basic — Introduction to Airlines industry & Ticketing systems, BSP Airlines list & codes, Airport codes.",
+    "teacher_id": "",
+    "room": "",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 03: Galileo GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 04: Galileo GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share a booking (PNR), Divide booking (Split PNR), Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 05: Galileo GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 06: Galileo Review & Live Practice — Full Galileo course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 07: Sabre GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 08: Sabre GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 09: Sabre GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 10: Sabre Review & Live Practice — Full Sabre course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 11: Amadeus GDS Class 01 — Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 12: Amadeus GDS Class 02 — Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 13: Amadeus GDS Class 03 — Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 14: Amadeus Review & Live Practice — Full Amadeus course review, Live practices, Student question solutions, Class Exam/Quiz.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Class 15: Class Test (Practical & Viva) — Full syllabus evaluation covering Galileo, Sabre, and Amadeus GDS systems.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & GDS",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Class 16: Final Board Exam — Practical and Viva Voce final exam on ticketing systems.",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  }
+]
+    </script>
+
+    <!-- Floating Control Panel -->
+    <div class="control-bar no-print">
+        <img class="bar-logo" src="assets/logo.jpg" alt="Logo" onerror="this.src='https://raw.githubusercontent.com/shakibapon1234-maker/Wings-Fly-Academy-1/main/assets/logo.jpg'">
+        <button class="control-btn" id="edit-toggle-btn" onclick="toggleEditMode()">
+            <i class="fa fa-pen-to-square"></i> এডিট মোড (OFF)
+        </button>
+        <button class="control-btn" id="add-row-btn" onclick="addNewRow()" style="display:none;">
+            <i class="fa fa-plus"></i> সারি যোগ করুন
+        </button>
+        <button class="control-btn btn-save" id="json-export-btn" onclick="exportUpdatedJSON()">
+            <i class="fa fa-file-code"></i> JSON ডাউনলোড
+        </button>
+        <button class="control-btn" onclick="window.print()">
+            <i class="fa fa-print"></i> প্রিন্ট / PDF
+        </button>
+    </div>
+
+    <div class="schedule-card">
+        <!-- Watermark background -->
+        <div class="watermark"></div>
+        
+        <div class="header">
+            <div class="header-content">
+                <img class="header-logo" src="assets/logo.jpg" alt="Logo" onerror="this.src='https://raw.githubusercontent.com/shakibapon1234-maker/Wings-Fly-Academy-1/main/assets/logo.jpg'">
+                <div>
+                    <h1 id="routine-title-heading">Air Ticketing & GDS Class Routine</h1>
+                    <p>উইংস ফ্লাই এভিয়েশন একাডেমি — ব্যাচ: <strong id="batch-name-heading">Air Ticketing & GDS</strong></p>
+                </div>
+            </div>
+            <div class="badge"><i class="fa fa-clock"></i> প্রতি সপ্তাহান্ত (Fri-Sat)</div>
+        </div>
+        
+        <div class="table-container">
+            <table id="routine-table">
+                <thead>
+                    <tr>
+                        <th style="width: 8%; text-align: center;">ক্লাস</th>
+                        <th style="width: 13%;">তারিখ / দিন</th>
+                        <th style="width: 18%;">সময়</th>
+                        <th style="width: 36%;">টপিক ও বিস্তারিত বিবরণ</th>
+                        <th style="width: 10%; text-align: center;">শিক্ষক</th>
+                        <th style="width: 7%; text-align: center;">রুম</th>
+                        <th style="width: 8%; text-align: center;">অবস্থা</th>
+                        <th class="col-action" style="width: 5%; text-align: center;">মুছুন</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body">
+                    
+        <tr class="row-done">
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 01</td>
+            <td class="col-date editable"><strong>Completed</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Introduction to Geography</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Introduction to Geography, IATA Geography basic, Journey Concept, Phonetic Alphabet.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-done" onclick="toggleRowStatus(this)">সম্পন্ন (Done)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr class="row-done">
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 02</td>
+            <td class="col-date editable"><strong>Completed</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Introduction to GDS Basic</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Introduction to Airlines industry & Ticketing systems, BSP Airlines list & codes, Airport codes.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-done" onclick="toggleRowStatus(this)">সম্পন্ন (Done)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 03</td>
+            <td class="col-date editable"><strong>2026-07-03</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Galileo GDS Class 01</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 04</td>
+            <td class="col-date editable"><strong>2026-07-04</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Galileo GDS Class 02</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share a booking (PNR), Divide booking (Split PNR), Booking cancel.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 05</td>
+            <td class="col-date editable"><strong>2026-07-10</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Galileo GDS Class 03</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 06</td>
+            <td class="col-date editable"><strong>2026-07-11</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Galileo Review & Live Practice</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Full Galileo course review, Live practices, Student question solutions, Class Exam/Quiz.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 07</td>
+            <td class="col-date editable"><strong>2026-07-17</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Sabre GDS Class 01</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 08</td>
+            <td class="col-date editable"><strong>2026-07-18</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Sabre GDS Class 02</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 09</td>
+            <td class="col-date editable"><strong>2026-07-24</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Sabre GDS Class 03</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 10</td>
+            <td class="col-date editable"><strong>2026-07-25</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Sabre Review & Live Practice</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Full Sabre course review, Live practices, Student question solutions, Class Exam/Quiz.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 11</td>
+            <td class="col-date editable"><strong>2026-07-31</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Amadeus GDS Class 01</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Sign On/Off, Printer Assigned & Capping Check. Booking (A to Z): Seats Searching, Hold Air segment, Name Insert, Phone field, Ticketing Agreement, Received Field.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 12</td>
+            <td class="col-date editable"><strong>2026-08-01</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Amadeus GDS Class 02</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Booking open & cancel, Fare load/pricing & Calculation (A to Z), Share PNR, Split PNR, Booking cancel.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 13</td>
+            <td class="col-date editable"><strong>2026-08-07</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Amadeus GDS Class 03</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Docs insert & cancel, Special service request (SSR), Ticket issuing entries, Ticket void entry, Fare rules basic.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 14</td>
+            <td class="col-date editable"><strong>2026-08-08</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Amadeus Review & Live Practice</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Full Amadeus course review, Live practices, Student question solutions, Class Exam/Quiz.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 15</td>
+            <td class="col-date editable"><strong>2026-08-14</strong><br><small style="color:var(--text-secondary);">Fri</small></td>
+            <td class="col-time editable" style="font-weight: 600;">06:00 PM - 08:00 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Class Test (Practical & Viva)</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Full syllabus evaluation covering Galileo, Sabre, and Amadeus GDS systems.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+        <tr >
+            <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">Class 16</td>
+            <td class="col-date editable"><strong>2026-08-15</strong><br><small style="color:var(--text-secondary);">Sat</small></td>
+            <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+            <td class="col-topic">
+                <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">Final Board Exam</div>
+                <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">Practical and Viva Voce final exam on ticketing systems.</div>
+            </td>
+            <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+            <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 102</td>
+            <td class="col-status" style="text-align: center;"><span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span></td>
+            <td class="col-action no-print" style="text-align: center;"><button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button></td>
+        </tr>
+        
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="footer">
+            <span>&copy; 2026 Wings Fly Aviation Academy. All rights reserved.</span>
+            <span>সরাসরি এডিটেবল ক্লাস রুটিন সিট</span>
+        </div>
+    </div>
+
+    <!-- Script Block for Interactive Logic -->
+    <script>
+        let isEditMode = false;
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            const body = document.body;
+            const btn = document.getElementById('edit-toggle-btn');
+            const addBtn = document.getElementById('add-row-btn');
+            
+            if (isEditMode) {
+                body.classList.add('edit-active');
+                btn.classList.add('btn-active');
+                btn.innerHTML = '<i class="fa fa-lock-open"></i> এডিট মোড (ON)';
+                addBtn.style.display = 'inline-flex';
+                makeCellsEditable(true);
+            } else {
+                body.classList.remove('edit-active');
+                btn.classList.remove('btn-active');
+                btn.innerHTML = '<i class="fa fa-pen-to-square"></i> এডিট মোড (OFF)';
+                addBtn.style.display = 'none';
+                makeCellsEditable(false);
+            }
+        }
+
+        function makeCellsEditable(editable) {
+            const cells = document.querySelectorAll('.editable');
+            cells.forEach(cell => {
+                cell.contentEditable = editable;
+            });
+        }
+
+        function toggleRowStatus(badge) {
+            const tr = badge.closest('tr');
+            if (badge.classList.contains('status-done')) {
+                badge.className = 'status status-pending';
+                badge.innerText = 'চলমান (Pending)';
+                tr.classList.remove('row-done');
+            } else {
+                badge.className = 'status status-done';
+                badge.innerText = 'সম্পন্ন (Done)';
+                tr.classList.add('row-done');
+            }
+            updateEmbedJSON();
+        }
+
+        function deleteRow(btn) {
+            if (confirm('আপনি কি এই ক্লাস সারিটি মুছে ফেলতে চান?')) {
+                const row = btn.closest('tr');
+                row.remove();
+                checkEmptyTable();
+                updateEmbedJSON();
+            }
+        }
+
+        function checkEmptyTable() {
+            const tbody = document.getElementById('table-body');
+            if (tbody.querySelectorAll('tr').length === 0) {
+                tbody.innerHTML = `
+                    <tr id="empty-row">
+                        <td colspan="8" style="text-align:center; padding:30px; color:var(--text-secondary);">
+                            কোনো রুটিন ডেটা নেই। এডিট মোড অন করে সারি যোগ করুন।
+                        </td>
+                    </tr>
+                `;
+            }
+        }
+
+        function addNewRow() {
+            const tbody = document.getElementById('table-body');
+            const emptyRow = document.getElementById('empty-row');
+            if (emptyRow) emptyRow.remove();
+
+            const nextClassNum = "Class " + String(tbody.querySelectorAll('tr').length + 1).padStart(2, '0');
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="col-class editable" style="font-weight: 700; text-align: center; color: var(--brand-primary);">${nextClassNum}</td>
+                <td class="col-date editable"><strong>YYYY-MM-DD</strong><br><small style="color:var(--text-secondary);">Friday</small></td>
+                <td class="col-time editable" style="font-weight: 600;">03:30 PM - 05:30 PM</td>
+                <td class="col-topic">
+                    <div class="topic-title editable" style="font-weight: 700; color: #fff; margin-bottom: 4px;">নতুন টপিক</div>
+                    <div class="topic-details editable" style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">বিস্তারিত বিবরণ এখানে লিখুন।</div>
+                </td>
+                <td class="col-teacher editable" style="text-align: center; font-weight: 600;">—</td>
+                <td class="col-room editable" style="text-align: center; font-weight: 600;">Room 101</td>
+                <td class="col-status" style="text-align: center;">
+                    <span class="status status-pending" onclick="toggleRowStatus(this)">চলমান (Pending)</span>
+                </td>
+                <td class="col-action no-print" style="text-align: center;">
+                    <button class="btn-delete" onclick="deleteRow(this)"><i class="fa fa-trash"></i></button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+            if (isEditMode) {
+                tr.querySelectorAll('.editable').forEach(cell => cell.contentEditable = true);
+            }
+            updateEmbedJSON();
+        }
+
+        // Parse Time String (e.g., "03:30 PM") to 24h (e.g., "15:30")
+        function parseTimeTo24h(timeStr) {
+            const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+            if (!match) return timeStr;
+            let hrs = parseInt(match[1]);
+            const mins = match[2];
+            const ampm = match[3].toUpperCase();
+            if (ampm === 'PM' && hrs < 12) hrs += 12;
+            if (ampm === 'AM' && hrs === 12) hrs = 0;
+            return String(hrs).padStart(2, '0') + ":" + mins;
+        }
+
+        // Extract list of items from DOM
+        function getRoutineListFromDOM() {
+            const batchHeading = document.getElementById('batch-name-heading').innerText.trim();
+            const rows = document.querySelectorAll('#table-body tr');
+            const list = [];
+            
+            const DAY_MAP = {
+                'friday': 'Fri', 'fri': 'Fri', 'শুক্রবার': 'Fri', 'শুক্র': 'Fri',
+                'saturday': 'Sat', 'sat': 'Sat', 'শনিবার': 'Sat', 'শনি': 'Sat',
+                'sunday': 'Sun', 'sun': 'Sun', 'রবিবার': 'Sun', 'রবি': 'Sun',
+                'monday': 'Mon', 'mon': 'Mon', 'সোমবার': 'Mon', 'সোম': 'Mon',
+                'tuesday': 'Tue', 'tue': 'Tue', 'মঙ্গলবার': 'Tue', 'মঙ্গল': 'Tue',
+                'wednesday': 'Wed', 'wed': 'Wed', 'বুধবার': 'Wed', 'বুধ': 'Wed',
+                'thursday': 'Thu', 'thu': 'Thu', 'বৃহস্পতিবার': 'Thu', 'বৃহস্পতি': 'Thu'
+            };
+
+            rows.forEach(row => {
+                if (row.id === 'empty-row') return;
+                
+                const classNum = row.querySelector('.col-class').innerText.trim();
+                
+                // Get Day & Date
+                const dateHtml = row.querySelector('.col-date').innerHTML;
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = dateHtml;
+                const dateVal = tempDiv.querySelector('strong') ? tempDiv.querySelector('strong').innerText.trim() : tempDiv.innerText.split('\n')[0].trim();
+                const dayText = tempDiv.querySelector('small') ? tempDiv.querySelector('small').innerText.trim().toLowerCase() : '';
+                
+                let dayCode = 'Fri';
+                for (const [k, v] of Object.entries(DAY_MAP)) {
+                    if (dayText.includes(k)) {
+                        dayCode = v;
+                        break;
+                    }
+                }
+
+                // Get Time
+                const timeText = row.querySelector('.col-time').innerText.trim();
+                let startTime = '15:30';
+                let endTime = '17:30';
+                const times = timeText.split('-');
+                if (times.length === 2) {
+                    startTime = parseTimeTo24h(times[0].trim());
+                    endTime = parseTimeTo24h(times[1].trim());
+                }
+
+                // Topic & Details
+                const topicTitle = row.querySelector('.topic-title').innerText.trim();
+                const topicDetails = row.querySelector('.topic-details').innerText.trim();
+                const fullSubject = classNum + ": " + topicTitle + " — " + topicDetails;
+
+                const teacher = row.querySelector('.col-teacher').innerText.trim();
+                const room = row.querySelector('.col-room').innerText.trim();
+                const statusBadge = row.querySelector('.status');
+                const is_active = !statusBadge.classList.contains('status-done');
+
+                list.push({
+                    batch_id: batchHeading,
+                    day: dayCode,
+                    start_time: startTime,
+                    end_time: endTime,
+                    subject: fullSubject,
+                    teacher_id: teacher === '—' ? '' : teacher,
+                    room: room === '—' ? '' : room,
+                    is_active: is_active
+                });
+            });
+            return list;
+        }
+
+        // Keeps the script block in sync when table changes
+        function updateEmbedJSON() {
+            const list = getRoutineListFromDOM();
+            document.getElementById('wfa-routine-data').textContent = JSON.stringify(list, null, 2);
+        }
+
+        // Listen for input changes in edit mode to update JSON script block dynamically
+        document.getElementById('table-body').addEventListener('input', () => {
+            updateEmbedJSON();
+        });
+
+        // Export data to JSON file
+        function exportUpdatedJSON() {
+            const list = getRoutineListFromDOM();
+            if (list.length === 0) {
+                alert('এক্সপোর্ট করার জন্য টেবিলে কোনো ক্লাস ডেটা নেই!');
+                return;
+            }
+            const batchHeading = document.getElementById('batch-name-heading').innerText.trim();
+            const jsonStr = JSON.stringify(list, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "routine_" + batchHeading.replace(/\s+/g, '_').toLowerCase() + ".json";
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>

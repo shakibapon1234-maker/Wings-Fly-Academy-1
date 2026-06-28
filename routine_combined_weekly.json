@@ -1,0 +1,42 @@
+[
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Visa Processing",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Fri",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Air Ticketing & GDS",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Air Ticketing & GDS",
+    "teacher_id": "",
+    "room": "Room 102",
+    "is_active": true
+  },
+  {
+    "batch_id": "Air Ticketing & Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Visa Processing",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  }
+]

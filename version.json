@@ -1,7 +1,7 @@
 {
-  "version": "5.1.2",
-  "deploy_id": "20260627-license-fallback-fix",
-  "changelog": "Fix license validation migration fallback for keys not present in server db.",
+  "version": "5.1.3",
+  "deploy_id": "20260628-sync-error-fix",
+  "changelog": "Fix ReferenceError for _autoCleanDuplicateAccounts in SupabaseSync.",
   "size": "~2MB",
-  "released": "2026-06-27"
+  "released": "2026-06-28"
 }

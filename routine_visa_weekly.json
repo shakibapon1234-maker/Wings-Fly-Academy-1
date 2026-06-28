@@ -1,0 +1,22 @@
+[
+  {
+    "batch_id": "Visa Processing",
+    "day": "Fri",
+    "start_time": "15:30",
+    "end_time": "17:30",
+    "subject": "Visa Processing",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  },
+  {
+    "batch_id": "Visa Processing",
+    "day": "Sat",
+    "start_time": "18:00",
+    "end_time": "20:00",
+    "subject": "Visa Processing",
+    "teacher_id": "",
+    "room": "Room 101",
+    "is_active": true
+  }
+]
