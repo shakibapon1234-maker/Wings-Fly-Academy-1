@@ -54,6 +54,7 @@ create table if not exists public.settings (
   institution_type       text default 'coaching',
   payment_gateway_config jsonb,
   sms_config             jsonb,
+  portal_access_enabled  boolean default true,
   created_at             timestamptz default now(),
   updated_at             timestamptz default now()
 );
@@ -85,6 +86,7 @@ create table if not exists public.students (
   shift            text,
   note             text,
   installment_plan jsonb,
+  portal_enabled   boolean default false,
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
 );

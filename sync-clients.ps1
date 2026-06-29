@@ -5,7 +5,7 @@
 # ================================================================
 
 try { $Host.UI.RawUI.WindowTitle = "WFA Client Sync" } catch {}
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host "=============================================" -ForegroundColor Cyan
