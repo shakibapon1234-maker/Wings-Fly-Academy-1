@@ -7216,7 +7216,7 @@ ${expenseEntries.length > 0 ? `
           <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
             <div style="flex:1;min-width:180px">
               <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase">Select Batch (ব্যাচ নির্বাচন করুন)</label>
-              <select id="sp-batch-select" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;outline:none">
+              <select id="sp-batch-select" onchange="SettingsModule.spHandleBatchChange(this.value)" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;outline:none">
                 <option value="">-- ব্যাচ নির্বাচন করুন --</option>
               </select>
             </div>
@@ -7395,7 +7395,15 @@ ${expenseEntries.length > 0 ? `
 
     _spAllStudents = students;
     _spPopulateBatchList();
-    _spRenderList(students);
+
+    // Filter by selected batch if any
+    const batchSelect = document.getElementById('sp-batch-select');
+    const selectedBatch = batchSelect ? batchSelect.value : '';
+    let filtered = students;
+    if (selectedBatch) {
+      filtered = students.filter(s => s.batch === selectedBatch);
+    }
+    _spRenderList(filtered);
 
     // Trigger background sync to make sure any local additions/fixes upload
     if (typeof SyncEngine !== 'undefined' && SyncEngine.push) {
@@ -7440,6 +7448,7 @@ ${expenseEntries.length > 0 ? `
       const phone = s.phone || s.contact || '';
       const escapedName = Utils.esc ? Utils.esc(s.name || '—') : (s.name || '—');
       const escapedId   = Utils.esc ? Utils.esc(s.id || '') : (s.id || '');
+      const escapedStudentId = Utils.esc ? Utils.esc(s.student_id || '') : (s.student_id || '');
       const escapedPhone= Utils.esc ? Utils.esc(phone) : phone;
 
       return `
@@ -7451,7 +7460,7 @@ ${expenseEntries.length > 0 ? `
           <div style="flex:1;min-width:160px">
             <div style="font-weight:600;color:#f9fafb;font-size:0.95rem">${escapedName}</div>
             <div style="font-size:0.8rem;color:#6b7280;margin-top:2px">
-              <span style="margin-right:12px"><i class="fa fa-id-badge"></i> ${escapedId}</span>
+              <span style="margin-right:12px"><i class="fa fa-id-badge"></i> ${escapedStudentId}</span>
               <span><i class="fa fa-phone"></i> ${escapedPhone || 'নম্বর নেই'}</span>
             </div>
           </div>
@@ -7490,8 +7499,15 @@ ${expenseEntries.length > 0 ? `
       return;
     }
     const q = query.toLowerCase();
-    const filtered = _spAllStudents.filter(s =>
+    const batchSelect = document.getElementById('sp-batch-select');
+    const selectedBatch = batchSelect ? batchSelect.value : '';
+    let baseStudents = _spAllStudents;
+    if (selectedBatch) {
+      baseStudents = _spAllStudents.filter(s => s.batch === selectedBatch);
+    }
+    const filtered = baseStudents.filter(s =>
       (s.name || '').toLowerCase().includes(q) ||
+      (s.student_id || '').toLowerCase().includes(q) ||
       (s.id || '').toLowerCase().includes(q) ||
       (s.phone || '').includes(q)
     );
@@ -7510,20 +7526,29 @@ ${expenseEntries.length > 0 ? `
     const searchInput = document.getElementById('sp-search-input');
     if (searchInput) searchInput.value = '';
 
+    const batchSelect = document.getElementById('sp-batch-select');
+    const selectedBatch = batchSelect ? batchSelect.value : '';
+    let baseStudents = _spAllStudents;
+    if (selectedBatch) {
+      baseStudents = _spAllStudents.filter(s => s.batch === selectedBatch);
+    }
+
     if (mode === 'access') {
       // Show only students who have portal access
       let accessMap = {};
       try {
-        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+        if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
           const accessList = SupabaseSync.getAll('student_portal_access') || [];
           accessList.forEach(a => { accessMap[a.student_id] = a; });
         }
       } catch { /* ignore */ }
-      const accessStudents = _spAllStudents.filter(s => !!accessMap[s.id]);
+      const accessStudents = baseStudents.filter(s => !!accessMap[s.id]);
       _spRenderList(accessStudents);
     } else {
-      _spRenderStudentList();
+      _spRenderList(baseStudents);
     }
+  function spHandleBatchChange(batch) {
+    _spRenderStudentList();
   }
 
   async function spRefresh() {
@@ -7826,7 +7851,7 @@ ${expenseEntries.length > 0 ? `
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spSetFilter, spRefresh, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess,
+    spFilterStudents, spSetFilter, spRefresh, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess, spHandleBatchChange,
   };
 })();
 

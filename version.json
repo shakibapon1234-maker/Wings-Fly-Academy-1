@@ -1,7 +1,7 @@
 {
-  "version": "5.1.4",
-  "deploy_id": "20260628-edit-button-fix",
-  "changelog": "Add Edit button next to Delete button and fix sorting order in RoutineBuilder.",
+  "version": "5.1.5",
+  "deploy_id": "20260629-settings-portal-fix",
+  "changelog": "Fix search by student ID (s.student_id) and enable batch filtering in Portal Access settings.",
   "size": "~2MB",
-  "released": "2026-06-28"
+  "released": "2026-06-29"
 }

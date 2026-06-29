@@ -3571,6 +3571,26 @@ const SyncEngine = (() => {
               merged.paid_amount = localPaid;
             }
           }
+          // ✅ CRITICAL FIX: accounts balance — realtime echo থেকে রক্ষা করো।
+          // সমস্যা: expense করার পরে local balance কমে যায়, তারপর _pushRecord দিয়ে
+          // Supabase-এ নতুন balance push হয়। কিন্তু Supabase realtime সেই push-এর
+          // echo ফিরে পাঠায় — এই echo আসতে কিছুটা দেরি হতে পারে। এই সময়ে
+          // _legitimateBalanceChangeInProgress flag আর set থাকে না। তাই realtime
+          // handler নির্বিচারে cloud-এর newRow দিয়ে local overwrite করে।
+          // যদি cloud-এ আগের (stale) balance থাকে, সেটা local-এর সঠিক নতুন balance
+          // মুছে দেয় — ফলে balance আগের জায়গায় ফিরে আসে।
+          // FIX: accounts table-এ realtime UPDATE হলে balance field সবসময় local জিতবে।
+          // এটা নিরাপদ কারণ balance শুধুমাত্র updateAccountBalance() দিয়ে পরিবর্তন হয়
+          // যা IDB-তে সঠিক running total রাখে।
+          if (table === 'accounts' && rows[idx].balance !== undefined && newRow.balance !== undefined) {
+            const localBal = parseFloat(rows[idx].balance) || 0;
+            const cloudBal = parseFloat(newRow.balance) || 0;
+            if (localBal !== cloudBal) {
+              // Local balance সঠিক — cloud-এর stale echo দিয়ে overwrite করা যাবে না
+              merged.balance = localBal;
+              console.info(`[Realtime] ✅ accounts balance protected: local ৳${localBal} kept over cloud ৳${cloudBal} for account "${newRow.name || newRow.type || newRow.id}"`);
+            }
+          }
           if (table === salKey && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
             merged = SupabaseSync.normalizeSalaryFromCloud(merged);
           } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {

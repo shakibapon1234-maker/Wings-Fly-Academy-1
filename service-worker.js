@@ -3,7 +3,7 @@
 // ✅ Enhanced: Offline API caching + Static asset caching
 // ============================================================
 // ✅ S-1 Fix: DEPLOY_ID synced with version.json deploy_id (was: 20260627-client-restore-fix)
-const DEPLOY_ID = '20260628-edit-button-fix';
+const DEPLOY_ID = '20260629-settings-portal-fix';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
