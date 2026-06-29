@@ -7547,6 +7547,8 @@ ${expenseEntries.length > 0 ? `
     } else {
       _spRenderList(baseStudents);
     }
+  }
+
   function spHandleBatchChange(batch) {
     _spRenderStudentList();
   }
