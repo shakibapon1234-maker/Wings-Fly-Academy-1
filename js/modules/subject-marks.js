@@ -165,10 +165,6 @@ const SubjectMarks = (() => {
       saved++;
     });
     Utils.toast(`✅ ${saved} saved${cleared ? `, ${cleared} cleared` : ''}`, 'success');
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity && saved > 0) {
-      SupabaseSync.logActivity('edit', 'subject_marks',
-        `মার্ক সেভ: ${_class} — ${_exam} (${_year}) — ${saved}টি এন্ট্রি${cleared ? `, ${cleared}টি ক্লিয়ার` : ''}`);
-    }
     render();
   }
 
@@ -197,9 +193,6 @@ const SubjectMarks = (() => {
     const name = Utils.formVal('sm-new-subject');
     if (!name) return;
     SchoolEngine.saveSubject({ class_name: _class, subject_name: name, full_marks: Utils.formVal('sm-new-full') || 100 });
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-      SupabaseSync.logActivity('add', 'subject_marks', `নতুন বিষয় যোগ: ${name} — ${_class}`);
-    }
     Utils.closeModal();
     openSubjectModal();
     render();
@@ -207,11 +200,7 @@ const SubjectMarks = (() => {
 
   function removeSubject(id) {
     if (!confirm('Remove subject?')) return;
-    const subj = SchoolEngine.getSubjects(_class).find(s => s.id === id);
     SchoolEngine.removeSubject(id);
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-      SupabaseSync.logActivity('delete', 'subject_marks', `বিষয় মুছে ফেলা: ${subj ? subj.subject_name : id} — ${_class}`);
-    }
     openSubjectModal();
     render();
   }

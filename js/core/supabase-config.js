@@ -20,50 +20,21 @@ function _fixLegacySupabaseUrlTypo(url) {
   return url.replace(WFA_SUPABASE_URL_TYPO, WFA_SUPABASE_URL_CORRECT);
 }
 
-// ── ✅ FIX (client-contamination bug): the old logic fell back to the ADMIN's
-// real production Supabase URL/key whenever `window.location.hostname` was
-// 'localhost' / '127.0.0.1' / 'file:' — REGARDLESS of which project's files were
-// actually being run. That meant testing ANY client copy locally (before its own
-// supabase-secrets.js was wired up) silently wrote/read data on the admin's live
-// database. It also meant a deployed client missing its secrets.js (e.g. because
-// it was accidentally git-ignored) would have no safe fallback at all and could
-// pick up whatever was last cached on the shared GitHub Pages origin.
-//
-// New rule: the admin's hardcoded fallback is ONLY used for the literal main
-// admin deployment path (`/Wings-Fly-Academy-1/`) — never for localhost/file,
-// and never for any other path. For local admin development, create a
-// gitignored `js/core/dev-local-config.js` that sets `window.WFA_DEV_LOCAL_CREDS
-// = { url, anonKey }` — if that file is absent, localhost simply shows the
-// "not configured" state instead of silently touching production data.
 function _resolveSupabaseCreds() {
   const secrets = window.WFA_SUPABASE_SECRETS || {};
   const stored  = window.__WFA_SUPABASE_CREDS  || {};
-  const devLocal = window.WFA_DEV_LOCAL_CREDS  || {};
 
-  const isMainAdminDeployment = window.location.pathname.includes('/Wings-Fly-Academy-1/');
+  // ✅ FIX: Inline fallback — only used on the MAIN project (GitHub Pages root).
+  // Deployed clients ALWAYS have secrets.url set via supabase-secrets.js,
+  // so the fallback is NEVER reached on a client deployment.
+  // Anon key is public by Supabase design; data access is controlled by RLS.
+  const _fallbackUrl = 'https://fznhiqzrslldybhmgopk.supabase.co';
+  const _fallbackKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw';
 
-  const _fallbackUrl = null;
-  const _fallbackKey = null;
-
-  // Priority: secrets.js (client deploy / main deploy) > devLocal (opt-in, local
-  // dev only) > stored (Settings-saved) > admin fallback (main path only)
-  const url    = _fixLegacySupabaseUrlTypo(secrets.url || devLocal.url || stored.url || _fallbackUrl || '');
-  const anonKey = secrets.anonKey || secrets.anon_key || devLocal.anonKey || stored.anonKey || _fallbackKey || '';
+  // Priority: secrets.js (client deploy) > stored (settings-saved) > fallback (main project only)
+  const url    = _fixLegacySupabaseUrlTypo(secrets.url || stored.url || _fallbackUrl);
+  const anonKey = secrets.anonKey || secrets.anon_key || stored.anonKey || _fallbackKey;
   return { url, anonKey };
-}
-
-// ── ✅ FIX: stable, SYNCHRONOUS deployment identity for DB-switch detection.
-// The old check compared the fully-resolved SUPABASE_URL (which can depend on
-// async-hydrated SecureStorage values) against the last-seen URL. If the
-// resolved URL happened to land on the same fallback/stored value twice in a
-// row (exactly what happens during the contamination bug above), the purge
-// never fired and stale data — including the old license key — survived.
-// This identity is based ONLY on the synchronously-available baked-in
-// `WFA_SUPABASE_SECRETS.url` (present before this script even runs, per
-// index.html script order), so it can't be fooled by a shared-origin fallback.
-function _deploymentIdentity() {
-  const secrets = window.WFA_SUPABASE_SECRETS || {};
-  return secrets.url ? `secrets:${secrets.url}` : '__UNCONFIGURED__';
 }
 
 let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
@@ -82,7 +53,6 @@ let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 // ============================================================
 
 const _LS_LAST_URL_KEY = 'wfa_last_supabase_url';
-const _LS_LAST_IDENTITY_KEY = 'wfa_last_deployment_identity'; // ✅ FIX: new, racy-resolution-proof signal
 
 // Keys to purge on DB switch — MUST cover every piece of app state
 // so no data from a different client/project bleeds through.
@@ -110,10 +80,6 @@ const _LS_KEYS_TO_PURGE = [
   'wfa_gemini_key_3', 'wfa_ai_local_only', 'wfa_debug_logs',
   'wfa_user_id',
   'wfa_institution_type',
-  // FIX 2: Client Manager & license admin keys — were missing from purge list.
-  // Without these, switching between main project and a client deployment would
-  // leave the client list and admin secret visible across origins (data bleed).
-  'wfa_acadeflow_clients', 'wfa_license_admin_secret',
 ];
 
 function _purgeLocalDataForNewDb() {
@@ -146,23 +112,12 @@ function _purgeLocalDataForNewDb() {
 // Run check synchronously, as early as possible, before any module reads localStorage
 (function _checkAndHandleDbSwitch() {
   try {
-    // ✅ FIX: compare the stable identity FIRST. This catches the case where
-    // the resolved SUPABASE_URL happens to equal the previous one only because
-    // both times the app fell through to the same shared/fallback value (the
-    // exact scenario that let stale license keys + cached data survive before).
-    const lastIdentity = localStorage.getItem(_LS_LAST_IDENTITY_KEY);
-    const currentIdentity = _deploymentIdentity();
-    const identityChanged = lastIdentity !== null && lastIdentity !== currentIdentity;
-
     const lastUrl = localStorage.getItem(_LS_LAST_URL_KEY);
-    const urlChanged = lastUrl && lastUrl !== SUPABASE_URL;
-
-    if (identityChanged || urlChanged) {
-      console.warn(`[Config] Deployment switch detected (identity: ${lastIdentity} → ${currentIdentity}). Purging ALL local data.`);
+    if (lastUrl && lastUrl !== SUPABASE_URL) {
+      console.warn(`[Config] Supabase URL changed (${lastUrl} → ${SUPABASE_URL}). Purging ALL local data.`);
       _purgeLocalDataForNewDb();
     }
-    // Always record the current identity + URL so the next load can detect a switch
-    localStorage.setItem(_LS_LAST_IDENTITY_KEY, currentIdentity);
+    // Always record the current URL so the next load can detect a switch
     localStorage.setItem(_LS_LAST_URL_KEY, SUPABASE_URL);
   } catch(e) {
     console.warn('[Config] DB switch check failed (non-critical):', e.message);

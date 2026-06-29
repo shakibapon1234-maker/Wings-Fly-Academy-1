@@ -93,128 +93,6 @@ const Students = (() => {
     return fixed > 0;
   }
 
-  function _repairCorruptedStudentIdsOnce(all) {
-    if (sessionStorage.getItem('wfa_student_id_repair_v2')) return false;
-
-    // Direct mappings for Batch 19 adjustments
-    const batch19PrefixReplacements = {
-      'WFA-19019': 'WF-19019',
-      'WFA-19020': 'WF-19020',
-      'WFA-19021': 'WF-19021',
-      'WFA-19022': 'WF-19022',
-      'WFA-19023': 'WF-19023',
-      'WFA-19024': 'WF-19024',
-      'WFA-19025': 'WF-19025',
-      'WFA-19026': 'WF-19026',
-    };
-
-    // Batch 20 sequenced replacements (sorted to match the database migration order)
-    const batch20Students = all.filter(s => s.batch === '20');
-    batch20Students.sort((a, b) => {
-      const idA = a.student_id || '';
-      const idB = b.student_id || '';
-      return idA.localeCompare(idB);
-    });
-
-    const studentMappings = {};
-    Object.entries(batch19PrefixReplacements).forEach(([k, v]) => {
-      studentMappings[k] = v;
-    });
-
-    batch20Students.forEach((s, index) => {
-      const seq = String(index + 1).padStart(3, '0');
-      const newId = `WF-20${seq}`;
-      studentMappings[s.student_id] = newId;
-    });
-
-    let fixed = 0;
-    for (const s of all) {
-      if (!s || !s.id || !s.student_id) continue;
-      const targetId = studentMappings[s.student_id];
-      if (targetId && targetId !== s.student_id) {
-        const oldId = s.student_id;
-        const newId = targetId;
-
-        // 1. Update students table locally
-        SupabaseSync.update(DB.students, s.id, { ...s, student_id: newId }, { bypassLog: true });
-
-        // 2. Update local finance_ledger entries matching legacy id
-        if (typeof SupabaseSync !== 'undefined') {
-          const ledger = SupabaseSync.getAll('finance_ledger') || [];
-          ledger.forEach(f => {
-            if (f && f.ref_id === oldId) {
-              SupabaseSync.update('finance_ledger', f.id, { ...f, ref_id: newId }, { bypassLog: true });
-            }
-          });
-
-          // 3. Update local school_marks entries matching legacy id
-          const marks = SupabaseSync.getAll('school_marks') || [];
-          marks.forEach(m => {
-            if (m && m.student_no === oldId) {
-              SupabaseSync.update('school_marks', m.id, { ...m, student_no: newId }, { bypassLog: true });
-            }
-          });
-        }
-
-        fixed++;
-      }
-    }
-
-    sessionStorage.setItem('wfa_student_id_repair_v2', '1');
-    if (fixed > 0) {
-      console.info('[Students] Repaired legacy student IDs on', fixed, 'records locally.');
-    }
-    return fixed > 0;
-  }
-
-  function _spUpdateStudentIdOnBatchInput() {
-    const batchInput = document.getElementById('sf-batch');
-    const idInput = document.getElementById('sf-sid');
-    if (!batchInput || !idInput) return;
-
-    const all = SupabaseSync.getAll(DB.students) || [];
-    
-    batchInput.addEventListener('input', () => {
-      const val = batchInput.value.trim();
-      // Extract digits from the batch name (e.g. "Batch 20" -> "20", "20" -> "20")
-      const match = val.match(/\d+/);
-      const batchNum = match ? match[0] : '';
-      
-      if (batchNum) {
-        // Filter students in this batch
-        const batchStudents = all.filter(s => {
-          const sBatchMatch = String(s.batch || '').match(/\d+/);
-          return sBatchMatch && sBatchMatch[0] === batchNum;
-        });
-
-        let nextSerial = 1;
-        if (batchStudents.length > 0) {
-          const serials = batchStudents.map(s => {
-            const sidMatch = String(s.student_id || '').match(/(\d+)\s*$/);
-            if (sidMatch) {
-              const fullNumStr = sidMatch[1];
-              const serialStr = fullNumStr.slice(-3);
-              return parseInt(serialStr, 10) || 0;
-            }
-            return 0;
-          });
-          nextSerial = Math.max(...serials, 0) + 1;
-        }
-
-        const prefixKey = (window.InstitutionMode && InstitutionMode.getLabel)
-          ? InstitutionMode.getLabel('student_id_prefix')
-          : 'WF';
-        const prefix = String(prefixKey === 'STU' ? 'WF' : prefixKey).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        
-        const paddedSerial = String(nextSerial).padStart(3, '0');
-        idInput.value = `${prefix}-${batchNum}${paddedSerial}`;
-      } else {
-        const defaultPrefix = (window.InstitutionMode && InstitutionMode.getLabel('student_id_prefix') === 'STU') ? 'WF' : 'STU';
-        idInput.value = `${defaultPrefix}-1001`;
-      }
-    });
-  }
-
   function _normCourseList(list) {
     return [...new Set((list || []).map(c => _normCourse(c)).filter(Boolean))];
   }
@@ -240,7 +118,6 @@ const Students = (() => {
 
     let all      = SupabaseSync.getAll(DB.students);
     if (_repairCorruptedCourseFieldsOnce(all)) all = SupabaseSync.getAll(DB.students);
-    if (_repairCorruptedStudentIdsOnce(all)) all = SupabaseSync.getAll(DB.students);
     _sanitizeStaleFilters(all);
     // ✅ FIX: batch/course normalize করা হয়েছে যাতে '20' ও 20 (number) একই option হয়
     const batches  = [...new Set(all.map(s => String(s.batch  || '').trim()).filter(Boolean))].sort();
@@ -843,7 +720,6 @@ const Students = (() => {
         </div>
       </div>
     `, 'modal-lg');
-    _spUpdateStudentIdOnBatchInput();
   }
 
 

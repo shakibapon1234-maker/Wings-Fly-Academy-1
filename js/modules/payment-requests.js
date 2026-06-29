@@ -215,11 +215,6 @@ const PaymentRequestsModule = (() => {
       const ok = await Utils.confirm('এই পেমেন্ট Approve করলে স্টুডেন্টের ফি স্বয়ংক্রিয়ভাবে Paid হিসেবে আপডেট হবে। নিশ্চিত?', 'Approve Payment');
       if (!ok) return;
       PaymentEngine.approve(id, _reviewerName());
-      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-        const req = (typeof PaymentEngine !== 'undefined') ? PaymentEngine.getAll().find(r => r.id === id) : null;
-        SupabaseSync.logActivity('edit', 'payment_requests',
-          `পেমেন্ট Approve: ${req ? req.student_name + ' — ৳' + Utils.formatMoneyPlain(req.amount) + ' (' + (req.method || '') + ')' : id}`);
-      }
       Utils.toast('✅ পেমেন্ট Approve করা হয়েছে — ফি আপডেট হয়েছে।', 'success');
       render();
       if (typeof App !== 'undefined' && App.updateNotifCount) App.updateNotifCount();
@@ -254,12 +249,7 @@ const PaymentRequestsModule = (() => {
   function _confirmReject(id) {
     try {
       const note = (document.getElementById('pr-reject-note')?.value || '').trim();
-      const req = (typeof PaymentEngine !== 'undefined') ? PaymentEngine.getAll().find(r => r.id === id) : null;
       PaymentEngine.reject(id, _reviewerName(), note);
-      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-        SupabaseSync.logActivity('edit', 'payment_requests',
-          `পেমেন্ট Reject: ${req ? req.student_name + ' — ৳' + Utils.formatMoneyPlain(req.amount) + ' (' + (req.method || '') + ')' : id}${note ? ' — কারণ: ' + note : ''}`);
-      }
       Utils.closeModal();
       Utils.toast('পেমেন্ট Reject করা হয়েছে।', 'info');
       render();

@@ -96,10 +96,8 @@ body {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  width: 100%;
   padding: 24px 16px;
   position: relative;
-  box-sizing: border-box;
 }
 
 /* Decorative background orbs */
@@ -138,7 +136,6 @@ body {
   padding: 44px 36px 40px;
   width: 100%;
   max-width: 440px;
-  margin: 0 auto;
   box-shadow:
     0 0 0 1px rgba(245,158,11,0.06),
     0 20px 60px rgba(0,0,0,0.6),
@@ -908,34 +905,4 @@ body {
   flex-direction: column;
   gap: 6px;
   color: var(--text-primary, #fff);
-}
-
-/* ============================================================
-   Animated Background Canvas & Plane Decoration
-   ============================================================ */
-#bg-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100vw;
-  height: 100vh;
-  z-index: -1;
-  pointer-events: none;
-}
-
-/* Plane deco for login */
-.login-plane-deco {
-  position: absolute;
-  bottom: 8%;
-  right: 6%;
-  width: 220px;
-  opacity: 0.35;
-  pointer-events: none;
-  filter: drop-shadow(0 0 20px rgba(0, 140, 255, 0.4));
-  animation: planeDrift 12s ease-in-out infinite alternate;
-  z-index: 1;
-}
-
-@keyframes planeDrift {
-  from { transform: translateX(0) translateY(0) rotate(-3deg); }
-  to   { transform: translateX(-24px) translateY(-16px) rotate(4deg); }
 }

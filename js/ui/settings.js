@@ -1453,11 +1453,11 @@ const SettingsModule = (() => {
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
           <div class="form-group" style="flex:1;min-width:220px">
             <label>Project URL</label>
-            <input type="url" id="supa-project-url" class="form-control" placeholder="https://xxx.supabase.co" value="${window.SUPABASE_URL || ''}" />
+            <input type="url" id="supa-project-url" class="form-control" placeholder="https://xxx.supabase.co" />
           </div>
           <div class="form-group" style="flex:1;min-width:220px">
             <label>Anon Key (public JWT)</label>
-            <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" value="${window.SUPABASE_ANON_KEY || ''}" />
+            <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" />
           </div>
         </div>
         <button class="btn btn-accent" onclick="SettingsModule.saveCloudApiCredentials()">💾 Save API Credentials</button>
@@ -3072,17 +3072,66 @@ ${expenseEntries.length > 0 ? `
   // TAB 11: MONITOR
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
-    // settings-monitor.js-এ delegate করা হয়েছে
-    if (window.SettingsMonitor && typeof window.SettingsMonitor.buildPanelHTML === 'function') {
-      return window.SettingsMonitor.buildPanelHTML(activeTab);
-    }
-    return `<div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
-      <div class="settings-card glow-purple" style="text-align:center;color:var(--text-muted);padding:40px">
-        <i class="fa fa-spinner fa-spin"></i> Data Monitor লোড হচ্ছে...
+    // wfa_recent_changes — শুধু finance transactions (supabase-sync.js)
+    const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
+
+    // Transaction type badge color
+    const txBadge = type => {
+      const t = String(type || '').toLowerCase();
+      if (t === 'income')           return 'badge-success';
+      if (t === 'expense')          return 'badge-error';
+      if (t.startsWith('transfer')) return 'badge-warning';
+      if (t === 'loan giving')      return 'badge-warning';
+      if (t === 'loan receiving')   return 'badge-info';
+      return 'badge-info';
+    };
+
+    return `
+    <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
+      <div class="settings-card glow-purple">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
+            <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsModule.rebuildMonitorData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
+          </div>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
+
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
+            <tbody>
+              ${transactions.length === 0 ?
+                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
+                transactions.map((c, i) => {
+                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
+                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
+                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
+                  // ✅ Rebuilt vs Real snapshot indicator
+                  const snapshotBadge = c.rebuilt
+                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
+                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>';
+                  return `
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
+                    <td>${i + 1}${snapshotBadge}</td>
+                    <td style="font-size:.82rem">${c.date || '—'}</td>
+                    <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
+                    <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
+                    <td style="font-size:.82rem">${c.category || '—'}</td>
+                    <td style="font-size:.82rem">${c.person || '—'}</td>
+                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
+                  </tr>
+                  <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
+                }).join('')
+              }
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>`;
   }
-    // ════════════════════════════════════════════════════════════════
+  // ════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
   // ════════════════════════════════════════════════════════════════
 
@@ -3358,12 +3407,6 @@ ${expenseEntries.length > 0 ? `
     notices:        { icon:'fa-bullhorn',              label:'নোটিশ',           color:'#ffa502' },
     system:         { icon:'fa-gear',                  label:'সিস্টেম',         color:'#666666' },
     note:           { icon:'fa-bookmark',              label:'নোট',             color:'#b537f2' },
-    school_classes:    { icon:'fa-school',             label:'ক্লাস ব্যবস্থাপনা', color:'#00d9ff' },
-    subject_marks:     { icon:'fa-pencil',             label:'বিষয় ও মার্ক',   color:'#ffd700' },
-    result_sheet:      { icon:'fa-ranking-star',       label:'রেজাল্ট শিট',    color:'#00ff88' },
-    payment_requests:  { icon:'fa-mobile-screen',      label:'পেমেন্ট রিকোয়েস্ট', color:'#ff6b35' },
-    routine:           { icon:'fa-calendar-days',      label:'ক্লাস রুটিন',    color:'#b537f2' },
-    sms:               { icon:'fa-comment-sms',        label:'SMS',             color:'#00d9ff' },
   };
   const _ACT_ACTION_META = {
     add:      { badge:'ADD',      color:'#00ff88', bg:'rgba(0,255,136,0.12)',   icon:'fa-plus-circle' },
@@ -6763,18 +6806,6 @@ ${expenseEntries.length > 0 ? `
       const arr = _getDeletedCodes();
       if (!arr.includes(code)) { arr.push(code); localStorage.setItem(_DELETED_CODES_KEY, JSON.stringify(arr)); }
     }
-    function _clearDeletedCodes() {
-      localStorage.removeItem(_DELETED_CODES_KEY);
-    }
-    // Restore all auto-deployed clients (clears the deleted blacklist and re-merges metadata)
-    window._wfaRestoreAutoDeployedClients = function() {
-      _clearDeletedCodes();
-      const fresh = _loadClients();
-      const tableEl = document.getElementById('cm-clients-table');
-      if (tableEl) tableEl.innerHTML = _buildTable(fresh);
-      else if (typeof SettingsModule !== 'undefined' && SettingsModule.refreshModal) SettingsModule.refreshModal();
-      Utils.toast('✅ Auto-deployed clients পুনরুদ্ধার হয়েছে! (' + fresh.length + ' client)', 'success');
-    };
 
     function _loadClients() {
       let local = [];
@@ -7039,10 +7070,9 @@ ${expenseEntries.length > 0 ? `
       ${_summary(clients)}
 
       <div class="settings-card" style="margin-bottom:20px">
-        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients</div>
-
-
-
+        <div style="font-weight:700;color:#fff;font-size:0.95rem;margin-bottom:14px">All Clients
+          <button onclick="(function(){ const fresh=_loadClients(); document.getElementById('cm-clients-table').innerHTML=_buildTable(fresh); if(typeof _wfaRefreshLicenseStatuses==='function') _wfaRefreshLicenseStatuses(); })()" title="Refresh client list &amp; license statuses" style="margin-left:10px;background:rgba(0,217,255,0.1);border:1px solid rgba(0,217,255,0.2);color:#00d9ff;padding:2px 10px;border-radius:6px;cursor:pointer;font-size:0.75rem">🔄 Refresh</button>
+        </div>
         <div id="cm-clients-table">${_buildTable(clients)}</div>
       </div>
 
@@ -7175,9 +7205,6 @@ ${expenseEntries.length > 0 ? `
   // ════════════════════════════════════════════════════════════════
 
   function panelStudentPortal() {
-    const base = window.location.href.split(/[?#]/)[0];
-    const portalUrl = base.substring(0, base.lastIndexOf('/')) + '/student-portal.html';
-
     return `
     <div class="settings-panel" data-panel="student-portal">
       <div class="settings-card">
@@ -7187,48 +7214,6 @@ ${expenseEntries.length > 0 ? `
         <p style="font-size:0.85rem;color:rgba(255,255,255,0.5);margin-bottom:20px">
           নিচের তালিকা থেকে যেকোনো student-কে Portal Access দিন এবং তাদের 4-digit PIN set করুন।
         </p>
-
-        <!-- Dynamic Portal Link Copy & Share Panel -->
-        <div style="background:rgba(0,217,255,0.06);border:1px solid rgba(0,217,255,0.15);border-radius:12px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-          <div style="flex:1;min-width:240px">
-            <div style="font-size:0.75rem;font-weight:700;color:#00d9ff;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px">
-              Student Portal Link (স্টুডেন্ট পোর্টাল লিংক)
-            </div>
-            <div id="sp-portal-link-text" style="font-size:0.82rem;color:rgba(255,255,255,0.7);word-break:break-all;font-family:monospace">${portalUrl}</div>
-          </div>
-          <div style="display:flex;gap:8px">
-            <button onclick="navigator.clipboard.writeText(document.getElementById('sp-portal-link-text').textContent.trim()).then(()=>Utils.toast('Portal Link Copied!','success'))"
-              style="padding:10px 16px;background:#00d9ff;border:none;border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:6px;transition:opacity 0.2s">
-              <i class="fa fa-copy"></i> কপি করুন
-            </button>
-            <button onclick="if(navigator.share){navigator.share({title:'Student Portal',url:document.getElementById('sp-portal-link-text').textContent.trim()})}else{navigator.clipboard.writeText(document.getElementById('sp-portal-link-text').textContent.trim()).then(()=>Utils.toast('Portal Link Copied!','success'))}"
-              style="padding:10px 16px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:8px;color:#fff;cursor:pointer;font-size:0.82rem;font-weight:700;display:flex;align-items:center;gap:6px;transition:background 0.2s">
-              <i class="fa fa-share-nodes"></i> শেয়ার করুন
-            </button>
-          </div>
-        </div>
-
-        <!-- Batch-wise Portal Access Panel -->
-        <div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.07);border-radius:12px;padding:16px;margin-bottom:20px">
-          <h4 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:#f59e0b;display:flex;align-items:center;gap:6px">
-            <i class="fa fa-users-gear"></i> Batch-wise Portal Access (ব্যাচ ভিত্তিক অ্যাক্সেস)
-          </h4>
-          <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
-            <div style="flex:1;min-width:180px">
-              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase">Select Batch (ব্যাচ নির্বাচন করুন)</label>
-              <select id="sp-batch-select" onchange="SettingsModule.spHandleBatchChange(this.value)" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;outline:none">
-                <option value="">-- ব্যাচ নির্বাচন করুন --</option>
-              </select>
-            </div>
-            <div style="width:120px">
-              <label style="display:block;font-size:0.75rem;color:rgba(255,255,255,0.5);margin-bottom:6px;text-transform:uppercase">Common PIN (পিন)</label>
-              <input type="text" id="sp-batch-pin" placeholder="1234" maxlength="4" style="width:100%;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:9px 12px;color:#fff;font-size:0.85rem;text-align:center;outline:none" />
-            </div>
-            <button onclick="SettingsModule.spGiveBatchAccess()" style="padding:10px 18px;background:#f59e0b;border:none;border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.85rem;font-weight:700;display:flex;align-items:center;gap:6px">
-              <i class="fa fa-key"></i> অ্যাক্সেস দিন
-            </button>
-          </div>
-        </div>
 
         <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="sp-search-input"
@@ -7246,10 +7231,10 @@ ${expenseEntries.length > 0 ? `
                    border-radius:8px;color:#10b981;cursor:pointer;font-size:0.82rem;font-weight:700">
             <i class="fa fa-check-circle"></i> Access প্রাপ্ত
           </button>
-          <button onclick="SettingsModule.spRefresh()"
+          <button onclick="SettingsModule.spSetFilter('all')"
             style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;color:#aaa;cursor:pointer;font-size:0.85rem">
-            <i class="fa fa-rotate"></i> সিঙ্ক ও রিফ্রেশ
+            <i class="fa fa-rotate"></i> রিফ্রেশ
           </button>
         </div>
 
@@ -7342,48 +7327,12 @@ ${expenseEntries.length > 0 ? `
          </div>`;
   }
 
-  // ── Student Portal: Generate UUID ──
-  function _spGenerateUUID() {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-      const r = Math.random() * 16 | 0;
-      const v = c === 'x' ? r : (r & 0x3 | 0x8);
-      return v.toString(16);
-    });
-  }
-
   // ── Student Portal: Render Student List ──
   let _spAllStudents = [];
 
   function _spRenderStudentList() {
     const container = document.getElementById('sp-student-list');
     if (!container) return;
-
-    // Auto-fix any legacy alphanumeric IDs in local student_portal_access storage
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
-      try {
-        const accessList = SupabaseSync.getAll('student_portal_access') || [];
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        
-        accessList.forEach(a => {
-          if (a && a.id && !uuidRegex.test(a.id)) {
-            const oldId = a.id;
-            const newId = _spGenerateUUID();
-            const cloned = { ...a, id: newId };
-            
-            // Delete old local alphanumeric record
-            SupabaseSync.remove('student_portal_access', oldId, { bypassLog: true });
-            
-            // Insert new UUID record locally and push to cloud
-            SupabaseSync.insert('student_portal_access', cloned, { bypassLog: true });
-          }
-        });
-      } catch (err) {
-        console.error('[StudentPortal] Auto-fix ID error:', err);
-      }
-    }
 
     // Load from local SupabaseSync store
     let students = [];
@@ -7394,23 +7343,7 @@ ${expenseEntries.length > 0 ? `
     } catch { students = []; }
 
     _spAllStudents = students;
-    _spPopulateBatchList();
-
-    // Filter by selected batch if any
-    const batchSelect = document.getElementById('sp-batch-select');
-    const selectedBatch = batchSelect ? batchSelect.value : '';
-    let filtered = students;
-    if (selectedBatch) {
-      filtered = students.filter(s => s.batch === selectedBatch);
-    }
-    _spRenderList(filtered);
-
-    // Trigger background sync to make sure any local additions/fixes upload
-    if (typeof SyncEngine !== 'undefined' && SyncEngine.push) {
-      SyncEngine.push({ silent: true, forcePush: true }).catch(err => {
-        console.warn('[StudentPortal] Auto-push failed:', err);
-      });
-    }
+    _spRenderList(students);
   }
 
   function _spRenderList(students) {
@@ -7448,7 +7381,6 @@ ${expenseEntries.length > 0 ? `
       const phone = s.phone || s.contact || '';
       const escapedName = Utils.esc ? Utils.esc(s.name || '—') : (s.name || '—');
       const escapedId   = Utils.esc ? Utils.esc(s.id || '') : (s.id || '');
-      const escapedStudentId = Utils.esc ? Utils.esc(s.student_id || '') : (s.student_id || '');
       const escapedPhone= Utils.esc ? Utils.esc(phone) : phone;
 
       return `
@@ -7460,7 +7392,7 @@ ${expenseEntries.length > 0 ? `
           <div style="flex:1;min-width:160px">
             <div style="font-weight:600;color:#f9fafb;font-size:0.95rem">${escapedName}</div>
             <div style="font-size:0.8rem;color:#6b7280;margin-top:2px">
-              <span style="margin-right:12px"><i class="fa fa-id-badge"></i> ${escapedStudentId}</span>
+              <span style="margin-right:12px"><i class="fa fa-id-badge"></i> ${escapedId}</span>
               <span><i class="fa fa-phone"></i> ${escapedPhone || 'নম্বর নেই'}</span>
             </div>
           </div>
@@ -7499,15 +7431,8 @@ ${expenseEntries.length > 0 ? `
       return;
     }
     const q = query.toLowerCase();
-    const batchSelect = document.getElementById('sp-batch-select');
-    const selectedBatch = batchSelect ? batchSelect.value : '';
-    let baseStudents = _spAllStudents;
-    if (selectedBatch) {
-      baseStudents = _spAllStudents.filter(s => s.batch === selectedBatch);
-    }
-    const filtered = baseStudents.filter(s =>
+    const filtered = _spAllStudents.filter(s =>
       (s.name || '').toLowerCase().includes(q) ||
-      (s.student_id || '').toLowerCase().includes(q) ||
       (s.id || '').toLowerCase().includes(q) ||
       (s.phone || '').includes(q)
     );
@@ -7526,61 +7451,20 @@ ${expenseEntries.length > 0 ? `
     const searchInput = document.getElementById('sp-search-input');
     if (searchInput) searchInput.value = '';
 
-    const batchSelect = document.getElementById('sp-batch-select');
-    const selectedBatch = batchSelect ? batchSelect.value : '';
-    let baseStudents = _spAllStudents;
-    if (selectedBatch) {
-      baseStudents = _spAllStudents.filter(s => s.batch === selectedBatch);
-    }
-
     if (mode === 'access') {
       // Show only students who have portal access
       let accessMap = {};
       try {
-        if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
           const accessList = SupabaseSync.getAll('student_portal_access') || [];
           accessList.forEach(a => { accessMap[a.student_id] = a; });
         }
       } catch { /* ignore */ }
-      const accessStudents = baseStudents.filter(s => !!accessMap[s.id]);
+      const accessStudents = _spAllStudents.filter(s => !!accessMap[s.id]);
       _spRenderList(accessStudents);
     } else {
-      _spRenderList(baseStudents);
+      _spRenderStudentList();
     }
-  }
-
-  function spHandleBatchChange(_batch) {
-    _spRenderStudentList();
-  }
-
-  async function spRefresh() {
-    const refreshBtn = document.querySelector('button[onclick*="spRefresh"]');
-    let originalHTML = '';
-    if (refreshBtn) {
-      originalHTML = refreshBtn.innerHTML;
-      refreshBtn.disabled = true;
-      refreshBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> সিঙ্ক হচ্ছে...';
-    }
-    
-    if (typeof SyncEngine !== 'undefined' && SyncEngine.syncAll) {
-      try {
-        await SyncEngine.syncAll({ silent: true });
-        if (typeof Utils !== 'undefined' && Utils.toast) {
-          Utils.toast('ডাটা সিঙ্ক্রোনাইজেশন সফল হয়েছে ✅', 'success');
-        }
-      } catch (err) {
-        console.error('[StudentPortal] Sync failed:', err);
-        if (typeof Utils !== 'undefined' && Utils.toast) {
-          Utils.toast('সিঙ্ক করা যায়নি, ইন্টারনেট চেক করুন ❌', 'error');
-        }
-      }
-    }
-    
-    if (refreshBtn) {
-      refreshBtn.disabled = false;
-      refreshBtn.innerHTML = originalHTML;
-    }
-    spSetFilter('all');
   }
 
   function spOpenPinModal(studentId, studentName, phone) {
@@ -7677,7 +7561,7 @@ ${expenseEntries.length > 0 ? `
         if (existing && existing.id) {
           SupabaseSync.update('student_portal_access', existing.id, record);
         } else {
-          record.id = _spGenerateUUID();
+          record.id = SupabaseSync.generateId();
           record.created_at = new Date().toISOString();
           SupabaseSync.insert('student_portal_access', record);
         }
@@ -7702,116 +7586,6 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  // ── Student Portal: Populate Batch Dropdown ──
-  function _spPopulateBatchList() {
-    const batchSelect = document.getElementById('sp-batch-select');
-    if (!batchSelect) return;
-
-    let students = [];
-    try {
-      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
-        students = SupabaseSync.getAll('students') || [];
-      }
-    } catch { students = []; }
-
-    const batches = [...new Set(students.map(s => s.batch).filter(Boolean))].sort();
-    const esc = Utils.esc || (x => x);
-
-    // Keep current selected value if any
-    const currVal = batchSelect.value;
-
-    batchSelect.innerHTML = '<option value="">-- ব্যাচ নির্বাচন করুন --</option>' +
-      batches.map(b => `<option value="${esc(b)}">${esc(b)}</option>`).join('');
-
-    if (currVal && batches.includes(currVal)) {
-      batchSelect.value = currVal;
-    }
-  }
-
-  // ── Student Portal: Save Batch Portal Access ──
-  async function spGiveBatchAccess() {
-    const batch = document.getElementById('sp-batch-select').value;
-    const pin = document.getElementById('sp-batch-pin').value.trim();
-
-    if (!batch) {
-      Utils.toast('⚠️ অনুগ্রহ করে একটি ব্যাচ সিলেক্ট করুন।', 'error');
-      return;
-    }
-    if (!pin) {
-      Utils.toast('⚠️ কমন PIN লিখুন।', 'error');
-      return;
-    }
-    if (pin.length !== 4 || isNaN(pin)) {
-      Utils.toast('⚠️ PIN অবশ্যই ঠিক 4টি সংখ্যা হতে হবে।', 'error');
-      return;
-    }
-
-    // Hash the PIN
-    let pinHash;
-    try {
-      if (window.StudentAuth && window.StudentAuth.hashPin) {
-        pinHash = await window.StudentAuth.hashPin(pin);
-      } else {
-        const enc = new TextEncoder();
-        const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin));
-        pinHash = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-      }
-    } catch (err) {
-      console.error('[StudentPortal] Hash error:', err);
-      Utils.toast('PIN হ্যাশ করতে সমস্যা হয়েছে।', 'error');
-      return;
-    }
-
-    if (typeof SupabaseSync === 'undefined') {
-      Utils.toast('SupabaseSync module is not loaded.', 'error');
-      return;
-    }
-
-    const students = _spAllStudents.filter(s => s.batch === batch);
-    if (students.length === 0) {
-      Utils.toast('⚠️ এই ব্যাচে কোনো স্টুডেন্ট পাওয়া যায়নি।', 'error');
-      return;
-    }
-
-    const accessList = SupabaseSync.getAll('student_portal_access') || [];
-    let successCount = 0;
-    let skipCount = 0;
-
-    students.forEach(s => {
-      const phone = (s.phone || s.contact || '').replace(/[\s-]/g, '');
-      if (!phone || phone.length < 10) {
-        skipCount++;
-        return; // Skip student without a valid phone
-      }
-
-      const existing = accessList.find(a => a.student_id === s.id);
-      const record = {
-        student_id: s.id,
-        student_name: s.name || '',
-        phone: phone,
-        pin_hash: pinHash,
-        is_active: true
-      };
-
-      if (existing && existing.id) {
-        SupabaseSync.update('student_portal_access', existing.id, record);
-      } else {
-        record.id = _spGenerateUUID();
-        record.created_at = new Date().toISOString();
-        SupabaseSync.insert('student_portal_access', record);
-      }
-      successCount++;
-    });
-
-    Utils.toast(`✅ ${batch}-এর ${successCount} জন স্টুডেন্টকে অ্যাক্সেস দেওয়া হয়েছে!${skipCount > 0 ? ` (${skipCount} জনের ফোন নম্বর না থাকায় বাদ দেওয়া হয়েছে)` : ''}`, 'success');
-
-    // Clear PIN field
-    document.getElementById('sp-batch-pin').value = '';
-    
-    // Refresh student list UI
-    setTimeout(() => _spRenderStudentList(), 300);
-  }
-
   // ════════════════════════════════════════════════════════════════
   // PUBLIC API
   // ════════════════════════════════════════════════════════════════
@@ -7825,7 +7599,7 @@ ${expenseEntries.length > 0 ? `
     applySidebarStyle,
     openColorCustomizer, liveCustomSidebar, saveCustomSidebarColors, resetCustomSidebarColors,
     applyCardPreset,
-    viewTableData, showLiveAccountSnapshot, exportAllData,
+    viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON, importFromJSONWithDate,
     clearLocalData, clearCloudData, factoryReset,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
@@ -7844,16 +7618,15 @@ ${expenseEntries.length > 0 ? `
     addBalanceAdjustment, saveBalanceAdjustment, deleteBalanceAdjustment,
     openSettingsInternalModal, closeSettingsInternalModal,
     runAutoHeal, runSyncCheck, runAutoFix, runCloudPullDiag, runCloudPushDiag,
-    rebuildMonitorData: () => { if(window.SettingsMonitor) window.SettingsMonitor.rebuildData(); else rebuildMonitorData(); },
-    showMonitorSnapshot: (i) => { if(window.SettingsMonitor) window.SettingsMonitor.showSnapshot(i); else showMonitorSnapshot(i); },
-    refreshMonitor: () => { if(window.SettingsMonitor) window.SettingsMonitor.refresh(); else { refreshModal(); Utils.toast('Refreshed', 'info'); } },
+    rebuildMonitorData,
+    refreshMonitor: () => { refreshModal(); Utils.toast('Refreshed', 'info'); },
     saveAIApiKey,
     saveAIBackupKeys,
     testAIApiKey,
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spSetFilter, spRefresh, spOpenPinModal, spClosePinModal, spSavePortalAccess, spGiveBatchAccess, spHandleBatchChange,
+    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess,
   };
 })();
 

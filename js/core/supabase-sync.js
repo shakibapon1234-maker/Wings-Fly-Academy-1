@@ -29,7 +29,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const WFA_IDB = (() => {
-  const DB_NAME    = (window._wfaGetDbName ? window._wfaGetDbName() : 'WingsAcademyDB');
+  const DB_NAME    = 'WingsAcademyDB';
   const DB_VERSION = 3;
   const STORE_NAME = 'tables';
 
@@ -520,14 +520,6 @@ const SupabaseSync = (() => {
     const rows = getAll(table);
     rows.unshift(record);
     setAll(table, rows);
-    // If inserting a new account, adjust wfa_recent_changes snapshots
-    if (table === 'accounts') {
-      const newBal = Number(record.balance || 0);
-      if (newBal !== 0) {
-        const accName = record.type === 'Cash' ? 'Cash' : (record.name || 'Cash');
-        _adjustRecentChangesSnapshots(accName, newBal, true, record.type || '');
-      }
-    }
     _logRecentChange(table, 'insert', record);
     if (!options.bypassLog && !_isDiagnosticRecord(table, record)) {
       _logActivity('add', table, _humanReadableLog('add', table, record));
@@ -554,16 +546,6 @@ const SupabaseSync = (() => {
       rows[idx] = merged;
       if (table === _salaryTableKey()) _ensureSalaryLocalFields(rows[idx]);
       setAll(table, rows);
-      // If updating account balance, adjust wfa_recent_changes snapshots
-      if (table === 'accounts') {
-        const oldBal = Number(oldRow.balance || 0);
-        const newBal = Number(merged.balance || 0);
-        const diff = newBal - oldBal;
-        if (diff !== 0) {
-          const accName = merged.type === 'Cash' ? 'Cash' : (merged.name || 'Cash');
-          _adjustRecentChangesSnapshots(accName, diff);
-        }
-      }
       _logRecentChange(table, 'update', rows[idx]);
       if (!options.bypassLog && !_isDiagnosticRecord(table, merged)) {
         _logActivity('edit', table, _humanReadableLog('edit', table, merged, { old: oldRow, partial }));
@@ -581,13 +563,6 @@ const SupabaseSync = (() => {
     const rows = before.filter(r => r.id !== id);
     setAll(table, rows);
     if (victim) {
-      if (table === 'accounts') {
-        const oldBal = Number(victim.balance || 0);
-        if (oldBal !== 0) {
-          const accName = victim.type === 'Cash' ? 'Cash' : (victim.name || 'Cash');
-          _adjustRecentChangesSnapshots(accName, -oldBal);
-        }
-      }
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
       if (!options.bypassLog && !_isDiagnosticRecord(table, victim)) {
@@ -598,38 +573,6 @@ const SupabaseSync = (() => {
     if (!victim || !_isDiagnosticRecord(table, victim)) {
       _deleteFromCloud(table, id);
       _trackDeletion(table, id);
-    }
-  }
-
-  // Helper to adjust recent changes snapshots when account balances are manually updated/added/deleted
-  function _adjustRecentChangesSnapshots(accountName, diff, isInsert = false, accountType = '') {
-    if (diff === 0) return;
-    try {
-      const arr = (() => {
-        try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; }
-      })();
-      if (!arr.length) return;
-      arr.forEach(entry => {
-        if (entry.snapshot && entry.snapshot.accounts) {
-          entry.snapshot.accounts.totalBalance = Number((Number(entry.snapshot.accounts.totalBalance || 0) + diff).toFixed(2));
-          if (Array.isArray(entry.snapshot.accounts.list)) {
-            const acc = entry.snapshot.accounts.list.find(a => a.name === accountName);
-            if (acc) {
-              acc.balance = Number((Number(acc.balance || 0) + diff).toFixed(2));
-            } else if (isInsert) {
-              entry.snapshot.accounts.list.push({
-                name: accountName,
-                balance: Number(diff.toFixed(2)),
-                type: accountType
-              });
-              entry.snapshot.accounts.count = (entry.snapshot.accounts.count || 0) + 1;
-            }
-          }
-        }
-      });
-      localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
-    } catch (e) {
-      console.warn('[DataMonitor] _adjustRecentChangesSnapshots failed:', e?.message || e);
     }
   }
 
@@ -662,23 +605,12 @@ const SupabaseSync = (() => {
 
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
-
-      // ✅ ROOT CAUSE FIX (2025):
-      // আগের implementation: entry তৈরি করো _pendingSnapshot:true দিয়ে, তারপর
-      // updateAccountBalance() শেষে _finalizeMonitorSnapshot() call করো।
-      // কিন্তু finance.js-এ order হল: updateAccountBalance() → insert()।
-      // তাই _logRecentChange call হয় balance update শেষ হওয়ার পরে।
-      // _finalizeMonitorSnapshot() কিন্তু insert() এর আগেই call হয়ে যায় —
-      // তখন wfa_recent_changes-এ কোনো _pendingSnapshot entry নেই, তাই idx=-1, early return।
-      // ফলে 2s timeout fallback দিয়ে finalize হয় কিন্তু isFallback=true তাই
-      // mismatch check হয় না।
-      //
-      // FIX: balance ইতিমধ্যে update হয়ে গেছে, তাই এখনই snapshot নাও।
-      // _pendingSnapshot mechanism এখন শুধু loan types এর জন্য যেখানে
-      // updateAccountBalance() call নাও হতে পারে সেক্ষেত্রে 500ms পরে নেওয়া হবে।
-      const immediateSnapshot = _getMonitorSnapshot();
-
+      // ✅ Deferred Snapshot: snapshot নেওয়া হবে updateAccountBalance() complete হওয়ার পরে।
+      // এটা pure screenshot — accounts.balance সরাসরি পড়ে, কোনো calculation নেই।
+      // _pendingSnapshot: true মানে balance update এখনো pending আছে।
+      const _mid = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
       const entry = {
+        _mid,
         date: new Date().toLocaleString(),
         action,
         type: record.type,
@@ -690,7 +622,8 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         recordId: record.id,
         recordAt: record.created_at || record.updated_at || record.date || null,
-        snapshot: immediateSnapshot,
+        snapshot: {},
+        _pendingSnapshot: true,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
@@ -709,6 +642,12 @@ const SupabaseSync = (() => {
           } catch { /* keep trimming */ }
         }
       }
+
+      // Fallback: loan types বা balance-neutral entries-এর জন্য যেখানে
+      // updateAccountBalance() call নাও হতে পারে — 2s পরে finalize করো
+      // ✅ Fix: was 500ms, raced with async balance update → false mismatch alerts.
+      // isFallback=true tells _finalizeMonitorSnapshot to skip mismatch comparison.
+      setTimeout(() => _finalizeMonitorSnapshot(_mid, true), 2000);
     } catch (err) {
       console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
     }
@@ -2310,18 +2249,6 @@ const SupabaseSync = (() => {
 
   async function _pushRecord(table, record) {
     try {
-      // ✅ ULTIMATE BLOCK: Prevent any NEW Cash account from being pushed to Supabase.
-      // A "new" Cash account = type:'Cash' but id does NOT exist in current IDB accounts.
-      // Updates to the existing Cash account (balance changes) are allowed.
-      if (table === 'accounts' && record && record.type === 'Cash' && record._deleteOnly !== true) {
-        const existingAccounts = getAll('accounts');
-        const isKnownAccount = existingAccounts.some(a => a.id === record.id && a.type === 'Cash');
-        if (!isKnownAccount) {
-          console.warn('[Sync] ⛔ BLOCKED: Attempted to push unknown Cash account to Supabase. id:', record?.id);
-          return; // Hard block — never push unknown Cash accounts
-        }
-      }
-
       const { client } = window.SUPABASE_CONFIG;
       if (!client) {
         // If Supabase is configured but client is temporarily unavailable, queue for retry
@@ -2394,14 +2321,6 @@ const SupabaseSync = (() => {
 
   function _queueRetry(table, record) {
     try {
-      // ✅ HARD BLOCK: Cash account inserts must NEVER enter retry queue.
-      // ensureDefaultCashAccount() is disabled, but as a secondary defence:
-      // if any code path tries to push a new Cash account insert, block it here.
-      if (table === 'accounts' && record && record._deleteOnly !== true && record.type === 'Cash') {
-        console.warn('[Sync] ⛔ Blocked Cash account insert from retry queue. id:', record?.id);
-        return;
-      }
-
       // ✅ FIX: Use IndexedDB (persistent) instead of localStorage (5MB limit)
       // Queue records separately for better reliability
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
@@ -2452,47 +2371,20 @@ const SupabaseSync = (() => {
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
         queue = SupabaseSync.getAll('retry_queue') || [];
       }
-
+      
       if (!queue.length) return;
-
-      // ✅ PERMANENT FIX: Strip out any stale Cash account INSERT operations.
-      // Root cause of recurring duplicates: before the fix, ensureDefaultCashAccount()
-      // was creating Cash accounts that failed to push (network issues) and ended up
-      // in the retry queue. When network recovered, these old queued inserts would
-      // push duplicate Cash accounts to Supabase. We block that here permanently.
-      const beforeCount = queue.length;
-      queue = queue.filter(item => {
-        // Drop: any accounts insert where type === 'Cash' (not a delete operation)
-        if (
-          item.table === 'accounts' &&
-          item.record &&
-          item.record._deleteOnly !== true &&
-          item.record.type === 'Cash'
-        ) {
-          console.info('[Sync] 🗑️ Dropped stale Cash account insert from retry queue:', item.record?.id);
-          return false; // drop it
-        }
-        return true;
-      });
-      if (beforeCount !== queue.length) {
-        // Save immediately so stale items don't survive a crash
-        SupabaseSync.setAll('retry_queue', queue);
-        console.info(`[Sync] ✅ Purged ${beforeCount - queue.length} stale Cash account insert(s) from retry queue.`);
-      }
-
-      if (!queue.length) return;
-
+      
       const { client } = window.SUPABASE_CONFIG;
       if (!client) return; // Supabase not ready — retry later
       const remaining = [];
       let successCount = 0;
       let droppedCount = 0;
-
+      
       for (const item of queue) {
         try {
           // Track retry attempts
           item.attempts = (item.attempts || 0) + 1;
-
+          
           if (item.record && item.record._deleteOnly === true) {
             const { error } = await client.from(item.table).delete().eq('id', item.record.id);
             if (error) throw error;
@@ -2503,7 +2395,7 @@ const SupabaseSync = (() => {
             if (error) throw error;
             successCount++;
           }
-        } catch (e) {
+        } catch (e) { 
           // Keep failed items for next retry (max 5 attempts)
           if ((item.attempts || 0) < 5) {
             item.lastError = e.message;
@@ -2514,19 +2406,19 @@ const SupabaseSync = (() => {
           }
         }
       }
-
+      
       // Save remaining back to IDB
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.setAll === 'function') {
         SupabaseSync.setAll('retry_queue', remaining);
       }
-
+      
       if (successCount > 0) {
         console.log(`[Sync] Retry queue processed: ${successCount} succeeded, ${remaining.length} remaining`);
       }
       if (droppedCount > 0 && typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast(`⚠️ ${droppedCount} sync item(s) failed permanently after max retries.`, 'warning', 6000);
       }
-    } catch (e) {
+    } catch (e) { 
       console.warn('[Sync] processRetryQueue failed:', e);
       if (typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast('❌ Sync retry queue processing failed. Check connection and try Sync now.', 'error', 5000);
@@ -2718,73 +2610,17 @@ const SupabaseSync = (() => {
     }
   }
 
-  /**
-   * Default Cash account ensure — PERMANENTLY DISABLED.
-   * ডুপ্লিকেট তৈরির root cause ছিল এই function।
-   * Supabase-এ Cash account আগে থেকেই আছে — নতুন তৈরি হবে না।
-   * যদি ভবিষ্যতে নতুন deployment লাগে, setup-wizard.js সেটা নিয়ন্ত্রণ করবে।
-   */
+  /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
   function ensureDefaultCashAccount() {
-    // ⛔ DISABLED — Do not re-enable. This was the root cause of 60+ duplicate Cash accounts.
-    // _autoCleanDuplicateAccounts() now handles cleanup on every startup.
-    return false;
-  }
-
-  /**
-   * ডুপ্লিকেট Cash account আপনা থেকেই মুছে ফেলে (IDB + Supabase cloud).
-   * প্রতিটি pull-এর শেষে silently চলে — যদি কোনোভাবে duplicate তৈরি হয়, সেগুলো স্বয়ংস্ক্রিয়ত মুছে যায়।
-   * সাথে retry queue থেকেও stale Cash inserts পরিষ্কার করে।
-   */
-  async function _autoCleanDuplicateAccounts() {
-    try {
-      // 1. Purge stale Cash inserts from retry queue first
-      const rq = getAll('retry_queue') || [];
-      const rqBefore = rq.length;
-      const rqClean = rq.filter(item =>
-        !(item.table === 'accounts' && item.record && item.record._deleteOnly !== true && item.record.type === 'Cash')
-      );
-      if (rqClean.length !== rqBefore) {
-        setAll('retry_queue', rqClean);
-        console.info(`[Sync] ✅ Purged ${rqBefore - rqClean.length} stale Cash insert(s) from retry queue.`);
-      }
-
-      // 2. Check for duplicate Cash accounts in IDB
-      const allAccounts = getAll('accounts');
-      const cashAccounts = allAccounts.filter(a => a.type === 'Cash');
-      if (cashAccounts.length <= 1) return; // nothing to clean
-
-      console.warn(`[Sync] ⚠️ Found ${cashAccounts.length} Cash accounts — auto-cleaning...`);
-
-      // ✅ Keep the OLDEST account (by created_at) — that is always the original real account.
-      // Do NOT sort by balance: balance can be 0 or negative legitimately,
-      // which would cause a wrong duplicate to be kept.
-      // Original Cash: created April 2026. Duplicates: created later. Oldest always wins.
-      const sorted = [...cashAccounts].sort(
-        (a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)
-      );
-      const keepAcc  = sorted[0];
-      const toDelete = sorted.slice(1);
-
-      // Remove from local IDB
-      const cleanedLocal = allAccounts.filter(a => !toDelete.some(d => d.id === a.id));
-      setAll('accounts', cleanedLocal);
-
-      // Remove from Supabase cloud
-      const client = window.SUPABASE_CONFIG?.client;
-      if (client) {
-        for (const acc of toDelete) {
-          try {
-            await client.from('accounts').delete().eq('id', acc.id);
-          } catch (e) {
-            console.warn('[Sync] Could not delete duplicate Cash from cloud:', acc.id, e?.message);
-          }
-        }
-      }
-
-      console.info(`[Sync] ✅ Auto-cleaned ${toDelete.length} duplicate Cash account(s). Kept: ${keepAcc.id} (balance=৳${keepAcc.balance})`);
-    } catch (e) {
-      console.warn('[Sync] _autoCleanDuplicateAccounts failed (non-critical):', e);
-    }
+    const accounts = getAll('accounts');
+    if (accounts.some(a => a.type === 'Cash')) return false;
+    insert('accounts', {
+      type: 'Cash',
+      name: 'Cash',
+      balance: 0,
+    }, { bypassLog: true });
+    console.info('[Sync] Default Cash account created.');
+    return true;
   }
 
   /**
@@ -2794,8 +2630,7 @@ const SupabaseSync = (() => {
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
-    // ✅ Fix: ensureDefaultCashAccount() removed from here — it has its own sync guard.
-    // Calling it here before sync could create duplicate Cash accounts.
+    ensureDefaultCashAccount();
 
     const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
     const studentsKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
@@ -2918,14 +2753,7 @@ const SupabaseSync = (() => {
 
   function _runStartupFinanceRepair() {
     try {
-      // ✅ Fix: ensureDefaultCashAccount() removed from startup repair.
-      // Root cause of 32+ duplicate Cash accounts:
-      //   WFA_IDB.onReady fires BEFORE Supabase pull completes.
-      //   IDB is empty → "no Cash found" → new Cash created → Supabase push.
-      //   Later, real Cash pulled from Supabase → now 2 Cash accounts exist.
-      //   This repeated on every fresh browser session, cleared cache, or new tab.
-      // ensureDefaultCashAccount() is now guarded by wfa_initial_sync_done flag.
-
+      ensureDefaultCashAccount();
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
@@ -2945,7 +2773,6 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     ensureDefaultCashAccount,
-    _autoCleanDuplicateAccounts,
     repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
@@ -3155,14 +2982,6 @@ const SyncEngine = (() => {
           });
         }
 
-        // ✅ REMOVED: "local balance always wins" block.
-        // That block caused balance corruption:
-        //   - Duplicate Cash (balance=0) in IDB → local=0, cloud=37001
-        //   - Block forced local (0) to win → overwrote cloud with 0
-        // Supabase is the ground truth for balances.
-        // Legitimate pending transactions win via timestamp: if you made a
-        // local transaction, its updated_at is newer → mergeRows already picks it.
-
         const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
         const exKey  = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
         if (key === salKey && merged.length > 0 && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {
@@ -3241,20 +3060,11 @@ const SyncEngine = (() => {
         );
       }
 
-      // ✅ Mark that at least one Supabase pull has completed successfully.
-      // ensureDefaultCashAccount() uses this flag to avoid creating duplicate
-      // Cash accounts when IDB is temporarily empty before sync.
-      localStorage.setItem('wfa_initial_sync_done', '1');
-
       if (hasChanges) {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
       }
 
       await SupabaseSync.processRetryQueue();
-
-      // ✅ Safety net: duplicate Cash account হলে এখনই মুছে ফেলো
-      // retry queue purge-এর পরে call হয়, তাই stale inserts আর নেই
-      await SupabaseSync._autoCleanDuplicateAccounts();
 
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
@@ -3333,11 +3143,6 @@ const SyncEngine = (() => {
             }
             merged.set(row.id, existing);
           }
-          // ✅ REMOVED: unconditional local balance override.
-          // Timestamp-based merge above already handles this correctly:
-          // if local is newer (pending transaction), localTime > cloudTime → local wins.
-          // Forcing local.balance unconditionally caused 0-balance duplicates to
-          // overwrite correct Supabase balances.
         }
       }
     });
@@ -3507,26 +3312,8 @@ const SyncEngine = (() => {
         const rows = SupabaseSync.getAll(key);
         if (!rows.length) continue;
         const cleanRows = rows.map(r => SupabaseSync._prepareRecordForCloud(key, r));
-        
         const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
-        if (error) {
-          console.warn(`[Sync] Batch push failed for "${key}", trying one-by-one fallback. Error:`, error);
-          
-          // One-by-one fallback
-          let singleFailCount = 0;
-          for (const row of cleanRows) {
-            const { error: singleErr } = await client.from(key).upsert([row], { onConflict: 'id' });
-            if (singleErr) {
-              singleFailCount++;
-              console.error(`[Sync] Individual push failed for table "${key}" row "${row.id}":`, singleErr);
-            }
-          }
-          if (singleFailCount === cleanRows.length) {
-            console.error(`[Sync] Push failed completely for table "${key}".`);
-          } else if (singleFailCount > 0) {
-            console.warn(`[Sync] Push partially successful for table "${key}": ${cleanRows.length - singleFailCount} succeeded, ${singleFailCount} failed.`);
-          }
-        }
+        if (error) console.error(`[Sync] Push failed for "${key}":`, error);
       }
       setStatus('synced');
       if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');
@@ -3616,26 +3403,6 @@ const SyncEngine = (() => {
             if (localPaid > 0 && cloudPaid === 0 && newRow.paidAmount === undefined && newRow.paid_amount === undefined) {
               merged.paidAmount = localPaid;
               merged.paid_amount = localPaid;
-            }
-          }
-          // ✅ CRITICAL FIX: accounts balance — realtime echo থেকে রক্ষা করো।
-          // সমস্যা: expense করার পরে local balance কমে যায়, তারপর _pushRecord দিয়ে
-          // Supabase-এ নতুন balance push হয়। কিন্তু Supabase realtime সেই push-এর
-          // echo ফিরে পাঠায় — এই echo আসতে কিছুটা দেরি হতে পারে। এই সময়ে
-          // _legitimateBalanceChangeInProgress flag আর set থাকে না। তাই realtime
-          // handler নির্বিচারে cloud-এর newRow দিয়ে local overwrite করে।
-          // যদি cloud-এ আগের (stale) balance থাকে, সেটা local-এর সঠিক নতুন balance
-          // মুছে দেয় — ফলে balance আগের জায়গায় ফিরে আসে।
-          // FIX: accounts table-এ realtime UPDATE হলে balance field সবসময় local জিতবে।
-          // এটা নিরাপদ কারণ balance শুধুমাত্র updateAccountBalance() দিয়ে পরিবর্তন হয়
-          // যা IDB-তে সঠিক running total রাখে।
-          if (table === 'accounts' && rows[idx].balance !== undefined && newRow.balance !== undefined) {
-            const localBal = parseFloat(rows[idx].balance) || 0;
-            const cloudBal = parseFloat(newRow.balance) || 0;
-            if (localBal !== cloudBal) {
-              // Local balance সঠিক — cloud-এর stale echo দিয়ে overwrite করা যাবে না
-              merged.balance = localBal;
-              console.info(`[Realtime] ✅ accounts balance protected: local ৳${localBal} kept over cloud ৳${cloudBal} for account "${newRow.name || newRow.type || newRow.id}"`);
             }
           }
           if (table === salKey && typeof SupabaseSync.normalizeSalaryFromCloud === 'function') {

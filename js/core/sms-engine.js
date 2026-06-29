@@ -108,10 +108,6 @@ const SMSEngine = (() => {
       logRecord.status            = success ? 'sent' : 'failed';
       logRecord.provider_response = text.slice(0, 500);
       _log(logRecord);
-      if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-        SupabaseSync.logActivity('system', 'sms',
-          `SMS ${success ? 'পাঠানো হয়েছে' : 'পাঠাতে ব্যর্থ'} [${type}]: ${cleanPhone}${success ? '' : ' — ' + text.slice(0, 80)}`);
-      }
       return { ok: success, response: text };
     } catch (e) {
       logRecord.status            = 'failed';

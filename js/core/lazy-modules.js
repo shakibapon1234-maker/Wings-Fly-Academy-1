@@ -21,7 +21,6 @@ const LazyModules = (() => {
     'institution-mode':      { src: 'js/core/institution-mode.js' },
     'settings-branding':     { src: 'js/core/settings-branding.js' },
     'settings-institution':  { src: 'js/core/settings-institution.js', deps: ['institution-mode'] },
-    'settings-monitor':      { src: 'js/ui/settings-monitor.js',    deps: ['settings'] },
     students:              { src: 'js/modules/students.js', deps: ['institution-mode'] },
     finance:               { src: 'js/modules/finance.js' },
     accounts:              { src: 'js/modules/accounts.js' },
@@ -74,7 +73,7 @@ const LazyModules = (() => {
   const POST_LOGIN_IDLE = [
     'integrity-guard', 'system-diagnostics', 'settings-diagnostics', 'backup-restore',
     'auto-update', 'push-notifications', 'offline-mode', 'admin-panel',
-    'settings-branding', 'settings-institution', 'settings-monitor', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
+    'settings-branding', 'settings-institution', 'command-palette', 'notice-board', 'ai-assistant', 'pattern-lock', 'face-id',
     'sms-engine',
   ];
 

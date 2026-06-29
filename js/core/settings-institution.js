@@ -42,50 +42,26 @@ window.SettingsInstitution = (() => {
   function _buildHTML() {
     const IM = window.InstitutionMode;
     const current = IM ? IM.get() : 'coaching';
-    const isLocked = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.institutionType;
-
     const options = (IM ? IM.VALID : ['coaching', 'school', 'college']).map((type) => {
       const meta = IM ? IM.getMeta(type) : { icon: '', label: type, labelBn: type };
       const checked = current === type ? 'checked' : '';
-      
-      // ✅ Hide other options completely if locked by deployment configuration
-      if (isLocked && current !== type) {
-        return '';
-      }
-
-      const disabled = isLocked ? 'disabled' : '';
       return `
-        <label class="inst-type-option" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid ${checked ? 'var(--brand-primary,#00d2ff)' : 'rgba(255,255,255,0.08)'};border-radius:10px;cursor:pointer;background:${checked ? 'rgba(0,210,255,0.08)' : 'rgba(255,255,255,0.02)'};margin-bottom:10px;${isLocked ? 'cursor:not-allowed;opacity:0.95;' : ''}">
-          <input type="radio" name="institution-type" value="${type}" ${checked} ${disabled} style="margin-top:4px" />
+        <label class="inst-type-option" style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border:1px solid ${checked ? 'var(--brand-primary,#00d2ff)' : 'rgba(255,255,255,0.08)'};border-radius:10px;cursor:pointer;background:${checked ? 'rgba(0,210,255,0.08)' : 'rgba(255,255,255,0.02)'};margin-bottom:10px">
+          <input type="radio" name="institution-type" value="${type}" ${checked} style="margin-top:4px" />
           <div>
-            <div style="font-weight:600;font-size:0.95rem">${meta.icon} ${meta.label} ${isLocked ? '<span style="color:#f5a623;font-size:0.75rem;margin-left:8px;font-weight:normal">(Locked)</span>' : ''}</div>
+            <div style="font-weight:600;font-size:0.95rem">${meta.icon} ${meta.label}</div>
             <div style="color:#7a8baa;font-size:0.82rem;margin-top:4px">${meta.labelBn}</div>
           </div>
         </label>`;
     }).join('');
 
-    const lockNotice = isLocked
-      ? `<div style="background:rgba(245,166,35,0.08);border:1px solid rgba(245,166,35,0.2);border-radius:10px;padding:12px 16px;color:#f5a623;font-size:0.82rem;margin-bottom:16px;line-height:1.5">
-           🔒 এই সিস্টেমটি <strong>${IM ? IM.getMeta(current).label : current}</strong> মোডে লক করা আছে। এটি ডিপ্লয়মেন্ট কনফিগারেশন দ্বারা নির্ধারিত।
-         </div>`
-      : '';
-
-    const saveButtonHTML = isLocked
-      ? `<button type="button" id="institution-type-save-btn" class="btn btn-primary" disabled style="cursor:not-allowed;opacity:0.65">
-           <i class="fa fa-lock"></i> Locked by Deployment
-         </button>`
-      : `<button type="button" id="institution-type-save-btn" class="btn btn-primary">
-           <i class="fa fa-floppy-disk"></i> Save Institution Type
-         </button>`;
-
     return `
       <div class="settings-card glow-cyan">
         <div class="settings-card-title"><i class="fa fa-building"></i> Institution Type</div>
         <p style="color:#7a8baa;font-size:0.88rem;margin:0 0 16px">
-          আপনার প্রতিষ্ঠানের ধরন বেছে নিন। Coaching mode-এ WFA ফিচার অপরিবর্তিত থাকবে।
+          আপনার প্রতিষ্ঠানের ধরন বেছে নিন। Coaching mode-এ বর্তমান WFA ফিচার অপরিবর্তিত থাকবে।
           School/College mode-এ Class, Section, Marks ইত্যাদি ফিচার চালু হবে।
         </p>
-        ${lockNotice}
         <div id="institution-type-options">${options}</div>
       </div>
 
@@ -111,7 +87,9 @@ window.SettingsInstitution = (() => {
       </div>
 
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
-        ${saveButtonHTML}
+        <button type="button" id="institution-type-save-btn" class="btn btn-primary">
+          <i class="fa fa-floppy-disk"></i> Save Institution Type
+        </button>
         <span id="institution-type-current" style="align-self:center;color:#7a8baa;font-size:0.82rem">
           Current: <strong style="color:var(--brand-primary,#00d2ff)">${current}</strong>
         </span>

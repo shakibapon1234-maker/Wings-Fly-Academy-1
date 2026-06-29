@@ -177,17 +177,6 @@ const LicenseEngine = (() => {
     if (cfg) {
       try {
         const result = await _postToServer('validate-license', { key: clean });
-        // ── Migration-window fallback: if server says key is not valid/found/tampered
-        // (happens for keys generated locally when server was temporarily down),
-        // try the legacy checksum validator before returning invalid.
-        const inMigrationWindow = new Date() <= new Date(_MIGRATION_FALLBACK_UNTIL);
-        if (!result.ok && inMigrationWindow) {
-          const legacy = _legacyValidate(clean);
-          if (legacy.ok || legacy.inGrace) {
-            console.info('[LicenseEngine] Server validation failed but local checksum valid — migration fallback used.');
-            return { ...legacy, _fromMigrationFallback: true };
-          }
-        }
         _saveCache(clean, result);
         return result;
       } catch (e) {

@@ -571,12 +571,6 @@
   <script src="js/core/secure-storage.js" defer></script>
   <script src="js/core/clients-metadata.js" defer></script>
   <script src="js/core/supabase-secrets.stub.js" defer></script>
-  <!-- FIX 3: supabase-secrets.js loads AFTER stub and overrides WFA_SUPABASE_SECRETS with
-       client-specific credentials. This file is gitignored on the main project (404 is silent
-       and harmless — stub already set the empty object). On every client deployment this file
-       IS present (written by new-client.ps1) and correctly sets url, anonKey, institutionType
-       etc. Without this tag, institution-mode._fromDeploySecrets() never fires on index.html. -->
-  <script src="js/core/supabase-secrets.js" defer onerror="void 0"></script>
   <!-- BUG-S6 fix: standalone creds fallback — present in admin/cert/exam.html but was missing here -->
   <script src="js/core/supabase-standalone-creds.js" defer></script>
   <script src="js/core/session-store.js" defer></script>

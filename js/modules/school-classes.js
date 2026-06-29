@@ -140,10 +140,6 @@ const SchoolClasses = (() => {
       class_teacher: Utils.formVal('sc-teacher'),
     });
     SchoolEngine.seedSubjectsForClass(record.class_name);
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-      SupabaseSync.logActivity(editId ? 'edit' : 'add', 'school_classes',
-        `${editId ? 'ক্লাস আপডেট' : 'নতুন ক্লাস যোগ'}: ${className} — সেকশন: ${sections}`);
-    }
     Utils.closeModal();
     Utils.toast('✅ Saved successfully', 'success');
     render();
@@ -151,12 +147,7 @@ const SchoolClasses = (() => {
 
   function remove(id) {
     if (!confirm('Delete this class record?')) return;
-    const existing = SchoolEngine.getClasses().find(c => c.id === id);
     SchoolEngine.removeClass(id);
-    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
-      SupabaseSync.logActivity('delete', 'school_classes',
-        `ক্লাস ডিলিট: ${existing ? existing.class_name : id}`);
-    }
     Utils.toast('Deleted', 'warning');
     render();
   }

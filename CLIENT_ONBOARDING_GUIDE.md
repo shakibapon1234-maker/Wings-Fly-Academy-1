@@ -25,34 +25,36 @@ Supabase Dashboard → Settings → API:
 - **Project URL**: `https://XXXXXXXX.supabase.co` ← এটা নোট করুন
 - **anon / public key**: `eyJhbGci...` ← এটা নোট করুন
 
-## ✅ STEP 4 — Client App Deploy করুন (FIXED: এখন `new-client.ps1` ব্যবহার করুন)
+## ✅ STEP 4 — Client App Deploy করুন
 
-> ⚠️ **পুরনো manual পদ্ধতি (clone → copy → secrets.js এডিট → push) ব্যবহার করবেন না।**
-> আগে এই পদ্ধতিতে client folder-এর `.gitignore` ভুলভাবে `supabase-secrets.js`-কে git থেকে বাদ
-> দিয়ে দিত, ফলে এই ফাইল কখনো GitHub Pages-এ deploy-ই হতো না — এবং deploy হওয়া client app
-> credential না পেয়ে silently মেইন admin project-এর Supabase-এ কানেক্ট হয়ে যেত (এটাই
-> "মেইন প্রজেক্টের ডেটা client-এ চলে আসা" বাগের মূল কারণ ছিল)। এখন এটা ফিক্স করা হয়েছে।
+### GitHub-এ নতুন Repository তৈরি:
+1. https://github.com এ লগইন করুন (আপনার account)
+2. "New Repository" → Name: `client-[academy-short-name]`
+   উদাহরণ: `client-greenleaf`, `client-skybird`
+3. Public → "Create repository"
 
+### Code Push করুন (PowerShell):
 ```powershell
-.\new-client.ps1
-```
+# Wings-Fly-Academy-1 folder-এ এই command চালান
+git clone https://github.com/YOUR_USERNAME/client-greenleaf.git temp_client
+Copy-Item -Recurse E:\DESKTOP\Wings-Fly-Academy-1\www\* temp_client\
+cd temp_client
 
-স্ক্রিপ্ট নিজে থেকেই:
-1. Client-এর folder তৈরি করবে এবং `www/*` কপি করবে
-2. আপনার দেওয়া Supabase URL/Anon Key দিয়ে `js/core/supabase-secrets.js` লিখবে (এবং `Object.freeze()` করে দেবে যাতে runtime-এ override না হয়)
-3. `js/core/supabase-standalone-creds.js`-ও client-এর own credentials দিয়ে overwrite করবে
-4. একটা `.gitignore` লিখবে যেখানে **`supabase-secrets.js` বাদ দেওয়া হয় না** — কারণ GitHub Pages static hosting, secret hide করার কোনো server-side উপায় নেই; anon key RLS-এর কারণে public হওয়াই নিরাপদ
-5. `git init` → commit → (চাইলে) push করে দেবে
+# Client-এর Supabase credentials সেট করুন
+# supabase-secrets.js ফাইলটি edit করুন:
+# const WFA_SUPABASE_SECRETS = { url: 'CLIENT_URL', anonKey: 'CLIENT_KEY' };
+
+git add .
+git commit -m "Initial client deployment"
+git push origin main
+```
 
 ### GitHub Pages চালু করুন:
 1. Repository → Settings → Pages
 2. Branch: `main` → Save
 3. কয়েক মিনিট পর URL পাবেন: `https://YOUR_USERNAME.github.io/client-greenleaf/`
 
-## ✅ STEP 5 — License Key Generate করুন [REQUIRED]
-
-> [!IMPORTANT]
-> এই ধাপটি **আবশ্যিক (REQUIRED)**। License Key ছাড়া ক্লায়েন্ট প্রথমবার অ্যাপ ওপেন করতে গেলে অ্যাপটি **LOCK** হয়ে যাবে এবং কোনো ডাটা দেখতে পারবে না। তাই ডেপ্লয় করার আগেই License Key জেনারেট করে ক্লায়েন্টকে পাঠানো নিশ্চিত করুন।
+## ✅ STEP 5 — License Key Generate করুন
 
 1. আপনার Wings Fly Academy app খুলুন
 2. Settings → Client Manager
