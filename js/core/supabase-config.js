@@ -42,8 +42,8 @@ function _resolveSupabaseCreds() {
 
   const isMainAdminDeployment = window.location.pathname.includes('/Wings-Fly-Academy-1/');
 
-  const _fallbackUrl = isMainAdminDeployment ? 'https://fznhiqzrslldybhmgopk.supabase.co' : null;
-  const _fallbackKey = isMainAdminDeployment ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ6bmhpcXpyc2xsZHliaG1nb3BrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU1NjYzNjcsImV4cCI6MjA5MTE0MjM2N30.p0UJzwfE3XxcUmGUOhIxebXASGL1KTJuKYdfdtYtSBw' : null;
+  const _fallbackUrl = null;
+  const _fallbackKey = null;
 
   // Priority: secrets.js (client deploy / main deploy) > devLocal (opt-in, local
   // dev only) > stored (Settings-saved) > admin fallback (main path only)
