@@ -3470,16 +3470,6 @@ const SyncEngine = (() => {
             if (_localPaid > 0 && _cloudPaid === 0 && cloudRow.paidAmount === undefined && cloudRow.paid_amount === undefined) {
               const salMerged = { ...cloudRow, paidAmount: _localPaid, paid_amount: _localPaid };
               localMap.set(cloudRow.id, salMerged);
-            } else if (localRow.balance !== undefined && cloudRow.balance !== undefined) {
-              // ✅ BALANCE FIX (mergeIncremental): accounts-এর balance সবসময় local জিতবে
-              // Cloud-এ stale balance আসলে local-এর সঠিক running-total preserve করো
-              const _localBal = parseFloat(localRow.balance) || 0;
-              const _cloudBal = parseFloat(cloudRow.balance) || 0;
-              if (_localBal !== _cloudBal) {
-                localMap.set(cloudRow.id, { ...cloudRow, balance: _localBal, updated_at: new Date().toISOString() });
-              } else {
-                localMap.set(cloudRow.id, cloudRow);
-              }
             } else {
               localMap.set(cloudRow.id, cloudRow);
             }
