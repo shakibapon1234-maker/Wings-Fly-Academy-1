@@ -109,7 +109,11 @@ Write-OK "Source found: $WWW_SRC"
 
 # -- STEP 4: Create client folder --------------------------------
 $PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
-$CLIENT_DIR = Join-Path $PARENT_DIR $REPO
+$CLIENTS_PARENT = Join-Path $PARENT_DIR "Client ID"
+if (!(Test-Path $CLIENTS_PARENT)) {
+    New-Item -ItemType Directory -Path $CLIENTS_PARENT -Force | Out-Null
+}
+$CLIENT_DIR = Join-Path $CLIENTS_PARENT $REPO
 
 if (Test-Path $CLIENT_DIR) {
     $confirm = Ask "Folder '$REPO' already exists. Overwrite? (yes/no)" "no"
@@ -231,6 +235,7 @@ for ($i = 0; $i -lt $existing_clients.Count; $i++) {
 if ($existing_idx -ge 0) {
     Write-WARN "customerCode '$CODE' already exists in clients-metadata.js - updating entry with new deployment info."
     $existing_clients[$existing_idx].academy         = $ACADEMY
+    $existing_clients[$existing_idx].repo            = $REPO
     $existing_clients[$existing_idx].package         = $PKG
     $existing_clients[$existing_idx].institutionType = $INSTTYPE
     if ($LICKEY) { $existing_clients[$existing_idx].licenseKey = $LICKEY }
@@ -242,6 +247,7 @@ if ($existing_idx -ge 0) {
         id              = [Guid]::NewGuid().ToString()
         customerCode    = $CODE
         academy         = $ACADEMY
+        repo            = $REPO
         package         = $PKG
         institutionType = $INSTTYPE
         licenseKey      = $LICKEY
