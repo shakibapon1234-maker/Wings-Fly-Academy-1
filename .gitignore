@@ -70,3 +70,6 @@ WingsFly_Full_Backup_*.json
 
 # Local Git installation files (do not commit system binaries)
 /Git/
+
+# Local backup tools (pg_dump binaries)
+/bin/

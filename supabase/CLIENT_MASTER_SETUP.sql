@@ -7,6 +7,7 @@
 --  ╚══╝╚══╝ ╚═╝     ╚═╝  ╚═╝   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝
 -- ════════════════════════════════════════════════════════════════════════════
 --  AcadeFlow / Wings Fly Academy — CLIENT MASTER SETUP SQL
+--  Version: 2.0  |  Updated: 2026-06-29  |  Synced with Live DB
 --  নতুন ক্লায়েন্টের Supabase Project-এ এই পুরো script একবার run করুন।
 --  Supabase Dashboard → SQL Editor → New Query → Paste → Run (F5)
 --  সব টেবিল, ইনডেক্স, RLS পলিসি, ট্রিগার এবং স্টোরেজ বাকেট সহ সেটআপ হয়ে যাবে।
@@ -68,6 +69,7 @@ create table if not exists public.students (
   email            text,
   address          text,
   dob              text,
+  blood_group      text,
   course           text,
   batch            text,
   session          text,
@@ -85,7 +87,9 @@ create table if not exists public.students (
   roll_no          text,
   shift            text,
   note             text,
-  installment_plan jsonb,
+  remarks          text,
+  payment_method   text,
+  reminder_date    text,
   portal_enabled   boolean default false,
   created_at       timestamptz default now(),
   updated_at       timestamptz default now()
@@ -93,23 +97,26 @@ create table if not exists public.students (
 
 -- ── 1.3  staff ────────────────────────────────────────────────────────────
 create table if not exists public.staff (
-  id            text primary key,
-  name          text,
-  role          text,
-  phone         text,
-  email         text,
-  address       text,
-  dob           text,
-  join_date     text,
-  "joiningDate" text,
-  salary        numeric,
-  status        text,
-  photo_url     text,
-  note          text,
-  "staffId"     text,
-  staff_id      text,
-  created_at    timestamptz default now(),
-  updated_at    timestamptz default now()
+  id             text primary key,
+  name           text,
+  role           text,
+  phone          text,
+  email          text,
+  address        text,
+  dob            text,
+  join_date      text,
+  joining_date   text,
+  "joiningDate"  text,
+  salary         numeric,
+  base_salary    numeric,
+  status         text,
+  photo_url      text,
+  note           text,
+  "staffId"      text,
+  resign_date    text,
+  "resignDate"   text,
+  created_at     timestamptz default now(),
+  updated_at     timestamptz default now()
 );
 
 -- ── 1.4  salary ───────────────────────────────────────────────────────────
@@ -121,12 +128,14 @@ create table if not exists public.salary (
   "staffName"   text,
   month         text,
   year          text,
+  date          text,
   amount        numeric,
   "baseSalary"  numeric,
-  base_salary   numeric,
+  basic         numeric,
   bonus         numeric,
   deduction     numeric,
   net_salary    numeric,
+  total         numeric,
   status        text,
   note          text,
   paid_date     text,
@@ -137,7 +146,9 @@ create table if not exists public.salary (
   method        text,
   role          text,
   phone         text,
-  name          text,
+  _device       text,
+  "createdAt"   text,
+  "updatedAt"   text,
   created_at    timestamptz default now(),
   updated_at    timestamptz default now()
 );
@@ -162,14 +173,18 @@ create table if not exists public.finance_ledger (
 
 -- ── 1.6  accounts ─────────────────────────────────────────────────────────
 create table if not exists public.accounts (
-  id          text primary key,
-  name        text,
-  type        text,
-  balance     numeric default 0,
-  description text,
-  note        text,
-  created_at  timestamptz default now(),
-  updated_at  timestamptz default now()
+  id             text primary key,
+  name           text,
+  type           text,
+  balance        numeric default 0,
+  description    text,
+  note           text,
+  account_number text,
+  branch         text,
+  "bankName"     text,
+  "accountNo"    text,
+  created_at     timestamptz default now(),
+  updated_at     timestamptz default now()
 );
 
 -- ── 1.7  loans ────────────────────────────────────────────────────────────
@@ -201,10 +216,12 @@ create table if not exists public.exams (
   exam_date    text,
   exam_fee     numeric,
   fee_paid     numeric,
+  paid         numeric,
   grade        text,
   marks        numeric,
   status       text,
   note         text,
+  comment      text,
   created_at   timestamptz default now(),
   updated_at   timestamptz default now()
 );
@@ -214,10 +231,12 @@ create table if not exists public.attendance (
   id           text primary key,
   person_id    text,
   person_name  text,
+  person_type  text,
   type         text,
   date         text,
   status       text,
   note         text,
+  notes        text,
   "entityId"   text,
   "entityName" text,
   batch        text,
@@ -230,8 +249,11 @@ create table if not exists public.visitors (
   id                text primary key,
   name              text,
   phone             text,
+  address           text,
   purpose           text,
   host              text,
+  source            text,
+  reference         text,
   visit_date        text,
   visit_time        text,
   out_time          text,
@@ -249,7 +271,12 @@ create table if not exists public.notices (
   id         text primary key,
   title      text,
   text       text,
+  content    text,
   type       text,
+  category   text,
+  priority   text,
+  author     text,
+  date       text,
   expires_at text,
   is_pinned  boolean default false,
   created_at timestamptz default now(),
