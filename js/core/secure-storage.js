@@ -99,9 +99,9 @@ const SecureStorage = (() => {
     try {
       if (SENSITIVE_KEYS.includes(key)) {
         const encrypted = await encrypt(value);
-        localStorage.setItem(key, encrypted);
+        _storageBackend.setItem(key, encrypted);
       } else {
-        localStorage.setItem(key, value);
+        _storageBackend.setItem(key, value);
       }
     } catch (e) {
       console.warn('[SecureStorage] setItem failed:', e.message);
@@ -111,7 +111,7 @@ const SecureStorage = (() => {
   // ── Secure getItem ────────────────────────────────────────
   async function getItem(key) {
     try {
-      const raw = localStorage.getItem(key);
+      const raw = _storageBackend.getItem(key);
       if (raw === null) return null;
       if (SENSITIVE_KEYS.includes(key) && raw.startsWith(ENC_PREFIX)) {
         return await decrypt(raw);
@@ -125,18 +125,18 @@ const SecureStorage = (() => {
 
   // ── Sync getItem (for non-sensitive keys) ─────────────────
   function getItemSync(key) {
-    return localStorage.getItem(key);
+    return _storageBackend.getItem(key);
   }
 
   // ── Migrate existing sensitive keys to encrypted ──────────
   async function migrateToEncrypted() {
     for (const key of SENSITIVE_KEYS) {
-      const val = localStorage.getItem(key);
+      const val = _storageBackend.getItem(key);
       if (val && !val.startsWith(ENC_PREFIX)) {
         // Value exists but not encrypted — encrypt it now
         const encrypted = await encrypt(val);
         if (encrypted !== val) {
-          localStorage.setItem(key, encrypted);
+          _storageBackend.setItem(key, encrypted);
           console.info(`[SecureStorage] Encrypted sensitive key: ${key}`);
         }
       }
