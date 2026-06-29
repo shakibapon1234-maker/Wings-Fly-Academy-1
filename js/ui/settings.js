@@ -1453,11 +1453,11 @@ const SettingsModule = (() => {
         <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">
           <div class="form-group" style="flex:1;min-width:220px">
             <label>Project URL</label>
-            <input type="url" id="supa-project-url" class="form-control" placeholder="https://xxx.supabase.co" />
+            <input type="url" id="supa-project-url" class="form-control" placeholder="https://xxx.supabase.co" value="${window.SUPABASE_URL || ''}" />
           </div>
           <div class="form-group" style="flex:1;min-width:220px">
             <label>Anon Key (public JWT)</label>
-            <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" />
+            <input type="password" id="supa-anon-key" class="form-control" placeholder="eyJ..." autocomplete="off" value="${window.SUPABASE_ANON_KEY || ''}" />
           </div>
         </div>
         <button class="btn btn-accent" onclick="SettingsModule.saveCloudApiCredentials()">💾 Save API Credentials</button>
