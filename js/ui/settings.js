@@ -7549,7 +7549,7 @@ ${expenseEntries.length > 0 ? `
     }
   }
 
-  function spHandleBatchChange(batch) {
+  function spHandleBatchChange(_batch) {
     _spRenderStudentList();
   }
 

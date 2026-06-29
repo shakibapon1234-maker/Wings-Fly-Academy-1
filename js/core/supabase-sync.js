@@ -520,6 +520,14 @@ const SupabaseSync = (() => {
     const rows = getAll(table);
     rows.unshift(record);
     setAll(table, rows);
+    // If inserting a new account, adjust wfa_recent_changes snapshots
+    if (table === 'accounts') {
+      const newBal = Number(record.balance || 0);
+      if (newBal !== 0) {
+        const accName = record.type === 'Cash' ? 'Cash' : (record.name || 'Cash');
+        _adjustRecentChangesSnapshots(accName, newBal, true, record.type || '');
+      }
+    }
     _logRecentChange(table, 'insert', record);
     if (!options.bypassLog && !_isDiagnosticRecord(table, record)) {
       _logActivity('add', table, _humanReadableLog('add', table, record));
@@ -546,6 +554,16 @@ const SupabaseSync = (() => {
       rows[idx] = merged;
       if (table === _salaryTableKey()) _ensureSalaryLocalFields(rows[idx]);
       setAll(table, rows);
+      // If updating account balance, adjust wfa_recent_changes snapshots
+      if (table === 'accounts') {
+        const oldBal = Number(oldRow.balance || 0);
+        const newBal = Number(merged.balance || 0);
+        const diff = newBal - oldBal;
+        if (diff !== 0) {
+          const accName = merged.type === 'Cash' ? 'Cash' : (merged.name || 'Cash');
+          _adjustRecentChangesSnapshots(accName, diff);
+        }
+      }
       _logRecentChange(table, 'update', rows[idx]);
       if (!options.bypassLog && !_isDiagnosticRecord(table, merged)) {
         _logActivity('edit', table, _humanReadableLog('edit', table, merged, { old: oldRow, partial }));
@@ -563,6 +581,13 @@ const SupabaseSync = (() => {
     const rows = before.filter(r => r.id !== id);
     setAll(table, rows);
     if (victim) {
+      if (table === 'accounts') {
+        const oldBal = Number(victim.balance || 0);
+        if (oldBal !== 0) {
+          const accName = victim.type === 'Cash' ? 'Cash' : (victim.name || 'Cash');
+          _adjustRecentChangesSnapshots(accName, -oldBal);
+        }
+      }
       _addToRecycleBin(table, victim);
       _logRecentChange(table, 'delete', victim);
       if (!options.bypassLog && !_isDiagnosticRecord(table, victim)) {
@@ -573,6 +598,38 @@ const SupabaseSync = (() => {
     if (!victim || !_isDiagnosticRecord(table, victim)) {
       _deleteFromCloud(table, id);
       _trackDeletion(table, id);
+    }
+  }
+
+  // Helper to adjust recent changes snapshots when account balances are manually updated/added/deleted
+  function _adjustRecentChangesSnapshots(accountName, diff, isInsert = false, accountType = '') {
+    if (diff === 0) return;
+    try {
+      const arr = (() => {
+        try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; }
+      })();
+      if (!arr.length) return;
+      arr.forEach(entry => {
+        if (entry.snapshot && entry.snapshot.accounts) {
+          entry.snapshot.accounts.totalBalance = Number((Number(entry.snapshot.accounts.totalBalance || 0) + diff).toFixed(2));
+          if (Array.isArray(entry.snapshot.accounts.list)) {
+            const acc = entry.snapshot.accounts.list.find(a => a.name === accountName);
+            if (acc) {
+              acc.balance = Number((Number(acc.balance || 0) + diff).toFixed(2));
+            } else if (isInsert) {
+              entry.snapshot.accounts.list.push({
+                name: accountName,
+                balance: Number(diff.toFixed(2)),
+                type: accountType
+              });
+              entry.snapshot.accounts.count = (entry.snapshot.accounts.count || 0) + 1;
+            }
+          }
+        }
+      });
+      localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
+    } catch (e) {
+      console.warn('[DataMonitor] _adjustRecentChangesSnapshots failed:', e?.message || e);
     }
   }
 

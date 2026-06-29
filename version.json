@@ -1,7 +1,7 @@
 {
-  "version": "5.1.5",
-  "deploy_id": "20260629-settings-portal-fix",
-  "changelog": "Fix search by student ID (s.student_id) and enable batch filtering in Portal Access settings.",
+  "version": "5.1.6",
+  "deploy_id": "20260629-manual-balance-audit-fix",
+  "changelog": "Fix: Automatically adjust transaction log snapshots on manual account balance updates to prevent false-positive Balance Mismatch warnings.",
   "size": "~2MB",
   "released": "2026-06-29"
 }
