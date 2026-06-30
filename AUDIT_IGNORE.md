@@ -90,33 +90,53 @@
 3. **শুধু সনাক্ত করে সতর্ক করুন।** `SupabaseSync.ensureDefaultCashAccount()` ডুপ্লিকেট পেলে শুধু `console.error` + `Utils.toast` + `wfa:duplicate_cash_accounts` event ফায়ার করে — কোনো row ছোঁয় না। ইউজারকে নিজে Accounts ট্যাব থেকে বেছে ভুল row delete করতে হবে।
 4. **app.js init-এ `ensureDefaultCashAccount()` প্রতি লোডে চলে** (শুধু detect/warn করার জন্য) — এটা সরিয়ে ফেলবেন না, এটাই নতুন ডুপ্লিকেট ধরা পড়ার একমাত্র জায়গা।
 
-### প্রভাবিত ফাইল (রেফারেন্স)
-- `js/core/supabase-sync.js` — `ensureDefaultCashAccount()` (detect-only, কখনো insert করে না)
-- `js/modules/accounts.js` — `getPrimaryCashAccount()` (সবচেয়ে বড় balance নেয় — তবে duplicate থাকা উচিত নয়)
-- `js/ui/dashboard.js` — `normalizeAccounts()` (type+name key দিয়ে dedup)
-- `js/ui/setup-wizard.js` — Cash account bootstrap (একটাই upsert + ignoreDuplicates:true)
-
-### Root Cause বিশ্লেষণ (2026-06-30 — চূড়ান্ত)
-
-**৩টি কারণে ডুপ্লিকেট তৈরি হচ্ছিল:**
-
-1. **`setup-wizard.js`** — দুটো আলাদা Cash insert একসাথে:
-   - সরাসরি `client.from('accounts').insert()` Cloud-এ
-   - `ensureDefaultCashAccount()` Local IDB-তে
-   - Sync হলে দুটো row-ই Supabase-এ যেত → ডুপ্লিকেট
-
-2. **`ensureDefaultCashAccount()`** — AUDIT_IGNORE লেখার পরেও এটা এখনো `insert()` করছিল, শুধু detect করছিল না।
-
-3. **`repairMissingStudentFinance()`** — এটাও `ensureDefaultCashAccount()` কল করছিল।
-
-**চূড়ান্ত fix:**
-- `ensureDefaultCashAccount()` → সম্পূর্ণ detect-only। কোনো insert নেই।
-- `setup-wizard.js` → একটাই upsert (`ignoreDuplicates: true`)।
-- `repairMissingStudentFinance()` → `ensureDefaultCashAccount()` call সরানো হয়েছে।
+### প্রভাবিত ফাইল (রেফারেন্স) — 2026-06-29
+- `js/core/supabase-sync.js` — `upsertAccountByTypeName()`, `ensureDefaultCashAccount()` (detect-only)
+- `js/modules/accounts.js` — `getPrimaryCashAccount()`
+- `js/ui/dashboard.js` — `normalizeAccounts()`
+- `js/ui/setup-wizard.js` — Cash account bootstrap (এখন শুধু `ensureDefaultCashAccount()` কল করে, সরাসরি insert করে না)
+- `js/ui/settings.js` — JSON migration importer (এখন `upsertAccountByTypeName()` দিয়ে accounts import করে)
 
 ---
 
-*আপডেট: 2026-06-30 — Section 7 root cause analysis + চূড়ান্ত fix বর্ণনা যোগ।*
+### 🔴 Root Cause বিশ্লেষণ (2026-06-30 — চূড়ান্ত সংশোধন)
+
+উপরের নিয়ম লেখার পরেও ডুপ্লিকেট তৈরি হচ্ছিল কারণ কোডে বাস্তবায়ন সম্পূর্ণ ছিল না।
+
+**৫টি জায়গায় Cash account তৈরি হওয়ার পথ ছিল:**
+
+1. **`setup-wizard.js`** — দুটো আলাদা Cash insert একই session-এ:
+   - সরাসরি `client.from('accounts').insert()` Cloud REST-এ
+   - `ensureDefaultCashAccount()` Local IDB-তে
+   - Sync হলে দুটো row-ই Supabase-এ যেত → ডুপ্লিকেট
+
+2. **`supabase-sync.js` → `ensureDefaultCashAccount()`** — উপরের নিয়ম লেখার পরেও এটা এখনো `insert()` করছিল, শুধু detect করছিল না।
+
+3. **`supabase-sync.js` → `repairMissingStudentFinance()`** — এটাও `ensureDefaultCashAccount()` কল করছিল।
+
+4. **`supabase-sync.js` → `_updateBalanceCore()`** — Cash account না পেলে silently নতুন Cash row তৈরি করছিল।
+
+5. **`backup-restore.js` এবং `settings.js` JSON import** — existing Cash থাকলেও blindly নতুন row push করছিল।
+
+**চূড়ান্ত fix (2026-06-30):**
+- `ensureDefaultCashAccount()` → সম্পূর্ণ detect-only। কোনো insert নেই কখনো।
+- `setup-wizard.js` → একটাই `upsert(ignoreDuplicates: true)`, `ensureDefaultCashAccount()` call নেই।
+- `repairMissingStudentFinance()` → `ensureDefaultCashAccount()` call সরানো।
+- `_updateBalanceCore()` → Cash auto-create বন্ধ — warn করে return false।
+- `backup-restore.js` + `settings.js` → existing Cash থাকলে balance update, নতুন row না।
+
+### প্রভাবিত ফাইল (রেফারেন্স) — 2026-06-30
+- `js/core/supabase-sync.js` — `ensureDefaultCashAccount()` (detect-only, কখনো insert করে না), `_updateBalanceCore()` (Cash auto-create বন্ধ)
+- `js/modules/accounts.js` — `getPrimaryCashAccount()` (largest balance — তবে duplicate থাকা উচিত নয়)
+- `js/ui/dashboard.js` — `normalizeAccounts()` (type+name key দিয়ে dedup)
+- `js/ui/setup-wizard.js` — Cash bootstrap: একটাই upsert + ignoreDuplicates:true
+- `js/core/backup-restore.js` — existing Cash থাকলে update, নতুন row না
+- `js/ui/settings.js` — JSON import: existing Cash থাকলে update, নতুন row না
+
+---
+
+*আপডেট: 2026-06-30 — Section 7 root cause analysis (5 sources) + চূড়ান্ত fix বর্ণনা।*
 *আপডেট: 2026-06-29 — Account (Cash/Bank/Mobile) ডুপ্লিকেট প্রতিরোধ নিয়ম যোগ (Section 7)।*
 *আপডেট: 2026-05-23 — Salary cloud `paid` boolean, SyncEngine pull fix, AUDIT_IGNORE প্রথম সংস্করণ.*
+
 
