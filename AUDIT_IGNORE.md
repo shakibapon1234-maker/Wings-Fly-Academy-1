@@ -135,6 +135,55 @@
 
 ---
 
+## 8. Sync Pull — `accounts.balance` ওভাররাইট সমস্যা
+
+**ঘটনা (2026-06-30):** ব্যালেন্স ৳৭৩,০৩০ থেকে হঠাৎ ৳৩৬,৫৩০-এ নেমে যায়। কারণ অনুসন্ধানে পাওয়া যায়:
+
+### সমস্যার কারণ — `mergeRows()` conflict resolution
+
+`supabase-sync.js`-এর `mergeRows()` ফাংশনে নিয়ম ছিল:
+> "যে record-এর `updated_at` timestamp বেশি নতুন, সে জিতবে।"
+
+**ফলাফল:** REST API দিয়ে Supabase-এ সরাসরি নতুন timestamp-সহ balance পরিবর্তন করলে, পরবর্তী sync pull-এ সেই cloud value LOCAL-কে overwrite করত।
+
+এই session-এ Supabase-এ REST API দিয়ে Cash balance পরিবর্তন করা হয়েছিল (backup থেকে সঠিক মান বের করে)। কিন্তু তখন local IDB-তে আলাদা/বেশি balance ছিল (যা real transactions থেকে আসা):
+- **Bikash:** local ৳১৫,৮১০ → cloud-এ ৳৮,৫১৯ ছিল → sync pull-এ ৳৮,৫১৯ হয়ে গেল
+- **Brac Bank:** local ৳২০,০০০ → cloud-এ ৳০ ছিল → sync pull-এ ৳০ হয়ে গেল
+- **Cash:** local-এ বেশি ছিল → cloud-এর নতুন timestamp জিতে overwrite হলো
+
+### চূড়ান্ত fix (2026-06-30)
+
+**নিয়ম যোগ হলো `_pullCoreInternal()` ফাংশনে:**
+
+```
+accounts.balance → সবসময় LOCAL জিতবে (cloud কখনো overwrite করবে না)
+নতুন account (শুধু cloud-এ আছে) → cloud-এর balance নেবে
+অন্য সব field → আগের মতো (updated_at newer version জিতবে)
+```
+
+**কারণ:** `accounts.balance` সর্বদা `updateAccountBalance()` ফাংশনের মাধ্যমে real transactions (salary, student fee, expense) থেকে আপডেট হয়। এই locally-maintained balance কখনো cloud pull থেকে overwrite হওয়া উচিত নয়।
+
+### গুরুত্বপূর্ণ নিয়ম (ভবিষ্যতের জন্য)
+
+1. **Supabase-এ সরাসরি REST API দিয়ে `accounts.balance` পরিবর্তন করবেন না।**  
+   কারণ: এই session-এ সেটা করতে হয়েছিল balance restore করতে, কিন্তু এতে local data overwrite হয়ে গিয়েছিল।  
+   সঠিক পথ: `SupabaseSync.updateAccountBalance(method, amount, 'in'/'out')` ব্যবহার করুন।
+
+2. **Balance কমে গেলে প্রথমে যা করবেন:**
+   - Browser console খুলুন (`F12`)
+   - `[DataMonitor] ⚠️ Suspicious Direct Balance Change` বার্তা দেখুন
+   - কোন account, কত থেকে কতে গেছে — সেখান থেকে সঠিক মান বের করুন
+
+3. **Data Migration-এর phantom data সম্পর্কে:**  
+   পুরনো app থেকে migration করার সময় অনেক duplicate/phantom account তৈরি হয়েছিল (snapshots-এ ১৪-১৭টি Cash account দেখা গেছে, একটিতে ৳৩,৫৩,৪৬৯ phantom balance)। এই phantom records local IDB-তে থাকায় মাঝে মাঝে এলোমেলো balance দেখাচ্ছিল। Section 7-এর fix-এ duplicate creation বন্ধ হয়েছে।
+
+### প্রভাবিত ফাইল — 2026-06-30 (Section 8)
+- `js/core/supabase-sync.js` — `_pullCoreInternal()`: accounts.balance local-authoritative protection যোগ হয়েছে
+- `js/core/supabase-sync.js` — `_updateBalanceCoreInternal()`: সবচেয়ে পুরনো Cash account select (oldest `created_at`) — duplicate থাকলেও original-এ transaction যাবে
+
+---
+
+*আপডেট: 2026-06-30 (2) — Section 8: sync pull balance overwrite bug + চূড়ান্ত fix + ৳৭৩,০৩০ balance restore।*
 *আপডেট: 2026-06-30 — Section 7 root cause analysis (5 sources) + চূড়ান্ত fix বর্ণনা।*
 *আপডেট: 2026-06-29 — Account (Cash/Bank/Mobile) ডুপ্লিকেট প্রতিরোধ নিয়ম যোগ (Section 7)।*
 *আপডেট: 2026-05-23 — Salary cloud `paid` boolean, SyncEngine pull fix, AUDIT_IGNORE প্রথম সংস্করণ.*
