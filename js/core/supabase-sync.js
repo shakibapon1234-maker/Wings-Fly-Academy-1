@@ -2464,8 +2464,13 @@ const SupabaseSync = (() => {
 
         if (!_skipTypes.includes(entryType)) {
           let expectedDelta = 0;
-          if (_incTypes.includes(entryType))  expectedDelta =  Number(entry.amount || 0);
-          if (_outTypes.includes(entryType))  expectedDelta = -Number(entry.amount || 0);
+          // ✅ Fix: deletion reverses the balance direction.
+          // delete expense → balance বাড়ে (+amount), delete income → কমে (-amount)
+          const isDelete = String(entry.action || '').toLowerCase() === 'delete';
+          const sign = isDelete ? -1 : 1; // delete হলে দিক উল্টো
+
+          if (_incTypes.includes(entryType))  expectedDelta =  sign * Number(entry.amount || 0);
+          if (_outTypes.includes(entryType))  expectedDelta = -sign * Number(entry.amount || 0);
 
           const mismatch = Math.abs(actualDelta - expectedDelta);
           // ৳1-এর বেশি পার্থক্য = mismatch (floating point tolerance)
