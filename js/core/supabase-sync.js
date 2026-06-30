@@ -2530,7 +2530,16 @@ const SupabaseSync = (() => {
       let accountIdx = -1;
 
       if (methodName === 'Cash') {
-        accountIdx = accounts.findIndex(a => a.type === 'Cash');
+        // ✅ Safety: duplicate থাকলেও সবচেয়ে পুরনো (original) Cash account নাও।
+        // findIndex() প্রথম element নেয় যা phantom duplicate হতে পারে।
+        const cashAccounts = accounts
+          .map((a, i) => ({ ...a, _idx: i }))
+          .filter(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
+        if (cashAccounts.length > 0) {
+          // সবচেয়ে পুরনো created_at = আসল account
+          cashAccounts.sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+          accountIdx = cashAccounts[0]._idx;
+        }
       } else {
         accountIdx = accounts.findIndex(a =>
           (a.type === 'Bank_Detail' || a.type === 'Mobile_Detail') && a.name === methodName
