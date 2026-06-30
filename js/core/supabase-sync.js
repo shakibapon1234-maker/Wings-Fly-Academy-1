@@ -3040,6 +3040,27 @@ const SyncEngine = (() => {
           }
         }
 
+        // ✅ CRITICAL FIX: accounts.balance is ALWAYS local-authoritative.
+        // Local balance = maintained by real transactions (updateAccountBalance).
+        // Cloud pull must NEVER overwrite local balance — cloud can add NEW accounts
+        // but existing account balances stay as they are in local IDB.
+        // This prevents REST API direct edits (or any cloud change) from wiping out
+        // balances that were set by actual salary payments, student fees, etc.
+        if (key === 'accounts' && localRows.length > 0) {
+          const localBalanceMap = {};
+          localRows.forEach(function(r) {
+            if (r && r.id != null) localBalanceMap[r.id] = r.balance;
+          });
+          merged = merged.map(function(r) {
+            if (r && r.id in localBalanceMap) {
+              // Existing account — keep local balance, update other fields from cloud
+              return Object.assign({}, r, { balance: localBalanceMap[r.id] });
+            }
+            // New account (only in cloud) — use cloud balance as-is
+            return r;
+          });
+        }
+
         const oldJson = JSON.stringify(localRows);
         const newJson = JSON.stringify(merged);
         if (oldJson !== newJson) {
