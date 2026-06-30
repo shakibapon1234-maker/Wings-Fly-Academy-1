@@ -296,31 +296,34 @@ const SetupWizard = (() => {
         LicenseEngine.setAcademyName(academyName);
       }
 
-      // ✅ New client bootstrap: default Cash account (Finance/Accounts কাজ করার জন্য)
-      const nowIso = new Date().toISOString();
-      const cashId = (typeof SupabaseSync !== 'undefined' && SupabaseSync.generateId)
-        ? SupabaseSync.generateId()
-        : ('CASH' + Date.now().toString(36).toUpperCase());
-      const cashAcc = {
-        id:         cashId,
-        type:       'Cash',
-        name:       'Cash',
-        balance:    0,
-        created_at: nowIso,
-        updated_at: nowIso,
-      };
-      const { data: existingCash } = await client
-        .from('accounts')
-        .select('id')
-        .eq('type', 'Cash')
-        .limit(1);
-      if (!existingCash || existingCash.length === 0) {
-        const { error: accErr } = await client.from('accounts').insert([cashAcc]);
-        if (accErr) console.warn('[SetupWizard] Cash account seed failed:', accErr.message);
+      // ✅ Bootstrap Cash account: একটাই upsert — ignoreDuplicates:true মানে Cash আগে থেকে থাকলে ছোঁয় না
+      // AUDIT_IGNORE Section 7: শুধু এখানেই Cash account তৈরি হয়, অন্য কোথাও নয়।
+      try {
+        const { error: accErr } = await client
+          .from('accounts')
+          .upsert(
+            [{ type: 'Cash', name: 'Cash', balance: 0 }],
+            { onConflict: 'type,name', ignoreDuplicates: true }
+          );
+        if (accErr) {
+          // upsert কাজ না করলে (constraint নেই) — check করে insert
+          const { data: existingCash } = await client
+            .from('accounts')
+            .select('id')
+            .eq('type', 'Cash')
+            .eq('name', 'Cash')
+            .limit(1);
+          if (!existingCash || existingCash.length === 0) {
+            const { error: insErr } = await client
+              .from('accounts')
+              .insert([{ type: 'Cash', name: 'Cash', balance: 0 }]);
+            if (insErr) console.warn('[SetupWizard] Cash account seed failed:', insErr.message);
+          }
+        }
+      } catch (e) {
+        console.warn('[SetupWizard] Cash account bootstrap error:', e.message);
       }
-      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.ensureDefaultCashAccount === 'function') {
-        SupabaseSync.ensureDefaultCashAccount();
-      }
+      // ✅ ensureDefaultCashAccount() এখানে কল করা হচ্ছে না — সেটা detect-only, create করে না
 
       // Success — show completion screen
       const licResult = window._sw_license_result || {};

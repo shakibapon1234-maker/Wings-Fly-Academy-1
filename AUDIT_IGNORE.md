@@ -91,13 +91,32 @@
 4. **app.js init-এ `ensureDefaultCashAccount()` প্রতি লোডে চলে** (শুধু detect/warn করার জন্য) — এটা সরিয়ে ফেলবেন না, এটাই নতুন ডুপ্লিকেট ধরা পড়ার একমাত্র জায়গা।
 
 ### প্রভাবিত ফাইল (রেফারেন্স)
-- `js/core/supabase-sync.js` — `upsertAccountByTypeName()`, `ensureDefaultCashAccount()` (detect-only)
-- `js/modules/accounts.js` — `getPrimaryCashAccount()`
-- `js/ui/dashboard.js` — `normalizeAccounts()`
-- `js/ui/setup-wizard.js` — Cash account bootstrap (এখন শুধু `ensureDefaultCashAccount()` কল করে, সরাসরি insert করে না)
-- `js/ui/settings.js` — JSON migration importer (এখন `upsertAccountByTypeName()` দিয়ে accounts import করে)
+- `js/core/supabase-sync.js` — `ensureDefaultCashAccount()` (detect-only, কখনো insert করে না)
+- `js/modules/accounts.js` — `getPrimaryCashAccount()` (সবচেয়ে বড় balance নেয় — তবে duplicate থাকা উচিত নয়)
+- `js/ui/dashboard.js` — `normalizeAccounts()` (type+name key দিয়ে dedup)
+- `js/ui/setup-wizard.js` — Cash account bootstrap (একটাই upsert + ignoreDuplicates:true)
+
+### Root Cause বিশ্লেষণ (2026-06-30 — চূড়ান্ত)
+
+**৩টি কারণে ডুপ্লিকেট তৈরি হচ্ছিল:**
+
+1. **`setup-wizard.js`** — দুটো আলাদা Cash insert একসাথে:
+   - সরাসরি `client.from('accounts').insert()` Cloud-এ
+   - `ensureDefaultCashAccount()` Local IDB-তে
+   - Sync হলে দুটো row-ই Supabase-এ যেত → ডুপ্লিকেট
+
+2. **`ensureDefaultCashAccount()`** — AUDIT_IGNORE লেখার পরেও এটা এখনো `insert()` করছিল, শুধু detect করছিল না।
+
+3. **`repairMissingStudentFinance()`** — এটাও `ensureDefaultCashAccount()` কল করছিল।
+
+**চূড়ান্ত fix:**
+- `ensureDefaultCashAccount()` → সম্পূর্ণ detect-only। কোনো insert নেই।
+- `setup-wizard.js` → একটাই upsert (`ignoreDuplicates: true`)।
+- `repairMissingStudentFinance()` → `ensureDefaultCashAccount()` call সরানো হয়েছে।
 
 ---
 
+*আপডেট: 2026-06-30 — Section 7 root cause analysis + চূড়ান্ত fix বর্ণনা যোগ।*
 *আপডেট: 2026-06-29 — Account (Cash/Bank/Mobile) ডুপ্লিকেট প্রতিরোধ নিয়ম যোগ (Section 7)।*
 *আপডেট: 2026-05-23 — Salary cloud `paid` boolean, SyncEngine pull fix, AUDIT_IGNORE প্রথম সংস্করণ.*
+

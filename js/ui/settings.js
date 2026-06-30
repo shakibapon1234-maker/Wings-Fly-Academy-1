@@ -5558,7 +5558,14 @@ ${expenseEntries.length > 0 ? `
     const accountEntries = [];
     if (data.cashBalance) {
       const bal = typeof data.cashBalance === 'object' ? (data.cashBalance.amount || data.cashBalance.balance || 0) : data.cashBalance;
-      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
+      // ✅ Duplicate guard: existing Cash আছে কিনা দেখো — থাকলে balance update, নতুন row না
+      const existingAccounts = SupabaseSync.getAll(DB.accounts);
+      const existingCash = existingAccounts.find(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
+      if (existingCash) {
+        SupabaseSync.update(DB.accounts, existingCash.id, { balance: bal }, { bypassLog: true });
+      } else {
+        accountEntries.push({ id: SupabaseSync.generateId(), name: 'Cash', type: 'Cash', balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
+      }
     }
     if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
       data.bankAccounts.forEach(b => {

@@ -135,7 +135,14 @@ const BackupRestore = (() => {
             const accountEntries = [];
             if (backup.cashBalance) {
               const bal = typeof backup.cashBalance === 'object' ? (backup.cashBalance.amount || backup.cashBalance.balance || 0) : backup.cashBalance;
-              accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+              // ✅ Duplicate guard: existing Cash আছে কিনা দেখো — থাকলে নতুন row যোগ করো না
+              const existingCash = (tableData.accounts || []).find(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
+              if (existingCash) {
+                existingCash.balance = bal;
+                existingCash.updated_at = new Date().toISOString();
+              } else {
+                accountEntries.push({ id: SupabaseSync.generateId(), name: 'Cash', type: 'Cash', balance: bal, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+              }
             }
             if (backup.bankAccounts && Array.isArray(backup.bankAccounts)) {
               backup.bankAccounts.forEach(b => {

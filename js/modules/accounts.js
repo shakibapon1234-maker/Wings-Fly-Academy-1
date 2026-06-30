@@ -24,8 +24,12 @@ const Accounts = (() => {
   function getPrimaryCashAccount(accounts) {
     const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
     if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
+    if (cashAccounts.length === 1) return cashAccounts[0];
+    // ✅ FIX: Pick the LARGEST absolute balance — the real, active Cash account.
+    // A stale zero-balance duplicate (from setup-wizard race condition) would
+    // otherwise always win over the real account via the < comparison.
     return cashAccounts.reduce((best, a) => {
-      return Math.abs(Utils.safeNum(a.balance)) < Math.abs(Utils.safeNum(best.balance)) ? a : best;
+      return Math.abs(Utils.safeNum(a.balance)) > Math.abs(Utils.safeNum(best.balance)) ? a : best;
     });
   }
 

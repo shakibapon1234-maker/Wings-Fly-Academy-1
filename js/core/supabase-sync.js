@@ -2539,26 +2539,14 @@ const SupabaseSync = (() => {
 
       if (accountIdx === -1) {
         if (methodName === 'Cash') {
-          // ✅ Fix: prevent creating Cash account with negative starting balance
-          if (direction !== 'in' && !force) {
-            console.warn(`[Sync] ❌ Cannot create Cash account with negative balance (direction: ${direction}, amount: ${normalizedAmount})`);
-            if (typeof Utils !== 'undefined' && Utils.toast) {
-              Utils.toast('⚠️ No Cash account exists — please add one in Accounts first.', 'error', 5000);
-            }
-            return false;
+          // ✅ Cash account না থাকলে auto-create করা যাবে না — duplicate তৈরি হয়।
+          // AUDIT_IGNORE Section 7: Cash account শুধু Setup Wizard-এ তৈরি হয়।
+          // ইউজারকে Accounts ট্যাবে গিয়ে নিজে Cash account দেখতে/যোগ করতে হবে।
+          console.warn(`[Sync] ❌ Cash account not found — cannot auto-create (AUDIT_IGNORE policy). Add it manually in Accounts.`);
+          if (typeof Utils !== 'undefined' && Utils.toast) {
+            Utils.toast('⚠️ Cash account পাওয়া যাচ্ছে না। Accounts ট্যাবে গিয়ে Cash account যোগ করুন।', 'error', 5000);
           }
-          const newAcc = {
-            id: generateId(),
-            type: 'Cash',
-            name: 'Cash',
-            balance: direction === 'in' ? normalizedAmount : (force ? -normalizedAmount : 0),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          accounts.push(newAcc);
-          setAll('accounts', accounts);
-          await _pushRecord('accounts', newAcc);
-          return true;
+          return false;
         }
         console.warn(`[Sync] ❌ Account "${methodName}" not found — add it in Accounts first.`);
         if (typeof Utils !== 'undefined' && Utils.toast) {
@@ -2610,17 +2598,25 @@ const SupabaseSync = (() => {
     }
   }
 
-  /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
+  /**
+   * ✅ DETECT-ONLY — কোনো row create/delete/merge করে না।
+   * AUDIT_IGNORE Section 7 অনুযায়ী: duplicate Cash account সনাক্ত করে
+   * console.error + toast + custom event fire করে। ইউজার নিজে ভুল row delete করবেন।
+   */
   function ensureDefaultCashAccount() {
     const accounts = getAll('accounts');
-    if (accounts.some(a => a.type === 'Cash')) return false;
-    insert('accounts', {
-      type: 'Cash',
-      name: 'Cash',
-      balance: 0,
-    }, { bypassLog: true });
-    console.info('[Sync] Default Cash account created.');
-    return true;
+    const cashAccounts = accounts.filter(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
+    if (cashAccounts.length > 1) {
+      console.error('[Sync] ⚠️ Duplicate Cash accounts detected:', cashAccounts.length, 'rows found.');
+      if (typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('⚠️ একাধিক Cash account পাওয়া গেছে। Accounts ট্যাব থেকে ভুল row-টি delete করুন।', 'error', 7000);
+      }
+      document.dispatchEvent(new CustomEvent('wfa:duplicate_cash_accounts', {
+        detail: { count: cashAccounts.length, accounts: cashAccounts.map(a => ({ id: a.id, balance: a.balance })) }
+      }));
+    }
+    // ⛔ কখনো insert করে না — এটা create করার জায়গা নয়
+    return false;
   }
 
   /**
@@ -2630,7 +2626,6 @@ const SupabaseSync = (() => {
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
-    ensureDefaultCashAccount();
 
     const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
     const studentsKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
