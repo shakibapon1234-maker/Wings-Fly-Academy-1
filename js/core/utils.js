@@ -271,17 +271,14 @@ const Utils = (() => {
       : safeParseFn;
     const mergedOptions = { ...options, parseDate: wrappedParse };
     try {
-      // ✅ Fix: Temporarily suppress flatpickr's internal console.warn AND console.error
-      // for invalid dates — flatpickr uses both depending on version/context.
-      const origWarn  = console.warn;
-      const origError = console.error;
-      const _isFpDateMsg = (args) =>
-        typeof args[0] === 'string' && args[0].includes('Invalid date provided');
-      console.warn  = function(...args) { if (_isFpDateMsg(args)) return; origWarn.apply(console, args); };
-      console.error = function(...args) { if (_isFpDateMsg(args)) return; origError.apply(console, args); };
+      // ✅ Fix: Temporarily suppress flatpickr's internal console.warn for invalid dates
+      const origWarn = console.warn;
+      console.warn = function(...args) {
+        if (typeof args[0] === 'string' && args[0].includes('Invalid date provided')) return;
+        origWarn.apply(console, args);
+      };
       const instance = flatpickr(el, mergedOptions);
-      console.warn  = origWarn;
-      console.error = origError;
+      console.warn = origWarn;
       return instance;
     } catch (e) {
       el.value = '';
@@ -581,10 +578,16 @@ const Utils = (() => {
 
   // ── Student ID Generator ──────────────────────────────────
   function generateStudentId(existingIds) {
-    const prefix = 'WFA-';
+    const prefixKey = (window.InstitutionMode && InstitutionMode.getLabel)
+      ? InstitutionMode.getLabel('student_id_prefix')
+      : 'STU';
+    const prefix = String(prefixKey || 'STU').toUpperCase().replace(/[^A-Z0-9]/g, '') + '-';
     let num = 1001;
     if (existingIds && existingIds.length) {
-      const numbers = existingIds.map(id => parseInt((id || '').replace(/\D/g, '')) || 0);
+      const numbers = existingIds.map((id) => {
+        const m = String(id || '').match(/(\d+)\s*$/);
+        return m ? parseInt(m[1], 10) : 0;
+      });
       num = Math.max(...numbers, 1000) + 1;
     }
     return prefix + num;
@@ -1025,6 +1028,10 @@ const Utils = (() => {
       escAttr,
       // ID generator (for attendance and other modules)
       generateId: () => {
+        const rand = crypto.getRandomValues(new Uint32Array(2));
+        return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
+      },
+      uuid: () => {
         const rand = crypto.getRandomValues(new Uint32Array(2));
         return Date.now().toString(36) + rand[0].toString(36) + rand[1].toString(36);
       },

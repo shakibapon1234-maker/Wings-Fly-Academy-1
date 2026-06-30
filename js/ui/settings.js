@@ -57,6 +57,13 @@ const SettingsModule = (() => {
           window.SettingsBranding && window.SettingsBranding.inject();
         });
       }
+      if (window.SettingsInstitution) {
+        window.SettingsInstitution.inject();
+      } else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-institution').then(() => {
+          window.SettingsInstitution && window.SettingsInstitution.inject();
+        });
+      }
     }, 10);
     
     document.body.style.overflow = 'hidden';
@@ -144,6 +151,7 @@ const SettingsModule = (() => {
 
     const tabs = [
       { id: 'general',        icon: 'fa-sliders',             label: 'General Settings' },
+      { id: 'institution',    icon: 'fa-building',            label: 'Institution Type' },
       { id: 'theme',          icon: 'fa-palette',             label: 'Theme / Appearance' },
       { id: 'categories',     icon: 'fa-tags',                label: 'Categories & Courses' },
       { id: 'data',           icon: 'fa-database',            label: 'Data Management' },
@@ -161,6 +169,7 @@ const SettingsModule = (() => {
       { id: 'syncguard',      icon: 'fa-shield-halved',       label: 'Sync Guard' },
       { id: 'ai-assistant',   icon: 'fa-robot',               label: 'AI Assistant' },
       { id: 'student-portal', icon: 'fa-graduation-cap',      label: 'Student Portal' },
+      { id: 'sms-settings',   icon: 'fa-comment-sms',         label: 'SMS Notifications' },
     ];
     const isClientDeployment = window.WFA_SUPABASE_SECRETS && window.WFA_SUPABASE_SECRETS.customerCode;
     return tabs
@@ -178,6 +187,7 @@ const SettingsModule = (() => {
   function buildAllPanels() {
     return `
       ${panelGeneral()}
+      ${panelInstitution()}
       ${panelTheme()}
       ${panelCategories()}
       ${panelData()}
@@ -193,6 +203,7 @@ const SettingsModule = (() => {
       ${panelSyncGuard()}
       ${panelAIAssistant()}
       ${panelStudentPortal()}
+      ${panelSMSSettings()}
     `;
   }
 
@@ -225,6 +236,21 @@ const SettingsModule = (() => {
     // Student Portal tab — render student list
     if (tab === 'student-portal') {
       setTimeout(() => _spRenderStudentList(), 80);
+    }
+    // SMS Settings tab — refresh log
+    if (tab === 'sms-settings') {
+      setTimeout(() => window._smsRefreshLog && window._smsRefreshLog(), 80);
+    }
+    if (tab === 'institution') {
+      setTimeout(() => {
+        if (window.SettingsInstitution) {
+          window.SettingsInstitution.inject();
+        } else if (window.LazyModules) {
+          window.LazyModules.ensure('settings-institution').then(() => {
+            window.SettingsInstitution && window.SettingsInstitution.inject();
+          });
+        }
+      }, 50);
     }
     // ✅ Req 4: re-init date pickers whenever a tab is switched
     setTimeout(_initSettingsDatePickers, 20);
@@ -805,6 +831,15 @@ const SettingsModule = (() => {
   // ════════════════════════════════════════════════════════════════
   // TAB 1: GENERAL SETTINGS
   // ════════════════════════════════════════════════════════════════
+
+  function panelInstitution() {
+    return `
+    <div class="settings-panel ${activeTab === 'institution' ? 'active' : ''}" data-panel="institution">
+      <div id="settings-institution-panel">
+        <span style="color:#7a8baa;font-size:0.82rem"><i class="fa fa-rotate fa-spin"></i> লোডিং...</span>
+      </div>
+    </div>`;
+  }
 
   function panelGeneral() {
     const cfg = getConfig();
@@ -3158,6 +3193,12 @@ ${expenseEntries.length > 0 ? `
       else if (window.LazyModules) {
         window.LazyModules.ensure('settings-branding').then(() => {
           window.SettingsBranding && window.SettingsBranding.inject();
+        });
+      }
+      if (window.SettingsInstitution) window.SettingsInstitution.inject();
+      else if (window.LazyModules) {
+        window.LazyModules.ensure('settings-institution').then(() => {
+          window.SettingsInstitution && window.SettingsInstitution.inject();
         });
       }
     }, 50);
@@ -5514,32 +5555,34 @@ ${expenseEntries.length > 0 ? `
     }
 
     if (statusEl) statusEl.innerHTML = '🔄 Importing accounts...';
-    // ✅ ROOT-CAUSE FIX: previously this PUSHED brand-new account rows even when
-    // a Cash/Bank/Mobile account of the same name already existed, creating
-    // duplicates that confused balance calculations elsewhere in the app.
-    // Now uses upsertAccountByTypeName, which updates the existing account if
-    // found (by type+name) instead of ever creating a second one.
-    let accountsImported = 0;
+    const accountEntries = [];
     if (data.cashBalance) {
       const bal = typeof data.cashBalance === 'object' ? (data.cashBalance.amount || data.cashBalance.balance || 0) : data.cashBalance;
-      SupabaseSync.upsertAccountByTypeName('Cash', 'Cash', bal, { description: 'Cash in hand' });
-      accountsImported++;
+      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Cash', balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
     }
     if (data.bankAccounts && Array.isArray(data.bankAccounts)) {
       data.bankAccounts.forEach(b => {
         const nm = b.name || b.bankName || 'Bank';
-        SupabaseSync.upsertAccountByTypeName('Bank_Detail', nm, b.balance || b.amount || 0);
-        accountsImported++;
+        accountEntries.push({
+          id: SupabaseSync.generateId(),
+          type: 'Bank_Detail',
+          name: nm,
+          balance: b.balance || b.amount || 0,
+          created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       });
     }
     if (data.mobileBanking) {
       const bal = typeof data.mobileBanking === 'object' ? (data.mobileBanking.balance || data.mobileBanking.amount || 0) : data.mobileBanking;
       const mbName = (typeof data.mobileBanking === 'object' && data.mobileBanking.name) ? data.mobileBanking.name : 'Mobile Banking';
-      SupabaseSync.upsertAccountByTypeName('Mobile_Detail', mbName, bal);
-      accountsImported++;
+      accountEntries.push({ id: SupabaseSync.generateId(), type: 'Mobile_Detail', name: mbName, balance: bal, created_at: importDateISO ? (importDateISO + 'T00:00:00.000Z') : new Date().toISOString(), updated_at: new Date().toISOString() });
     }
-    total += accountsImported;
-
+    if (accountEntries.length) {
+      const existing = SupabaseSync.getAll(DB.accounts);
+      SupabaseSync.setAll(DB.accounts, [...accountEntries, ...existing]);
+      total += accountEntries.length;
+    }
 
     if (data.visitors && data.visitors.length) {
       if (statusEl) statusEl.innerHTML = '🔄 Importing visitors...';
@@ -6786,6 +6829,7 @@ ${expenseEntries.length > 0 ? `
             phone: ac.phone || '',
             email: ac.email || '',
             package: ac.package || 'Basic',
+            institutionType: ac.institutionType || 'coaching',
             licenseKey: ac.licenseKey || '',
             supabaseUrl: ac.supabaseUrl || '',
             supabaseKey: ac.supabaseKey || '',
@@ -6798,6 +6842,7 @@ ${expenseEntries.length > 0 ? `
           const lc = local[idx];
           if (lc.academy     !== ac.academy)     { lc.academy     = ac.academy;     changed = true; }
           if (lc.package     !== ac.package)     { lc.package     = ac.package;     changed = true; }
+          if (ac.institutionType && lc.institutionType !== ac.institutionType) { lc.institutionType = ac.institutionType; changed = true; }
           if (lc.supabaseUrl !== ac.supabaseUrl) { lc.supabaseUrl = ac.supabaseUrl; changed = true; }
           if (lc.supabaseKey !== ac.supabaseKey) { lc.supabaseKey = ac.supabaseKey; changed = true; }
           // licenseKey is managed in-app, do NOT overwrite from metadata
@@ -6821,6 +6866,12 @@ ${expenseEntries.length > 0 ? `
       return `<span data-status-badge style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Loading…</span>`;
     }
 
+    function _instTypeLabel(t) {
+      const m = { coaching: '🏫 Coaching', school: '🏛️ School', college: '🎓 College' };
+      const v = String(t || 'coaching').toLowerCase();
+      return m[v] || m.coaching;
+    }
+
     function _buildTable(list) {
       if (!list.length) return `<div style="text-align:center;color:#7a8baa;padding:32px;font-size:0.9rem">No clients yet. Add one below.</div>`;
       return `<div style="overflow-x:auto">
@@ -6832,6 +6883,7 @@ ${expenseEntries.length > 0 ? `
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Owner</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Phone</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Package</th>
+            <th style="padding:8px 6px;color:#00d9ff;text-align:left">Type</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">License Key</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:left">Status</th>
             <th style="padding:8px 6px;color:#00d9ff;text-align:right">Action</th>
@@ -6847,6 +6899,7 @@ ${expenseEntries.length > 0 ? `
                 <td style="padding:9px 6px">
                   <span style="background:rgba(123,47,247,0.15);color:#b57ff7;padding:2px 8px;border-radius:20px;font-size:0.72rem;font-weight:700">${Utils.esc(c.package||'Basic')}</span>
                 </td>
+                <td style="padding:9px 6px;color:#ccc;font-size:0.78rem">${Utils.esc(_instTypeLabel(c.institutionType))}</td>
                 <td data-lickey="${Utils.escAttr(c.licenseKey || '')}" style="padding:9px 6px;font-family:monospace;font-size:0.78rem;color:#00d9ff">
                   ${c.licenseKey
                     ? `<span title="${Utils.escAttr(c.licenseKey)}">${c.licenseKey.slice(0,18)}...</span>
@@ -6908,6 +6961,7 @@ ${expenseEntries.length > 0 ? `
         phone:        document.getElementById('cm-phone')?.value?.trim()    || '',
         email:        document.getElementById('cm-email')?.value?.trim()    || '',
         package:      document.getElementById('cm-package')?.value          || 'Basic',
+        institutionType: document.getElementById('cm-institution-type')?.value || 'coaching',
         licenseKey:   (document.getElementById('cm-lickey')?.value?.trim()?.toUpperCase()) || '',
         supabaseUrl:  document.getElementById('cm-supurl')?.value?.trim()   || '',
         supabaseKey:  document.getElementById('cm-supkey')?.value?.trim()   || '',
@@ -6933,6 +6987,7 @@ ${expenseEntries.length > 0 ? `
         'cm-phone':         c.phone,
         'cm-email':         c.email,
         'cm-package':       c.package,
+        'cm-institution-type': c.institutionType || 'coaching',
         'cm-lickey':        c.licenseKey,
         'cm-supurl':        c.supabaseUrl,
         'cm-supkey':        c.supabaseKey,
@@ -7105,6 +7160,14 @@ ${expenseEntries.length > 0 ? `
               <option>Basic</option><option>Pro</option><option>Custom</option>
             </select>
           </div>
+          <div>
+            <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">Institution Type *</label>
+            <select id="cm-institution-type" class="form-control">
+              <option value="coaching">🏫 Coaching Centre</option>
+              <option value="school">🏛️ School</option>
+              <option value="college">🎓 College</option>
+            </select>
+          </div>
           <div style="grid-column:1/-1">
             <label style="font-size:0.78rem;color:#7a8baa;display:block;margin-bottom:4px">License Key</label>
             <input id="cm-lickey" type="text" class="form-control" placeholder="WFA-XXXX-XXXX-XXXXXX-XXXX" style="font-family:monospace;font-size:0.78rem" />
@@ -7128,7 +7191,7 @@ ${expenseEntries.length > 0 ? `
           <button onclick="_wfaClientSave()" style="flex:1;background:linear-gradient(135deg,rgba(0,217,255,0.8),rgba(123,47,247,0.8));border:none;color:#fff;padding:11px;border-radius:8px;font-weight:700;cursor:pointer">
             Save Client
           </button>
-          <button onclick="document.getElementById('cm-edit-id').value='';['cm-customer-code','cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-supkey','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-form-title').textContent='Add New Client';"
+          <button onclick="document.getElementById('cm-edit-id').value='';['cm-customer-code','cm-academy','cm-owner','cm-phone','cm-email','cm-lickey','cm-supurl','cm-supkey','cm-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});document.getElementById('cm-package').value='Basic';document.getElementById('cm-institution-type').value='coaching';document.getElementById('cm-form-title').textContent='Add New Client';"
             style="padding:11px 18px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#aaa;border-radius:8px;cursor:pointer;font-weight:600">
             Clear
           </button>
@@ -7152,14 +7215,24 @@ ${expenseEntries.length > 0 ? `
           নিচের তালিকা থেকে যেকোনো student-কে Portal Access দিন এবং তাদের 4-digit PIN set করুন।
         </p>
 
-        <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center">
+        <div id="sp-search-bar" style="margin-bottom:16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <input type="text" id="sp-search-input"
-            placeholder="নাম বা ID দিয়ে খুঁজুন..."
+            placeholder="নাম, ID বা ফোন দিয়ে খুঁজুন..."
             oninput="SettingsModule.spFilterStudents(this.value)"
-            style="flex:1;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+            style="flex:1;min-width:180px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;padding:10px 14px;color:#fff;font-size:0.9rem;outline:none" />
-          <button onclick="SettingsModule.spFilterStudents('')"
-            style="padding:10px 16px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+          <button id="sp-filter-all" onclick="SettingsModule.spSetFilter('all')"
+            style="padding:10px 14px;background:rgba(245,158,11,0.8);border:none;
+                   border-radius:8px;color:#0b0f19;cursor:pointer;font-size:0.82rem;font-weight:700">
+            <i class="fa fa-users"></i> সবাই
+          </button>
+          <button id="sp-filter-access" onclick="SettingsModule.spSetFilter('access')"
+            style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
+                   border-radius:8px;color:#10b981;cursor:pointer;font-size:0.82rem;font-weight:700">
+            <i class="fa fa-check-circle"></i> Access প্রাপ্ত
+          </button>
+          <button onclick="SettingsModule.spSetFilter('all')"
+            style="padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);
                    border-radius:8px;color:#aaa;cursor:pointer;font-size:0.85rem">
             <i class="fa fa-rotate"></i> রিফ্রেশ
           </button>
@@ -7239,6 +7312,19 @@ ${expenseEntries.length > 0 ? `
         </div>
       </div>
     </div>`;
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // TAB: SMS NOTIFICATIONS
+  // ════════════════════════════════════════════════════════════════
+
+  function panelSMSSettings() {
+    // Delegates to the injected helper (defined outside IIFE to avoid size bloat)
+    return (typeof window._panelSMSSettings_html === 'function')
+      ? window._panelSMSSettings_html()
+      : `<div data-panel="sms-settings" class="settings-panel" style="display:none;">
+           <p style="padding:20px;color:var(--text-muted);">SMS Engine লোড হয়নি। পৃষ্ঠা Refresh করুন।</p>
+         </div>`;
   }
 
   // ── Student Portal: Render Student List ──
@@ -7338,6 +7424,8 @@ ${expenseEntries.length > 0 ? `
   }
 
   function spFilterStudents(query) {
+    const searchInput = document.getElementById('sp-search-input');
+    if (searchInput && query !== undefined) searchInput.value = query;
     if (!query || query.trim() === '') {
       _spRenderStudentList();
       return;
@@ -7349,6 +7437,34 @@ ${expenseEntries.length > 0 ? `
       (s.phone || '').includes(q)
     );
     _spRenderList(filtered);
+  }
+
+  function spSetFilter(mode) {
+    // Update button styles
+    const btnAll    = document.getElementById('sp-filter-all');
+    const btnAccess = document.getElementById('sp-filter-access');
+    if (btnAll)    btnAll.style.background    = mode === 'all'    ? 'rgba(245,158,11,0.8)' : 'rgba(255,255,255,0.06)';
+    if (btnAll)    btnAll.style.color         = mode === 'all'    ? '#0b0f19' : '#aaa';
+    if (btnAccess) btnAccess.style.background = mode === 'access' ? 'rgba(16,185,129,0.8)' : 'rgba(255,255,255,0.06)';
+    if (btnAccess) btnAccess.style.color      = mode === 'access' ? '#fff' : '#10b981';
+
+    const searchInput = document.getElementById('sp-search-input');
+    if (searchInput) searchInput.value = '';
+
+    if (mode === 'access') {
+      // Show only students who have portal access
+      let accessMap = {};
+      try {
+        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll) {
+          const accessList = SupabaseSync.getAll('student_portal_access') || [];
+          accessList.forEach(a => { accessMap[a.student_id] = a; });
+        }
+      } catch { /* ignore */ }
+      const accessStudents = _spAllStudents.filter(s => !!accessMap[s.id]);
+      _spRenderList(accessStudents);
+    } else {
+      _spRenderStudentList();
+    }
   }
 
   function spOpenPinModal(studentId, studentName, phone) {
@@ -7510,7 +7626,7 @@ ${expenseEntries.length > 0 ? `
     toggleAILocalOnly,
     refreshModal,
     // Student Portal
-    spFilterStudents, spOpenPinModal, spClosePinModal, spSavePortalAccess,
+    spFilterStudents, spSetFilter, spOpenPinModal, spClosePinModal, spSavePortalAccess,
   };
 })();
 
@@ -7640,3 +7756,159 @@ ${expenseEntries.length > 0 ? `
 
 // ✅ S-2 Fix: Export after theme CSS injections are complete (regression fix — export was accidentally removed)
 window.SettingsModule = SettingsModule;
+
+/* ============================================================
+   Feature 4 — SMS Settings Panel (injected into SettingsModule)
+   ============================================================ */
+(function _injectSMSPanel() {
+  // panel HTML builder
+  window._panelSMSSettings_html = function() {
+    const cfg = (typeof SMSEngine !== 'undefined') ? SMSEngine.getConfig() : {};
+    const chk = (val) => val ? 'checked' : '';
+    return `
+      <div data-panel="sms-settings" class="settings-panel" style="display:none;">
+        <div class="card" style="margin-bottom:18px;">
+          <div class="card-header" style="display:flex;align-items:center;gap:10px;">
+            <i class="fa fa-comment-sms" style="color:var(--brand-primary);font-size:1.2rem;"></i>
+            <h3 class="card-title" style="margin:0;">SMS Notification সেটিংস</h3>
+          </div>
+          <div class="card-body" style="padding:18px;">
+
+            <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;padding:12px;margin-bottom:16px;font-size:0.83rem;">
+              <strong><i class="fa fa-triangle-exclamation" style="color:#f59e0b;"></i> Green Web BD API</strong><br>
+              <a href="https://greenweb.com.bd" target="_blank" style="color:var(--brand-primary);">greenweb.com.bd</a>-এ account খুলুন → API Token নিন → এখানে বসান।
+              প্রতি SMS ≈ ৳০.৩০–০.৫০।
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+              <div class="form-group" style="grid-column:1/-1;">
+                <label class="form-label">API Key (Green Web BD Token) <span style="color:red">*</span></label>
+                <input id="sms-api-key" class="form-control" type="password" placeholder="আপনার API Token" value="${Utils.escAttr(cfg.api_key||'')}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Sender ID</label>
+                <input id="sms-sender-id" class="form-control" placeholder="WFA" value="${Utils.escAttr(cfg.sender_id||'WFA')}">
+              </div>
+              <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:22px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:600;">
+                  <input type="checkbox" id="sms-enabled" ${chk(cfg.sms_enabled)} style="width:18px;height:18px;accent-color:var(--brand-primary);">
+                  SMS চালু করুন (Global)
+                </label>
+              </div>
+            </div>
+
+            <fieldset style="border:1px solid var(--border-color,rgba(255,255,255,0.1));border-radius:8px;padding:14px;margin-bottom:16px;">
+              <legend style="padding:0 8px;font-size:0.85rem;color:var(--text-secondary);">কোন কোন ক্ষেত্রে SMS যাবে</legend>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                ${[
+                  ['sms-fee-due', 'fee_due_sms', 'fa-money-bill', 'ফি বকেয়া থাকলে'],
+                  ['sms-absent', 'absent_sms', 'fa-user-xmark', 'Absent হলে'],
+                  ['sms-result', 'result_sms', 'fa-file-signature', 'ফলাফল দেওয়া হলে'],
+                  ['sms-payment', 'payment_sms', 'fa-mobile-screen', 'Payment Approve/Reject হলে'],
+                ].map(([id, key, icon, label]) => `
+                  <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.88rem;">
+                    <input type="checkbox" id="${id}" ${chk(cfg[key])} style="width:16px;height:16px;accent-color:var(--brand-primary);">
+                    <i class="fa ${icon}" style="color:var(--brand-primary);width:16px;text-align:center;"></i>
+                    ${label}
+                  </label>`).join('')}
+              </div>
+            </fieldset>
+
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+              <button class="btn btn-primary" onclick="_smsSaveConfig()">
+                <i class="fa fa-save"></i> সেটিংস সেভ করুন
+              </button>
+              <div style="display:flex;gap:6px;align-items:center;flex:1;min-width:200px;">
+                <input id="sms-test-phone" class="form-control" placeholder="01XXXXXXXXX" style="flex:1;">
+                <button class="btn btn-secondary" onclick="_smsSendTest()">
+                  <i class="fa fa-paper-plane"></i> টেস্ট SMS
+                </button>
+              </div>
+            </div>
+
+            <hr style="border-color:var(--border-color,rgba(255,255,255,0.1));margin:16px 0;">
+            <h4 style="margin:0 0 10px;font-size:0.9rem;color:var(--text-secondary);">
+              <i class="fa fa-clock-rotate-left"></i> SMS Log (সর্বশেষ ৫০টি)
+            </h4>
+            <div id="sms-log-container">
+              <div style="text-align:center;padding:20px;color:var(--text-muted);">
+                <i class="fa fa-spinner fa-spin"></i> লোড হচ্ছে...
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // Save config
+  function _smsSaveConfig() {
+    if (typeof SMSEngine === 'undefined') { alert('SMS Engine লোড হয়নি।'); return; }
+    const cfg = {
+      api_key:     (document.getElementById('sms-api-key')?.value || '').trim(),
+      sender_id:   (document.getElementById('sms-sender-id')?.value || 'WFA').trim(),
+      sms_enabled: document.getElementById('sms-enabled')?.checked || false,
+      fee_due_sms: document.getElementById('sms-fee-due')?.checked || false,
+      absent_sms:  document.getElementById('sms-absent')?.checked  || false,
+      result_sms:  document.getElementById('sms-result')?.checked  || false,
+      payment_sms: document.getElementById('sms-payment')?.checked || false,
+    };
+    SMSEngine.saveConfig(cfg);
+  }
+  window._smsSaveConfig = _smsSaveConfig;
+
+  // Test SMS
+  async function _smsSendTest() {
+    if (typeof SMSEngine === 'undefined') { alert('SMS Engine লোড হয়নি।'); return; }
+    const phone = (document.getElementById('sms-test-phone')?.value || '').trim();
+    if (!phone) { Utils.toast('ফোন নম্বর দিন।', 'error'); return; }
+    Utils.toast('টেস্ট SMS পাঠানো হচ্ছে...', 'info');
+    const result = await SMSEngine.sendTest(phone);
+    if (result.ok) {
+      Utils.toast('টেস্ট SMS সফলভাবে পাঠানো হয়েছে!', 'success');
+    } else {
+      Utils.toast('SMS পাঠাতে সমস্যা: ' + (result.reason || 'unknown'), 'error');
+    }
+    _smsRefreshLog();
+  }
+  window._smsSendTest = _smsSendTest;
+
+  // Refresh log table
+  function _smsRefreshLog() {
+    const container = document.getElementById('sms-log-container');
+    if (!container) return;
+    if (typeof SMSEngine === 'undefined') {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">SMS Engine লোড হয়নি।</p>';
+      return;
+    }
+    const logs = SMSEngine.getLogs().slice(0, 50);
+    if (!logs.length) {
+      container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;text-align:center;padding:16px;">কোনো SMS লগ নেই।</p>';
+      return;
+    }
+    const statusColor = { sent: '#10b981', failed: '#ef4444', skipped: '#f59e0b', pending: '#6b7280' };
+    container.innerHTML = `
+      <div style="overflow-x:auto;">
+        <table class="data-table" style="width:100%;font-size:0.8rem;">
+          <thead><tr>
+            <th>সময়</th><th>প্রাপক</th><th>ধরন</th><th>বার্তা</th><th style="text-align:center;">স্ট্যাটাস</th>
+          </tr></thead>
+          <tbody>
+            ${logs.map(l => `
+              <tr>
+                <td style="white-space:nowrap;">${Utils.esc(l.sent_at ? new Date(l.sent_at).toLocaleString('bn-BD') : '—')}</td>
+                <td>${Utils.esc(l.recipient||'—')}</td>
+                <td><span class="badge badge-blue" style="font-size:0.72rem;">${Utils.esc(l.type||'—')}</span></td>
+                <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${Utils.escAttr(l.message||'')}">${Utils.esc((l.message||'').slice(0,60))}…</td>
+                <td style="text-align:center;">
+                  <span style="font-size:0.75rem;font-weight:700;color:${statusColor[l.status]||'#aaa'};">${Utils.esc(l.status||'—')}</span>
+                </td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+  window._smsRefreshLog = _smsRefreshLog;
+})();

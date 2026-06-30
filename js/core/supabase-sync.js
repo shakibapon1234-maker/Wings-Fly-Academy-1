@@ -354,9 +354,9 @@ document.addEventListener('visibilitychange', () => {
 const TABLE_COLUMNS = {
   // ✅ Fix: expense_month, income_categories, expense_categories, courses, employee_roles যোগ করা হয়েছে
   // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase (sync only these columns)
-  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config'],
+  settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','institution_type','payment_gateway_config','sms_config'],
   salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
-  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note','installment_plan'],
+  students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','mother_name','guardian_phone','roll_no','shift','note','installment_plan'],
   finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
   accounts:      ['id','name','type','balance','description','note'],
   loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
@@ -373,6 +373,10 @@ const TABLE_COLUMNS = {
   student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
   payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
   class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
+  school_classes: ['id','class_name','sections','shift','class_teacher','is_active','created_at','updated_at'],
+  school_subjects: ['id','class_name','subject_name','full_marks','pass_marks','is_active','created_at','updated_at'],
+  school_marks: ['id','student_id','student_no','student_name','class_name','section','roll_no','academic_year','exam_type','subject_id','subject_name','marks_obtained','full_marks','grade','gpa','pass','created_at','updated_at'],
+  sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
 };
 
 const SupabaseSync = (() => {
@@ -2000,9 +2004,9 @@ const SupabaseSync = (() => {
   const _TABLE_COLS = {
     // ✅ keep_records + recycle_bin_sync added for cross-device sync via settings table
     // Note: admin_pattern & admin_face_descriptor stored in localStorage, not Supabase
-    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','payment_gateway_config'],
+    settings:      ['id','academy_name','academy_address','academy_phone','academy_email','admin_password','security_question','security_answer','currency','timezone','logo_url','primary_color','theme','monthly_target','running_batch','expense_month','expense_start_date','expense_end_date','income_categories','expense_categories','courses','employee_roles','admin_username','keep_records','recycle_bin_sync','exam_questions','exam_settings','institution_type','payment_gateway_config','sms_config'],
     salary:        ['id','staff_id','staff_name','staffId','staffName','month','year','amount','baseSalary','base_salary','bonus','deduction','net_salary','status','note','paid_date','paidDate','paidAmount','paid_amount','paid','method','role','phone','name'],
-    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','guardian_phone','note'],
+    students:      ['id','name','student_id','phone','email','address','dob','course','batch','session','enrollment_date','admission_date','total_fee','paid','due','status','photo_url','guardian_name','father_name','mother_name','guardian_phone','roll_no','shift','note'],
     finance_ledger:['id','date','type','category','amount','description','account_id','reference','note','method','person_name','ref_id'],
     accounts:      ['id','name','type','balance','description','note'],
     loans:         ['id','person_name','type','amount','interest_rate','date','due_date','paid','status','note','method'],
@@ -2014,6 +2018,10 @@ const SupabaseSync = (() => {
     student_portal_access: ['id','student_id','student_name','phone','pin_hash','is_active','created_at'],
     payment_requests: ['id','student_id','student_name','batch_id','amount','method','transaction_id','sender_number','screenshot_url','status','submitted_at','reviewed_at','reviewed_by','note'],
     class_routines: ['id','batch_id','day','start_time','end_time','subject','teacher_id','room','is_active','created_at'],
+    school_classes: ['id','class_name','sections','shift','class_teacher','is_active','created_at','updated_at'],
+    school_subjects: ['id','class_name','subject_name','full_marks','pass_marks','is_active','created_at','updated_at'],
+    school_marks: ['id','student_id','student_no','student_name','class_name','section','roll_no','academic_year','exam_type','subject_id','subject_name','marks_obtained','full_marks','grade','gpa','pass','created_at','updated_at'],
+    sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
   };
 
   function _sanitizeRecord(record, tableKey) {
@@ -2605,78 +2613,14 @@ const SupabaseSync = (() => {
   /** Default Cash account তৈরি করো যদি না থাকে (নতুন deployment / Sub ID setup) */
   function ensureDefaultCashAccount() {
     const accounts = getAll('accounts');
-    const cashRows = accounts.filter(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
-    if (cashRows.length === 0) {
-      insert('accounts', {
-        type: 'Cash',
-        name: 'Cash',
-        balance: 0,
-      }, { bypassLog: true });
-      console.info('[Sync] Default Cash account created.');
-      return true;
-    }
-    if (cashRows.length > 1) {
-      // ✅ Duplicate-Cash-Account Auto-Heal: keeps the one with the largest
-      // absolute balance (works whether the real balance is positive,
-      // zero, or negative — picks whichever isn't the leftover ৳0 stray row).
-      const keeper = cashRows.reduce((best, a) => {
-        const aBal = parseFloat(a.balance) || 0;
-        const bBal = parseFloat(best.balance) || 0;
-        return Math.abs(aBal) > Math.abs(bBal) ? a : best;
-      });
-      cashRows.forEach(a => {
-        if (a.id !== keeper.id) {
-          console.warn('[Sync] Removing duplicate Cash account:', a.id, 'balance:', a.balance);
-          remove('accounts', a.id, { bypassLog: true });
-        }
-      });
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * ✅ ROOT-CAUSE FIX for duplicate accounts: any code path that wants to set/add a
-   * Cash, Bank, or Mobile balance from an EXTERNAL source (JSON import, backup
-   * restore, legacy migration) MUST call this instead of pushing a brand-new row.
-   * It finds the existing account by type+name and UPDATES it. Only if truly no
-   * matching account exists anywhere does it create exactly one new row.
-   * This makes duplicate creation structurally impossible — there is no longer
-   * any "balance was bigger so we guessed which one is real" logic needed,
-   * because a second row of the same type+name can never be created.
-   *
-   * @param {string} type   'Cash' | 'Bank_Detail' | 'Mobile_Detail'
-   * @param {string} name   account name (must be 'Cash' for type Cash)
-   * @param {number} balance  balance to set (replaces, does not add — caller decides)
-   * @param {object} extra  optional extra fields (bankName, accountNo, description, note)
-   * @param {object} options  { mode: 'set' | 'add' } — default 'set'
-   */
-  function upsertAccountByTypeName(type, name, balance, extra, options) {
-    const mode = (options && options.mode) || 'set';
-    const accounts = getAll('accounts');
-    const cleanName = String(name || '').trim();
-    const existing = accounts.find(a => a.type === type && String(a.name || '').trim() === cleanName);
-    const numBalance = parseFloat(balance) || 0;
-    if (existing) {
-      const newBalance = mode === 'add' ? (parseFloat(existing.balance) || 0) + numBalance : numBalance;
-      const updated = { ...existing, ...extra, balance: newBalance, updated_at: new Date().toISOString() };
-      const idx = accounts.findIndex(a => a.id === existing.id);
-      accounts[idx] = updated;
-      setAll('accounts', accounts);
-      return updated;
-    }
-    const created = {
-      id: generateId(),
-      type,
-      name: cleanName,
-      balance: numBalance,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      ...extra,
-    };
-    accounts.push(created);
-    setAll('accounts', accounts);
-    return created;
+    if (accounts.some(a => a.type === 'Cash')) return false;
+    insert('accounts', {
+      type: 'Cash',
+      name: 'Cash',
+      balance: 0,
+    }, { bypassLog: true });
+    console.info('[Sync] Default Cash account created.');
+    return true;
   }
 
   /**
@@ -2829,7 +2773,6 @@ const SupabaseSync = (() => {
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
     ensureDefaultCashAccount,
-    upsertAccountByTypeName,
     repairMissingStudentFinance,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)

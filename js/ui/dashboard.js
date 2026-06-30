@@ -20,7 +20,8 @@ const DashboardModule = (() => {
   }
 
   function normalizeAccounts(accounts) {
-    const groups = new Map();
+    const seen = new Set();
+    const normalized = [];
     accounts.forEach(a => {
       const name = String(a.name || '').trim();
       if (a.type === 'Cash' && name !== 'Cash') return;
@@ -29,16 +30,11 @@ const DashboardModule = (() => {
         if (invalid) return;
       }
       const key = `${a.type}||${name}`;
-      const existing = groups.get(key);
-      // ✅ FIX: Previously kept whichever duplicate appeared FIRST in array order.
-      // Migration imports prepend old rows, so a stale/zero-balance duplicate
-      // could silently shadow the real, currently-active account. Now keeps
-      // the duplicate with the largest absolute balance — the real one.
-      if (!existing || Math.abs(parseFloat(a.balance) || 0) > Math.abs(parseFloat(existing.balance) || 0)) {
-        groups.set(key, a);
-      }
+      if (seen.has(key)) return;
+      seen.add(key);
+      normalized.push(a);
     });
-    return Array.from(groups.values());
+    return normalized;
   }
 
   function getStats() {

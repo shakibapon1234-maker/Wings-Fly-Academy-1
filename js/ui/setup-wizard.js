@@ -297,14 +297,27 @@ const SetupWizard = (() => {
       }
 
       // ✅ New client bootstrap: default Cash account (Finance/Accounts কাজ করার জন্য)
-      // ⚠️ FIX: Previously this also ran a direct Supabase existence-check + insert here,
-      // which used a separate code path from SupabaseSync.ensureDefaultCashAccount().
-      // If that network query failed/timed out/raced with sync, existingCash could come
-      // back empty even though a local Cash account already existed — causing a SECOND
-      // duplicate "Cash" row to be created with balance 0. That duplicate then silently
-      // shadowed the real cash balance on the dashboard/accounts page.
-      // Fix: rely ONLY on the local-first, idempotent ensureDefaultCashAccount(), which
-      // checks IndexedDB (always available, no network race) before inserting.
+      const nowIso = new Date().toISOString();
+      const cashId = (typeof SupabaseSync !== 'undefined' && SupabaseSync.generateId)
+        ? SupabaseSync.generateId()
+        : ('CASH' + Date.now().toString(36).toUpperCase());
+      const cashAcc = {
+        id:         cashId,
+        type:       'Cash',
+        name:       'Cash',
+        balance:    0,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      const { data: existingCash } = await client
+        .from('accounts')
+        .select('id')
+        .eq('type', 'Cash')
+        .limit(1);
+      if (!existingCash || existingCash.length === 0) {
+        const { error: accErr } = await client.from('accounts').insert([cashAcc]);
+        if (accErr) console.warn('[SetupWizard] Cash account seed failed:', accErr.message);
+      }
       if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.ensureDefaultCashAccount === 'function') {
         SupabaseSync.ensureDefaultCashAccount();
       }
