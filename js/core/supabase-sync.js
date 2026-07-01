@@ -2657,14 +2657,26 @@ const SupabaseSync = (() => {
     const auditLog = [];
 
     // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
+    // ✅ Balance Fix: পুরনো REPAIR Income entry সরানোর সময় account balance থেকেও বাদ দিতে হবে,
+    // নইলে আগের repair এর balance effect থেকে যাবে এবং double count হবে।
     const repairedEntries = allFinance.filter(f => {
       const isRepaired = f.description && (f.description.includes('(Repaired)') || f.description.includes('(Auto-healed)'));
       const isAutoRepairedNote = f.note && f.note.includes('Auto-repaired');
       const isRepairId = f.id && f.id.startsWith('REPAIR-');
       return isRepaired || isAutoRepairedNote || isRepairId;
     });
-    
+
     repairedEntries.forEach(f => {
+      // ✅ Bug Fix #1: remove() শুধু ledger থেকে মুছে — balance touch করে না।
+      // Income entry সরালে balance কমাতে হবে ('out'), Expense entry সরালে বাড়াতে হবে ('in').
+      const amt = parseFloat(f.amount) || 0;
+      const method = f.method || defaultMethod;
+      if (amt > 0 && method) {
+        const isIncome  = f.type === 'Income'  || f.type === 'Transfer In';
+        const isExpense = f.type === 'Expense' || f.type === 'Transfer Out';
+        if (isIncome)  updateAccountBalance(method, amt, 'out'); // reverse the income
+        if (isExpense) updateAccountBalance(method, amt, 'in');  // reverse the expense
+      }
       remove(financeKey, f.id, { bypassLog: true });
     });
 
@@ -2747,6 +2759,11 @@ const SupabaseSync = (() => {
         note:        'Auto-repaired: paid amount was saved without finance ledger entry',
         ref_id:      s.id,
       }, { bypassLog: true });
+
+      // ✅ Bug Fix #2: insert() শুধু ledger-এ entry যোগ করে — account balance আপডেট করে না।
+      // Finance module থেকে manual insert হলে finance.js নিজে updateAccountBalance() ডাকে,
+      // কিন্তু এখানে সরাসরি SupabaseSync.insert() কল হচ্ছে তাই explicitly করতে হবে।
+      updateAccountBalance(defaultMethod, unrecorded, 'in');
 
       fixedCount++;
       totalAmount += unrecorded;
