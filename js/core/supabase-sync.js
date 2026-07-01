@@ -605,12 +605,25 @@ const SupabaseSync = (() => {
 
       const person = record.person_name || record.description || record.note || '—';
       const category = record.category || record.type || table;
-      // ✅ Deferred Snapshot: snapshot নেওয়া হবে updateAccountBalance() complete হওয়ার পরে।
-      // এটা pure screenshot — accounts.balance সরাসরি পড়ে, কোনো calculation নেই।
-      // _pendingSnapshot: true মানে balance update এখনো pending আছে।
-      const _mid = Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+
+      // ══════════════════════════════════════════════════════════════════════
+      // ✅ ROOT FIX: Snapshot এখানেই নেওয়া হচ্ছে, কোনো deferred mechanism নেই।
+      //
+      // কেন এটা কাজ করে:
+      //   finance.js এ call order হল:
+      //     1. updateAccountBalance()  ← balance update COMPLETE
+      //     2. SupabaseSync.insert()
+      //          → _logRecentChange()  ← এখানে আমরা আছি
+      //             → _getMonitorSnapshot()  ← balance already updated, সঠিক data পাবে
+      //
+      // আগের bug: _pendingSnapshot:true রেখে 2s পরে _finalizeMonitorSnapshot()
+      // call করা হতো। কিন্তু _finalizeMonitorSnapshot() ততক্ষণে আবার একটি
+      // নতুন (আরো পরের) snapshot দিয়ে overwrite করে দিত — সব entry-তে
+      // same latest balance দেখা যেত।
+      // ══════════════════════════════════════════════════════════════════════
+      const snapshot = _getMonitorSnapshot();
+
       const entry = {
-        _mid,
         date: new Date().toLocaleString(),
         action,
         type: record.type,
@@ -622,32 +635,21 @@ const SupabaseSync = (() => {
         item: _recycleDisplayName(table, record),
         recordId: record.id,
         recordAt: record.created_at || record.updated_at || record.date || null,
-        snapshot: {},
-        _pendingSnapshot: true,
+        snapshot,
       };
       const arr = (() => { try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; } })();
       arr.unshift(entry);
       if (arr.length > 15) arr.length = 15;
 
-      // Try to save — handle localStorage quota errors gracefully
       try {
         localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
       } catch (quotaErr) {
-        console.warn('[DataMonitor] localStorage quota hit, trimming old entries...', quotaErr?.message);
+        console.warn('[DataMonitor] localStorage quota hit, trimming...', quotaErr?.message);
         while (arr.length > 1) {
           arr.pop();
-          try {
-            localStorage.setItem('wfa_recent_changes', JSON.stringify(arr));
-            break;
-          } catch { /* keep trimming */ }
+          try { localStorage.setItem('wfa_recent_changes', JSON.stringify(arr)); break; } catch { /* keep trimming */ }
         }
       }
-
-      // Fallback: loan types বা balance-neutral entries-এর জন্য যেখানে
-      // updateAccountBalance() call নাও হতে পারে — 2s পরে finalize করো
-      // ✅ Fix: was 500ms, raced with async balance update → false mismatch alerts.
-      // isFallback=true tells _finalizeMonitorSnapshot to skip mismatch comparison.
-      setTimeout(() => _finalizeMonitorSnapshot(_mid, true), 2000);
     } catch (err) {
       console.error('[DataMonitor] _logRecentChange failed:', err?.message || err);
     }
@@ -2432,17 +2434,22 @@ const SupabaseSync = (() => {
   // Automatic mismatch alert: আগের snapshot-এর balance vs নতুন balance compare করে।
   // @param {boolean} isFallback — true = setTimeout fallback call, skip mismatch alert
   function _finalizeMonitorSnapshot(mid, isFallback) {
+    // ✅ ROOT FIX: entries এখন _logRecentChange()-এই snapshot পায়।
+    // এই function এখন no-op — _pendingSnapshot entries আর তৈরি হয় না।
+    // updateAccountBalance() এর পর এটা call হয় কিন্তু কিছু করার নেই।
+    return;
+
+    /* eslint-disable no-unreachable */
     try {
       const arr = (() => {
         try { return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]'); } catch { return []; }
       })();
       if (!arr.length) return;
 
-      // mid দিলে specific entry, না দিলে সবচেয়ে নতুন pending entry
       const idx = (mid !== undefined)
         ? arr.findIndex(e => e._mid === mid && e._pendingSnapshot)
         : arr.findIndex(e => e._pendingSnapshot);
-      if (idx < 0) return; // ইতিমধ্যে finalize হয়ে গেছে
+      if (idx < 0) return;
 
       // ✅ Pure screenshot: accounts.balance সরাসরি পড়া
       const newSnapshot = _getMonitorSnapshot();
