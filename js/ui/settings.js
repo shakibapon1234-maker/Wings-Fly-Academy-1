@@ -1397,23 +1397,35 @@ const SettingsModule = (() => {
         </div>
       </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
-        <div class="settings-card-title"><i class="fa fa-calculator"></i> Account Balance Recalculate</div>
+        <div class="settings-card-title"><i class="fa fa-broom"></i> Clean Duplicate Repair Entries</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
-          Account balance <strong style="color:#ff4757">ভুল</strong> দেখাচ্ছে — Finance Ledger-এর সাথে মিলছে না?<br/>
-          এই বাটন সব Finance entry গণনা করে account balance <strong style="color:#00ff88">fresh calculate</strong> করবে।<br/>
-          <span style="font-size:.78rem;color:var(--text-muted);">✅ Backup import করার পরে বা balance drift হলে এটা চালান।</span>
+          Finance Ledger-এ <strong style="color:#ff4757">duplicate "(Repaired)" entry</strong> জমে গেলে account balance বেড়ে যায়।<br/>
+          এই বাটন শুধু এই duplicate entry মুছবে — কোনো <strong style="color:#00ff88">balance পরিবর্তন করবে না</strong>।<br/>
+          <span style="font-size:.78rem;color:var(--text-muted);">✅ "Repair Missing Finance Entries" চালানোর আগে এটা চালান।</span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm"
                   style="background:linear-gradient(90deg,#ff6b35,#f7c59f);border:none;padding:10px 20px;font-weight:800;color:#000;"
-                  onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.recalculateAccountBalancesFromLedger){SupabaseSync.recalculateAccountBalancesFromLedger();setTimeout(()=>window.dispatchEvent(new CustomEvent('wfa:synced')),500);}else Utils.toast('SupabaseSync not loaded','error')">
-            <i class="fa fa-calculator"></i> Recalculate Balance from Ledger
+                  onclick="(function(){
+                    const finKey=(typeof DB!=='undefined'&&DB.finance)?DB.finance:'finance_ledger';
+                    const all=SupabaseSync.getAll(finKey);
+                    const dups=all.filter(f=>(f.description&&(f.description.includes('(Repaired)')||f.description.includes('(Auto-healed)')))||(f.note&&f.note.includes('Auto-repaired'))||(f.id&&f.id.startsWith('REPAIR-')));
+                    if(dups.length===0){Utils.toast('✅ কোনো duplicate entry নেই','success');return;}
+                    Utils.confirm(`${dups.length}টি duplicate Repair entry মুছবেন? (Balance পরিবর্তন হবে না)`, 'Clean Duplicates').then(ok=>{
+                      if(!ok)return;
+                      dups.forEach(f=>SupabaseSync.remove(finKey,f.id,{bypassLog:true}));
+                      Utils.toast('🧹 '+dups.length+' duplicate entry মুছে ফেলা হয়েছে। Balance অপরিবর্তিত।','success',5000);
+                      setTimeout(()=>window.dispatchEvent(new CustomEvent('wfa:synced')),500);
+                    });
+                  })()">
+            <i class="fa fa-broom"></i> Clean Duplicate Entries
           </button>
           <span style="font-size:.78rem;color:var(--text-muted);">
-            <i class="fa fa-circle-info"></i> Finance Ledger = source of truth
+            <i class="fa fa-circle-info"></i> Balance touch করে না — শুধু duplicate ledger entry সরায়
           </span>
         </div>
       </div>
+
       <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">

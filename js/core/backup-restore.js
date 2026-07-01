@@ -314,14 +314,11 @@ const BackupRestore = (() => {
             }
           }
 
-          // ✅ Backup restore-এর পরে:
-          // 1. Backfill flag set করো যাতে startup repair আবার না চলে
+          // ✅ Backfill flag set করো যাতে startup repair আবার না চলে।
+          // ⛔ recalculateAccountBalancesFromLedger() এখানে CALL করা যাবে না —
+          //    backup-এ duplicate REPAIR entries থাকলে balance ৫০x বেড়ে যাবে।
+          //    AUDIT_IGNORE Section 8: accounts.balance শুধু incremental updateAccountBalance() দিয়ে।
           localStorage.setItem('wfa_finance_backfill_v1', '1');
-          // 2. Account balance Finance Ledger থেকে recalculate করো
-          //    (backup-এ stored balance corrupt হতে পারে)
-          if (typeof SupabaseSync !== 'undefined' && SupabaseSync.recalculateAccountBalancesFromLedger) {
-            SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
-          }
 
           setTimeout(() => {
             location.reload();

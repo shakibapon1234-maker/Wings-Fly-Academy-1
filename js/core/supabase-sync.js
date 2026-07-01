@@ -2644,18 +2644,13 @@ const SupabaseSync = (() => {
 
   /**
    * Student.paid আছে কিন্তু Finance Ledger-এ entry নেই — backfill করো + account balance আপডেট।
-   * Dashboard-এ collection দেখায় কিন্তু Finance/Accounts ০ থাকলে এই repair লাগে।
-   */
   /**
-   * ✅ LEDGER-ONLY REPAIR — account balance এ কোনো touch করে না।
+   * ✅ LEDGER-ONLY REPAIR — account balance-এ কোনো touch করে না।
    * শুধু Finance Ledger-এ missing student fee entry যোগ করে।
-   * Balance ঠিক করতে repairMissingStudentFinance() এর পর
-   * recalculateAccountBalancesFromLedger() call করুন।
    *
-   * কেন এই design:
-   * - Incremental updateAccountBalance() call করলে ইতিমধ্যে corrupted balance
-   *   আরও বেশি corrupt হয়ে যায় (double count বা negative হওয়ার risk)।
-   * - Ledger entry যোগ করা এবং balance recalculate করা দুটো আলাদা কাজ।
+   * Safe to run: প্রতিবার চালালে আগের REPAIR entries মুছে নতুন করে check করে।
+   * Idempotent: duplicate তৈরি হয় না — deterministic ID (REPAIR-studentId) ব্যবহার করে।
+   * Account balance: অপরিবর্তিত থাকে।
    */
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
@@ -2911,15 +2906,17 @@ const SupabaseSync = (() => {
   function _runStartupFinanceRepair() {
     try {
       ensureDefaultCashAccount();
-      // ✅ SAFE STARTUP: শুধু flag না থাকলে ledger repair চলবে।
-      // Balance touch করা হবে না — corrupted state আরও খারাপ হওয়া রোধ।
-      // repairMissingStudentFinance এখন ledger-only (balance-safe).
+      // ⛔ AUTO REPAIR DISABLED — AUDIT_IGNORE Section 8.
+      // Startup-এ repairMissingStudentFinance() চালানো নিরাপদ না:
+      // - localStorage flag মুছে গেলে (DB switch / cache purge) বারবার চলত
+      // - প্রতিবার duplicate REPAIR entries জমা হতো
+      // - সেই duplicates recalculate হলে balance ৫০x বেড়ে যেত
+      // Repair শুধু manually Settings → Data Management থেকে চালাতে হবে।
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
-        repairMissingStudentFinance({ silent: true });
-        localStorage.setItem('wfa_finance_backfill_v1', '1');
+        localStorage.setItem('wfa_finance_backfill_v1', '1'); // শুধু flag set, repair নয়
       }
     } catch (e) {
-      console.warn('[Sync] Startup finance repair failed (non-critical):', e);
+      console.warn('[Sync] Startup init failed (non-critical):', e);
     }
   }
 
