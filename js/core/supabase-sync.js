@@ -1613,8 +1613,10 @@ const SupabaseSync = (() => {
       if (method && amount > 0) {
         if (table === 'finance_ledger') {
           if (!r._isLoan) {
-            const isIncome  = r.type === 'Income'  || r.type === 'Transfer In';
-            const isExpense = r.type === 'Expense' || r.type === 'Transfer Out';
+            const isIncome  = r.type === 'Income'        || r.type === 'Transfer In'
+                           || r.type === 'Investment In';
+            const isExpense = r.type === 'Expense'       || r.type === 'Transfer Out'
+                           || r.type === 'Investment Out';
             // ✅ Restore: Income → 'in' Web-Safe (balance বাড়ে)
             // Expense → 'out' নেগেটিভ হলে ব্যালেন্স skip করো (ডাটা ফিরে আসবে, কিন্তু অ্যাকাউন্ট negative হবে না)
             // ✅ Diagnostic notes — সব ধরনের diagnostic record-এ balance touch করা হবে না
@@ -2644,6 +2646,17 @@ const SupabaseSync = (() => {
    * Student.paid আছে কিন্তু Finance Ledger-এ entry নেই — backfill করো + account balance আপডেট।
    * Dashboard-এ collection দেখায় কিন্তু Finance/Accounts ০ থাকলে এই repair লাগে।
    */
+  /**
+   * ✅ LEDGER-ONLY REPAIR — account balance এ কোনো touch করে না।
+   * শুধু Finance Ledger-এ missing student fee entry যোগ করে।
+   * Balance ঠিক করতে repairMissingStudentFinance() এর পর
+   * recalculateAccountBalancesFromLedger() call করুন।
+   *
+   * কেন এই design:
+   * - Incremental updateAccountBalance() call করলে ইতিমধ্যে corrupted balance
+   *   আরও বেশি corrupt হয়ে যায় (double count বা negative হওয়ার risk)।
+   * - Ledger entry যোগ করা এবং balance recalculate করা দুটো আলাদা কাজ।
+   */
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
@@ -2657,8 +2670,8 @@ const SupabaseSync = (() => {
     const auditLog = [];
 
     // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
-    // ✅ Balance Fix: পুরনো REPAIR Income entry সরানোর সময় account balance থেকেও বাদ দিতে হবে,
-    // নইলে আগের repair এর balance effect থেকে যাবে এবং double count হবে।
+    // ✅ SAFE: শুধু ledger থেকে মুছি, balance touch করি না।
+    // recalculateAccountBalancesFromLedger() পরে সব balance fresh করবে।
     const repairedEntries = allFinance.filter(f => {
       const isRepaired = f.description && (f.description.includes('(Repaired)') || f.description.includes('(Auto-healed)'));
       const isAutoRepairedNote = f.note && f.note.includes('Auto-repaired');
@@ -2667,16 +2680,6 @@ const SupabaseSync = (() => {
     });
 
     repairedEntries.forEach(f => {
-      // ✅ Bug Fix #1: remove() শুধু ledger থেকে মুছে — balance touch করে না।
-      // Income entry সরালে balance কমাতে হবে ('out'), Expense entry সরালে বাড়াতে হবে ('in').
-      const amt = parseFloat(f.amount) || 0;
-      const method = f.method || defaultMethod;
-      if (amt > 0 && method) {
-        const isIncome  = f.type === 'Income'  || f.type === 'Transfer In';
-        const isExpense = f.type === 'Expense' || f.type === 'Transfer Out';
-        if (isIncome)  updateAccountBalance(method, amt, 'out'); // reverse the income
-        if (isExpense) updateAccountBalance(method, amt, 'in');  // reverse the expense
-      }
       remove(financeKey, f.id, { bypassLog: true });
     });
 
@@ -2759,11 +2762,8 @@ const SupabaseSync = (() => {
         note:        'Auto-repaired: paid amount was saved without finance ledger entry',
         ref_id:      s.id,
       }, { bypassLog: true });
-
-      // ✅ Bug Fix #2: insert() শুধু ledger-এ entry যোগ করে — account balance আপডেট করে না।
-      // Finance module থেকে manual insert হলে finance.js নিজে updateAccountBalance() ডাকে,
-      // কিন্তু এখানে সরাসরি SupabaseSync.insert() কল হচ্ছে তাই explicitly করতে হবে।
-      updateAccountBalance(defaultMethod, unrecorded, 'in');
+      // ✅ INTENTIONALLY no updateAccountBalance() here.
+      // Balance is recalculated from scratch by recalculateAccountBalancesFromLedger().
 
       fixedCount++;
       totalAmount += unrecorded;
@@ -2784,9 +2784,136 @@ const SupabaseSync = (() => {
     return { fixedCount, totalAmount, auditLog };
   }
 
+  /**
+   * ✅ Finance Ledger থেকে সরাসরি account balance recalculate করে।
+   * এটা একটা "nuclear reset" — incremental counter বাদ দিয়ে
+   * সব Finance entry এর sum থেকে balance তৈরি করে।
+   *
+   * কখন ব্যবহার করবেন:
+   * - Backup import করার পরে
+   * - repairMissingStudentFinance() এর পরে
+   * - যখনই account balance কে Finance Ledger এর সাথে sync করতে চান
+   */
+  function recalculateAccountBalancesFromLedger(options = {}) {
+    const silent = !!options.silent;
+    const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    try {
+      const allFinance = getAll(financeKey);
+      const allAccounts = getAll('accounts');
+
+      // Diagnostic / phantom categories skip করা হবে
+      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+      const diagNotes = new Set([
+        'Auto-generated diagnostic payment',
+        'Auto-generated diagnostic exam payment',
+        'Auto-generated diagnostic salary payment',
+        'Auto-generated diagnostic loan finance',
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
+
+      // প্রতিটি method (Cash, Bank, Mobile) এর জন্য net sum গণনা
+      const netByMethod = {}; // methodName → net amount (Income positive, Expense negative)
+
+      allFinance.forEach(f => {
+        if (!f || !f.amount || !f.method) return;
+        if (phantomCategories.has(f.category)) return;
+        if (f.note && diagNotes.has(f.note)) return;
+
+        // ✅ IMPORTANT: _isLoan: true entries SKIP করতে হবে।
+        // loans.js সরাসরি updateAccountBalance() দিয়ে balance update করে
+        // এবং finance_ledger-এ _isLoan: true দিয়ে entry রাখে DISPLAY-ONLY।
+        // এখানে count করলে double-count হবে।
+        // Loan balance-র effect accounts-এ incremental হিসেবে ইতিমধ্যে আছে।
+        if (f._isLoan) return;
+
+        const amt = parseFloat(f.amount) || 0;
+        if (amt <= 0) return;
+
+        const method = f.method;
+        const type = f.type || '';
+
+        // ✅ Transfer In/Out: প্রতিটি account আলাদাভাবে গণনা হয় — double count নেই।
+        // Cash→Bank transfer: Cash-এ Transfer Out (-X), Bank-এ Transfer In (+X)
+        // netByMethod['Cash'] -= X এবং netByMethod['Bank'] += X → সঠিক।
+        const isIncome  = type === 'Income'       || type === 'Transfer In'
+                       || type === 'Investment In';
+        const isExpense = type === 'Expense'      || type === 'Transfer Out'
+                       || type === 'Investment Out';
+
+        if (!isIncome && !isExpense) return;
+        if (!netByMethod[method]) netByMethod[method] = 0;
+        netByMethod[method] += isIncome ? amt : -amt;
+      });
+
+      // ✅ Loan balance: loans table থেকে সরাসরি calculate করো।
+      // finance_ledger-এ _isLoan entries শুধু display mirror — skip করা হয়েছে উপরে।
+      // loans.js এর মতোই: Loan Giving → 'out' (cash গেছে), Loan Receiving → 'in' (cash এসেছে)
+      const diagLoanNotes = new Set([
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
+      const loansKey = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
+      const allLoans = getAll(loansKey);
+      allLoans.forEach(loan => {
+        if (!loan || !loan.amount || !loan.method) return;
+        if (loan.note && diagLoanNotes.has(loan.note)) return;
+        const amt = parseFloat(loan.amount) || 0;
+        if (amt <= 0) return;
+        const method = loan.method;
+        const isGiving = loan.type === 'Loan Giving' || loan.direction === 'given';
+        if (!netByMethod[method]) netByMethod[method] = 0;
+        netByMethod[method] += isGiving ? -amt : amt; // Giving → out (-), Receiving → in (+)
+      });
+
+      // প্রতিটি account-এর balance update করো
+      const updatedAccounts = allAccounts.map(acc => {
+        let methodKey = null;
+        if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') {
+          methodKey = 'Cash';
+        } else if (acc.type === 'Bank_Detail' || acc.type === 'Mobile_Detail') {
+          methodKey = acc.name;
+        }
+        if (!methodKey) return acc; // Other/unknown type — skip
+
+        const ledgerNet = netByMethod[methodKey] || 0;
+        // Ledger net = total income - total expense for this method.
+        // Account balance = ledger net (we trust ledger as source of truth).
+        // Negative means expenses exceeded income — clamp to 0 to avoid showing negative.
+        const newBalance = Math.max(0, Math.round(ledgerNet * 100) / 100);
+        return { ...acc, balance: newBalance, updated_at: new Date().toISOString() };
+      });
+
+      setAll('accounts', updatedAccounts);
+      // Push each changed account to cloud
+      updatedAccounts.forEach(acc => _pushRecord('accounts', acc));
+
+      const summary = Object.entries(netByMethod)
+        .map(([m, v]) => `${m}: ৳${Math.max(0,v).toLocaleString('en-IN')}`)
+        .join(', ');
+      _logActivity('system', 'accounts',
+        `Account balance recalculated from Finance Ledger. ${summary}`);
+
+      if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast(`✅ Account balance Finance Ledger থেকে recalculate করা হয়েছে। ${summary}`, 'success', 6000);
+      }
+      console.info('[Sync] Balance recalculated from ledger:', netByMethod);
+      return { success: true, netByMethod };
+    } catch (e) {
+      console.error('[Sync] recalculateAccountBalancesFromLedger failed:', e);
+      if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('❌ Balance recalculation failed: ' + e.message, 'error');
+      }
+      return { success: false, error: e.message };
+    }
+  }
+
   function _runStartupFinanceRepair() {
     try {
       ensureDefaultCashAccount();
+      // ✅ SAFE STARTUP: শুধু flag না থাকলে ledger repair চলবে।
+      // Balance touch করা হবে না — corrupted state আরও খারাপ হওয়া রোধ।
+      // repairMissingStudentFinance এখন ledger-only (balance-safe).
       if (!localStorage.getItem('wfa_finance_backfill_v1')) {
         repairMissingStudentFinance({ silent: true });
         localStorage.setItem('wfa_finance_backfill_v1', '1');
@@ -2807,6 +2934,7 @@ const SupabaseSync = (() => {
     updateAccountBalance,
     ensureDefaultCashAccount,
     repairMissingStudentFinance,
+    recalculateAccountBalancesFromLedger,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,

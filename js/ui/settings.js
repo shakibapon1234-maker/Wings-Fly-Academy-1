@@ -1397,6 +1397,24 @@ const SettingsModule = (() => {
         </div>
       </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
+        <div class="settings-card-title"><i class="fa fa-calculator"></i> Account Balance Recalculate</div>
+        <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
+          Account balance <strong style="color:#ff4757">ভুল</strong> দেখাচ্ছে — Finance Ledger-এর সাথে মিলছে না?<br/>
+          এই বাটন সব Finance entry গণনা করে account balance <strong style="color:#00ff88">fresh calculate</strong> করবে।<br/>
+          <span style="font-size:.78rem;color:var(--text-muted);">✅ Backup import করার পরে বা balance drift হলে এটা চালান।</span>
+        </p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm"
+                  style="background:linear-gradient(90deg,#ff6b35,#f7c59f);border:none;padding:10px 20px;font-weight:800;color:#000;"
+                  onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.recalculateAccountBalancesFromLedger){SupabaseSync.recalculateAccountBalancesFromLedger();setTimeout(()=>window.dispatchEvent(new CustomEvent('wfa:synced')),500);}else Utils.toast('SupabaseSync not loaded','error')">
+            <i class="fa fa-calculator"></i> Recalculate Balance from Ledger
+          </button>
+          <span style="font-size:.78rem;color:var(--text-muted);">
+            <i class="fa fa-circle-info"></i> Finance Ledger = source of truth
+          </span>
+        </div>
+      </div>
+      <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-scale-balanced"></i> Fee Reconciliation</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
           যদি কোনো Student-এর <strong style="color:#00ff88">Paid</strong> বা <strong style="color:#ff4757">Due</strong>
