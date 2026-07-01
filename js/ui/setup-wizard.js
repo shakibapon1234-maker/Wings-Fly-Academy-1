@@ -59,6 +59,15 @@ const SetupWizard = (() => {
   function show(onComplete) {
     _onComplete = onComplete;
     _renderWizard();
+    // ✅ Pre-populate license key if pre-provisioned in deployment secrets
+    setTimeout(() => {
+      const preKey = window.WFA_SUPABASE_SECRETS?.licenseKey;
+      const keyInput = document.getElementById('sw-license-key');
+      if (preKey && keyInput && !keyInput.value) {
+        keyInput.value = preKey;
+        keyInput.style.borderColor = 'rgba(0,255,136,0.4)';
+      }
+    }, 100);
   }
 
   // ── Rendering ───────────────────────────────────────────────
@@ -195,11 +204,12 @@ const SetupWizard = (() => {
         const result = await LicenseEngine.validate(key);
         if (!result.ok) {
           const reasons = {
-            tampered:    'এই license key টি বৈধ নয়।',
-            expired:     'এই license key-এর মেয়াদ শেষ হয়ে গেছে।',
-            revoked:     'এই license key টি বাতিল করা হয়েছে।',
-            no_key:      'License key দিন।',
-            no_connection: 'সার্ভার সংযোগ ব্যর্থ। পরে আবার চেষ্টা করুন।',
+            tampered:        'এই license key টি বৈধ নয়।',
+            expired:         'এই license key-এর মেয়াদ শেষ হয়ে গেছে।',
+            revoked:         'এই license key টি বাতিল করা হয়েছে।',
+            no_key:          'License key দিন।',
+            no_connection:   '⚠️ License Server-এর সাথে সংযোগ হচ্ছে না। ইন্টারনেট চেক করে আবার চেষ্টা করুন।',
+            server_required: '⚠️ এই key-টি Server-এ যাচাই করতে হবে। ইন্টারনেট সংযোগ নিশ্চিত করে আবার চেষ্টা করুন।',
           };
           _showError(errorEl, reasons[result.reason] || `License যাচাই ব্যর্থ: ${result.reason}`);
           return;

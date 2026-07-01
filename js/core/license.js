@@ -174,13 +174,23 @@ const LicenseEngine = (() => {
 
     // 1. Server is the source of truth.
     const cfg = _serverConfig();
+    let serverTriedAndFailed = false;
     if (cfg) {
       try {
         const result = await _postToServer('validate-license', { key: clean });
+        // ✅ Normalize server response: compute daysLeft from expires if missing
+        if (result && result.ok && !result.daysLeft && result.expires) {
+          const exp = new Date(result.expires);
+          exp.setHours(23, 59, 59, 0);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          result.daysLeft = Math.max(0, Math.ceil((exp - today) / 86400000));
+        }
         _saveCache(clean, result);
         return result;
       } catch (e) {
         console.warn('[LicenseEngine] server validate failed, falling back:', e.message);
+        serverTriedAndFailed = true;
       }
     }
 
@@ -194,7 +204,17 @@ const LicenseEngine = (() => {
     }
 
     // 3. Fallback to local checksum validation (always available if offline/unconfigured)
-    return _legacyValidate(clean);
+    const legacyResult = _legacyValidate(clean);
+
+    // ✅ BUG-L1 Fix: v2 server-generated keys have a DB-backed checksum (not local FNV-1a).
+    // If the server was configured but unreachable, AND local checksum fails with 'tampered',
+    // this is almost certainly a server-generated key — tell the user it's a connection issue,
+    // NOT an invalid key. This prevents misleading "বৈধ নয়" errors for valid keys.
+    if (serverTriedAndFailed && !legacyResult.ok && legacyResult.reason === 'tampered') {
+      return { ok: false, reason: 'no_connection', _serverRequired: true };
+    }
+
+    return legacyResult;
   }
 
   // ── Save key to localStorage

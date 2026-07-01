@@ -187,9 +187,20 @@
     if (!ls) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Unknown</span>`;
     if (ls.reason === 'revoked') return `<span style="background:rgba(255,71,87,0.2);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">🚫 Revoked</span>`;
     if (ls.expired) return `<span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Expired</span>`;
-    if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Grace (${ls.graceDaysLeft}d)</span>`;
-    if (ls.daysLeft <= 7) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">${ls.daysLeft}d left</span>`;
-    return `<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Active (${ls.daysLeft}d)</span>`;
+    if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Grace (${ls.graceDaysLeft ?? '?'}d)</span>`;
+    // ✅ BUG-L2 Fix: daysLeft may be missing in server responses that return 'expires' only.
+    // Compute daysLeft from expires if available, otherwise show 'Active'.
+    let daysLeft = ls.daysLeft;
+    if ((daysLeft === undefined || daysLeft === null) && ls.expires) {
+      const exp = new Date(ls.expires);
+      exp.setHours(23, 59, 59, 0);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      daysLeft = Math.max(0, Math.ceil((exp - today) / 86400000));
+    }
+    if (daysLeft !== undefined && daysLeft !== null && daysLeft <= 7) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">${daysLeft}d left</span>`;
+    const dayLabel = (daysLeft !== undefined && daysLeft !== null) ? `${daysLeft}d` : (ls.expires ? ls.expires : '✓');
+    return `<span style="background:rgba(0,255,136,0.12);color:#00ff88;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Active (${dayLabel})</span>`;
   }
 
   // ── Called by settings.js after the Client Manager panel is rendered in the DOM
