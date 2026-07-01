@@ -92,7 +92,12 @@ if (!(Test-Path $WWW_SRC)) {
 Write-OK "Source found: $WWW_SRC"
 
 # -- STEP 4: Create client folder --------------------------------
-$PARENT_DIR = Split-Path -Parent $SCRIPT_DIR
+# Client folder always goes into E:\Task\Client ID\
+$PARENT_DIR = "E:\Task\Client ID"
+if (!(Test-Path $PARENT_DIR)) {
+    New-Item -ItemType Directory -Path $PARENT_DIR -Force | Out-Null
+    Write-OK "Created base folder: $PARENT_DIR"
+}
 $CLIENT_DIR = Join-Path $PARENT_DIR $REPO
 
 if (Test-Path $CLIENT_DIR) {

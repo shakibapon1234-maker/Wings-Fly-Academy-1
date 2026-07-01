@@ -18,7 +18,7 @@ window.InstitutionMode = (() => {
     coaching: {
       course_label: 'Course',
       batch_label: 'Batch',
-      student_id_prefix: 'STU',
+      student_id_prefix: 'WFA',
       session_label: 'Session',
       fee_label: 'Course Fee',
       nav_classes: '—',
@@ -28,7 +28,7 @@ window.InstitutionMode = (() => {
     school: {
       course_label: 'Class',
       batch_label: 'Section',
-      student_id_prefix: 'SCH',
+      student_id_prefix: 'WFA',
       session_label: 'Academic Year',
       fee_label: 'Tuition Fee',
       nav_classes: 'Class & Section',
@@ -38,7 +38,7 @@ window.InstitutionMode = (() => {
     college: {
       course_label: 'Department',
       batch_label: 'Batch/Section',
-      student_id_prefix: 'COL',
+      student_id_prefix: 'WFA',
       session_label: 'Academic Year',
       fee_label: 'Semester Fee',
       nav_classes: 'Department',

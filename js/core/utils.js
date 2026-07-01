@@ -577,20 +577,33 @@ const Utils = (() => {
   }
 
   // ── Student ID Generator ──────────────────────────────────
-  function generateStudentId(existingIds) {
-    const prefixKey = (window.InstitutionMode && InstitutionMode.getLabel)
-      ? InstitutionMode.getLabel('student_id_prefix')
-      : 'STU';
-    const prefix = String(prefixKey || 'STU').toUpperCase().replace(/[^A-Z0-9]/g, '') + '-';
+  // Format: WFA-{batch}{3-digit-seq}
+  // batch যেকোনো value: "19" → WFA-19001, "S1" → WFA-S1001, "B20" → WFA-B20001
+  // existingIds: all existing student_id values (to find next seq within same batch)
+  function generateStudentId(existingIds, batchValue) {
+    const batch = String(batchValue || '').trim().toUpperCase();
+    if (batch) {
+      const batchPrefix = 'WFA-' + batch;
+      let maxSeq = 0;
+      (existingIds || []).forEach((id) => {
+        const s = String(id || '');
+        if (s.startsWith(batchPrefix)) {
+          const rest = parseInt(s.slice(batchPrefix.length), 10);
+          if (!isNaN(rest) && rest > maxSeq) maxSeq = rest;
+        }
+      });
+      return batchPrefix + String(maxSeq + 1).padStart(3, '0');
+    }
+    // Fallback: batch দেওয়া হয়নি → WFA-sequential
     let num = 1001;
     if (existingIds && existingIds.length) {
-      const numbers = existingIds.map((id) => {
+      const numbers = (existingIds || []).map((id) => {
         const m = String(id || '').match(/(\d+)\s*$/);
         return m ? parseInt(m[1], 10) : 0;
       });
       num = Math.max(...numbers, 1000) + 1;
     }
-    return prefix + num;
+    return 'WFA-' + num;
   }
 
   // ── Print ─────────────────────────────────────────────────

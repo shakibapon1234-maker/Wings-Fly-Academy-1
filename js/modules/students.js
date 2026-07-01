@@ -383,7 +383,7 @@ const Students = (() => {
             </div>
             <div class="sf-field">
               <label class="sf-label">Batch <span class="req">*</span></label>
-              <input id="sf-batch" class="sf-input" placeholder="e.g.: Batch-12" />
+              <input id="sf-batch" class="sf-input" placeholder="e.g.: 19, S1, B20" oninput="Students.onBatchChange(this.value)" />
             </div>
             <div class="sf-field">
               <label class="sf-label">Session</label>
@@ -391,6 +391,7 @@ const Students = (() => {
             </div>
           </div>
         </div>`;
+
     }
 
     const classLabel = _instLabel('course_label', 'Class');
@@ -516,7 +517,7 @@ const Students = (() => {
   function openAddModal() {
     editingId = null;
     const all = SupabaseSync.getAll(DB.students);
-    const newId = Utils.generateStudentId(all.map(s => s.student_id));
+    const newId = Utils.generateStudentId(all.map(s => s.student_id), '');
     const today = Utils.today();
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     const courses = _normCourseList(cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both']);
@@ -2291,6 +2292,16 @@ const Students = (() => {
     return { fixedCount, auditLog };
   }
 
+  // Batch field পরিবর্তনে Student ID auto-refresh
+  // Batch যেকোনো value হতে পারে: "19", "S1", "B20" → WFA-19001, WFA-S1001, WFA-B20001
+  function onBatchChange(batchVal) {
+    const batchNo = String(batchVal || '').trim();
+    const all = SupabaseSync.getAll(DB.students);
+    const newId = Utils.generateStudentId(all.map(s => s.student_id), batchNo);
+    const sidEl = document.getElementById('sf-sid');
+    if (sidEl) sidEl.value = newId;
+  }
+
   /** Finance Ledger-এ missing student fee entries backfill — SupabaseSync.repairMissingStudentFinance wrapper */
   function repairMissingFinanceEntries() {
     if (typeof SupabaseSync.repairMissingStudentFinance !== 'function') {
@@ -2330,6 +2341,7 @@ const Students = (() => {
     _dateSelectHTML, _syncDate,
     reconcileAllStudents,
     repairMissingFinanceEntries,
+    onBatchChange,
     editPayment, saveEditedPayment,
     editInitialPayment, saveEditedInitialPayment,
     _syncPaidDueAfterLedgerChange,
