@@ -1337,18 +1337,7 @@ const SettingsModule = (() => {
         <button class="btn btn-outline btn-sm" style="border-color:var(--error);color:var(--error);margin-bottom:10px;width:100%;justify-content:center" onclick="SettingsModule.clearLocalData()">
           <i class="fa fa-trash-can"></i> RESET DATA ONLY (KEEP SETTINGS)
         </button>
-        <button class="btn btn-outline btn-sm" style="border-color:var(--error);color:var(--error);margin-bottom:10px;width:100%;justify-content:center" onclick="(function(){
-                    var finKey=(typeof DB!=='undefined'&&DB.finance)?DB.finance:'finance_ledger';
-                    var all=SupabaseSync.getAll(finKey);
-                    var dups=all.filter(function(f){return(f.description&&(f.description.includes('(Repaired)')||f.description.includes('(Auto-healed)')))||(f.note&&f.note.includes('Auto-repaired'))||(f.id&&f.id.startsWith('REPAIR-'));});
-                    if(dups.length===0){Utils.toast('✅ কোনো duplicate entry নেই','success');return;}
-                    Utils.confirm(dups.length+'টি duplicate Repair entry মুছবেন? (Balance পরিবর্তন হবে না)', 'Clean Duplicates').then(function(ok){
-                      if(!ok)return;
-                      dups.forEach(function(f){SupabaseSync.remove(finKey,f.id,{bypassLog:true});});
-                      Utils.toast('🧹 '+dups.length+' duplicate entry মুছে ফেলা হয়েছে। Balance অপরিবর্তিত।','success',5000);
-                      setTimeout(function(){window.dispatchEvent(new CustomEvent('wfa:synced'));},500);
-                    });
-                  })()">
+        <button class="btn btn-outline btn-sm" style="border-color:var(--error);color:var(--error);margin-bottom:10px;width:100%;justify-content:center" onclick="SettingsModule.cleanDuplicateRepairEntries()">
           <i class="fa fa-broom"></i> CLEAN DUPLICATE REPAIR ENTRIES
         </button>
         <button class="settings-btn-lg btn-factory-reset" onclick="SettingsModule.factoryReset()">
@@ -1418,20 +1407,7 @@ const SettingsModule = (() => {
           <span style="font-size:.78rem;color:var(--text-muted);">✅ "Repair Missing Finance Entries" চালানোর আগে এটা চালান।</span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm"
-                  style="background:linear-gradient(90deg,#ff6b35,#f7c59f);border:none;padding:10px 20px;font-weight:800;color:#000;"
-                  onclick="(function(){
-                    const finKey=(typeof DB!=='undefined'&&DB.finance)?DB.finance:'finance_ledger';
-                    const all=SupabaseSync.getAll(finKey);
-                    const dups=all.filter(f=>(f.description&&(f.description.includes('(Repaired)')||f.description.includes('(Auto-healed)')))||(f.note&&f.note.includes('Auto-repaired'))||(f.id&&f.id.startsWith('REPAIR-')));
-                    if(dups.length===0){Utils.toast('✅ কোনো duplicate entry নেই','success');return;}
-                    Utils.confirm(`${dups.length}টি duplicate Repair entry মুছবেন? (Balance পরিবর্তন হবে না)`, 'Clean Duplicates').then(ok=>{
-                      if(!ok)return;
-                      dups.forEach(f=>SupabaseSync.remove(finKey,f.id,{bypassLog:true}));
-                      Utils.toast('🧹 '+dups.length+' duplicate entry মুছে ফেলা হয়েছে। Balance অপরিবর্তিত।','success',5000);
-                      setTimeout(()=>window.dispatchEvent(new CustomEvent('wfa:synced')),500);
-                    });
-                  })()">
+                  onclick="SettingsModule.cleanDuplicateRepairEntries()">
             <i class="fa fa-broom"></i> Clean Duplicate Entries
           </button>
           <span style="font-size:.78rem;color:var(--text-muted);">
@@ -5795,6 +5771,29 @@ ${expenseEntries.length > 0 ? `
     setTimeout(() => location.reload(), 800);
   }
 
+  // ── Clean Duplicate Repair Entries ─────────────────────────────
+  async function cleanDuplicateRepairEntries() {
+    const finKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    const all = SupabaseSync.getAll(finKey);
+    const dups = all.filter(function(f) {
+      return (f.description && (f.description.includes('(Repaired)') || f.description.includes('(Auto-healed)'))) || 
+             (f.note && f.note.includes('Auto-repaired')) || 
+             (f.id && f.id.startsWith('REPAIR-'));
+    });
+    
+    if (dups.length === 0) {
+      Utils.toast('✅ কোনো duplicate entry নেই', 'success');
+      return;
+    }
+    
+    const ok = await Utils.confirm(dups.length + 'টি duplicate Repair entry মুছবেন? (Balance পরিবর্তন হবে না)', 'Clean Duplicates');
+    if (!ok) return;
+    
+    dups.forEach(function(f) { SupabaseSync.remove(finKey, f.id, { bypassLog: true }); });
+    Utils.toast('🧹 ' + dups.length + ' duplicate entry মুছে ফেলা হয়েছে। Balance অপরিবর্তিত।', 'success', 5000);
+    setTimeout(function() { window.dispatchEvent(new CustomEvent('wfa:synced')); }, 500);
+  }
+
   // ── Factory Reset ─────────────────────────────────────────────
   async function factoryReset() {
     const ok = await Utils.confirm('⚠️ FACTORY RESET will delete ALL data including settings! This cannot be undone!', '☢️ Factory Reset');
@@ -7652,7 +7651,7 @@ ${expenseEntries.length > 0 ? `
     applyCardPreset,
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON, importFromJSONWithDate,
-    clearLocalData, clearCloudData, factoryReset,
+    clearLocalData, clearCloudData, factoryReset, cleanDuplicateRepairEntries,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel, filterActivityLog, clearActivityFilters,
     restoreItem, permanentDelete, emptyRecycleBin,
