@@ -2735,8 +2735,23 @@ const SupabaseSync = (() => {
     });
 
     // 4. Find and backfill missing entries using deterministic IDs (REPAIR-student_id)
+    // ✅ CUTOFF DATE: wfa_repair_cutoff_date set থাকলে, তার আগে ভর্তি হওয়া students skip।
+    // এটা migration / old data থেকে balance corruption রোধ করে।
+    const cutoffDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    let cutoffSkipped = 0;
+
     allStudents.forEach(s => {
       if (!s || !s.id) return;
+
+      // ✅ Cutoff check: পুরনো students (migration data) ignore করো
+      if (cutoffDate) {
+        const admDate = (s.admission_date || '').split('T')[0];
+        if (admDate && admDate < cutoffDate) {
+          cutoffSkipped++;
+          return; // এই student-এর data আর touch হবে না
+        }
+      }
+
       const sPaid = parseFloat(s.paid) || 0;
       if (sPaid <= 0) return;
 
@@ -2766,17 +2781,19 @@ const SupabaseSync = (() => {
     });
 
     if (fixedCount > 0) {
+      const cutoffNote = cutoffDate ? ` [cutoff: ${cutoffDate}, skipped ${cutoffSkipped} old students]` : '';
       _logActivity('system', financeKey,
-        `Finance repair: ${fixedCount} missing student fee entr${fixedCount === 1 ? 'y' : 'ies'} backfilled (৳${totalAmount.toLocaleString('en-IN')})`);
+        `Finance repair: ${fixedCount} missing student fee entr${fixedCount === 1 ? 'y' : 'ies'} backfilled (৳${totalAmount.toLocaleString('en-IN')})${cutoffNote}`);
       if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast(`🔧 Finance repaired: ${fixedCount} student(s), ৳${totalAmount.toLocaleString('en-IN')} added to ledger`, 'success');
       }
       console.info('[Sync] Finance repair:\n' + auditLog.join('\n'));
     } else if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
-      Utils.toast('✅ Finance ledger is complete — no missing entries', 'success');
+      const cutoffMsg = cutoffDate ? ` (${cutoffSkipped} পুরনো student cutoff-এর কারণে skip)` : '';
+      Utils.toast('✅ Finance ledger is complete — no missing entries' + cutoffMsg, 'success');
     }
 
-    return { fixedCount, totalAmount, auditLog };
+    return { fixedCount, totalAmount, auditLog, cutoffSkipped };
   }
 
   /**

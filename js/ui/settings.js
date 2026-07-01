@@ -1400,19 +1400,25 @@ const SettingsModule = (() => {
         </div>
       </div>
       <div class="settings-card glow-cyan" style="margin-top:12px">
-        <div class="settings-card-title"><i class="fa fa-broom"></i> Clean Duplicate Repair Entries</div>
+        <div class="settings-card-title"><i class="fa fa-calendar-check"></i> Balance Cutoff Date</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
-          Finance Ledger-এ <strong style="color:#ff4757">duplicate "(Repaired)" entry</strong> জমে গেলে account balance বেড়ে যায়।<br/>
-          এই বাটন শুধু এই duplicate entry মুছবে — কোনো <strong style="color:#00ff88">balance পরিবর্তন করবে না</strong>।<br/>
-          <span style="font-size:.78rem;color:var(--text-muted);">✅ "Repair Missing Finance Entries" চালানোর আগে এটা চালান।</span>
+          পুরনো migration data-র কারণে balance সমস্যা হলে — আজকের date কে <strong style="color:#00ff88">baseline</strong> হিসেবে set করুন।<br/>
+          এরপর থেকে Repair শুধু <strong style="color:#ffd700">নতুন student</strong>-দের জন্য কাজ করবে। পুরনো data আর touch করবে না।<br/>
+          <span id="cutoff-display" style="font-size:.82rem;color:var(--text-muted);">
+            ${localStorage.getItem('wfa_repair_cutoff_date') ? '✅ Cutoff active: ' + localStorage.getItem('wfa_repair_cutoff_date') : '⚪ কোনো cutoff set নেই — সব student repair করে।'}
+          </span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                  onclick="SettingsModule.cleanDuplicateRepairEntries()">
-            <i class="fa fa-broom"></i> Clean Duplicate Entries
+          <button class="btn btn-primary btn-sm"
+                  style="background:linear-gradient(90deg,#00d4ff,#00ff88);border:none;padding:10px 20px;font-weight:800;color:#000;"
+                  onclick="SettingsModule.setRepairCutoffToday()">
+            <i class="fa fa-calendar-check"></i> আজকের Date Set করুন
           </button>
-          <span style="font-size:.78rem;color:var(--text-muted);">
-            <i class="fa fa-circle-info"></i> Balance touch করে না — শুধু duplicate ledger entry সরায়
-          </span>
+          <button class="btn btn-sm"
+                  style="border:1px solid var(--text-muted);padding:8px 16px;font-size:.82rem;"
+                  onclick="SettingsModule.clearRepairCutoff()">
+            <i class="fa fa-rotate-left"></i> Cutoff সরান
+          </button>
         </div>
       </div>
 
@@ -5794,6 +5800,25 @@ ${expenseEntries.length > 0 ? `
     setTimeout(function() { window.dispatchEvent(new CustomEvent('wfa:synced')); }, 500);
   }
 
+  // ── Balance Cutoff Date ─────────────────────────────────────────
+  function setRepairCutoffToday() {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    localStorage.setItem('wfa_repair_cutoff_date', today);
+    Utils.toast('✅ Cutoff date set: ' + today + ' — এখন থেকে শুধু নতুন student repair হবে।', 'success', 5000);
+    // Update the display span if visible
+    const el = document.getElementById('cutoff-display');
+    if (el) el.textContent = '✅ Cutoff active: ' + today;
+    logActivity('system', 'settings', 'Repair cutoff date set to: ' + today);
+  }
+
+  function clearRepairCutoff() {
+    localStorage.removeItem('wfa_repair_cutoff_date');
+    Utils.toast('⚪ Cutoff সরানো হয়েছে — এখন সব student repair হবে।', 'info', 4000);
+    const el = document.getElementById('cutoff-display');
+    if (el) el.textContent = '⚪ কোনো cutoff set নেই — সব student repair করে।';
+    logActivity('system', 'settings', 'Repair cutoff date cleared.');
+  }
+
   // ── Factory Reset ─────────────────────────────────────────────
   async function factoryReset() {
     const ok = await Utils.confirm('⚠️ FACTORY RESET will delete ALL data including settings! This cannot be undone!', '☢️ Factory Reset');
@@ -7652,6 +7677,7 @@ ${expenseEntries.length > 0 ? `
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON, importFromJSONWithDate,
     clearLocalData, clearCloudData, factoryReset, cleanDuplicateRepairEntries,
+    setRepairCutoffToday, clearRepairCutoff,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel, filterActivityLog, clearActivityFilters,
     restoreItem, permanentDelete, emptyRecycleBin,
