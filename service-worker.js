@@ -54,6 +54,7 @@ const STATIC_ASSETS = [
   './js/ui/dashboard.js',
   './js/ui/login.js',
   './js/ui/settings.js',
+  './js/ui/settings-student-portal.js',
   './js/modules/students.js',
   './js/modules/finance.js',
   './js/modules/accounts.js',
