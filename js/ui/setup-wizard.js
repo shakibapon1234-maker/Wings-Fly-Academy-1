@@ -306,34 +306,57 @@ const SetupWizard = (() => {
         LicenseEngine.setAcademyName(academyName);
       }
 
-      // ✅ Bootstrap Cash account: একটাই upsert — ignoreDuplicates:true মানে Cash আগে থেকে থাকলে ছোঁয় না
+      // ✅ Bootstrap Cash account — LOCAL-FIRST (IndexedDB) + cloud push.
       // AUDIT_IGNORE Section 7: শুধু এখানেই Cash account তৈরি হয়, অন্য কোথাও নয়।
+      //
+      // 🔴 FIX (2026-07-02): আগে এখানে সরাসরি `client.from('accounts').upsert()` দিয়ে
+      // শুধু CLOUD-এ Cash account তৈরি হতো — লোকাল IndexedDB-তে কিছুই লেখা হতো না।
+      // Setup wizard শেষ হয়ে সাথে সাথে app ব্যবহার শুরু করলে (student payment ইত্যাদি),
+      // `_updateBalanceCoreInternal()` লোকাল `accounts` টেবিলে Cash account খুঁজে পেত না
+      // (কারণ সেটা তখনো শুধু cloud-এ ছিল, পরের একটা full sync pull না হওয়া পর্যন্ত local-এ
+      // নামেনি), তাই AUDIT_IGNORE Section 7-এর "auto-create করা যাবে না" নিয়ম মেনে
+      // balance update চুপচাপ skip (return false) হয়ে যেত। ফলাফল: Finance Ledger-এ
+      // payment entry ঠিকই রেকর্ড হতো (+৳1,000), কিন্তু Accounts/Dashboard balance ৳0-ই
+      // থেকে যেত।
+      //
+      // ফিক্স: `SupabaseSync.insert()` ব্যবহার করা হচ্ছে, যেটা local IndexedDB-তে সাথে সাথে
+      // লেখে এবং cloud-এ push/queue করে — দুটো এক লাইনে, race condition ছাড়াই।
       try {
-        const { error: accErr } = await client
-          .from('accounts')
-          .upsert(
-            [{ type: 'Cash', name: 'Cash', balance: 0 }],
-            { onConflict: 'type,name', ignoreDuplicates: true }
+        if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getAll === 'function') {
+          const existingAccounts = SupabaseSync.getAll('accounts') || [];
+          const hasCash = existingAccounts.some(a =>
+            a.type === 'Cash' && String(a.name || '').trim() === 'Cash'
           );
-        if (accErr) {
-          // upsert কাজ না করলে (constraint নেই) — check করে insert
-          const { data: existingCash } = await client
+          if (!hasCash) {
+            SupabaseSync.insert('accounts', { type: 'Cash', name: 'Cash', balance: 0 }, { bypassLog: true });
+          }
+        } else {
+          // SupabaseSync লোড না থাকলে (edge case) — cloud-only fallback, আগের মতো।
+          const { error: accErr } = await client
             .from('accounts')
-            .select('id')
-            .eq('type', 'Cash')
-            .eq('name', 'Cash')
-            .limit(1);
-          if (!existingCash || existingCash.length === 0) {
-            const { error: insErr } = await client
+            .upsert(
+              [{ type: 'Cash', name: 'Cash', balance: 0 }],
+              { onConflict: 'type,name', ignoreDuplicates: true }
+            );
+          if (accErr) {
+            const { data: existingCash } = await client
               .from('accounts')
-              .insert([{ type: 'Cash', name: 'Cash', balance: 0 }]);
-            if (insErr) console.warn('[SetupWizard] Cash account seed failed:', insErr.message);
+              .select('id')
+              .eq('type', 'Cash')
+              .eq('name', 'Cash')
+              .limit(1);
+            if (!existingCash || existingCash.length === 0) {
+              const { error: insErr } = await client
+                .from('accounts')
+                .insert([{ type: 'Cash', name: 'Cash', balance: 0 }]);
+              if (insErr) console.warn('[SetupWizard] Cash account seed failed:', insErr.message);
+            }
           }
         }
       } catch (e) {
         console.warn('[SetupWizard] Cash account bootstrap error:', e.message);
       }
-      // ✅ ensureDefaultCashAccount() এখানে কল করা হচ্ছে না — সেটা detect-only, create করে না
+      // ✅ ensureDefaultCashAccount() এখানে কল করা হচ্ছে না — সেটা এখনো শুধু detect-only duplicate-checker
 
       // Success — show completion screen
       const licResult = window._sw_license_result || {};

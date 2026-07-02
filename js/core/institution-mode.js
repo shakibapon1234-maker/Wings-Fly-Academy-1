@@ -107,17 +107,22 @@ window.InstitutionMode = (() => {
 
   function get() {
     if (_memoryType) return _memoryType;
-    const fromSecrets = _fromDeploySecrets();
-    if (fromSecrets) {
-      _memoryType = fromSecrets;
-      _cacheLocal(fromSecrets);
-      return fromSecrets;
-    }
+    // ✅ FIX (2026-07-02): settings row (ইউজারের সংরক্ষিত পছন্দ) এখন deploy-secrets-এর
+    // চেয়ে অগ্রাধিকার পায়। আগে deploy-secrets (client provisioning-এর সময় বেক করা ডিফল্ট)
+    // সবসময় জিততো — ফলে Settings-এ ম্যানুয়ালি টাইপ পাল্টালেও পরের প্রতিটি sync/hydrate-এ
+    // সেটা পুরনো provisioning ডিফল্টে রিভার্ট হয়ে যেত। এখন deploy-secrets শুধু তখনই ব্যবহার
+    // হয় যখন settings-এ এখনো কোনো institution_type সেভ করা নেই (একদম নতুন client)।
     const fromSettings = _fromSettings();
     if (fromSettings) {
       _memoryType = fromSettings;
       _cacheLocal(fromSettings);
       return fromSettings;
+    }
+    const fromSecrets = _fromDeploySecrets();
+    if (fromSecrets) {
+      _memoryType = fromSecrets;
+      _cacheLocal(fromSecrets);
+      return fromSecrets;
     }
     try {
       return _normalize(localStorage.getItem(STORAGE_KEY));
@@ -130,19 +135,29 @@ window.InstitutionMode = (() => {
     const prev = _memoryType ?? get();
     _memoryType = null;
     const settingsType = _fromSettings();
-    const deployType = _fromDeploySecrets();
     let resolved;
 
-    if (deployType) {
-      resolved = deployType;
-      _persistToSettings(deployType);
-    } else if (settingsType) {
+    // ✅ FIX (2026-07-02): deploy-secrets (provisioning-time ডিফল্ট) শুধু "one-time seed"
+    // হিসেবে ব্যবহার হয় — অর্থাৎ শুধুমাত্র তখনই যখন settings-এ এখনো কোনো institution_type
+    // সেভ করা নেই। একবার settings row-এ কোনো মান (হোক সেটা seed করা বা ইউজারের ম্যানুয়াল
+    // সিলেকশন) সেভ হয়ে গেলে, সেটাই চিরস্থায়ী source of truth — deploy-secrets আর কখনো
+    // সেটা ওভাররাইট করবে না। আগে এই ফাংশন প্রতিটা 'wfa:synced' ইভেন্টে (অর্থাৎ প্রায়
+    // প্রতিটা online/offline reconnect বা reload-এ) deploy-secrets দিয়ে settings জোর
+    // করে ওভাররাইট করত, ফলে ইউজার Settings থেকে টাইপ পাল্টালেও কিছুক্ষণ পরে সেটা
+    // provisioning-এর সময়কার আসল ডিফল্টে ফিরে যেত।
+    if (settingsType) {
       resolved = settingsType;
     } else {
-      try {
-        resolved = _normalize(localStorage.getItem(STORAGE_KEY));
-      } catch {
-        resolved = DEFAULT;
+      const deployType = _fromDeploySecrets();
+      if (deployType) {
+        resolved = deployType;
+        _persistToSettings(deployType);
+      } else {
+        try {
+          resolved = _normalize(localStorage.getItem(STORAGE_KEY));
+        } catch {
+          resolved = DEFAULT;
+        }
       }
     }
 
