@@ -185,9 +185,11 @@
   // ── Build a status badge HTML string from a validate() result
   function _buildStatusBadge(ls) {
     if (!ls) return `<span style="background:rgba(120,120,120,0.15);color:#aaa;padding:2px 9px;border-radius:20px;font-size:0.72rem">Unknown</span>`;
+    if (!ls.ok && ls.reason === 'tampered') return `<span style="background:rgba(255,71,87,0.2);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Invalid</span>`;
     if (ls.reason === 'revoked') return `<span style="background:rgba(255,71,87,0.2);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">🚫 Revoked</span>`;
     if (ls.expired) return `<span style="background:rgba(255,71,87,0.15);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Expired</span>`;
     if (ls.inGrace) return `<span style="background:rgba(245,166,35,0.15);color:#f5a623;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Grace (${ls.graceDaysLeft ?? '?'}d)</span>`;
+    if (!ls.ok) return `<span style="background:rgba(255,71,87,0.2);color:#ff4757;padding:2px 9px;border-radius:20px;font-size:0.72rem;font-weight:700">Invalid</span>`;
     // ✅ BUG-L2 Fix: daysLeft may be missing in server responses that return 'expires' only.
     // Compute daysLeft from expires if available, otherwise show 'Active'.
     let daysLeft = ls.daysLeft;

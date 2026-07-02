@@ -178,15 +178,18 @@ const LicenseEngine = (() => {
     if (cfg) {
       try {
         const result = await _postToServer('validate-license', { key: clean });
-        // ✅ Normalize server response: compute daysLeft from expires if missing
-        if (result && result.ok && !result.daysLeft && result.expires) {
-          const exp = new Date(result.expires);
-          exp.setHours(23, 59, 59, 0);
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          result.daysLeft = Math.max(0, Math.ceil((exp - today) / 86400000));
+        if (result && result.ok) {
+          _saveCache(clean, result);
+          return result;
         }
-        _saveCache(clean, result);
+        // If server says not found (tampered), check if it's a valid legacy/local fallback key
+        if (result && result.reason === 'tampered') {
+          const legacyResult = _legacyValidate(clean);
+          if (legacyResult.ok) {
+            _saveCache(clean, legacyResult);
+            return legacyResult;
+          }
+        }
         return result;
       } catch (e) {
         console.warn('[LicenseEngine] server validate failed, falling back:', e.message);
