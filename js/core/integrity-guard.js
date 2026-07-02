@@ -443,6 +443,7 @@ const IntegrityGuard = (() => {
               '/exam.html',
               '/certificate.html',
               '/visitor-form.html',
+              '/student-portal.html',
               '/assets/Visitor.png',
             ];
             const baseUrl = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
