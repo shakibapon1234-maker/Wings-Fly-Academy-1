@@ -15,7 +15,7 @@ Write-Host ""
 
 $SCRIPT_DIR = $PSScriptRoot
 $WFA_ROOT   = $SCRIPT_DIR
-$CLIENTS_DIR = Join-Path (Split-Path -Parent $SCRIPT_DIR) "Client ID"
+$CLIENTS_DIR = "E:\Task\Client ID"
 
 if (!(Test-Path $CLIENTS_DIR)) {
     Write-Host "[!] Client ID directory not found: $CLIENTS_DIR" -ForegroundColor Yellow
