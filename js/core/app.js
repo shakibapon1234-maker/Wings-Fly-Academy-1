@@ -1380,14 +1380,20 @@ const App = (() => {
     });
 
     // On sync, refresh current module (debounced — avoids counter flicker every 30s)
+    // ✅ Fix: Certificate/ID-card preview (এবং অন্য যেকোনো custom in-page modal) সিঙ্কের
+    // সময় পুনরায় render() হওয়ায় সাথে সাথে বন্ধ হয়ে যাচ্ছিল, কারণ সেগুলো `.modal-backdrop`
+    // ক্লাস ব্যবহার করে না — তাই আগের guard এগুলো ধরতে পারতো না। এখন display:flex
+    // অবস্থায় থাকা যেকোনো "*-preview-modal" কেও open হিসেবে গণ্য করা হচ্ছে।
     let _syncRenderTimer = null;
     window.addEventListener('wfa:synced', () => {
       const modalOpen = document.querySelector('.modal-backdrop.open');
       const settingsOpen = document.getElementById('settings-overlay');
+      const previewModalOpen = Array.from(document.querySelectorAll('[id$="-preview-modal"]'))
+        .some(el => getComputedStyle(el).display !== 'none');
       clearTimeout(_syncRenderTimer);
       _syncRenderTimer = setTimeout(() => {
         _applyAcademyMetadata();
-        if (!modalOpen && !settingsOpen) {
+        if (!modalOpen && !settingsOpen && !previewModalOpen) {
           renderModule(currentSection);
         }
         updateNotifCount();

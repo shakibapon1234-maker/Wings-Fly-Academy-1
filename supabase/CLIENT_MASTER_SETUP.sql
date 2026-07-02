@@ -849,6 +849,29 @@ $$;
 
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- SECTION 6.6 — PUBLIC BRANDING RPC (for certificate.html portal)
+-- ─────────────────────────────────────────────────────────────────────────────
+drop function if exists public.wfa_get_public_branding();
+create or replace function public.wfa_get_public_branding()
+returns table (
+  academy_name text,
+  logo_url     text
+)
+language plpgsql
+security definer
+as $$
+begin
+  return query
+  select s.academy_name, s.logo_url
+  from public.settings s
+  order by (case when s.academy_name is not null then 1 else 0 end) desc,
+           s.updated_at desc nulls last
+  limit 1;
+end;
+$$;
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- SECTION 7 — VERIFICATION (শেষে ফলাফল দেখাবে)
 -- ─────────────────────────────────────────────────────────────────────────────
 select

@@ -1772,7 +1772,10 @@ const Students = (() => {
     const academyEmail = Utils.esc(cfg.academy_email || '');
     const academyAddr  = Utils.esc(cfg.academy_address|| '');
     const rawLogo      = String(cfg.logo_url || '').trim();
-    const logoUrl      = (/^https?:\/\//i.test(rawLogo) || rawLogo.startsWith('assets/') || rawLogo.startsWith('./'))
+    // ✅ Fix: আগে এই regex data: URL (Settings থেকে আপলোড করা লোগো FileReader দিয়ে
+    // data:image/... হিসেবে সেভ হয়) বাদ দিয়ে দিচ্ছিল, তাই আপলোড করা লোগো Receipt/Ledger-এ
+    // দেখাতো না। এখন https://, assets/, ./ এবং data:image/ — সবগুলোই গ্রহণ করা হচ্ছে।
+    const logoUrl      = (/^https?:\/\//i.test(rawLogo) || /^data:image\//i.test(rawLogo) || rawLogo.startsWith('assets/') || rawLogo.startsWith('./'))
       ? Utils.escAttr(rawLogo) : '';
 
     const allFinance = SupabaseSync.getAll(DB.finance);

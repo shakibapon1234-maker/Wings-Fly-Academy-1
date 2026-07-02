@@ -19,6 +19,22 @@ const CertificatesModule = (() => {
     return token ? `${base}?token=${encodeURIComponent(token)}` : base;
   }
 
+  // ✅ Fix: Settings-এ আপলোড করা Academy Logo এখন certificate-এ ব্যবহার হয়।
+  // আগে এখানে হার্ডকোড করা assets/wings_logo_linear.png সবসময় দেখাতো।
+  function _academyLogoUrl() {
+    try {
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+        if (cfg.logo_url) return cfg.logo_url;
+      }
+      if (typeof LicenseEngine !== 'undefined' && LicenseEngine.getAcademyLogo) {
+        const l = LicenseEngine.getAcademyLogo();
+        if (l) return l;
+      }
+    } catch { /* ignore */ }
+    return 'assets/wings_logo_linear.png';
+  }
+
   const GRADES = {
     'A+': { label: 'Outstanding', color: '#1a7a1a' },
     'A':  { label: 'Excellent',   color: '#2a6e2a' },
@@ -52,7 +68,7 @@ const CertificatesModule = (() => {
         <span>STUDENT ID : ${studentId}</span>
       </div>
       <div class="cert-course-text">CERTIFICATION ON TRAINING ABOUT THE "${courseName}".</div>
-      <img src="assets/wings_logo_linear.png" style="position:absolute;top:6%;left:6%;height:50px;" onerror="this.src='assets/logo.jpg';this.style.height='60px';">
+      <img src="${_esc(_academyLogoUrl())}" style="position:absolute;top:6%;left:6%;height:50px;" onerror="this.src='assets/logo.jpg';this.style.height='60px';">
       <div style="position:absolute;top:15%;left:6%;font-family:'Segoe UI',sans-serif;font-size:14px;font-weight:700;color:#1a1a1a;letter-spacing:0.5px;">
         Certificate No: ${certNumber}
       </div>

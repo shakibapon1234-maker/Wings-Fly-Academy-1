@@ -5,6 +5,22 @@
 
 const IDCardsModule = (() => {
 
+  // ✅ Fix: Settings-এ আপলোড করা Academy Logo এখন ID Card-এও ব্যবহার হয়।
+  // আগে এখানে হার্ডকোড করা assets/logo.jpg সবসময় দেখাতো।
+  function _academyLogoUrl() {
+    try {
+      if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+        const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+        if (cfg.logo_url) return cfg.logo_url;
+      }
+      if (typeof LicenseEngine !== 'undefined' && LicenseEngine.getAcademyLogo) {
+        const l = LicenseEngine.getAcademyLogo();
+        if (l) return l;
+      }
+    } catch { /* ignore */ }
+    return 'assets/logo.jpg';
+  }
+
   // ── Build Card HTML (Original Absolute-Position Layout) ──────────
   function buildCardHTML(person, type = 'student') {
     const isStudent  = type === 'student';
@@ -24,7 +40,7 @@ const IDCardsModule = (() => {
       : `<div class="id-photo" style="display:flex;align-items:center;justify-content:center;background:#eee;color:#999;font-size:12px;">No Photo</div>`;
 
     return `<div class="id-card-v2-container">
-      <img src="assets/logo.jpg" style="position:absolute; top:8px; right:8px; width:45px; height:45px; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3); z-index:5;" onerror="this.style.display='none'">
+      <img src="${Utils.escAttr(_academyLogoUrl())}" style="position:absolute; top:8px; right:8px; width:45px; height:45px; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3); z-index:5;" onerror="this.style.display='none'">
       ${photoHTML}
       <div class="id-name">${Utils.esc(nameStr)}</div>
       

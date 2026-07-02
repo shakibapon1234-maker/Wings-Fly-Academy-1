@@ -116,6 +116,11 @@ const ResultSheet = (() => {
   function _marksheetHTML(result) {
     const cfg = (SupabaseSync.getAll(DB.settings)[0] || {});
     const academy = Utils.esc(cfg.academy_name || 'AcadeFlow School');
+    // ✅ Fix: Marksheet-এও Settings-এর আপলোড করা Academy Logo দেখানো হচ্ছে এখন।
+    const logoUrl = String(cfg.logo_url || '').trim();
+    const logoHtml = logoUrl
+      ? `<img src="${Utils.escAttr(logoUrl)}" style="height:56px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+      : '';
     const subRows = result.subjects.map(s =>
       `<tr><td>${Utils.esc(s.subject_name)}</td><td style="text-align:center">${s.marks_obtained}</td><td style="text-align:center">${s.full_marks}</td><td style="text-align:center">${s.grade}</td><td style="text-align:center">${s.gpa}</td></tr>`
     ).join('');
@@ -130,6 +135,7 @@ const ResultSheet = (() => {
         th{background:#f0f0f0}
         .summary{margin-top:16px;display:flex;gap:24px;justify-content:center;font-weight:700}
       </style></head><body>
+      ${logoHtml}
       <h1>${academy}</h1>
       <div class="meta">Marksheet — ${Utils.esc(result.exam_type)} ${Utils.esc(result.academic_year)}</div>
       <div><strong>Name:</strong> ${Utils.esc(result.student_name)} &nbsp;|&nbsp;
@@ -160,10 +166,16 @@ const ResultSheet = (() => {
     if (!_class) return;
     const table = document.getElementById('rs-class-table');
     if (!table) { Utils.toast('No results to print', 'warning'); return; }
+    const cfg = (SupabaseSync.getAll(DB.settings)[0] || {});
+    const academy = Utils.esc(cfg.academy_name || 'AcadeFlow School');
+    const logoUrl = String(cfg.logo_url || '').trim();
+    const logoHtml = logoUrl
+      ? `<img src="${Utils.escAttr(logoUrl)}" style="height:48px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+      : '';
     const w = window.open('', '_blank');
     w.document.write(`<!DOCTYPE html><html><head><title>Class Result</title>
       <style>body{font-family:Arial;padding:20px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:6px;font-size:12px}th{background:#eee}</style></head>
-      <body><h2>Class Result — ${_class} ${_section} (${_exam} ${_year})</h2>${table.outerHTML}</body></html>`);
+      <body>${logoHtml}<h2 style="text-align:center">${academy}</h2><h2>Class Result — ${_class} ${_section} (${_exam} ${_year})</h2>${table.outerHTML}</body></html>`);
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 400);
@@ -182,9 +194,14 @@ const ResultSheet = (() => {
       const cfg = (SupabaseSync.getAll(DB.settings)[0] || {});
       const academy = Utils.esc(cfg.academy_name || 'AcadeFlow School');
       const sectionLabel = Utils.esc(_section || 'All');
+      const logoUrl = String(cfg.logo_url || '').trim();
+      const logoHtml = logoUrl
+        ? `<img src="${Utils.escAttr(logoUrl)}" style="height:48px;object-fit:contain;display:block;margin:0 auto 8px;" />`
+        : '';
       const wrapper = document.createElement('div');
       wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;background:#fff;color:#111;padding:24px;width:800px;font-family:Arial,sans-serif';
       wrapper.innerHTML = `
+        ${logoHtml}
         <h2 style="text-align:center;margin:0 0 8px;font-size:18px">${academy}</h2>
         <p style="text-align:center;margin:0 0 16px;font-size:13px">
           Class Result — ${Utils.esc(_class)} — ${Utils.esc(_exam)} ${Utils.esc(_year)} (Section: ${sectionLabel})
