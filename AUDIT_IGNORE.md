@@ -372,6 +372,31 @@ Fee Reconciliation payment add/delete করে না — mismatch fix only।
 
 ---
 
-*আপডেট: 2026-07-03 (3) — Cutoff baseline snapshot, negative clamp removed, sync-guard audit aligned, Students repair+recalc unified।*
+*আপডেট: 2026-07-03 (4) — Section 12: Activity Log smart bulk + real-time refresh; advance/investment recycle restore fix।*
+
+---
+
+## 12. Activity Log — রিয়েল-টাইম ও Bulk Summary (2026-07-03)
+
+### Dashboard Balance vs Net Profit (গুরুত্বপূর্ণ পার্থক্য)
+
+| Dashboard card | Source | Repair-এ touch? |
+|----------------|--------|-----------------|
+| **Total Balance** (Cash+Bank+Mobile) | `accounts.balance` sum | ✅ Repair recalculate |
+| **Net Profit** | `students.paid` + other income − expense (P&L) | ❌ by design |
+
+**Total Balance** এবং Accounts tab **একই `accounts.balance`** — দুটো আলাদা source নয়।  
+**Net Profit** আলাদা হিসাব — loan/investment/transfer P&L-এ ঢোকে না।
+
+### Activity Log rules
+
+1. **Real-time:** প্রতিটি `_logActivity()` → `wfa:activity-log` event → Settings Activity tab instant refresh (cloud pull ছাড়া)।
+2. **Bulk suppress (source):**
+   - `Salary.generateMonthlySheet()` — `bypassLog` + এক লাইন summary
+   - Batch portal access — `runWithoutActivityLog` + এক লাইন summary
+3. **Bulk collapse (UI):** 30s window-এ 2+ `salary` add বা `student_portal_access` add/edit → এক row summary।
+4. **Recycle restore:** `advance_payments` / `investments` restore → linked finance + `updateAccountBalance()` (2026-07-03 fix)।
+
+*আপডেট: 2026-07-03 (3) — Cutoff baseline snapshot...*
 *আপডেট: 2026-07-03 (2) — Section 11: Return balance fix, Repair button unify, loan cutoff fix।*
 *আপডেট: 2026-07-03 — Section 11: Payment System সম্পূর্ণ লজিক + Finance Ledger Repair যাচাই রেফারেন্স।*

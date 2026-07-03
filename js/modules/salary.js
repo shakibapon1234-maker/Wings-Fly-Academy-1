@@ -434,7 +434,7 @@ const Salary = (() => {
     });
     if (typeof SupabaseSync.logActivity === 'function' && activeStaff.length) {
       SupabaseSync.logActivity('add', 'salary',
-        'মাসের বেতন শীট স্বয়ংক্রিয় তৈরি — ' + monthLabel(month) + ': ' + activeStaff.length + ' জন স্টাফ');
+        monthLabel(month) + ' মাসের সব salary card তৈরি — ' + activeStaff.length + ' জন, সম্পন্ন');
     }
     renderContent();
     Utils.toast(activeStaff.length + ' salary sheets created ✓', 'success');

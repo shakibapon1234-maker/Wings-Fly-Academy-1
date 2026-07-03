@@ -1306,6 +1306,10 @@ const SupabaseSync = (() => {
       localStorage.setItem('wfa_activity_log', JSON.stringify(logs));
       // Async push to Supabase — fire and forget
       _pushActivityToCloud(entry);
+      // Real-time UI refresh (Settings Activity tab)
+      try {
+        window.dispatchEvent(new CustomEvent('wfa:activity-log', { detail: entry }));
+      } catch { /* ignore */ }
     } catch { /* ignore */ }
   }
 

@@ -269,13 +269,7 @@ const SettingsModule = (() => {
     if (!document.getElementById('settings-overlay')) return;
     switch (activeTab) {
       case 'activity':
-        if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
-          SupabaseSync.pullActivityLog()
-            .then(() => refreshActivityPanel())
-            .catch(() => refreshActivityPanel());
-        } else {
-          refreshActivityPanel();
-        }
+        refreshActivityPanel();
         break;
       case 'recycle':
       case 'monitor':
@@ -977,6 +971,12 @@ const SettingsModule = (() => {
         if (document.getElementById('settings-overlay')) return;
         _mergeRemoteKeepRecords();
         _mergeRemoteRecycleBin();
+      }
+    });
+    // Local CRUD → activity log instant refresh (wfa:synced local insert-এ fire হয় না)
+    window.addEventListener('wfa:activity-log', () => {
+      if (document.getElementById('settings-overlay') && activeTab === 'activity') {
+        refreshActivityPanel();
       }
     });
   })();
@@ -1738,6 +1738,7 @@ const SettingsModule = (() => {
           <option value="certificates">🎓 সার্টিফিকেট</option>
           <option value="visitors">🚶 ভিজিটর</option>
           <option value="notices">📢 নোটিশ</option>
+          <option value="student_portal_access">🔑 Student Portal</option>
         </select>
         <div style="flex:1;min-width:160px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:7px;padding:4px 10px">
           <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.78rem"></i>
@@ -3440,6 +3441,7 @@ ${expenseEntries.length > 0 ? `
     certificates:   { icon:'fa-certificate',           label:'সার্টিফিকেট',    color:'#00ff88' },
     visitors:       { icon:'fa-person-walking',        label:'ভিজিটর',          color:'#aaaaaa' },
     notices:        { icon:'fa-bullhorn',              label:'নোটিশ',           color:'#ffa502' },
+    student_portal_access: { icon:'fa-key',            label:'Student Portal',  color:'#f59e0b' },
     system:         { icon:'fa-gear',                  label:'সিস্টেম',         color:'#666666' },
     note:           { icon:'fa-bookmark',              label:'নোট',             color:'#b537f2' },
   };
@@ -3465,6 +3467,56 @@ ${expenseEntries.length > 0 ? `
     'edit:settings':   ['edit:settings'],
   };
 
+  // Bulk activity collapse — salary card batch / portal access batch
+  function _collapseBulkActivityEntries(items) {
+    const BULK_TYPES = new Set(['student_portal_access', 'salary']);
+    const BULK_MS = 30000;
+    const SUMMARY_RE = /ব্যাচ.*জন|মাসের বেতন শীট|portal access দেওয়া হয়েছে|salary card|একসাথে access/i;
+    const out = [];
+    let i = 0;
+    while (i < items.length) {
+      const e = items[i];
+      if (SUMMARY_RE.test(String(e.description || ''))) {
+        out.push(e);
+        i++;
+        continue;
+      }
+      if (!BULK_TYPES.has(e.type) || (e.action !== 'add' && e.action !== 'edit')) {
+        out.push(e);
+        i++;
+        continue;
+      }
+      const t0 = new Date(e.created_at || 0).getTime();
+      let j = i + 1;
+      const group = [e];
+      while (j < items.length) {
+        const nx = items[j];
+        if (nx.type !== e.type || nx.action !== e.action) break;
+        if (SUMMARY_RE.test(String(nx.description || ''))) break;
+        const t1 = new Date(nx.created_at || 0).getTime();
+        if (Math.abs(t0 - t1) > BULK_MS) break;
+        group.push(nx);
+        j++;
+      }
+      if (group.length >= 2) {
+        let summaryDesc;
+        if (e.type === 'student_portal_access') {
+          summaryDesc = `Student Portal: ${group.length} জনকে একসাথে access দেওয়া হয়েছে — সম্পন্ন`;
+        } else if (e.type === 'salary' && e.action === 'add') {
+          summaryDesc = `বেতন: ${group.length}টি salary card একসাথে তৈরি/যোগ — সম্পন্ন`;
+        } else {
+          summaryDesc = `${group.length}টি ${e.type} ${e.action} (batch) — সম্পন্ন`;
+        }
+        out.push({ ...e, id: 'bulk_' + (e.id || i), description: summaryDesc, _bulkCount: group.length });
+        i = j;
+      } else {
+        out.push(e);
+        i++;
+      }
+    }
+    return out;
+  }
+
   function _buildActivityRows(logs, filterAction, filterType, filterSearch) {
     if (!logs || logs.length === 0)
       return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> কোনো activity নেই</td></tr>`;
@@ -3484,6 +3536,7 @@ ${expenseEntries.length > 0 ? `
         (l.description||'').toLowerCase().includes(q) ||
         (l.type||'').toLowerCase().includes(q));
     }
+    items = _collapseBulkActivityEntries(items);
 
     // ── Deduplication: merge related side-effect entries (within 4 sec) ──
     const MERGE_MS = 4000;
@@ -3676,41 +3729,83 @@ ${expenseEntries.length > 0 ? `
       return;
     }
 
-    // ✅ advance_payments restore
+    // ✅ advance_payments restore (+ linked finance + balance)
     if (item && item.table === 'advance_payments') {
       const data = item.data;
       if (data) {
-        const advances = SupabaseSync.getAll(DB.advance_payments || 'advance_payments');
+        const advKey = DB.advance_payments || 'advance_payments';
+        const advances = SupabaseSync.getAll(advKey);
         const exists = advances.some(a => a.id && a.id === data.id);
         if (!exists) advances.unshift(data);
-        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
-        SupabaseSync.setAll(DB.advance_payments || 'advance_payments', advances);
+        SupabaseSync.setAll(advKey, advances);
+
+        const amt = parseFloat(data.amount) || 0;
+        const method = data.method || 'Cash';
+        const finKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+        const finExists = SupabaseSync.getAll(finKey).some(f =>
+          f.category === 'Advance Payment' && f.type === 'Expense' &&
+          (f._advId === data.id ||
+           (f.description && data.person && f.description.includes(data.person) &&
+            Math.abs(parseFloat(f.amount) - amt) < 0.01))
+        );
+        if (!finExists && amt > 0 && method) {
+          SupabaseSync.insert(finKey, {
+            type: 'Expense', method, category: 'Advance Payment',
+            description: `Advance to ${data.person || 'Unknown'}`, amount: amt,
+            date: data.date || Utils.today(), note: data.note || '', _advId: data.id,
+          }, { bypassLog: true });
+          if (typeof SupabaseSync.updateAccountBalance === 'function') {
+            SupabaseSync.updateAccountBalance(method, amt, 'out');
+          }
+        }
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
       _saveRecycleBinToSettings();
-      logActivity('restore', 'settings', `Restored advance payment: ${data?.person || 'Unknown'}`);
+      logActivity('restore', 'settings', `Advance payment restored: ${data?.person || 'Unknown'}`);
       Utils.toast('Advance payment restored ✓', 'success');
       refreshModal();
+      window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table: 'advance_payments' } }));
       return;
     }
 
-    // ✅ investments restore
+    // ✅ investments restore (+ linked finance + balance)
     if (item && item.table === 'investments') {
       const data = item.data;
       if (data) {
-        const investments = SupabaseSync.getAll(DB.investments || 'investments');
+        const invKey = DB.investments || 'investments';
+        const investments = SupabaseSync.getAll(invKey);
         const exists = investments.some(i => i.id && i.id === data.id);
         if (!exists) investments.unshift(data);
-        // ✅ Bug Fix: IDB-এ write করো, localStorage নয় (SupabaseSync IDB থেকে পড়ে)
-        SupabaseSync.setAll(DB.investments || 'investments', investments);
+        SupabaseSync.setAll(invKey, investments);
+
+        const amt = parseFloat(data.amount) || 0;
+        const method = data.method || 'Cash';
+        const finKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+        const finExists = SupabaseSync.getAll(finKey).some(f =>
+          f.category === 'Investment Receiving' && f.type === 'Investment In' &&
+          (f._invId === data.id ||
+           (f.description && data.source && f.description.includes(data.source) &&
+            Math.abs(parseFloat(f.amount) - amt) < 0.01))
+        );
+        if (!finExists && amt > 0 && method) {
+          SupabaseSync.insert(finKey, {
+            type: 'Investment In', method, category: 'Investment Receiving',
+            description: `Investment from ${data.source || 'Unknown'}`, amount: amt,
+            date: data.date || Utils.today(), note: data.note || '', _invId: data.id,
+          }, { bypassLog: true });
+          if (typeof SupabaseSync.updateAccountBalance === 'function') {
+            SupabaseSync.updateAccountBalance(method, amt, 'in');
+          }
+        }
       }
       bin.splice(index, 1);
       if (typeof SupabaseSync !== 'undefined') SupabaseSync.setAll('recycle_bin', bin);
       _saveRecycleBinToSettings();
-      logActivity('restore', 'settings', `Restored investment: ${data?.source || 'Unknown'}`);
+      logActivity('restore', 'settings', `Investment restored: ${data?.source || 'Unknown'}`);
       Utils.toast('Investment restored ✓', 'success');
       refreshModal();
+      window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'restore', table: 'investments' } }));
       return;
     }
 

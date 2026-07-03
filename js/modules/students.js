@@ -980,11 +980,15 @@ const Students = (() => {
 
     try {
       if (access) {
-        SupabaseSync.update('student_portal_access', access.id, record);
+        SupabaseSync.update('student_portal_access', access.id, record, { bypassLog: true });
       } else {
         record.id = SupabaseSync.generateId();
         record.created_at = new Date().toISOString();
-        SupabaseSync.insert('student_portal_access', record);
+        SupabaseSync.insert('student_portal_access', record, { bypassLog: true });
+      }
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity(access ? 'edit' : 'add', 'student_portal_access',
+          `${s.name} — portal access ${isActive ? 'সচল' : 'বন্ধ'} করা হয়েছে`);
       }
       Utils.toast('Portal access configuration saved! ✅', 'success');
       Utils.closeModal();

@@ -396,28 +396,41 @@ window.SettingsStudentPortal = (() => {
       accessList.forEach(a => { accessMap[a.student_id] = a; });
 
       let done = 0;
-      for (const s of batchStudents) {
-        const phone = s.phone || s.contact || '';
-        const record = {
-          student_id:   s.id,
-          student_name: s.name || '',
-          phone:        phone,
-          pin_hash:     pinHash,
-          is_active:    true,
-        };
-        const existing = accessMap[s.id];
-        if (existing && existing.id) {
-          SupabaseSync.update('student_portal_access', existing.id, record);
-        } else {
-          record.id = SupabaseSync.generateId();
-          record.created_at = new Date().toISOString();
-          SupabaseSync.insert('student_portal_access', record);
+      const runBatch = async () => {
+        for (const s of batchStudents) {
+          const phone = s.phone || s.contact || '';
+          const record = {
+            student_id:   s.id,
+            student_name: s.name || '',
+            phone:        phone,
+            pin_hash:     pinHash,
+            is_active:    true,
+          };
+          const existing = accessMap[s.id];
+          if (existing && existing.id) {
+            SupabaseSync.update('student_portal_access', existing.id, record, { bypassLog: true });
+          } else {
+            record.id = SupabaseSync.generateId();
+            record.created_at = new Date().toISOString();
+            SupabaseSync.insert('student_portal_access', record, { bypassLog: true });
+          }
+          done++;
+          if (progEl) {
+            progEl.textContent = `✅ ${done} / ${batchStudents.length} জনের access দেওয়া হয়েছে...`;
+            progEl.style.display = 'block';
+          }
         }
-        done++;
-        if (progEl) {
-          progEl.textContent = `✅ ${done} / ${batchStudents.length} জনের access দেওয়া হয়েছে...`;
-          progEl.style.display = 'block';
-        }
+      };
+
+      if (typeof SupabaseSync.runWithoutActivityLog === 'function') {
+        await SupabaseSync.runWithoutActivityLog(runBatch);
+      } else {
+        await runBatch();
+      }
+
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('add', 'student_portal_access',
+          `ব্যাচ ${_spBatchTarget}: ${done} জন student-কে portal access দেওয়া হয়েছে — সম্পন্ন`);
       }
 
       spCloseBatchModal();
@@ -571,14 +584,19 @@ window.SettingsStudentPortal = (() => {
         };
 
         if (existing && existing.id) {
-          SupabaseSync.update('student_portal_access', existing.id, record);
+          SupabaseSync.update('student_portal_access', existing.id, record, { bypassLog: true });
         } else {
           record.id = SupabaseSync.generateId();
           record.created_at = new Date().toISOString();
-          SupabaseSync.insert('student_portal_access', record);
+          SupabaseSync.insert('student_portal_access', record, { bypassLog: true });
         }
       } else {
         throw new Error('SupabaseSync module is not loaded.');
+      }
+
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'student_portal_access',
+          `${studentName} (${studentId}) — portal access সেভ হয়েছে`);
       }
 
       spClosePinModal();
