@@ -1873,7 +1873,7 @@ const SettingsModule = (() => {
         </p>
         <button class="btn btn-primary btn-sm"
                 style="background:linear-gradient(90deg,#00ff88,#00d9ff);border:none;padding:10px 20px;font-weight:800;"
-                onclick="if(typeof Students!=='undefined')Students.repairMissingFinanceEntries();else if(typeof SupabaseSync!=='undefined'&&SupabaseSync.repairMissingStudentFinance)SupabaseSync.repairMissingStudentFinance();else Utils.toast('Students module not loaded','error')">
+                onclick="SettingsModule.repairAndRecalculate()">
           <i class="fa fa-wrench"></i> Repair Missing Finance Entries
         </button>
       </div>
@@ -4304,6 +4304,9 @@ ${expenseEntries.length > 0 ? `
       type: 'Income', method: retMethod, category: 'Advance Return',
       description: `Advance return from ${a.person}`, amount: retAmount, date: retDate, note: retNote
     });
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(retMethod, retAmount, 'in');
+    }
     closeSettingsInternalModal();
     Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
     refreshModal();
@@ -4530,6 +4533,13 @@ ${expenseEntries.length > 0 ? `
     const remaining = (parseFloat(inv.amount)||0) - totalReturned;
     if (!retAmount || retAmount <= 0) { Utils.toast('Return amount required', 'error'); return; }
     if (retAmount > remaining) { Utils.toast(`Cannot exceed remaining ৳${remaining.toLocaleString()}`, 'error'); return; }
+    if (typeof Utils.getAccountBalance === 'function') {
+      const available = Utils.getAccountBalance(retMethod);
+      if (available < retAmount) {
+        Utils.toast(`Insufficient funds in ${retMethod}. Available: ৳${available.toLocaleString()}`, 'error');
+        return;
+      }
+    }
     if (!investments[idx].returns) investments[idx].returns = [];
     investments[idx].returns.push({ amount: retAmount, date: retDate, method: retMethod, note: retNote });
     SupabaseSync.update(DB.investments || 'investments', investments[idx].id, investments[idx]);
@@ -4537,6 +4547,9 @@ ${expenseEntries.length > 0 ? `
       type: 'Investment Out', method: retMethod, category: 'Investment Return',
       description: `Investment return to ${inv.source}`, amount: retAmount, date: retDate, note: retNote
     });
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      SupabaseSync.updateAccountBalance(retMethod, retAmount, 'out');
+    }
     closeSettingsInternalModal();
     Utils.toast(`Return of ৳${retAmount.toLocaleString()} recorded ✓`, 'success');
     refreshModal();
@@ -5805,6 +5818,10 @@ ${expenseEntries.length > 0 ? `
     if (!ok) return;
     SupabaseSync.repairMissingStudentFinance({ silent: false });
     SupabaseSync.recalculateAccountBalancesFromLedger({ silent: false });
+    if (typeof Students !== 'undefined' && typeof Students.render === 'function') Students.render();
+    if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') DashboardModule.render();
+    if (typeof Finance !== 'undefined' && typeof Finance.render === 'function') Finance.render();
+    if (typeof Accounts !== 'undefined' && typeof Accounts.render === 'function') Accounts.render();
     window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { source: 'repair-recalculate' } }));
   }
 

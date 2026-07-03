@@ -2883,9 +2883,17 @@ const SupabaseSync = (() => {
       ]);
       const loansKey = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
       const allLoans = getAll(loansKey);
+      let loanCutoffSkipped = 0;
       allLoans.forEach(loan => {
         if (!loan || !loan.amount || !loan.method) return;
         if (loan.note && diagLoanNotes.has(loan.note)) return;
+        if (fromDate) {
+          const loanDate = (loan.date || '').split('T')[0];
+          if (loanDate && loanDate < fromDate) {
+            loanCutoffSkipped++;
+            return;
+          }
+        }
         const amt = parseFloat(loan.amount) || 0;
         if (amt <= 0) return;
         const method = loan.method;
@@ -2920,7 +2928,7 @@ const SupabaseSync = (() => {
         .map(([m, v]) => `${m}: ৳${Math.max(0,v).toLocaleString('en-IN')}`)
         .join(', ');
       const cutoffNote = fromDate
-        ? ` [cutoff: ${fromDate}, ${cutoffSkippedCount} পুরনো entry skip]`
+        ? ` [cutoff: ${fromDate}, ${cutoffSkippedCount} finance + ${loanCutoffSkipped} loan skip]`
         : '';
       _logActivity('system', 'accounts',
         `Account balance recalculated from Finance Ledger (from ${fromDate || 'all'}). ${summary}`);
@@ -2929,7 +2937,7 @@ const SupabaseSync = (() => {
         Utils.toast(`✅ Balance recalculate হয়েছে।${cutoffNote} ${summary}`, 'success', 6000);
       }
       console.info('[Sync] Balance recalculated from ledger:', netByMethod, cutoffNote);
-      return { success: true, netByMethod, cutoffSkippedCount };
+      return { success: true, netByMethod, cutoffSkippedCount, loanCutoffSkipped };
     } catch (e) {
       console.error('[Sync] recalculateAccountBalancesFromLedger failed:', e);
       if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
