@@ -3061,11 +3061,22 @@ ${expenseEntries.length > 0 ? `
     };
 
     try {
-      await SupabaseSync.insert(DB.finance, entry);
-      await SupabaseSync.updateAccountBalance(adjMethod, adjAmount, adjType === 'Income' ? 'in' : 'out');
-      Utils.toast('Balance adjustment saved!', 'success');
-      closeSettingsInternalModal();
-      showAccountsSubTab('adjustment');
+      // Step 1: Insert ledger entry (source of truth)
+      const insertResult = await SupabaseSync.insert(DB.finance, entry);
+      
+      // Step 2: Update balance based on ledger entry
+      try {
+        await SupabaseSync.updateAccountBalance(adjMethod, adjAmount, adjType === 'Income' ? 'in' : 'out');
+        Utils.toast('Balance adjustment saved!', 'success');
+        closeSettingsInternalModal();
+        showAccountsSubTab('adjustment');
+      } catch (balanceErr) {
+        // Balance update failed — ledger entry exists but balance wasn't updated
+        console.error('[Settings] Balance update failed after ledger insert:', balanceErr);
+        console.warn('[Settings] Orphaned ledger entry (ID:', insertResult?.id, ') — balance/ledger mismatch. Recommend Finance Ledger Repair.');
+        Utils.toast('Balance adjustment saved to ledger, but balance update failed. Please run Finance Ledger Repair.', 'warning');
+        // Could optionally delete ledger entry here as rollback, but keeping it for audit trail
+      }
     } catch (err) {
       console.error('saveBalanceAdjustment error:', err);
       Utils.toast('Failed to save adjustment.', 'error');
@@ -3091,13 +3102,23 @@ ${expenseEntries.length > 0 ? `
     if (!confirm(`Delete this balance adjustment?\n${entry.type === 'Income' ? '+' : '-'} ৳${parseFloat(entry.amount).toLocaleString()} on ${entry.date} (${entry.method})\n\nThis will reverse the balance change.`)) return;
 
     try {
-      // Reverse the balance effect
-      const reverseDir = entry.type === 'Income' ? 'out' : 'in';
-      await SupabaseSync.updateAccountBalance(entry.method, parseFloat(entry.amount), reverseDir);
+      // Step 1: Delete from ledger FIRST (source of truth)
       await SupabaseSync.remove(DB.finance, id);
-      Utils.toast('Adjustment deleted and balance reversed.', 'success');
-      if (typeof logActivity === 'function') logActivity('Deleted balance adjustment', entry);
-      showAccountsSubTab('adjustment');
+      
+      // Step 2: Reverse the balance effect
+      const reverseDir = entry.type === 'Income' ? 'out' : 'in';
+      try {
+        await SupabaseSync.updateAccountBalance(entry.method, parseFloat(entry.amount), reverseDir);
+        Utils.toast('Adjustment deleted and balance reversed.', 'success');
+        if (typeof logActivity === 'function') logActivity('Deleted balance adjustment', entry);
+        showAccountsSubTab('adjustment');
+      } catch (balanceErr) {
+        // Balance reverse failed — ledger already deleted
+        console.error('[Settings] Balance reverse failed after ledger delete:', balanceErr);
+        console.warn('[Settings] Ledger entry deleted (ID:', id, ') but balance not reversed — balance/ledger mismatch. Recommend Finance Ledger Repair.');
+        Utils.toast('Adjustment deleted from ledger, but balance reverse failed. Please run Finance Ledger Repair.', 'warning');
+        // Ledger already deleted, so balance mismatch is unavoidable — user must repair
+      }
     } catch (err) {
       console.error('deleteBalanceAdjustment error:', err);
       Utils.toast('Failed to delete adjustment.', 'error');
