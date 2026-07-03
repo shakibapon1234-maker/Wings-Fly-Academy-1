@@ -3160,6 +3160,14 @@ const SyncEngine = (() => {
   async function _pullCoreInternal(opts = {}) {
     const silent = opts.silent !== false ? true : false;
     const forceFull = opts.full === true;
+    
+    // 🚨 GUARD: Block sync if deployment credentials are missing
+    if (window._WFA_DEPLOYMENT_ERROR && window._WFA_DEPLOYMENT_ERROR.code === 'MISSING_CLIENT_CREDENTIALS') {
+      console.warn('[Sync] Pull blocked — deployment misconfiguration (missing supabase-secrets.js). Data protection active.');
+      setStatus('offline');
+      return;
+    }
+    
     setStatus('syncing');
 
     _checkAndManageStorage();
@@ -3577,6 +3585,13 @@ const SyncEngine = (() => {
 
   async function push(opts = {}) {
     const silent = opts.silent !== false ? true : false;
+    
+    // 🚨 GUARD: Block sync if deployment credentials are missing
+    if (window._WFA_DEPLOYMENT_ERROR && window._WFA_DEPLOYMENT_ERROR.code === 'MISSING_CLIENT_CREDENTIALS') {
+      console.warn('[Sync] Push blocked — deployment misconfiguration (missing supabase-secrets.js). Data protection active.');
+      return;
+    }
+    
     setStatus('syncing');
     try {
       // ✅ BUG FIX: Read client fresh on each push call.

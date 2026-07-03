@@ -37,6 +37,39 @@ function _resolveSupabaseCreds() {
   return { url, anonKey };
 }
 
+// ============================================================
+// ✅ GUARD: Prevent Silent Fallback to Main Project
+// BUG: If supabase-secrets.js goes missing (build process, git sync error),
+// the fallback logic quietly connects to main project, causing data leakage.
+// This guard detects non-root deployments (clients) with missing secrets.url
+// and blocks sync/purge to prevent silent cross-client contamination.
+// ============================================================
+function _checkAndBlockUnconfiguredClient() {
+  const secrets = window.WFA_SUPABASE_SECRETS || {};
+  const isNonRootPath = !window.location.pathname.endsWith('/') || 
+                        window.location.pathname.includes('/Wings-Fly-Academy-') ||
+                        window.location.pathname.match(/\/(Client-\d+|Wings-Fly-Academy-\d+)\//);
+  
+  if (isNonRootPath && !secrets.url) {
+    window._WFA_DEPLOYMENT_ERROR = {
+      code: 'MISSING_CLIENT_CREDENTIALS',
+      message: 'Client credentials not found. supabase-secrets.js is missing or 404.',
+      timestamp: new Date().toISOString(),
+    };
+    console.error(
+      '[Config] 🚨 CRITICAL: Client deployment detected, but supabase-secrets.js is missing or returns 404.\n' +
+      'This blocks sync to prevent silent fallback to main project (data leakage risk).\n' +
+      'Fix: Commit supabase-secrets.js with this client\'s Supabase URL + anon key to the GitHub repo.\n' +
+      'Path: js/core/supabase-secrets.js\n' +
+      'Format: window.WFA_SUPABASE_SECRETS = { url: "https://YOUR_CLIENT.supabase.co", anonKey: "..." };'
+    );
+    return true;
+  }
+  return false;
+}
+
+const _deploymentBlocksSync = _checkAndBlockUnconfiguredClient();
+
 let { url: SUPABASE_URL, anonKey: SUPABASE_ANON_KEY } = _resolveSupabaseCreds();
 
 // ============================================================
@@ -111,6 +144,12 @@ function _purgeLocalDataForNewDb() {
 
 // Run check synchronously, as early as possible, before any module reads localStorage
 (function _checkAndHandleDbSwitch() {
+  // 🚨 GUARD: If client deployment is misconfigured, do NOT purge or fallback
+  if (window._WFA_DEPLOYMENT_ERROR && window._WFA_DEPLOYMENT_ERROR.code === 'MISSING_CLIENT_CREDENTIALS') {
+    console.warn('[Config] Sync/purge blocked — deployment misconfiguration detected. See error above.');
+    return;
+  }
+
   try {
     const lastUrl = localStorage.getItem(_LS_LAST_URL_KEY);
     if (lastUrl && lastUrl !== SUPABASE_URL) {
@@ -252,9 +291,41 @@ if (!navigator.onLine) {
 })();
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Show deployment error banner if credentials are missing
+  if (window._WFA_DEPLOYMENT_ERROR && window._WFA_DEPLOYMENT_ERROR.code === 'MISSING_CLIENT_CREDENTIALS') {
+    _showDeploymentErrorBanner();
+  }
   await _hydrateSupabaseCredsFromStorage();
   _warnIfStillUnconfigured();
 });
+
+function _showDeploymentErrorBanner() {
+  if (document.getElementById('wfa-deployment-error-banner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'wfa-deployment-error-banner';
+  banner.style.cssText = [
+    'position:fixed', 'top:0', 'left:0', 'right:0', 'z-index:99999',
+    'background:linear-gradient(90deg,#d32f2f,#c62828)',
+    'color:#fff', 'font-size:0.85rem', 'font-weight:700',
+    'padding:12px 16px', 'text-align:left',
+    'box-shadow:0 2px 16px rgba(211,47,47,0.5)',
+    'letter-spacing:0.3px'
+  ].join(';');
+  banner.innerHTML = `
+    <div style="max-width:1200px;margin:0 auto;display:flex;align-items:flex-start;gap:12px">
+      <span style="font-size:1.1rem;flex-shrink:0">⚠️</span>
+      <div style="flex:1">
+        <div style="margin-bottom:4px;"><strong>Configuration Error: Client Credentials Missing</strong></div>
+        <div style="font-size:0.75rem;opacity:0.95">
+          File <code style="background:rgba(0,0,0,0.2);padding:2px 4px;border-radius:2px;">js/core/supabase-secrets.js</code> is missing or 404.
+          Sync is blocked to prevent data leakage. 
+          <strong>Action:</strong> Add <code style="background:rgba(0,0,0,0.2);padding:2px 4px;border-radius:2px;">supabase-secrets.js</code> to GitHub repo with this client's Supabase URL + anon key.
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.prepend(banner);
+}
 
 async function _warnIfStillUnconfigured() {
   const { url, anonKey } = _resolveSupabaseCreds();
