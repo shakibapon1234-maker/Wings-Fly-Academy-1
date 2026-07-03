@@ -16,8 +16,9 @@ yarn-error.log*
 .env.local
 .env.production
 
-# Supabase credentials — NEVER commit live keys
-js/core/supabase-secrets.js
+# Supabase credentials — NEVER commit live keys (main project only)
+# ✅ EXCEPTION: Client deployments MUST have this file committed
+# js/core/supabase-secrets.js  ← UNCOMMENT ONLY FOR MAIN PROJECT
 android/app/src/main/assets/public/js/core/supabase-secrets.js
 
 # License Server credentials — NEVER commit (use license-server-config.example.js as template)
