@@ -1385,14 +1385,20 @@ const App = (() => {
     // ক্লাস ব্যবহার করে না — তাই আগের guard এগুলো ধরতে পারতো না। এখন display:flex
     // অবস্থায় থাকা যেকোনো "*-preview-modal" কেও open হিসেবে গণ্য করা হচ্ছে।
     let _syncRenderTimer = null;
+    // ✅ FIX: modal-open অবস্থা event-fire মুহূর্তে ধরা হচ্ছিল, কিন্তু আসল render হচ্ছিল
+    // 400ms পরে (debounce)। এই মাঝের 400ms উইন্ডোতে ইউজার যদি certificate/ID-card প্রিভিউ
+    // ওপেন করে, সেই stale (পুরনো) snapshot অনুযায়ী renderModule() চলে যেত এবং মাত্র খোলা
+    // মডালটা সাথে সাথে বন্ধ হয়ে যেত — বিশেষত নতুন ক্লায়েন্টে, যেখানে initial sync/realtime
+    // events ঘন ঘন আসতে থাকে। এখন state চেক করা হচ্ছে actual render-এর মুহূর্তে (setTimeout-এর
+    // ভিতরে), event আসার মুহূর্তে নয়।
     window.addEventListener('wfa:synced', () => {
-      const modalOpen = document.querySelector('.modal-backdrop.open');
-      const settingsOpen = document.getElementById('settings-overlay');
-      const previewModalOpen = Array.from(document.querySelectorAll('[id$="-preview-modal"]'))
-        .some(el => getComputedStyle(el).display !== 'none');
       clearTimeout(_syncRenderTimer);
       _syncRenderTimer = setTimeout(() => {
         _applyAcademyMetadata();
+        const modalOpen = document.querySelector('.modal-backdrop.open');
+        const settingsOpen = document.getElementById('settings-overlay');
+        const previewModalOpen = Array.from(document.querySelectorAll('[id$="-preview-modal"]'))
+          .some(el => getComputedStyle(el).display !== 'none');
         if (!modalOpen && !settingsOpen && !previewModalOpen) {
           renderModule(currentSection);
         }
