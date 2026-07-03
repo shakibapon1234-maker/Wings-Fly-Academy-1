@@ -2312,6 +2312,9 @@ const Students = (() => {
       return { fixedCount: 0, totalAmount: 0 };
     }
     const result = SupabaseSync.repairMissingStudentFinance({ silent: false });
+    if (typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
+      SupabaseSync.recalculateAccountBalancesFromLedger({ silent: false });
+    }
     render();
     if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') {
       DashboardModule.render();

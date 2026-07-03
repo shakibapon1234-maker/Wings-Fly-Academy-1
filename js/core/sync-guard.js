@@ -149,7 +149,7 @@ const SyncGuard = (() => {
    * — Loan type (_isLoan=true) যদি income/expense হিসেবে count হয়
    * — Investment In/Out যদি Income/Expense type-এ ভুলভাবে save হয়
    * — Transfer In/Out যদি net profit-এ ঢুকে যায়
-   * — Advance payment (wfa_advance_payments) finance ledger-এ আছে কিনা
+   * — Advance payment finance mirror missing কিনা (settings.js intentionally ledger-এ রাখে)
    *
    * এটি read-only — কোনো ডেটা পরিবর্তন করে না।
    * @returns {{ ok: boolean, issues: string[] }}
@@ -187,19 +187,19 @@ const SyncGuard = (() => {
         }
       });
 
-      // ── Advance payments should NOT be in finance_ledger as Income/Expense ──
-      const advances = (() => { try { return JSON.parse(localStorage.getItem('wfa_advance_payments') || '[]'); } catch { return []; } })();
-      if (advances.length > 0) {
-        advances.forEach((a) => {
-          const linked = finance.filter(f =>
-            f.category === 'Advance Payment' && f.person_name === a.person && !f._isLoan
-          );
-          if (linked.length > 0) {
-            issues.push(`Advance payment for "${a.person}" appears in finance_ledger as Income/Expense — it should not be counted.`);
-            report('advance_as_income', { person: a.person, linkedCount: linked.length });
-          }
-        });
-      }
+      // ── Advance payments: finance mirror আছে কিনা (Expense + Advance Return Income) ──
+      const advances = window.SupabaseSync
+        ? (window.SupabaseSync.getAll('advance_payments') || [])
+        : [];
+      advances.forEach((a) => {
+        const giveLinked = finance.filter(f =>
+          f.category === 'Advance Payment' && f.type === 'Expense' &&
+          (f._advId === a.id || (f.description && a.person && f.description.includes(a.person)))
+        );
+        if (giveLinked.length === 0) {
+          issues.push(`Advance for "${a.person || a.id}" has no linked finance Expense entry.`);
+        }
+      });
 
     } catch (e) {
       issues.push(`Audit error: ${e?.message}`);
@@ -225,32 +225,42 @@ const SyncGuard = (() => {
       const finance  = window.SupabaseSync ? window.SupabaseSync.getAll('finance_ledger') : [];
       const loans    = window.SupabaseSync ? window.SupabaseSync.getAll('loans') : [];
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll('accounts') : [];
+      const fromDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+
+      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+      const diagNotes = new Set([
+        'Auto-generated diagnostic payment',
+        'Auto-generated diagnostic exam payment',
+        'Auto-generated diagnostic salary payment',
+        'Auto-generated diagnostic loan finance',
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
+      const diagLoanNotes = new Set([
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
 
       // Build expected balance per method/account from ledger
-      const expected = {}; // methodName → balance
+      const postCutoffNet = {}; // methodName → net (post-cutoff only when fromDate set)
 
       const _add = (method, amount, dir) => {
         if (!method) return;
-        if (!expected[method]) expected[method] = 0;
-        expected[method] += (dir === 'in' ? amount : -amount);
+        if (!postCutoffNet[method]) postCutoffNet[method] = 0;
+        postCutoffNet[method] += (dir === 'in' ? amount : -amount);
       };
 
       finance.forEach(f => {
         const amt = parseFloat(f.amount) || 0;
-        if (f._isLoan) return; // loan balance tracked via loans table
-
-        // NOTE: "Opening Balance" entries are IGNORED in the balance audit.
-        // The _upsertOpeningEntry() system has been permanently removed from accounts.js.
-        // Any remaining Opening Balance entries in the ledger are stale phantom entries
-        // that should NOT be counted — account balances are tracked directly via
-        // accounts.balance (updated live by updateAccountBalance on each transaction).
-        if (f.category === 'Opening Balance') {
-          return; // skip — do NOT count as income
+        if (!f.method || amt <= 0) return;
+        if (f._isLoan) return;
+        if (phantomCategories.has(f.category)) return;
+        if (f.note && diagNotes.has(f.note)) return;
+        if (fromDate) {
+          const entryDate = (f.date || '').split('T')[0];
+          if (entryDate && entryDate < fromDate) return;
         }
 
-        // ✅ Bug Fix: Investment In/Out যোগ করা হয়েছে — এগুলো account balance
-        // পরিবর্তন করে কিন্তু আগে audit calculation থেকে বাদ ছিল।
-        // এই কারণেই Cash stored vs calculated বড় gap দেখাচ্ছিল।
         const fType = String(f.type || '').toLowerCase();
         if (['income', 'transfer in', 'investment in'].includes(fType))    _add(f.method, amt, 'in');
         if (['expense', 'transfer out', 'investment out'].includes(fType)) _add(f.method, amt, 'out');
@@ -258,15 +268,36 @@ const SyncGuard = (() => {
 
       loans.forEach(l => {
         const amt = parseFloat(l.amount) || 0;
-        // Loan given out → cash out
+        if (!l.method || amt <= 0) return;
+        if (l.note && diagLoanNotes.has(l.note)) return;
+        if (fromDate) {
+          const loanDate = (l.date || '').split('T')[0];
+          if (loanDate && loanDate < fromDate) return;
+        }
         if (l.type === 'Loan Giving'    || l.direction === 'given')    _add(l.method, amt, 'out');
-        // Loan received → cash in
         if (l.type === 'Loan Receiving' || l.direction === 'received') _add(l.method, amt, 'in');
-        // ✅ Fix: Loan repayments
-        if (l.repayment_amount && parseFloat(l.repayment_amount) > 0) {
-          const repAmt = parseFloat(l.repayment_amount);
-          if (l.type === 'Loan Giving')    _add(l.method, repAmt, 'in');  // repaid to us
-          if (l.type === 'Loan Receiving') _add(l.method, repAmt, 'out'); // we repay
+      });
+
+      let baselines = {};
+      if (fromDate) {
+        try {
+          baselines = JSON.parse(localStorage.getItem('wfa_repair_cutoff_baselines') || '{}');
+        } catch { baselines = {}; }
+      }
+
+      const expected = {};
+      accounts.forEach(a => {
+        const name = a.type === 'Cash' ? 'Cash' : a.name;
+        if (!name) return;
+        const stored = parseFloat(a.balance) || 0;
+        const net = postCutoffNet[name] || 0;
+        if (fromDate) {
+          const baseline = Object.keys(baselines).length > 0
+            ? (baselines[name] ?? stored - net)
+            : stored - net;
+          expected[name] = Math.round((baseline + net) * 100) / 100;
+        } else {
+          expected[name] = Math.round(net * 100) / 100;
         }
       });
 
@@ -275,7 +306,6 @@ const SyncGuard = (() => {
         const name = a.type === 'Cash' ? 'Cash' : a.name;
         if (!name) return;
         const stored = parseFloat(a.balance) || 0;
-        // Skip accounts with zero stored balance AND no expected ledger activity
         if (stored === 0 && !(name in expected)) return;
         const calc = expected[name] || 0;
         const diff = Math.abs(stored - calc);

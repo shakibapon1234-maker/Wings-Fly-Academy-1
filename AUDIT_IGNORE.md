@@ -340,10 +340,10 @@ Create/delete flows আগ থেকেই balance update করত; return flow
 
 ### 11.7 — Finance Ledger Repair: সতর্কতা
 
-1. **Cutoff অবশ্যই set করুন** migration data থাকলে — cutoff-এর আগের finance + loan count হয় না (2026-07-03 fix)।
-2. **Negative balance clamp:** Recalculate `Math.max(0,...)` — legitimate negative (অতিরিক্ত expense) দেখাবে না।
-3. **Loan repayments:** `sync-guard.js auditBalances()` `repayment_amount` support করে, কিন্তু `recalculateAccountBalancesFromLedger()` ও production loans UI-তে field নেই — dead code path।
-4. **P&L vs Balance:** Repair **account balance** ঠিক করে; Dashboard Net Profit বা Finance Income/Expense totals **পরিবর্তন করে না** (student fee ছাড়া)।
+1. **Cutoff + Baseline (fix 2026-07-03):** `setRepairCutoffToday()` current account balance snapshot করে (`wfa_repair_cutoff_baselines`)। Recalculate: `balance = baseline + post-cutoff ledger net` — migration-এর আগের balance হারায় না। Snapshot না থাকলে প্রথম recalculate-এ derive করে save।
+2. **Negative balance:** Recalculate আর `Math.max(0)` clamp করে না — ledger অনুযায়ী negative দেখাতে পারে (warning toast)।
+3. **Loan repayments:** `repayment_amount` field production UI-তে নেই — dead code।
+4. **P&L vs Balance:** Repair **account balance** ঠিক করে; Dashboard Net Profit / Finance Income-Expense totals **by design** পরিবর্তন হয় না।
 
 ### 11.8 — Related modules (quick map)
 
@@ -372,5 +372,6 @@ Fee Reconciliation payment add/delete করে না — mismatch fix only।
 
 ---
 
+*আপডেট: 2026-07-03 (3) — Cutoff baseline snapshot, negative clamp removed, sync-guard audit aligned, Students repair+recalc unified।*
 *আপডেট: 2026-07-03 (2) — Section 11: Return balance fix, Repair button unify, loan cutoff fix।*
 *আপডেট: 2026-07-03 — Section 11: Payment System সম্পূর্ণ লজিক + Finance Ledger Repair যাচাই রেফারেন্স।*

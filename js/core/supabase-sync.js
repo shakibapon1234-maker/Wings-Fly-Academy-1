@@ -2797,7 +2797,52 @@ const SupabaseSync = (() => {
   }
 
   /**
-   * ✅ Finance Ledger থেকে সরাসরি account balance recalculate করে।
+   * Cutoff active হলে pre-cutoff balance anchor (migration data preserve)।
+   * Snapshot না থাকলে current stored − post-cutoff net থেকে derive করে।
+   */
+  function _resolveCutoffBaselines(allAccounts, netByMethod) {
+    let baselines = {};
+    try {
+      baselines = JSON.parse(localStorage.getItem('wfa_repair_cutoff_baselines') || '{}');
+    } catch { baselines = {}; }
+
+    if (Object.keys(baselines).length > 0) return baselines;
+
+    allAccounts.forEach(acc => {
+      let methodKey = null;
+      if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') {
+        methodKey = 'Cash';
+      } else if (acc.type === 'Bank_Detail' || acc.type === 'Mobile_Detail') {
+        methodKey = acc.name;
+      }
+      if (!methodKey) return;
+      const stored = parseFloat(acc.balance) || 0;
+      const postNet = netByMethod[methodKey] || 0;
+      baselines[methodKey] = Math.round((stored - postNet) * 100) / 100;
+    });
+
+    try {
+      localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(baselines));
+    } catch { /* ignore */ }
+    return baselines;
+  }
+
+  function snapshotCutoffBaselines() {
+    const allAccounts = getAll('accounts');
+    const map = {};
+    allAccounts.forEach(acc => {
+      let key = null;
+      if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') key = 'Cash';
+      else if (acc.type === 'Bank_Detail' || acc.type === 'Mobile_Detail') key = acc.name;
+      if (key) map[key] = Math.round((parseFloat(acc.balance) || 0) * 100) / 100;
+    });
+    try {
+      localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(map));
+    } catch { /* ignore */ }
+    return map;
+  }
+
+  /**
    * এটা একটা "nuclear reset" — incremental counter বাদ দিয়ে
    * সব Finance entry এর sum থেকে balance তৈরি করে।
    *
@@ -2903,6 +2948,9 @@ const SupabaseSync = (() => {
       });
 
       // প্রতিটি account-এর balance update করো
+      const cutoffBaselines = fromDate ? _resolveCutoffBaselines(allAccounts, netByMethod) : null;
+      let negativeBalanceWarn = false;
+
       const updatedAccounts = allAccounts.map(acc => {
         let methodKey = null;
         if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') {
@@ -2913,10 +2961,14 @@ const SupabaseSync = (() => {
         if (!methodKey) return acc; // Other/unknown type — skip
 
         const ledgerNet = netByMethod[methodKey] || 0;
-        // Ledger net = total income - total expense for this method.
-        // Account balance = ledger net (we trust ledger as source of truth).
-        // Negative means expenses exceeded income — clamp to 0 to avoid showing negative.
-        const newBalance = Math.max(0, Math.round(ledgerNet * 100) / 100);
+        let newBalance;
+        if (fromDate && cutoffBaselines) {
+          const baseline = cutoffBaselines[methodKey] ?? 0;
+          newBalance = Math.round((baseline + ledgerNet) * 100) / 100;
+        } else {
+          newBalance = Math.round(ledgerNet * 100) / 100;
+        }
+        if (newBalance < 0) negativeBalanceWarn = true;
         return { ...acc, balance: newBalance, updated_at: new Date().toISOString() };
       });
 
@@ -2925,11 +2977,20 @@ const SupabaseSync = (() => {
       updatedAccounts.forEach(acc => _pushRecord('accounts', acc));
 
       const summary = Object.entries(netByMethod)
-        .map(([m, v]) => `${m}: ৳${Math.max(0,v).toLocaleString('en-IN')}`)
+        .map(([m, v]) => {
+          const bal = fromDate && cutoffBaselines
+            ? Math.round(((cutoffBaselines[m] ?? 0) + v) * 100) / 100
+            : Math.round(v * 100) / 100;
+          return `${m}: ৳${bal.toLocaleString('en-IN')}`;
+        })
         .join(', ');
       const cutoffNote = fromDate
-        ? ` [cutoff: ${fromDate}, ${cutoffSkippedCount} finance + ${loanCutoffSkipped} loan skip]`
+        ? ` [cutoff: ${fromDate}, ${cutoffSkippedCount} finance + ${loanCutoffSkipped} loan skip, baseline preserved]`
         : '';
+
+      if (!silent && negativeBalanceWarn && typeof Utils !== 'undefined' && Utils.toast) {
+        Utils.toast('⚠️ কিছু account-এ balance negative — ledger অনুযায়ী সঠিক মান দেখানো হচ্ছে।', 'warning', 5000);
+      }
       _logActivity('system', 'accounts',
         `Account balance recalculated from Finance Ledger (from ${fromDate || 'all'}). ${summary}`);
 
@@ -2976,6 +3037,7 @@ const SupabaseSync = (() => {
     ensureDefaultCashAccount,
     repairMissingStudentFinance,
     recalculateAccountBalancesFromLedger,
+    snapshotCutoffBaselines,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,

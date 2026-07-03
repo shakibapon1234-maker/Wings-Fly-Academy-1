@@ -5853,7 +5853,10 @@ ${expenseEntries.length > 0 ? `
   function setRepairCutoffToday() {
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     localStorage.setItem('wfa_repair_cutoff_date', today);
-    Utils.toast('✅ Cutoff date set: ' + today + ' — এখন থেকে শুধু নতুন student repair হবে।', 'success', 5000);
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.snapshotCutoffBaselines === 'function') {
+      SupabaseSync.snapshotCutoffBaselines();
+    }
+    Utils.toast('✅ Cutoff date set: ' + today + ' — current balance baseline snapshot নেওয়া হয়েছে।', 'success', 5000);
     // Update the display span if visible
     const el = document.getElementById('cutoff-display');
     if (el) el.textContent = '✅ Cutoff active: ' + today;
@@ -5862,6 +5865,7 @@ ${expenseEntries.length > 0 ? `
 
   function clearRepairCutoff() {
     localStorage.removeItem('wfa_repair_cutoff_date');
+    localStorage.removeItem('wfa_repair_cutoff_baselines');
     Utils.toast('⚪ Cutoff সরানো হয়েছে — এখন সব student repair হবে।', 'info', 4000);
     const el = document.getElementById('cutoff-display');
     if (el) el.textContent = '⚪ কোনো cutoff set নেই — সব student repair করে।';
