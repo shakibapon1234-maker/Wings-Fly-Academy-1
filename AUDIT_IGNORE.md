@@ -511,3 +511,30 @@ anonKey: 'eyJh...' (main project anon key)
 3. Cutoff date + baseline snapshot — balance restore সম্পূর্ণ automated এবং verifiable
 
 *আপডেট: 2026-07-03 (5) — Section 13: Major incident fix summary (silent fallback guard, credentials restore, academy name fix, balance repair)।*
+
+### 13.6 — Balance Adjustment Desync Bug Fix (2026-07-03 PM)
+
+**সমস্যা:**  Settings → Accounts → Balance Adjustment-এ দুটো function-এ transaction sequencing bug ছিল:
+
+**`saveBalanceAdjustment()` bug:**
+- Insert ledger entry → Update account balance
+- Problem: যদি balance update fail হয় → ledger entry orphaned (balance/ledger mismatch)
+
+**`deleteBalanceAdjustment()` bug:**
+- Update balance first (reverse) → Delete ledger entry
+- Problem: যদি delete fail হয় → balance reversed কিন্তু ledger still exists (mismatch)
+
+**চূড়ান্ত ফিক্স:**
+- **Ledger = source of truth** — সবসময় ledger operation আগে করো
+- **Error handling + rollback:**
+  - `saveBalanceAdjustment()`: Insert ledger first, then update balance. If balance fails → warning toast + "Run Repair"
+  - `deleteBalanceAdjustment()`: Delete ledger first, then reverse balance. If balance fails → warning toast + "Run Repair"
+
+**নতুন behavior:**
+- যদি কোনো operation fail হয় → explicit warning (not silent failure)
+- User সরাসরি জানবে Finance Ledger Repair run করতে হবে
+- Audit trail preserved (ledger entry kept even if balance update fails)
+
+**প্রভাবিত ফাইল:**
+- `js/ui/settings.js` (lines 3007-3029, 3044-3061)
+- `www/js/ui/settings.js` (deployed version)
