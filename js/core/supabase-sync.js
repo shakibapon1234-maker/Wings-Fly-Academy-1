@@ -2809,6 +2809,12 @@ const SupabaseSync = (() => {
   function recalculateAccountBalancesFromLedger(options = {}) {
     const silent = !!options.silent;
     const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+
+    // ✅ Cutoff date: options.fromDate > wfa_repair_cutoff_date > (none)
+    // Cutoff-এর আগের finance entries calculation থেকে বাদ যাবে।
+    // এটা migration/পুরনো data-র কারণে balance eliminate হওয়া থেকে রক্ষা করে।
+    const fromDate = options.fromDate || localStorage.getItem('wfa_repair_cutoff_date') || '';
+
     try {
       const allFinance = getAll(financeKey);
       const allAccounts = getAll('accounts');
@@ -2826,11 +2832,21 @@ const SupabaseSync = (() => {
 
       // প্রতিটি method (Cash, Bank, Mobile) এর জন্য net sum গণনা
       const netByMethod = {}; // methodName → net amount (Income positive, Expense negative)
+      let cutoffSkippedCount = 0;
 
       allFinance.forEach(f => {
         if (!f || !f.amount || !f.method) return;
         if (phantomCategories.has(f.category)) return;
         if (f.note && diagNotes.has(f.note)) return;
+
+        // ✅ Cutoff date check: পুরনো entries skip করো
+        if (fromDate) {
+          const entryDate = (f.date || '').split('T')[0];
+          if (entryDate && entryDate < fromDate) {
+            cutoffSkippedCount++;
+            return;
+          }
+        }
 
         // ✅ IMPORTANT: _isLoan: true entries SKIP করতে হবে।
         // loans.js সরাসরি updateAccountBalance() দিয়ে balance update করে
@@ -2903,14 +2919,17 @@ const SupabaseSync = (() => {
       const summary = Object.entries(netByMethod)
         .map(([m, v]) => `${m}: ৳${Math.max(0,v).toLocaleString('en-IN')}`)
         .join(', ');
+      const cutoffNote = fromDate
+        ? ` [cutoff: ${fromDate}, ${cutoffSkippedCount} পুরনো entry skip]`
+        : '';
       _logActivity('system', 'accounts',
-        `Account balance recalculated from Finance Ledger. ${summary}`);
+        `Account balance recalculated from Finance Ledger (from ${fromDate || 'all'}). ${summary}`);
 
       if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
-        Utils.toast(`✅ Account balance Finance Ledger থেকে recalculate করা হয়েছে। ${summary}`, 'success', 6000);
+        Utils.toast(`✅ Balance recalculate হয়েছে।${cutoffNote} ${summary}`, 'success', 6000);
       }
-      console.info('[Sync] Balance recalculated from ledger:', netByMethod);
-      return { success: true, netByMethod };
+      console.info('[Sync] Balance recalculated from ledger:', netByMethod, cutoffNote);
+      return { success: true, netByMethod, cutoffSkippedCount };
     } catch (e) {
       console.error('[Sync] recalculateAccountBalancesFromLedger failed:', e);
       if (!silent && typeof Utils !== 'undefined' && Utils.toast) {

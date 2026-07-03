@@ -1397,16 +1397,17 @@ const SettingsModule = (() => {
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
           Student যোগ করার সময় <strong style="color:#00ff88">Paid</strong> amount save হয়েছে কিন্তু
           Finance Ledger / Account Balance <strong style="color:#ff4757">০</strong> দেখাচ্ছে?<br/>
-          এই বাটন missing finance entries তৈরি করবে এবং Cash account balance আপডেট করবে।
+          এই বাটন missing finance entries ledger-এ যোগ করবে, তারপর <strong style="color:#ffd700">Balance Cutoff Date</strong> মেনে account balance recalculate করবে।
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-primary btn-sm"
                   style="background:linear-gradient(90deg,#00ff88,#00d9ff);border:none;padding:10px 20px;font-weight:800;"
-                  onclick="if(typeof Students!=='undefined')Students.repairMissingFinanceEntries();else if(typeof SupabaseSync!=='undefined'&&SupabaseSync.repairMissingStudentFinance)SupabaseSync.repairMissingStudentFinance();else Utils.toast('Students module not loaded','error')">
+                  onclick="SettingsModule.repairAndRecalculate()">
             <i class="fa fa-wrench"></i> Repair Missing Finance Entries
           </button>
         </div>
       </div>
+
       <div class="settings-card glow-cyan" style="margin-top:12px">
         <div class="settings-card-title"><i class="fa fa-calendar-check"></i> Balance Cutoff Date</div>
         <p style="font-size:.88rem;color:var(--text-secondary);margin-bottom:14px;line-height:1.6;">
@@ -5785,8 +5786,31 @@ ${expenseEntries.length > 0 ? `
     setTimeout(() => location.reload(), 800);
   }
 
+  // ── Repair + Recalculate Balance (Option B) ────────────────────────────
+  // AUDIT_IGNORE §1: লজিক ছোট wrapper — আসল কাজ supabase-sync.js-এ।
+  async function repairAndRecalculate() {
+    if (typeof SupabaseSync === 'undefined' || typeof SupabaseSync.repairMissingStudentFinance !== 'function') {
+      Utils.toast('SupabaseSync module not loaded — reload the page', 'error');
+      return;
+    }
+    const cutoff = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    const cutoffMsg = cutoff
+      ? `\n\nBalance Cutoff: ${cutoff} — এর আগের entries গণনায় আসবে না।`
+      : '\n\n⚠️ Cutoff date set নেই — সব entries (পুরনো সহ) গণনায় আসবে।';
+    const ok = await Utils.confirm(
+      '(১) Missing student finance entries ledger-এ যোগ করবে।\n(২) তারপর Finance Ledger থেকে account balance recalculate করবে।' +
+      cutoffMsg + '\n\nUndo করা যাবে না — এগোবেন?',
+      '🔧 Repair & Recalculate'
+    );
+    if (!ok) return;
+    SupabaseSync.repairMissingStudentFinance({ silent: false });
+    SupabaseSync.recalculateAccountBalancesFromLedger({ silent: false });
+    window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { source: 'repair-recalculate' } }));
+  }
+
   // ── Clean Duplicate Repair Entries ─────────────────────────────
   async function cleanDuplicateRepairEntries() {
+
     const finKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
     const all = SupabaseSync.getAll(finKey);
     const dups = all.filter(function(f) {
@@ -7326,7 +7350,7 @@ ${expenseEntries.length > 0 ? `
     applyCardPreset,
     viewTableData, showLiveAccountSnapshot, showMonitorSnapshot, exportAllData,
     startMigration, importFromJSON, importFromJSONWithDate,
-    clearLocalData, clearCloudData, factoryReset, cleanDuplicateRepairEntries,
+    clearLocalData, clearCloudData, factoryReset, cleanDuplicateRepairEntries, repairAndRecalculate,
     setRepairCutoffToday, clearRepairCutoff,
     addCategory, removeCategory, startRenameCategory, cancelRenameCategory, confirmRenameCategory, autoDetectCourses,
     clearActivityLog, logActivity, refreshActivityPanel, filterActivityLog, clearActivityFilters,
