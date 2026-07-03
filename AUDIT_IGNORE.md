@@ -400,3 +400,114 @@ Fee Reconciliation payment add/delete করে না — mismatch fix only।
 *আপডেট: 2026-07-03 (3) — Cutoff baseline snapshot...*
 *আপডেট: 2026-07-03 (2) — Section 11: Return balance fix, Repair button unify, loan cutoff fix।*
 *আপডেট: 2026-07-03 — Section 11: Payment System সম্পূর্ণ লজিক + Finance Ledger Repair যাচাই রেফারেন্স।*
+
+---
+
+## 13. 2026-07-03 Major Fix — Supabase Credentials Fallback Bug + Balance Repair (চূড়ান্ত সমাধান)
+
+**ঘটনা (2026-07-03 PM):** Live site (`shakibapon1234-maker.github.io/Wings-Fly-Academy-1/`) dashboard দেখাচ্ছিল ভুল balance ৳548,530 (আসল ছিল ৳37k+)। Root cause: `js/core/supabase-secrets.js` file 404 ছিল, তাই app ক্লায়েন্ট project-এর database-এ connect হচ্ছিল instead of main project।
+
+### 13.1 — Silent Fallback Guard (Deployment Safety)
+
+**সমস্যা:** `supabase-config.js` line 35-এ hardcoded fallback logic থাকায, credentials missing হলে চুপচাপ main project database-এ কানেক্ট করে দিত — কোনো visible error/warning ছাড়াই। এর ফলে:
+- Users শুধু balance mismatch দেখে বুঝতো না কেন হচ্ছে
+- Data contamination হওয়ার জন্য perfect storm (fallback + purge + sync wrong DB)
+
+**চূড়ান্ত ফিক্স (3 files):**
+
+1. **`supabase-config.js`:**
+   - `_checkAndBlockUnconfiguredClient()` নতুন function — deployment type detect করে (client path আছে কিনা) + `secrets.url` missing check
+   - যদি client deployment + no credentials → `window._WFA_DEPLOYMENT_ERROR` set করে
+   - Log করে CRITICAL error message + fix instructions
+   
+2. **`_checkAndHandleDbSwitch()`:**
+   - Guard check: যদি `_WFA_DEPLOYMENT_ERROR` থাকে → purge/fallback skip করে return
+   - Silent fallback এখন blocked
+
+3. **`_showDeploymentErrorBanner()`:**
+   - Page-এ red error banner দেখায়
+   - ইউজার immediately জানে credentials missing এবং কী করতে হবে
+
+4. **`supabase-sync.js` (`push()` এবং `_pullCoreInternal()`):**
+   - Guard check: deployment error থাকলে sync করে না
+   - Prevent corrupted data push
+
+**প্রভাবিত ফাইল:**
+- `js/core/supabase-config.js` — guard + banner functions
+- `js/core/supabase-sync.js` — push/pull guard
+
+### 13.2 — Main Project Credentials Deploy & Corrected Credentials
+
+**প্রথম ভুল:** শুরুতে client project (`kjbupdptfelohljzrfyg.supabase.co`) credentials দিয়ে `supabase-secrets.js` তৈরি করেছিলাম — কারণ miscommunication, user বলেছিল main আর client আলাদা। ফলে:
+- Login fail হয়েছিল (auth main project-এ, কানেক্ট client project-এ)
+- Dashboard data client-এর হিসেবে আসছিল
+
+**দ্বিতীয় fix:** সঠিক **main project credentials** দিয়ে `supabase-secrets.js` restore করেছি:
+```javascript
+url: 'https://fznhiqzrslldybhmgopk.supabase.co'
+anonKey: 'eyJh...' (main project anon key)
+```
+
+**Deployment issue:** gitignore rule ছিল `supabase-secrets.js`, তাই GitHub Pages deploy করছিল না (404 থাকছিল)।
+- `.gitignore` আপডেট করেছি: client deployments-এ এই ফাইল deploy হওয়া উচিত
+- GitHub Pages rebuild trigger করেছি → file 200 OK আসতে শুরু করেছে
+
+**প্রভাবিত ফাইল:**
+- `js/core/supabase-secrets.js` — restore করা হয়েছে main project credentials দিয়ে
+- `.gitignore` — client deployment exception যোগ করা হয়েছে
+
+### 13.3 — Academy Name Fix: "Nasrin Academy" → "Wings Fly Aviation Academy"
+
+**সমস্যা:** Browser tab title দেখাচ্ছিল "Nasrin Academy" instead of "Wings Fly Aviation Academy"। User সঠিকভাবে指摘 করেছেন এটা mistake।
+
+**Root cause:** `js/core/clients-metadata.js` line 29 — main project (`kjbupdptfelohljzrfyg.supabase.co`) entry এ hardcoded "Nasrin Academy" ছিল (সম্ভবত মাল্টি-ক্লায়েন্ট deployment testing-এর সময় থেকে)।
+
+**Fix:**
+- `clients-metadata.js` entry update: "Nasrin Academy" → "Wings Fly Aviation Academy"
+- `customerCode`: "N001" → "WFA001"
+- সাথে `www/js/core/clients-metadata.js` (deploy folder)-ও update করেছি
+
+**প্রভাবিত ফাইল:**
+- `js/core/clients-metadata.js`
+- `www/js/core/clients-metadata.js`
+
+### 13.4 — Balance Restore: Cutoff Date + Finance Ledger Repair
+
+**সমস্যা (Sequence):**
+1. Main project credentials 404 → fallback → wrong DB connection
+2. DB switch detected → local data purge (normal for correct DB restore)
+3. Client database-থেকে sync শুরু → সব client transactions ধরা পড়া
+4. Balance দেখাচ্ছিল client-এর সব balance, not main project-এর
+
+**সঠিক balance:** ৳37k+ (user backup file-এ, cutoff date-এ)  
+**ভুল balance:** ৳548,530 (client DB-এর সব data সহ)
+
+**Fix (Settings → Data Management):**
+- User imported backup file
+- Settings-এ "Repair Finance Ledger" button run করেছেন
+- System নিয়েছে:
+  - **Step 1:** Missing student finance entries backfill (REPAIR-{studentID} deterministic)
+  - **Step 2:** Account balance = cutoff baseline + post-cutoff transactions
+  - Baseline snapshot প্রথম repair-এ save হয় (wfa_repair_cutoff_baselines)
+
+**ফলাফল:** Balance এখন ৳37,631 — ৳37k+ baseline + post-cutoff transactions (correct!)
+
+**প্রভাবিত ফাইল (existing code, শুধু validate করেছি):**
+- `js/core/supabase-sync.js` — `repairMissingStudentFinance()`, `recalculateAccountBalancesFromLedger()`, cutoff rules
+- `js/ui/settings.js` — Repair UI buttons
+
+### 13.5 — Summary & Lesson
+
+| Issue | Root cause | Fix | Files |
+|-------|-----------|-----|-------|
+| Silent fallback to wrong DB | `supabase-secrets.js` 404 + fallback code | Guard block + error banner | supabase-config.js, supabase-sync.js |
+| Balance mismatch | Wrong DB connection | Restore main credentials, rebuild GitHub Pages | supabase-secrets.js, .gitignore |
+| Tab title wrong | Outdated clients-metadata | Fix academy name | clients-metadata.js |
+| Balance still wrong after login | Cutoff date mechanism forgotten | Run Finance Ledger Repair | settings.js (UI only) |
+
+**প্রতিরোধমূলক ব্যবস্থা (ভবিষ্যতের জন্য):**
+1. Deployment error guard এখন live — যদি credentials missing হয় → immediate visible error
+2. `.gitignore` exception — client project এখন credentials deploy করতে পারবে
+3. Cutoff date + baseline snapshot — balance restore সম্পূর্ণ automated এবং verifiable
+
+*আপডেট: 2026-07-03 (5) — Section 13: Major incident fix summary (silent fallback guard, credentials restore, academy name fix, balance repair)।*
