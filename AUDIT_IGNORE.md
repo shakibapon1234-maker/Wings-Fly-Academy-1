@@ -538,3 +538,79 @@ anonKey: 'eyJh...' (main project anon key)
 **প্রভাবিত ফাইল:**
 - `js/ui/settings.js` (lines 3007-3029, 3044-3061)
 - `www/js/ui/settings.js` (deployed version)
+
+---
+
+## 14. Client DB Contamination — WFA- Students + Academy Name + Client Manager (2026-07-04)
+
+**পটভূমি:** একটি আগের Claude AI session ভুলে client project (`kjbupdptfelohljzrfyg.supabase.co`) credentials main project-এ set করেছিল এবং পরে ঠিক করে দিয়েছিল। কিন্তু সেই সময় client database-এর কিছু data main project local IDB-তে sync হয়ে গিয়েছিল — যা পরেও থেকে যাচ্ছিল এবং নতুন sync-এ বারবার ফিরে আসছিল।
+
+### 14.1 — সমস্যার তালিকা
+
+| সমস্যা | কারণ | লক্ষণ |
+|--------|------|--------|
+| Dashboard-এ ভুল account balance | Client accounts data local IDB-তে আছে | ৳1,03,030 দেখাচ্ছে (আসল ৳37,631) |
+| Students-এ WFA-100X, WFA-190XX দেখাচ্ছে | Client students (WFA prefix) main project IDB-তে | Student list-এ client-এর students |
+| Tab title "Nasrin Academy" | Settings.academy_name cloud pull-এ override হচ্ছে | Chrome tab-এ ভুল নাম |
+| Client Manager delete → ফিরে আসছে | `clients-metadata.js`-এ hardcoded S001/A001 entry | Delete করলেও ফিরে আসে |
+
+### 14.2 — চূড়ান্ত ফিক্স (2026-07-04)
+
+#### Fix 1: Client Manager — `js/core/clients-metadata.js`
+
+S001 (shakib academy) এবং A001 (Safa Academy) entry সরানো হয়েছে।  
+শুধু WFA001 (Wings Fly Aviation Academy client deployment) রাখা হয়েছে।  
+**কারণ:** এই দুটো test client ছিল এবং hardcoded metadata-তে থাকায় delete করলেও ফিরে আসত।
+
+#### Fix 2: Sync Pull Guard — `js/core/supabase-sync.js` (`_pullCoreInternal()`)
+
+দুটো নতুন guard যোগ হয়েছে `_pullCoreInternal()` এ:
+
+**Guard A — academy_name:** Pull-এ settings.academy_name যদি `['Nasrin Academy', 'shakib academy', 'Safa Academy']`-এর একটি হয় এবং pathname main project root হয়, তাহলে:
+  - local-এ valid name থাকলে সেটা রাখো
+  - না থাকলে `'Wings Fly Aviation Academy'` বসাও
+  - cloud-এর invalid value কখনো persist হবে না
+
+**Guard B — WFA- students:** Pull-এ `students` table merge-এর পরে, যদি main project root হয়, তাহলে `student_id.startsWith('WFA-')` — এই সব rows filter করো।
+
+#### Fix 3: Realtime Guard — `js/core/supabase-sync.js` (`_handleRealtimeEventInternal()`)
+
+Realtime INSERT/UPDATE event-এও একই guard:
+- `settings` UPDATE: invalid academy_name block, local name রাখো
+- `students` INSERT: WFA- prefix student main project root-এ ঢুকতে পারবে না
+
+#### Fix 4: Startup Cleanup — `js/core/app.js` (`WFA_IDB.onReady()`)
+
+App load-এ দুটো automatic cleanup:
+
+**A — `cleanupDuplicateSettings()`** function-এ নতুন guard:
+- Local IDB-তে settings.academy_name invalid হলে সাথে সাথে `'Wings Fly Aviation Academy'`-এ reset
+- Duplicate settings merge-এ academy_name শুধু valid name-ই copy করে
+
+**B — WFA-student purge IIFE:**
+- App load-এ main project root-এ সব WFA- prefix students local IDB থেকে সরিয়ে দেয়
+- `SupabaseSync.remove()` দিয়ে (bypassLog:true)
+- কত সরানো হলো toast দিয়ে জানায়
+
+### 14.3 — Balance (৳37,631) পুনরুদ্ধার
+
+Account balance IDB-তে ভুল — এটা code-এ auto-fix করা নিরাপদ নয় (কারণ তখন থেকে নতুন transactions হয়েছে)।  
+**সঠিক পথ:** Settings → Data Management → **Repair Finance Ledger** চালান।  
+- Step 1: Missing student finance backfill
+- Step 2: `recalculateAccountBalancesFromLedger()` — ledger + loans থেকে balance নতুন হিসাব
+
+Cutoff date set থাকলে migration আগের data touch হবে না। Backup-এর ৳37,631 = Cash ৳12,720 + Brac Bank ৳20,000 + Bikash ৳4,911।
+
+### 14.4 — নিয়ম (ভবিষ্যতের জন্য — বাধ্যতামূলক)
+
+1. **`clients-metadata.js`-এ শুধু confirmed client entries রাখুন।** Test/temp clients এখানে রাখবেন না — hardcoded থাকায় delete করলেও ফিরে আসে।
+2. **Main project-এ কখনো client DB URL/key set করবেন না।** Contamination হলে এখন auto-purge আছে, কিন্তু prevention আরো ভালো।
+3. **Academy name শুধু Settings → General Settings থেকে বদলান** — DB-তে সরাসরি নয়।
+4. **WFA-prefix student_id** = client project student। Main project-এ কখনো এই prefix ব্যবহার করবেন না।
+
+### প্রভাবিত ফাইল — 2026-07-04 (Section 14)
+- `js/core/clients-metadata.js` — S001/A001 বাদ, শুধু WFA001
+- `js/core/supabase-sync.js` — pull + realtime: academy_name guard + WFA-student filter
+- `js/core/app.js` — startup: academy_name auto-fix + WFA-student purge IIFE
+
+*আপডেট: 2026-07-04 — Section 14: Client DB contamination fix (WFA students, academy name, Client Manager)।*

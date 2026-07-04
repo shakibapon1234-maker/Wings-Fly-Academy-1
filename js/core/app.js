@@ -632,7 +632,29 @@ const App = (() => {
   // Usage (console): App.cleanupDuplicateSettings()
   function cleanupDuplicateSettings() {
     try {
+      const _invalidNames = ['Nasrin Academy', 'shakib academy', 'Safa Academy'];
+      const _isMainRoot = (() => {
+        try {
+          const p = window.location.pathname;
+          return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
+        } catch(e) { return false; }
+      })();
+
       const allSettings = SupabaseSync.getAll(DB.settings);
+
+      // ✅ GUARD: main project root-এ local IDB-তে invalid academy_name থাকলে ঠিক করো
+      // ঘটনা: client DB credentials ভুলে main project-এ set হওয়ায় Nasrin Academy sync হয়েছিল
+      if (_isMainRoot && allSettings.length >= 1) {
+        const currentName = String(allSettings[0].academy_name || '').trim();
+        if (currentName && _invalidNames.includes(currentName)) {
+          SupabaseSync.update(DB.settings, allSettings[0].id,
+            { academy_name: 'Wings Fly Aviation Academy' },
+            { bypassLog: true }
+          );
+          console.warn('[Auth] Fixed invalid academy_name in local IDB:', currentName, '→ Wings Fly Aviation Academy');
+        }
+      }
+
       if (allSettings.length <= 1) return 0;
 
       // ✅ Fix: admin_password আছে এমন row-কে keeper হিসেবে prefer করো
@@ -645,13 +667,22 @@ const App = (() => {
         if (row.id === keeper.id) continue; // keeper skip করো
 
         // অন্য কোনো row-এ extra fields থাকলে keeper-এ merge করো
+        // ⚠️ academy_name merge করার আগে check করো — invalid name merge করা যাবে না
         let needsUpdate = false;
-        const mergeFields = ['security_question','security_answer','academy_name',
+        const mergeFields = ['security_question','security_answer',
                              'running_batch','expense_month','monthly_target',
                              'admin_username','theme']; // Note: admin_pattern & admin_face_descriptor stored in localStorage
         for (const field of mergeFields) {
           if (row[field] && !keeper[field]) {
             keeper[field] = row[field];
+            needsUpdate = true;
+          }
+        }
+        // academy_name: শুধু valid name merge করো
+        if (row.academy_name && !keeper.academy_name) {
+          const candidateName = String(row.academy_name).trim();
+          if (!_isMainRoot || !_invalidNames.includes(candidateName)) {
+            keeper.academy_name = row.academy_name;
             needsUpdate = true;
           }
         }
@@ -1520,8 +1551,36 @@ const App = (() => {
     if (typeof WFA_IDB !== 'undefined' && WFA_IDB.onReady) {
     WFA_IDB.onReady(async () => {
       // ডুপ্লিকেট settings row আত্মীয়ভাবে পরিষ্কার করো (login এর আগেই)
+      // এই function-এর ভেতরেই invalid academy_name ঠিক করার guard আছে
       cleanupDuplicateSettings();
       _applyAcademyMetadata();
+
+      // ✅ STARTUP GUARD: main project root-এ WFA- prefix students পরিষ্কার করো
+      // ঘটনা: Claude AI ভুলে client DB credentials main project-এ set করায়
+      // client-এর WFA-XXXX student_id ওয়ালা students sync হয়ে এসেছে।
+      // এটা একবারই চলবে (localStorage flag দিয়ে idempotent)।
+      (() => {
+        try {
+          const _p = window.location.pathname;
+          const _isMain = _p === '/' || _p === '/Wings-Fly-Academy-1/' || _p.startsWith('/Wings-Fly-Academy-1/index');
+          if (!_isMain) return;
+          if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return;
+          const allStudents = SupabaseSync.getAll(DB.students);
+          const wfaStudents = allStudents.filter(s => String(s.student_id || '').startsWith('WFA-'));
+          if (wfaStudents.length > 0) {
+            wfaStudents.forEach(s => {
+              SupabaseSync.remove(DB.students, s.id, { bypassLog: true });
+            });
+            console.warn('[App] Purged', wfaStudents.length, 'WFA-prefixed client students from main project IDB.');
+            if (typeof Utils !== 'undefined' && Utils.toast) {
+              Utils.toast(`✅ ${wfaStudents.length}টি client student (WFA-) সরানো হয়েছে`, 'success', 4000);
+            }
+          }
+        } catch(e) {
+          console.warn('[App] WFA-student purge error:', e);
+        }
+      })();
+
       // ডায়াগনস্টিক টেস্টের ডামি/লেফটওভার রেকর্ডগুলো অটোমেটিক ক্লিনআপ করো
       if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {
         SystemDiagnostics.cleanupLeftovers();

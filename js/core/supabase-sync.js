@@ -3295,6 +3295,27 @@ const SyncEngine = (() => {
               merged[0][field] = localRows[0][field];
             }
           }
+
+          // ✅ GUARD: main project root-এ invalid client academy_name কখনো overwrite করবে না।
+          // ঘটনা: Claude AI ভুলে client DB credentials main project-এ set করায়
+          // settings.academy_name = 'Nasrin Academy' sync হয়ে যায়।
+          // এই fix-এ cloud থেকে আসা invalid name local valid name দিয়ে replace করা হয়।
+          const _invalidMainNames = ['Nasrin Academy', 'shakib academy', 'Safa Academy'];
+          const _isMainRoot = (() => {
+            try {
+              const p = window.location.pathname;
+              return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
+            } catch(e) { return false; }
+          })();
+          if (_isMainRoot && merged[0].academy_name &&
+              _invalidMainNames.includes(String(merged[0].academy_name).trim())) {
+            // local-এ valid name থাকলে সেটাই রাখো, না থাকলে default
+            const _localName = localRows[0].academy_name || '';
+            const _validLocal = _localName && !_invalidMainNames.includes(_localName.trim());
+            merged[0].academy_name = _validLocal ? _localName : 'Wings Fly Aviation Academy';
+            console.warn('[Sync] Blocked invalid academy_name from cloud:', merged[0].academy_name, '→ restored to:', merged[0].academy_name);
+          }
+
           // Ensure settings table only has 1 record
           if (merged.length > 1) {
             merged.sort((a, b) => {
@@ -3310,6 +3331,31 @@ const SyncEngine = (() => {
               SupabaseSync._deleteFromCloud(key, dupRow.id);
             }
             merged = [keeper];
+          }
+        }
+
+        // ✅ GUARD: main project root-এ WFA- prefix students filter করো।
+        // ঘটনা: Claude AI ভুলে client (kjbupdptfelohljzrfyg) credentials main project-এ
+        // set করায় client-এর WFA-XXXX student_id ওয়ালা students sync হয়ে আসে।
+        // Main project-এর আসল students-এর ID 'STU-' বা numeric prefix — WFA- নয়।
+        if (key === 'students' && merged.length > 0) {
+          const _isMainRoot2 = (() => {
+            try {
+              const p = window.location.pathname;
+              return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
+            } catch(e) { return false; }
+          })();
+          if (_isMainRoot2) {
+            const _beforeCount = merged.length;
+            merged = merged.filter(function(r) {
+              const sid = String(r.student_id || '');
+              // WFA-100X, WFA-190XX এই pattern গুলো client students — filter out
+              // কিন্তু WFA-1781XXXXXXX (timestamp-based) গুলোও client-এর, filter করো
+              return !sid.startsWith('WFA-');
+            });
+            if (merged.length < _beforeCount) {
+              console.warn('[Sync] Filtered out', _beforeCount - merged.length, 'WFA-prefixed client students from main project sync.');
+            }
           }
         }
 
@@ -3693,6 +3739,13 @@ const SyncEngine = (() => {
               merged[field] = localRow[field];
             }
           }
+          // ✅ GUARD: realtime settings update-এ invalid academy_name block
+          const _rtInvalidNames = ['Nasrin Academy', 'shakib academy', 'Safa Academy'];
+          const _rtIsMain = (() => { try { const p = window.location.pathname; return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index'); } catch(e) { return false; } })();
+          if (_rtIsMain && merged.academy_name && _rtInvalidNames.includes(String(merged.academy_name).trim())) {
+            merged.academy_name = localRow.academy_name || 'Wings Fly Aviation Academy';
+            console.warn('[Realtime] Blocked invalid academy_name:', newRow.academy_name, '→ kept:', merged.academy_name);
+          }
           rows[idx] = merged;
         } else if (idx >= 0) {
           let merged = { ...rows[idx], ...newRow };
@@ -3734,6 +3787,15 @@ const SyncEngine = (() => {
             row = SupabaseSync.normalizeSalaryFromCloud(row);
           } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {
             row = SupabaseSync.normalizeExamFromCloud(row);
+          }
+          // ✅ GUARD: main project root-এ WFA- prefix students INSERT block
+          const _rtStudKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
+          if (table === _rtStudKey) {
+            const _rtIsMain2 = (() => { try { const p = window.location.pathname; return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index'); } catch(e) { return false; } })();
+            if (_rtIsMain2 && String(row.student_id || '').startsWith('WFA-')) {
+              console.warn('[Realtime] Blocked WFA-prefixed client student INSERT in main project:', row.student_id);
+              return;
+            }
           }
           rows.unshift(row);
         }
