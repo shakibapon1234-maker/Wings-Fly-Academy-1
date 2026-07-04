@@ -1434,10 +1434,18 @@ const App = (() => {
     const secretsName = window.WFA_SUPABASE_SECRETS?.academyName || '';
     const defaultName = 'Wings Fly Aviation Academy';
     const licenseIsDefault = !licenseName || licenseName === 'Wings Fly Academy' || licenseName === defaultName;
-    const name = settings.academy_name
+    const isMainProjectRoot = ['/Wings-Fly-Academy-1/', '/Wings-Fly-Academy-1/index.html', '/'].includes(window.location.pathname);
+    const invalidMainAcademyNames = ['Nasrin Academy', 'shakib academy', 'Safa Academy'];
+    const effectiveSettingName = (isMainProjectRoot && settings.academy_name && invalidMainAcademyNames.includes(String(settings.academy_name).trim()))
+      ? ''
+      : settings.academy_name;
+    const name = effectiveSettingName
       || secretsName
       || (!licenseIsDefault ? licenseName : '')
       || defaultName;
+    if (isMainProjectRoot && settings.academy_name && effectiveSettingName !== settings.academy_name) {
+      console.warn('[App] Ignoring invalid main project academy_name from settings:', settings.academy_name);
+    }
     const logo = settings.logo_url || 'assets/logo.jpg';
 
     // 1. Tab title
