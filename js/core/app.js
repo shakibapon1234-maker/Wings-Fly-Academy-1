@@ -1555,31 +1555,6 @@ const App = (() => {
       cleanupDuplicateSettings();
       _applyAcademyMetadata();
 
-      // ✅ STARTUP GUARD: main project root-এ WFA- prefix students পরিষ্কার করো
-      // ঘটনা: Claude AI ভুলে client DB credentials main project-এ set করায়
-      // client-এর WFA-XXXX student_id ওয়ালা students sync হয়ে এসেছে।
-      // এটা একবারই চলবে (localStorage flag দিয়ে idempotent)।
-      (() => {
-        try {
-          const _p = window.location.pathname;
-          const _isMain = _p === '/' || _p === '/Wings-Fly-Academy-1/' || _p.startsWith('/Wings-Fly-Academy-1/index');
-          if (!_isMain) return;
-          if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return;
-          const allStudents = SupabaseSync.getAll(DB.students);
-          const wfaStudents = allStudents.filter(s => String(s.student_id || '').startsWith('WFA-'));
-          if (wfaStudents.length > 0) {
-            wfaStudents.forEach(s => {
-              SupabaseSync.remove(DB.students, s.id, { bypassLog: true });
-            });
-            console.warn('[App] Purged', wfaStudents.length, 'WFA-prefixed client students from main project IDB.');
-            if (typeof Utils !== 'undefined' && Utils.toast) {
-              Utils.toast(`✅ ${wfaStudents.length}টি client student (WFA-) সরানো হয়েছে`, 'success', 4000);
-            }
-          }
-        } catch(e) {
-          console.warn('[App] WFA-student purge error:', e);
-        }
-      })();
 
       // ডায়াগনস্টিক টেস্টের ডামি/লেফটওভার রেকর্ডগুলো অটোমেটিক ক্লিনআপ করো
       if (typeof SystemDiagnostics !== 'undefined' && typeof SystemDiagnostics.cleanupLeftovers === 'function') {

@@ -1414,7 +1414,23 @@ const SettingsModule = (() => {
           পুরনো migration data-র কারণে balance সমস্যা হলে — আজকের date কে <strong style="color:#00ff88">baseline</strong> হিসেবে set করুন।<br/>
           এরপর থেকে Repair শুধু <strong style="color:#ffd700">নতুন student</strong>-দের জন্য কাজ করবে। পুরনো data আর touch করবে না।<br/>
           <span id="cutoff-display" style="font-size:.82rem;color:var(--text-muted);">
-            ${localStorage.getItem('wfa_repair_cutoff_date') ? '✅ Cutoff active: ' + localStorage.getItem('wfa_repair_cutoff_date') : '⚪ কোনো cutoff set নেই — সব student repair করে।'}
+            ${(() => {
+              // DB থেকে cutoff restore করো (localStorage না থাকলে)
+              const lsVal = localStorage.getItem('wfa_repair_cutoff_date') || '';
+              if (!lsVal) {
+                try {
+                  if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
+                    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+                    let ec = {}; try { ec = JSON.parse(cfg.exam_settings || '{}'); } catch {}
+                    if (ec.repair_cutoff_date) {
+                      localStorage.setItem('wfa_repair_cutoff_date', ec.repair_cutoff_date);
+                      return '✅ Cutoff active: ' + ec.repair_cutoff_date + ' (DB থেকে restore)';
+                    }
+                  }
+                } catch {}
+              }
+              return lsVal ? '✅ Cutoff active: ' + lsVal : '⚪ কোনো cutoff set নেই — সব student repair করে।';
+            })()}
           </span>
         </p>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -5583,6 +5599,74 @@ ${expenseEntries.length > 0 ? `
     input.click();
   }
 
+  // ── Balance Cutoff Date ─────────────────────────────────────────
+  // ✅ FIX: Cutoff date localStorage-এ + settings DB (exam_settings.repair_cutoff_date)-এ
+  // দুই জায়গায় save হয়। ব্যাকআপ import / ব্রাউজার reset-এ localStorage গেলেও
+  // settings DB থেকে restore হবে।
+
+  function _getCutoffFromDB() {
+    try {
+      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return '';
+      const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+      let examCfg = {};
+      try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
+      return examCfg.repair_cutoff_date || '';
+    } catch { return ''; }
+  }
+
+  function _saveCutoffToDB(dateStr) {
+    try {
+      if (typeof SupabaseSync === 'undefined' || typeof DB === 'undefined') return;
+      const cfg = SupabaseSync.getAll(DB.settings)[0];
+      if (!cfg) return;
+      let examCfg = {};
+      try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
+      if (dateStr) {
+        examCfg.repair_cutoff_date = dateStr;
+      } else {
+        delete examCfg.repair_cutoff_date;
+      }
+      SupabaseSync.update(DB.settings, cfg.id, { exam_settings: JSON.stringify(examCfg) }, { bypassLog: true });
+    } catch(e) { console.warn('[Settings] Failed to save cutoff to DB:', e); }
+  }
+
+  // Startup: localStorage-এ cutoff না থাকলে DB থেকে restore করো
+  function _restoreCutoffFromDB() {
+    try {
+      const lsVal = localStorage.getItem('wfa_repair_cutoff_date') || '';
+      if (lsVal) return; // ইতিমধ্যে আছে
+      const dbVal = _getCutoffFromDB();
+      if (dbVal) {
+        localStorage.setItem('wfa_repair_cutoff_date', dbVal);
+        console.info('[Settings] Cutoff date restored from DB:', dbVal);
+      }
+    } catch { /* ignore */ }
+  }
+
+  function setRepairCutoffToday() {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    localStorage.setItem('wfa_repair_cutoff_date', today);
+    _saveCutoffToDB(today); // ✅ DB-তেও সেভ করো
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.snapshotCutoffBaselines === 'function') {
+      SupabaseSync.snapshotCutoffBaselines();
+    }
+    Utils.toast('✅ Cutoff date set: ' + today + ' — current balance baseline snapshot নেওয়া হয়েছে।', 'success', 5000);
+    // Update the display span if visible
+    const el = document.getElementById('cutoff-display');
+    if (el) el.textContent = '✅ Cutoff active: ' + today;
+    logActivity('system', 'settings', 'Repair cutoff date set to: ' + today);
+  }
+
+  function clearRepairCutoff() {
+    localStorage.removeItem('wfa_repair_cutoff_date');
+    localStorage.removeItem('wfa_repair_cutoff_baselines');
+    _saveCutoffToDB(''); // ✅ DB থেকেও সরাও
+    Utils.toast('⚪ Cutoff সরানো হয়েছে — এখন সব student repair হবে।', 'info', 4000);
+    const el = document.getElementById('cutoff-display');
+    if (el) el.textContent = '⚪ কোনো cutoff set নেই — সব student repair করে।';
+    logActivity('system', 'settings', 'Repair cutoff date cleared.');
+  }
+
   // ✅ REQ 1: Import from JSON with custom date
   function importFromJSONWithDate() {
     const customDateInput = document.getElementById('imp-date');
@@ -5965,28 +6049,6 @@ ${expenseEntries.length > 0 ? `
     setTimeout(function() { window.dispatchEvent(new CustomEvent('wfa:synced')); }, 500);
   }
 
-  // ── Balance Cutoff Date ─────────────────────────────────────────
-  function setRepairCutoffToday() {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-    localStorage.setItem('wfa_repair_cutoff_date', today);
-    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.snapshotCutoffBaselines === 'function') {
-      SupabaseSync.snapshotCutoffBaselines();
-    }
-    Utils.toast('✅ Cutoff date set: ' + today + ' — current balance baseline snapshot নেওয়া হয়েছে।', 'success', 5000);
-    // Update the display span if visible
-    const el = document.getElementById('cutoff-display');
-    if (el) el.textContent = '✅ Cutoff active: ' + today;
-    logActivity('system', 'settings', 'Repair cutoff date set to: ' + today);
-  }
-
-  function clearRepairCutoff() {
-    localStorage.removeItem('wfa_repair_cutoff_date');
-    localStorage.removeItem('wfa_repair_cutoff_baselines');
-    Utils.toast('⚪ Cutoff সরানো হয়েছে — এখন সব student repair হবে।', 'info', 4000);
-    const el = document.getElementById('cutoff-display');
-    if (el) el.textContent = '⚪ কোনো cutoff set নেই — সব student repair করে।';
-    logActivity('system', 'settings', 'Repair cutoff date cleared.');
-  }
 
   // ── Factory Reset ─────────────────────────────────────────────
   async function factoryReset() {

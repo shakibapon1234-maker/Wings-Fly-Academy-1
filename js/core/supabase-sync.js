@@ -3334,30 +3334,6 @@ const SyncEngine = (() => {
           }
         }
 
-        // ✅ GUARD: main project root-এ WFA- prefix students filter করো।
-        // ঘটনা: Claude AI ভুলে client (kjbupdptfelohljzrfyg) credentials main project-এ
-        // set করায় client-এর WFA-XXXX student_id ওয়ালা students sync হয়ে আসে।
-        // Main project-এর আসল students-এর ID 'STU-' বা numeric prefix — WFA- নয়।
-        if (key === 'students' && merged.length > 0) {
-          const _isMainRoot2 = (() => {
-            try {
-              const p = window.location.pathname;
-              return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
-            } catch(e) { return false; }
-          })();
-          if (_isMainRoot2) {
-            const _beforeCount = merged.length;
-            merged = merged.filter(function(r) {
-              const sid = String(r.student_id || '');
-              // WFA-100X, WFA-190XX এই pattern গুলো client students — filter out
-              // কিন্তু WFA-1781XXXXXXX (timestamp-based) গুলোও client-এর, filter করো
-              return !sid.startsWith('WFA-');
-            });
-            if (merged.length < _beforeCount) {
-              console.warn('[Sync] Filtered out', _beforeCount - merged.length, 'WFA-prefixed client students from main project sync.');
-            }
-          }
-        }
 
         // ✅ CRITICAL FIX: accounts.balance is ALWAYS local-authoritative.
         // Local balance = maintained by real transactions (updateAccountBalance).
@@ -3787,15 +3763,6 @@ const SyncEngine = (() => {
             row = SupabaseSync.normalizeSalaryFromCloud(row);
           } else if (table === exKey && typeof SupabaseSync.normalizeExamFromCloud === 'function') {
             row = SupabaseSync.normalizeExamFromCloud(row);
-          }
-          // ✅ GUARD: main project root-এ WFA- prefix students INSERT block
-          const _rtStudKey = (typeof DB !== 'undefined' && DB.students) ? DB.students : 'students';
-          if (table === _rtStudKey) {
-            const _rtIsMain2 = (() => { try { const p = window.location.pathname; return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index'); } catch(e) { return false; } })();
-            if (_rtIsMain2 && String(row.student_id || '').startsWith('WFA-')) {
-              console.warn('[Realtime] Blocked WFA-prefixed client student INSERT in main project:', row.student_id);
-              return;
-            }
           }
           rows.unshift(row);
         }

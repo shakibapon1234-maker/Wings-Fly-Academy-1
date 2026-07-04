@@ -564,53 +564,85 @@ S001 (shakib academy) এবং A001 (Safa Academy) entry সরানো হয
 
 #### Fix 2: Sync Pull Guard — `js/core/supabase-sync.js` (`_pullCoreInternal()`)
 
-দুটো নতুন guard যোগ হয়েছে `_pullCoreInternal()` এ:
-
-**Guard A — academy_name:** Pull-এ settings.academy_name যদি `['Nasrin Academy', 'shakib academy', 'Safa Academy']`-এর একটি হয় এবং pathname main project root হয়, তাহলে:
+**Guard — academy_name:** Pull-এ settings.academy_name যদি `['Nasrin Academy', 'shakib academy', 'Safa Academy']`-এর একটি হয় এবং pathname main project root হয়, তাহলে:
   - local-এ valid name থাকলে সেটা রাখো
   - না থাকলে `'Wings Fly Aviation Academy'` বসাও
   - cloud-এর invalid value কখনো persist হবে না
 
-**Guard B — WFA- students:** Pull-এ `students` table merge-এর পরে, যদি main project root হয়, তাহলে `student_id.startsWith('WFA-')` — এই সব rows filter করো।
-
 #### Fix 3: Realtime Guard — `js/core/supabase-sync.js` (`_handleRealtimeEventInternal()`)
 
-Realtime INSERT/UPDATE event-এও একই guard:
-- `settings` UPDATE: invalid academy_name block, local name রাখো
-- `students` INSERT: WFA- prefix student main project root-এ ঢুকতে পারবে না
+Realtime settings UPDATE event-এ invalid academy_name block করা হয়েছে।
 
-#### Fix 4: Startup Cleanup — `js/core/app.js` (`WFA_IDB.onReady()`)
+#### Fix 4: Startup Cleanup — `js/core/app.js` (`cleanupDuplicateSettings()`)
 
-App load-এ দুটো automatic cleanup:
-
-**A — `cleanupDuplicateSettings()`** function-এ নতুন guard:
+`cleanupDuplicateSettings()` function-এ নতুন guard:
 - Local IDB-তে settings.academy_name invalid হলে সাথে সাথে `'Wings Fly Aviation Academy'`-এ reset
 - Duplicate settings merge-এ academy_name শুধু valid name-ই copy করে
-
-**B — WFA-student purge IIFE:**
-- App load-এ main project root-এ সব WFA- prefix students local IDB থেকে সরিয়ে দেয়
-- `SupabaseSync.remove()` দিয়ে (bypassLog:true)
-- কত সরানো হলো toast দিয়ে জানায়
 
 ### 14.3 — Balance (৳37,631) পুনরুদ্ধার
 
 Account balance IDB-তে ভুল — এটা code-এ auto-fix করা নিরাপদ নয় (কারণ তখন থেকে নতুন transactions হয়েছে)।  
-**সঠিক পথ:** Settings → Data Management → **Repair Finance Ledger** চালান।  
-- Step 1: Missing student finance backfill
-- Step 2: `recalculateAccountBalancesFromLedger()` — ledger + loans থেকে balance নতুন হিসাব
-
-Cutoff date set থাকলে migration আগের data touch হবে না। Backup-এর ৳37,631 = Cash ৳12,720 + Brac Bank ৳20,000 + Bikash ৳4,911।
+**সঠিক পথ:** Settings → Data Management → Cutoff Date set করুন → তারপর **Repair Finance Ledger** চালান।  
+Backup-এর ৳37,631 = Cash ৳12,720 + Brac Bank ৳20,000 + Bikash ৳4,911।
 
 ### 14.4 — নিয়ম (ভবিষ্যতের জন্য — বাধ্যতামূলক)
 
 1. **`clients-metadata.js`-এ শুধু confirmed client entries রাখুন।** Test/temp clients এখানে রাখবেন না — hardcoded থাকায় delete করলেও ফিরে আসে।
-2. **Main project-এ কখনো client DB URL/key set করবেন না।** Contamination হলে এখন auto-purge আছে, কিন্তু prevention আরো ভালো।
+2. **Main project-এ কখনো client DB URL/key set করবেন না।**
 3. **Academy name শুধু Settings → General Settings থেকে বদলান** — DB-তে সরাসরি নয়।
-4. **WFA-prefix student_id** = client project student। Main project-এ কখনো এই prefix ব্যবহার করবেন না।
+4. **⚠️ WFA-prefix student_id** = Wings Fly Academy-রই পুরানো student ID format। এগুলো client students নয়। কখনো filter বা purge করবেন না।
 
-### প্রভাবিত ফাইল — 2026-07-04 (Section 14)
+---
+
+## 14.5 — Repair-এ Student কমে যাওয়া + Cutoff Date হারানো (2026-07-04 সন্ধ্যা)
+
+### পটভূমি — ভুল assumption এবং revert
+
+Section 14-এর initial fix-এ একটি মারাত্মক ভুল হয়েছিল:
+
+**ভুল assumption:** WFA- prefix student_id মানেই client project-এর student।  
+**বাস্তবতা:** WFA-19022, WFA-19027, WFA-1781442698865 ইত্যাদি Wings Fly Aviation Academy-রই পুরানো ID format। Batch 20-এর ১৯ জন student-এর মধ্যে ১২ জনেরই WFA- prefix।
+
+**ফলাফল:** startup purge code এবং sync filter চালানোর পর Batch 20-এ ১৯ → ৯ জন student দেখাচ্ছিল।
+
+### ভুল changes যা revert করা হয়েছে
+
+| ফাইল | যা সরানো হয়েছে |
+|---|---|
+| `js/core/app.js` | WFA- student purge IIFE (startup-এ সব WFA- student মুছে দিচ্ছিল) |
+| `js/core/supabase-sync.js` | Pull-এ WFA- student filter guard |
+| `js/core/supabase-sync.js` | Realtime INSERT-এ WFA- student block guard |
+
+> **ভবিষ্যতের জন্য:** WFA- prefix student নিয়ে কোনো filter/purge/block code লেখা সম্পূর্ণ নিষিদ্ধ। এগুলো আসল students।
+
+### Repair-এ student কমার কারণ
+
+`repairAndRecalculate()` চালানোর আগে Cutoff Date set না থাকলে সব পুরানো students-সহ repair চলে। এটা students মুছে না, কিন্তু ভুল ছিল যে WFA- purge code চালু ছিল।
+
+**Rule:** Repair চালানোর আগে সবসময় Cutoff Date set করতে হবে।
+
+### 14.5.1 — Cutoff Date হারানোর Fix
+
+**সমস্যা:** `wfa_repair_cutoff_date` শুধু `localStorage`-এ থাকত। Backup import / browser cache clear / নতুন device-এ গেলে মুছে যায়।
+
+**Fix:** Cutoff date এখন দুই জায়গায় সংরক্ষিত হয়:
+1. `localStorage` — fast read (আগের মতো)
+2. `settings` DB-র `exam_settings` JSON field-এ — `{ "repair_cutoff_date": "YYYY-MM-DD" }` nested করে
+
+**Restore logic:** Settings Data Management tab খুললেই — localStorage-এ cutoff না থাকলে `exam_settings` DB থেকে auto-restore হয়।
+
+**প্রভাবিত ফাইল:**
+- `js/ui/settings.js`:
+  - `_getCutoffFromDB()` — DB থেকে cutoff read
+  - `_saveCutoffToDB(dateStr)` — DB-তে cutoff write/delete  
+  - `setRepairCutoffToday()` — localStorage + DB উভয়ে save
+  - `clearRepairCutoff()` — localStorage + DB উভয় থেকে remove
+  - Cutoff display render — DB-aware IIFE দিয়ে auto-restore
+
+### প্রভাবিত ফাইল — 2026-07-04 (Section 14, চূড়ান্ত)
 - `js/core/clients-metadata.js` — S001/A001 বাদ, শুধু WFA001
-- `js/core/supabase-sync.js` — pull + realtime: academy_name guard + WFA-student filter
-- `js/core/app.js` — startup: academy_name auto-fix + WFA-student purge IIFE
+- `js/core/supabase-sync.js` — pull + realtime: শুধু academy_name guard (WFA-student guards সরানো)
+- `js/core/app.js` — startup: academy_name auto-fix in cleanupDuplicateSettings
+- `js/ui/settings.js` — cutoff date dual-storage (localStorage + settings DB)
 
-*আপডেট: 2026-07-04 — Section 14: Client DB contamination fix (WFA students, academy name, Client Manager)।*
+*আপডেট: 2026-07-04 — Section 14.5: WFA-student purge revert + Cutoff date persistence fix।*
