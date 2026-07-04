@@ -8,14 +8,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <style>
         :root {
-            --bg-color: #0b0f19;
-            --card-bg: rgba(20, 26, 46, 0.75);
-            --border-color: rgba(255, 255, 255, 0.08);
+            --bg-color: #080b11;
+            --card-bg: rgba(13, 18, 33, 0.65);
+            --border-color: rgba(255, 255, 255, 0.07);
             --brand-primary: #00ff88;
+            --brand-rgb: 0, 255, 136;
             --text-main: #f3f4f6;
             --text-secondary: #9ca3af;
             --success: #10b981;
-            --header-gradient: linear-gradient(135deg, #0284c7, #0369a1);
+            --header-gradient: linear-gradient(135deg, rgba(0, 255, 136, 0.08), rgba(0, 217, 255, 0.08));
+            --neon-shadow: 0 0 15px rgba(0, 255, 136, 0.25);
+            --glow-color: rgba(0, 255, 136, 0.15);
         }
         * {
             box-sizing: border-box;
@@ -25,41 +28,75 @@
         body {
             font-family: 'Hind Siliguri', 'Exo 2', sans-serif;
             background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(16, 24, 48, 0.8) 0%, transparent 80%),
+                linear-gradient(rgba(0, 217, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 217, 255, 0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 25px 25px, 25px 25px;
+            background-attachment: fixed;
             color: var(--text-main);
-            padding: 90px 20px 40px 20px;
+            padding: 95px 20px 40px 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
             position: relative;
+            overflow-x: hidden;
         }
+
+        /* Ambient glowing backgrounds */
+        body::before {
+            content: "";
+            position: absolute;
+            top: 20%;
+            left: 10%;
+            width: 300px;
+            height: 300px;
+            background: radial-gradient(circle, rgba(0, 255, 136, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        body::after {
+            content: "";
+            position: absolute;
+            bottom: 20%;
+            right: 10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0, 217, 255, 0.05) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
         /* Floating Control Bar */
         .control-bar {
             position: fixed;
             top: 15px;
             left: 50%;
             transform: translateX(-50%);
-            background: rgba(15, 22, 42, 0.9);
-            border: 1px solid var(--border-color);
+            background: rgba(10, 15, 30, 0.85);
+            border: 1px solid rgba(0, 255, 136, 0.25);
             border-radius: 30px;
             padding: 8px 24px;
             display: flex;
             gap: 16px;
             align-items: center;
             z-index: 1000;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(0, 255, 136, 0.15);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
         .control-bar .bar-logo {
             height: 30px;
             border-radius: 50%;
             margin-right: 8px;
+            border: 1px solid rgba(0, 255, 136, 0.4);
         }
         .control-btn {
-            background: transparent;
-            border: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: var(--text-main);
-            padding: 6px 14px;
+            padding: 6px 16px;
             border-radius: 20px;
             cursor: pointer;
             font-size: 0.85rem;
@@ -67,39 +104,54 @@
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            transition: all 0.2s;
+            transition: all 0.25s ease;
         }
         .control-btn:hover {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
         }
         .control-btn.btn-active {
             background: var(--brand-primary);
-            color: #060913;
+            color: #030712;
             border-color: var(--brand-primary);
-            box-shadow: 0 0 10px rgba(0, 217, 255, 0.3);
+            box-shadow: var(--neon-shadow);
         }
         .control-btn.btn-save {
             background: var(--success);
             color: white;
             border-color: var(--success);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
         }
         .control-btn.btn-save:hover {
             background: #059669;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            transform: translateY(-1px);
         }
         
         .schedule-card {
             background: var(--card-bg);
-            border: 1px solid var(--border-color);
+            border: 1px solid rgba(0, 255, 136, 0.2);
             border-radius: 16px;
             width: 100%;
             max-width: 1100px;
             overflow: hidden;
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(12px);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 255, 136, 0.1);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             position: relative;
             z-index: 1;
+        }
+        /* Subtle grid overlay for a nicer background texture */
+        .schedule-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background-image: linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 40px 40px;
+            opacity: 0.03;
+            pointer-events: none;
+            z-index: 0;
         }
         
         /* Watermark */
@@ -114,19 +166,19 @@
             background-repeat: no-repeat;
             background-position: center;
             background-size: contain;
-            opacity: 0.035;
+            opacity: 0.02;
             pointer-events: none;
             z-index: 0;
         }
         
         .header {
-            background: var(--header-gradient);
+            background: linear-gradient(90deg, rgba(13, 18, 33, 0.8), rgba(20, 26, 46, 0.8));
             padding: 26px 30px;
             display: flex;
             align-items: center;
             justify-content: space-between;
             position: relative;
-            border-bottom: 1px solid var(--border-color);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
         }
         .header-content {
             display: flex;
@@ -137,100 +189,121 @@
             height: 60px;
             width: 60px;
             border-radius: 50%;
-            border: 2px solid rgba(255,255,255,0.4);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+            border: 2px solid var(--brand-primary);
+            box-shadow: var(--neon-shadow);
         }
         .header h1 {
             font-size: 1.6rem;
             font-weight: 700;
             color: #ffffff;
             margin-bottom: 4px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
         }
         .header p {
-            color: rgba(255, 255, 255, 0.85);
+            color: rgba(255, 255, 255, 0.75);
             font-size: 0.95rem;
         }
         .header .badge {
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(0, 255, 136, 0.08);
             padding: 6px 14px;
             border-radius: 20px;
             font-size: 0.82rem;
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: var(--brand-primary);
+            border: 1px solid rgba(0, 255, 136, 0.3);
             font-weight: 600;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.1);
         }
         .table-container {
-            padding: 20px;
+            padding: 24px;
             overflow-x: auto;
             position: relative;
             z-index: 2;
         }
         table {
             width: 100%;
-            border-collapse: collapse;
+            border-collapse: separate;
+            border-spacing: 0 8px;
             text-align: left;
         }
         th {
-            background: rgba(255, 255, 255, 0.03);
-            border-bottom: 2px solid var(--border-color);
-            color: var(--text-secondary);
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 2px solid rgba(0, 255, 136, 0.2);
+            color: var(--brand-primary);
             font-weight: 600;
             padding: 14px 16px;
             font-size: 0.9rem;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
         td {
             padding: 14px 16px;
+            border-top: 1px solid var(--border-color);
             border-bottom: 1px solid var(--border-color);
+            background: rgba(18, 25, 47, 0.4);
             font-size: 0.9rem;
             vertical-align: middle;
-            transition: background 0.15s;
+            transition: all 0.2s ease;
+        }
+        tr td:first-child {
+            border-left: 1px solid var(--border-color);
+            border-top-left-radius: 8px;
+            border-bottom-left-radius: 8px;
+        }
+        tr td:last-child {
+            border-right: 1px solid var(--border-color);
+            border-top-right-radius: 8px;
+            border-bottom-right-radius: 8px;
         }
         tr:hover td {
-            background: rgba(255, 255, 255, 0.015);
+            background: rgba(24, 34, 64, 0.6);
+            border-color: rgba(0, 255, 136, 0.2);
         }
         .row-done td {
-            opacity: 0.55;
-            background: rgba(255, 255, 255, 0.005);
+            opacity: 0.45;
+            background: rgba(18, 25, 47, 0.15);
         }
         .status {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 4px;
+            padding: 4px 12px;
+            border-radius: 20px;
             font-size: 0.75rem;
             font-weight: 700;
             text-align: center;
             cursor: pointer;
             user-select: none;
-            transition: all 0.15s;
+            transition: all 0.2s ease;
         }
         .status-done {
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(16, 185, 129, 0.1);
             color: #10b981;
-            border: 1px solid rgba(16, 185, 129, 0.3);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.1);
         }
         .status-done:hover {
-            background: rgba(16, 185, 129, 0.25);
+            background: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
         }
         .status-pending {
-            background: rgba(0, 217, 255, 0.1);
+            background: rgba(0, 255, 136, 0.08);
             color: var(--brand-primary);
-            border: 1px solid rgba(0, 217, 255, 0.25);
+            border: 1px solid rgba(0, 255, 136, 0.25);
+            box-shadow: 0 0 8px rgba(0, 255, 136, 0.1);
         }
         .status-pending:hover {
-            background: rgba(0, 217, 255, 0.2);
+            background: rgba(0, 255, 136, 0.15);
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.3);
         }
         
         /* Edit Mode Styles */
         .edit-active .editable {
-            outline: 1px dashed rgba(255, 255, 255, 0.25);
-            background: rgba(255, 255, 255, 0.03);
+            outline: 1px dashed rgba(0, 255, 136, 0.4);
+            background: rgba(0, 255, 136, 0.03);
             cursor: text;
         }
         .edit-active .editable:focus {
             outline: 2px solid var(--brand-primary);
-            background: rgba(0, 0, 0, 0.3);
+            background: rgba(0, 0, 0, 0.4);
+            box-shadow: var(--neon-shadow);
         }
         
         .btn-delete {
@@ -263,7 +336,7 @@
         
         .footer {
             padding: 20px 30px;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0,0,0,0.3);
             border-top: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
@@ -296,6 +369,7 @@
             td {
                 color: #111;
                 border-bottom-color: #ddd;
+                background: transparent !important;
             }
             .header {
                 background: #f3f4f6;

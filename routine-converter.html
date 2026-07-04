@@ -118,12 +118,88 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
+      transition: grid-template-columns 0.3s ease;
+    }
+
+    @media (min-width: 1200px) {
+      .grid-container.has-file {
+        grid-template-columns: 4.2fr 5.8fr;
+      }
     }
 
     @media (max-width: 992px) {
       .grid-container {
         grid-template-columns: 1fr;
       }
+    }
+
+    /* Preview Container */
+    .preview-container {
+      display: none;
+      margin-top: 16px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.25);
+      max-height: 260px;
+      transition: max-height 0.3s ease;
+      position: relative;
+    }
+    
+    .preview-header {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--text-main);
+    }
+    
+    .preview-body {
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow-y: auto;
+      max-height: 210px;
+    }
+    
+    .preview-body img, .preview-body canvas {
+      max-width: 100%;
+      height: auto;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    }
+
+    .preview-container.expanded {
+      max-height: 800px;
+    }
+    
+    .preview-container.expanded .preview-body {
+      max-height: 750px;
+    }
+
+    /* Collapsed dropzone once file is loaded */
+    .dropzone.has-file {
+      padding: 12px 16px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .dropzone.has-file i {
+      font-size: 1.25rem;
+      margin-bottom: 0;
+    }
+    .dropzone.has-file p {
+      font-size: 0.88rem;
+      margin-bottom: 0;
+    }
+    .dropzone.has-file span {
+      display: none;
     }
 
     .card {
@@ -413,7 +489,7 @@
     <div class="brand">
       <picture>
         <source srcset="assets/logo.webp" type="image/webp" />
-        <img src="assets/logo.jpg" alt="Wings Fly Logo" onerror="this.src='https://raw.githubusercontent.com/shakibapon1234-maker/Wings-Fly-Academy-1/main/assets/logo.jpg'" />
+        <img src="assets/logo.jpg" alt="Wings Fly Logo" onerror="this.onerror=null;this.src='https://raw.githubusercontent.com/shakibapon1234-maker/Wings-Fly-Academy-1/main/assets/logo.jpg'" />
       </picture>
       <h1>Wings Fly Aviation Academy</h1>
     </div>
@@ -447,7 +523,21 @@
           <div class="status-text" id="status-message">ফাইল প্রসেস হচ্ছে...</div>
         </div>
 
-        <div class="form-group">
+        <!-- Routine file preview container -->
+        <div class="preview-container" id="preview-container">
+          <div class="preview-header">
+            <span><i class="fa fa-image"></i> রুটিন ফাইল প্রিভিউ (পাশাপাশি রুটিন)</span>
+            <button class="btn btn-secondary" onclick="toggleZoom()" style="padding: 4px 8px; font-size: 0.75rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); height: 26px; line-height: 1;">
+              <i class="fa fa-magnifying-glass-plus" id="zoom-icon"></i> জুম করুন
+            </button>
+          </div>
+          <div class="preview-body" id="preview-body">
+            <canvas id="pdf-preview-canvas" style="display: none;"></canvas>
+            <img id="image-preview" style="display: none;" alt="Routine preview" />
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
           <label class="form-label">এক্সট্র্যাক্ট করা টেক্সট (এডিট করতে পারেন):</label>
           <textarea class="form-control" id="raw-text" placeholder="ফাইল আপলোড করলে টেক্সট এখানে দেখাবে। অথবা আপনার টেক্সট এখানে সরাসরি পেস্ট করুন..."></textarea>
         </div>
@@ -651,10 +741,30 @@
               extractedText += `\n--- Page ${i} ---\n` + pageText;
             }
 
+            // Always render page 1 for preview in both text and scanned PDFs
+            try {
+              const page = await pdf.getPage(1);
+              const canvas = document.getElementById('pdf-preview-canvas');
+              const context = canvas.getContext('2d');
+              const viewport = page.getViewport({ scale: 1.5 });
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+              await page.render({ canvasContext: context, viewport: viewport }).promise;
+              canvas.style.display = 'block';
+              document.getElementById('image-preview').style.display = 'none';
+              document.getElementById('preview-container').style.display = 'block';
+              document.querySelector('.grid-container').classList.add('has-file');
+              document.getElementById('drop-zone').classList.add('has-file');
+              document.querySelector('#drop-zone p').textContent = 'অন্য ফাইল আপলোড করতে এখানে ক্লিক করুন';
+            } catch (errPreview) {
+              console.error('Preview render failed:', errPreview);
+            }
+
             if (extractedText.trim().replace(/--- Page \d+ ---/g, '').length > 20) {
               rawText.value = extractedText.trim();
               hideStatus();
               alert('✅ পিডিএফ থেকে সফলভাবে টেক্সট এক্সট্র্যাক্ট করা হয়েছে!');
+              parseText();
               return;
             }
 
@@ -662,18 +772,30 @@
             showStatus('স্ক্যান করা পিডিএফ পাওয়া গেছে। প্রথম পেজ ইমেজ হিসেবে রূপান্তর করা হচ্ছে (OCR)...');
             const page = await pdf.getPage(1);
             const viewport = page.getViewport({ scale: 2.0 });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
+            const ocrCanvas = document.createElement('canvas');
+            const context = ocrCanvas.getContext('2d');
+            ocrCanvas.height = viewport.height;
+            ocrCanvas.width = viewport.width;
 
             await page.render({ canvasContext: context, viewport: viewport }).promise;
+
+            // Apply high-contrast binarization pre-processing for Tesseract OCR
+            const imgData = context.getImageData(0, 0, ocrCanvas.width, ocrCanvas.height);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+              const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+              const val = gray > 140 ? 255 : 0; // threshold
+              data[i] = val;
+              data[i+1] = val;
+              data[i+2] = val;
+            }
+            context.putImageData(imgData, 0, 0);
             
             showStatus('Tesseract OCR লাইব্রেরি লোড হচ্ছে...');
             await loadTesseract();
             
             showStatus('OCR এর মাধ্যমে ছবি থেকে টেক্সট পড়া হচ্ছে (কিছুক্ষণ সময় লাগতে পারে)...');
-            const result = await Tesseract.recognize(canvas, 'eng+ben', {
+            const result = await Tesseract.recognize(ocrCanvas, 'eng+ben', {
               logger: m => {
                 if (m.status === 'recognizing text') {
                   showStatus(`টেক্সট পড়া হচ্ছে: ${Math.round(m.progress * 100)}%`);
@@ -683,6 +805,7 @@
             rawText.value = result.data.text;
             hideStatus();
             alert('✅ পিডিএফ OCR এর মাধ্যমে টেক্সট রিড সম্পন্ন হয়েছে!');
+            parseText();
           } catch (err) {
             console.error(err);
             showStatus('ত্রুটি: পিডিএফ কনভার্ট করতে ব্যর্থ হয়েছে।', false);
@@ -695,27 +818,80 @@
       }
     }
 
-    // Process Image file using Tesseract OCR
+    // Process Image file using Tesseract OCR with pre-processing
     async function processImage(file) {
       showStatus('Tesseract OCR লাইব্রেরি লোড হচ্ছে...');
       try {
         await loadTesseract();
         showStatus('ছবি প্রসেস হচ্ছে (OCR)...');
-        
-        const result = await Tesseract.recognize(file, 'eng+ben', {
-          logger: m => {
-            if (m.status === 'recognizing text') {
-              showStatus(`টেক্সট প্রসেস হচ্ছে: ${Math.round(m.progress * 100)}%`);
-            }
-          }
-        });
 
-        rawText.value = result.data.text;
-        hideStatus();
-        alert('✅ ছবি থেকে সফলভাবে রুটিন টেক্সট রিড করা হয়েছে!');
+        // Set Image Preview (Full Color)
+        const img = document.getElementById('image-preview');
+        const objectUrl = URL.createObjectURL(file);
+        img.src = objectUrl;
+        img.style.display = 'block';
+        document.getElementById('pdf-preview-canvas').style.display = 'none';
+        document.getElementById('preview-container').style.display = 'block';
+        document.querySelector('.grid-container').classList.add('has-file');
+        document.getElementById('drop-zone').classList.add('has-file');
+        document.querySelector('#drop-zone p').textContent = 'অন্য ফাইল আপলোড করতে এখানে ক্লিক করুন';
+        
+        // Load image into a hidden canvas to apply high-contrast binarization
+        const imgEl = new Image();
+        imgEl.src = objectUrl;
+        imgEl.onload = async () => {
+          try {
+            const ocrCanvas = document.createElement('canvas');
+            const ctx = ocrCanvas.getContext('2d');
+            ocrCanvas.width = imgEl.naturalWidth;
+            ocrCanvas.height = imgEl.naturalHeight;
+            ctx.drawImage(imgEl, 0, 0);
+
+            // Apply high-contrast binarization to strip out busy background patterns
+            const imgData = ctx.getImageData(0, 0, ocrCanvas.width, ocrCanvas.height);
+            const data = imgData.data;
+            for (let i = 0; i < data.length; i += 4) {
+              const gray = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+              const val = gray > 140 ? 255 : 0; // threshold values
+              data[i] = val;
+              data[i+1] = val;
+              data[i+2] = val;
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            const result = await Tesseract.recognize(ocrCanvas, 'eng+ben', {
+              logger: m => {
+                if (m.status === 'recognizing text') {
+                  showStatus(`টেক্সট প্রসেস হচ্ছে: ${Math.round(m.progress * 100)}%`);
+                }
+              }
+            });
+
+            rawText.value = result.data.text;
+            hideStatus();
+            alert('✅ ছবি থেকে সফলভাবে রুটিন টেক্সট রিড করা হয়েছে!');
+            parseText();
+          } catch (ocrErr) {
+            console.error(ocrErr);
+            showStatus('ত্রুটি: ছবি OCR প্রসেস ব্যর্থ হয়েছে।', false);
+          }
+        };
       } catch (err) {
         console.error(err);
         showStatus('ত্রুটি: ছবি প্রসেস করা সম্ভব হয়নি। ইন্টারনেট কানেকশন চেক করুন।', false);
+      }
+    }
+
+    // Toggle Preview Zoom
+    function toggleZoom() {
+      const container = document.getElementById('preview-container');
+      const icon = document.getElementById('zoom-icon');
+      if (container.classList.contains('expanded')) {
+        container.classList.remove('expanded');
+        icon.className = 'fa fa-magnifying-glass-plus';
+      } else {
+        container.classList.add('expanded');
+        icon.className = 'fa fa-magnifying-glass-minus';
       }
     }
 
@@ -730,7 +906,7 @@
       'fri': 'Fri', 'friday': 'Fri', 'শুক্র': 'Fri', 'শুক্রবার': 'Fri'
     };
 
-    // Smart parsing algorithms
+    // Smart parsing algorithms - global time-token scanner with inheritance
     function parseText() {
       const text = rawText.value.trim();
       if (!text) {
@@ -738,99 +914,152 @@
         return;
       }
 
-      const lines = text.split('\n');
+      // Convert Bangla digits to English
+      const normalizedText = text.replace(/[\u09e6-\u09ef]/g, d => {
+        const m = {'\u09e6':'0','\u09e7':'1','\u09e8':'2','\u09e9':'3','\u09ea':'4','\u09eb':'5','\u09ec':'6','\u09ed':'7','\u09ee':'8','\u09ef':'9'};
+        return m[d] || d;
+      });
+
       const parsedSlots = [];
-      let currentDay = 'Sat'; // default day
+      let currentDay = 'Sat';
+      let lastStart = '09:00';
+      let lastEnd = '11:00';
 
-      // Regex for time format: e.g. 09:00 - 10:30, 9.30 AM to 11.00 PM, 14:00 to 15:30
-      const timeRegex = /\b(\d{1,2})[:.](\d{2})\s*(AM|PM)?\s*[-–—to০-৯]+\s*(\d{1,2})[:.](\d{2})\s*(AM|PM)?\b/i;
+      const MONTH_IDX = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+      const WKDAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+      const dateRx = /\b(?:(\d{1,2})[\s\-\/]*(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)|(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[\s\-\/]*(\d{1,2}))\b/i;
 
-      lines.forEach(line => {
-        const cleanLine = line.trim();
-        if (!cleanLine) return;
+      normalizedText.split('\n').forEach(rawLine => {
+        const line = rawLine.trim();
+        if (!line || line.length < 3) return;
 
-        // Detect Day in line
-        for (const [key, val] of Object.entries(DAY_MAP)) {
-          // Check for exact word or matching substrings
-          const regex = new RegExp('\\b' + key + '\\b|' + key, 'i');
-          if (regex.test(cleanLine)) {
-            currentDay = val;
-            break;
+        // Skip pure header / noise lines (added reservation, ticketing, and course schedule checks)
+        if (/^(wings[\s-]*fly|aviation[\s-]*academy|course[\s-]*schedule|class[\s-]*routine|target[\s-]*batch|batch[\s-:\d]+|date[\s\/]?time|subject[\s-]*teacher|page[\s-]*\d+|development[\s-]*academy|career.*skill|skill.*development|a[\s-]+gateway|gateway[\s-]+to|full[\s-]*course|reservation|ticketing)$/i.test(line)) return;
+        if (/course schedule|reservation|ticketing/i.test(line) && line.length < 40) return;
+
+        // Detect weekday name
+        for (const [k, v] of Object.entries(DAY_MAP)) {
+          const isASCII = /^[a-z]+$/i.test(k);
+          const re = isASCII ? new RegExp('\\b' + k + '\\b', 'i') : new RegExp(k, 'i');
+          if (re.test(line)) {
+            currentDay = v;
           }
         }
 
-        // Try to match time range
-        const timeMatch = cleanLine.match(timeRegex);
-        if (timeMatch) {
-          let sh = parseInt(timeMatch[1], 10);
-          let sm = parseInt(timeMatch[2], 10);
-          let sAmPm = timeMatch[3];
-          let eh = parseInt(timeMatch[4], 10);
-          let em = parseInt(timeMatch[5], 10);
-          let eAmPm = timeMatch[6];
-
-          // Normalize start time to 24h
-          if (sAmPm) {
-            sAmPm = sAmPm.toUpperCase();
-            if (sAmPm === 'PM' && sh < 12) sh += 12;
-            if (sAmPm === 'AM' && sh === 12) sh = 0;
+        // Detect date -> weekday (17 Jul / Jul 17)
+        const dMatch = line.match(dateRx);
+        if (dMatch) {
+          const mStr = ((dMatch[2]||dMatch[3]||'')).toLowerCase();
+          const dNum = parseInt(dMatch[1]||dMatch[4]||'0', 10);
+          const mIdx = MONTH_IDX[mStr];
+          if (!isNaN(dNum) && mIdx !== undefined) {
+            currentDay = WKDAYS[new Date(2026, mIdx, dNum).getDay()];
           }
-          // Normalize end time to 24h
-          if (eAmPm) {
-            eAmPm = eAmPm.toUpperCase();
-            if (eAmPm === 'PM' && eh < 12) eh += 12;
-            if (eAmPm === 'AM' && eh === 12) eh = 0;
+        }
+
+        // Find all time tokens
+        const timeRx = /(\d{1,2})(?::|\.|h)?(\d{2})?\s*(am|pm)?(?:\s*[-–—]\s*(\d{1,2})(?::|\.|h)?(\d{2})?\s*(am|pm)?)?/gi;
+        const tokens = [];
+        let tm;
+        while ((tm = timeRx.exec(line)) !== null) {
+          if (!tm[3] && !tm[6] && tm[2] === undefined) continue; // skip bare numbers
+          let sh = parseInt(tm[1], 10);
+          let sm = parseInt(tm[2] || '0', 10);
+          let sap = (tm[3] || '').toLowerCase();
+          let eh = (tm[4] !== undefined && tm[4] !== '') ? parseInt(tm[4], 10) : -1;
+          let em = parseInt(tm[5] || (tm[2] || '0'), 10);
+          let eap = (tm[6] || sap).toLowerCase();
+
+          if (!tm[2]) sm = 0;
+
+          if (sap === 'pm' && sh !== 12) sh += 12;
+          if (sap === 'am' && sh === 12) sh = 0;
+          if (!sap && !tm[2] && sh < 8) sh += 12; // heuristic for PM
+
+          const startT = String(sh).padStart(2, '0') + ':' + String(sm).padStart(2, '0');
+          let endT;
+          if (eh >= 0) {
+            if (eap === 'pm' && eh !== 12) eh += 12;
+            if (eap === 'am' && eh === 12) eh = 0;
+            endT = String(eh).padStart(2, '0') + ':' + String(em).padStart(2, '0');
+          } else {
+            const de = (sh + 2) % 24;
+            endT = String(de).padStart(2, '0') + ':' + String(sm).padStart(2, '0');
           }
+          tokens.push({ startT, endT, full: tm[0] });
+        }
 
-          const start_time = `${String(sh).padStart(2, '0')}:${String(sm).padStart(2, '0')}`;
-          const end_time = `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
+        if (tokens.length > 0) {
+          // Time tokens found
+          tokens.forEach(tok => {
+            lastStart = tok.startT;
+            lastEnd   = tok.endT;
 
-          // Clean line text by removing time elements to find subject/teacher
-          let remainingText = cleanLine.replace(timeRegex, '').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-          
-          // Try to isolate subject, teacher, and room
-          let subject = '';
-          let teacher = '';
+            let subj = line
+              .replace(tok.full, ' ')
+              .replace(/\b(sat|sun|mon|tue|wed|thu|fri|saturday|sunday|monday|tuesday|wednesday|thursday|friday)\b/gi, '')
+              .replace(dateRx, '')
+              .replace(/[:.(),\-\/\\|]/g, ' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+            let room = '';
+            const rm = subj.match(/(?:room|rm)\s*([A-Z]?\d+)/i) || subj.match(/\b(\d{3})\b/);
+            if (rm) { room = rm[1] || rm[0]; subj = subj.replace(rm[0], '').trim(); }
+
+            let teacher = '';
+            const tc = subj.match(/\b([A-Z]{2,4})\b/);
+            if (tc) { teacher = tc[1]; subj = subj.replace(tc[0], '').trim(); }
+
+            subj = subj.replace(/\s+/g, ' ').trim();
+            if (subj.length < 3) return; // skip if too short (e.g. just updating time is fine)
+
+            parsedSlots.push({
+              day: currentDay,
+              start_time: tok.startT,
+              end_time: tok.endT,
+              subject: subj,
+              teacher_id: teacher,
+              room
+            });
+          });
+        } else {
+          // No time tokens found. Try to inherit time if it's a valid subject line
+          let subj = line
+            .replace(/\b(sat|sun|mon|tue|wed|thu|fri|saturday|sunday|monday|tuesday|wednesday|thursday|friday)\b/gi, '')
+            .replace(dateRx, '')
+            .replace(/[:.(),\-\/\\|]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
           let room = '';
+          const rm = subj.match(/(?:room|rm)\s*([A-Z]?\d+)/i) || subj.match(/\b(\d{3})\b/);
+          if (rm) { room = rm[1] || rm[0]; subj = subj.replace(rm[0], '').trim(); }
 
-          // Heuristic for Room: search for words like "Room 101", "R102", "102"
-          const roomMatch = remainingText.match(/(?:room|rm|রুম)\s*(\d+|[A-Z]\d+)/i) || remainingText.match(/\b\d{3}\b/);
-          if (roomMatch) {
-            room = roomMatch[0];
-            remainingText = remainingText.replace(roomMatch[0], '').trim();
-          }
+          let teacher = '';
+          const tc = subj.match(/\b([A-Z]{2,4})\b/);
+          if (tc) { teacher = tc[1]; subj = subj.replace(tc[0], '').trim(); }
 
-          // Heuristic for Teacher name initials or brackets: e.g. (MRA), (Capt. Shahrukh)
-          const teacherMatch = remainingText.match(/\(([^)]+)\)/) || remainingText.match(/\b[A-Z]{3}\b/);
-          if (teacherMatch) {
-            teacher = teacherMatch[1] || teacherMatch[0];
-            remainingText = remainingText.replace(teacherMatch[0], '').trim();
-          }
-
-          // Rest of line is probably subject
-          subject = remainingText.replace(/[^a-zA-Z0-9\s.\-_/()]/g, '').trim();
-
-          // Standardize empty variables
-          if (!subject) subject = 'Routine Class';
+          subj = subj.replace(/\s+/g, ' ').trim();
+          if (subj.length < 3) return; // skip noise
 
           parsedSlots.push({
             day: currentDay,
-            start_time,
-            end_time,
-            subject,
+            start_time: lastStart,
+            end_time: lastEnd,
+            subject: subj,
             teacher_id: teacher,
-            room: room
+            room
           });
         }
       });
 
       if (parsedSlots.length === 0) {
-        // Fallback: If regex failed, let's create a single empty template slot
-        alert('⚠️ সরাসরি ক্লাস ফরম্যাট সনাক্ত করা যায়নি। টেবিলে খালি ঘর তৈরি করা হয়েছে, অনুগ্রহ করে এডিট করে নিন।');
+        alert('⚠️ কোনো ক্লাস সনাক্ত করা যায়নি। অনুগ্রহ করে ম্যানুয়ালি সারি যোগ করুন।');
         addNewRow();
       } else {
         renderTable(parsedSlots);
-        alert(`✅ মোট ${parsedSlots.length}টি ক্লাস সফলভাবে সনাক্ত করা হয়েছে!`);
+        alert(`✅ সফলভাবে ${parsedSlots.length}টি ক্লাস সনাক্ত করা হয়েছে!`);
       }
     }
 
