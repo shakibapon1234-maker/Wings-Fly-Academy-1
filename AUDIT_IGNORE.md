@@ -5,6 +5,43 @@
 
 ---
 
+## 🔴🔴🔴 সর্বোচ্চ সতর্কতা — এটি না মানলে ডেটা হারাবে 🔴🔴🔴
+
+> **Supabase Dashboard বা REST API দিয়ে সরাসরি `accounts` টেবিলের `balance` কলাম কখনো edit করবেন না।**
+
+### কেন এটা এত গুরুতর?
+
+অ্যাপের sync logic এখন **timestamp-based** — যে row-এর `updated_at` বেশি নতুন, সেই balance জিতবে।
+
+Supabase Dashboard-এ `balance` edit করলে:
+1. সেই row-এর `updated_at` নতুন timestamp পাবে
+2. পরের sync-এ সেটা **local IDB overwrite করবে** — সব device-এ
+3. সমস্ত real transactions থেকে আসা সঠিক balance মুছে যাবে
+
+### ✅ balance পরিবর্তনের একমাত্র সঠিক পথ
+
+| কাজ | সঠিক পদ্ধতি |
+|-----|------------|
+| Balance ঠিক করতে হবে | অ্যাপ → Settings → Data Management → **Repair Finance Ledger** |
+| Manual adjustment | অ্যাপ → Accounts → **Balance Adjustment** |
+| Transaction যোগ | অ্যাপ → Finance → **Add Income/Expense** |
+| কোড থেকে | `SupabaseSync.updateAccountBalance(method, amount, 'in'\|'out')` |
+
+### ❌ যা কখনো করবেন না
+
+```
+Supabase Dashboard → Table Editor → accounts → balance সরাসরি edit ❌
+REST API: PATCH /accounts?id=xxx  body: { balance: 12345 }          ❌
+SQL: UPDATE accounts SET balance = 12345 WHERE id = 'xxx'           ❌
+```
+
+> **ঘটনার ইতিহাস:** এই ভুলটা আগে একাধিকবার করা হয়েছে (Section 8, Section 13, Section 15, Section 16)।  
+> প্রতিবারই ব্যালেন্স হারিয়ে গেছে এবং পুনরুদ্ধার করতে অনেক কষ্ট হয়েছে।  
+> **AI agent-ও এই ভুল করতে পারে — সরাসরি DB edit-এর আগে সবসময় এই নিয়ম মনে রাখুন।**
+
+---
+
+
 ## 1. Settings মডিউল (`js/ui/settings.js`)
 
 | নিয়ম | কারণ |
