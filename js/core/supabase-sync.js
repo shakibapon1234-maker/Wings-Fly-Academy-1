@@ -3242,7 +3242,7 @@ const SyncEngine = (() => {
         if (isFullPull) {
           merged = mergeRows(localRows, cloudRows || [], deletedIds);
         } else {
-          merged = mergeIncremental(localRows, cloudRows || [], deletedIds);
+          merged = mergeIncremental(localRows, cloudRows || [], deletedIds, key);
         }
 
         // BUG-05 Fix: finance_ledger pull — _isLoan flag Supabase-এ নেই (cloud-only field নয়)
@@ -3422,15 +3422,10 @@ const SyncEngine = (() => {
       if (deletedIds.includes(row.id)) return;
       const existing = merged.get(row.id);
       if (!existing) {
-        // Local এ আছে কিন্তু cloud এ নেই — শুধু রাখো যদি
-        // এটা cloud এর latest record এর চেয়ে নতুন হয় (অর্থাৎ সত্যিই নতুন entry)
-        const localTime = new Date(row.updated_at || 0).getTime();
-        if (latestCloudTime > 0 && localTime < latestCloudTime - 300000) {
-          // Cloud এ ৫ মিনিটের বেশি আগের record এর চেয়েও পুরনো local row — skip (stale data)
-          // BUG-S4 fix: warn instead of silently dropping, so data loss is traceable
-          if (window.__WFA_DEV__) console.warn('[SyncMerge] Dropping stale local-only record (id=%s, table implied by caller, localTime=%s, latestCloudTime=%s). If this is unexpected, check offline sync.', row.id, new Date(localTime).toISOString(), new Date(latestCloudTime).toISOString());
-          return;
-        }
+        // ✅ FIX (2026-07-05): Local-only records সবসময় রাখো।
+        // আগের "stale data drop" rule (৫ মিনিটের বেশি পুরনো local-only record মুছে দাও)
+        // offline-এ কাজ করা data হারানোর কারণ ছিল। Cloud-এ না থাকলে মানে
+        // pending push queue-এ আছে — drop করা যাবে না।
         merged.set(row.id, row);
       } else {
         const localTime = new Date(row.updated_at || 0).getTime();
@@ -3532,7 +3527,7 @@ const SyncEngine = (() => {
     return result;
   }
 
-  function mergeIncremental(localRows, changedCloudRows, deletedIds) {
+  function mergeIncremental(localRows, changedCloudRows, deletedIds, tableKey) {
     if (!changedCloudRows.length && !deletedIds.length) return localRows;
 
     const localMap = new Map(localRows.map(r => [r.id, r]));
@@ -3558,6 +3553,14 @@ const SyncEngine = (() => {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
         if (cloudTime >= localTime) {
+          // ✅ CRITICAL FIX (2026-07-05): accounts.balance local-authoritative — incremental merge
+          // Full pull-এ এই protection আছে (line ~3344). এখানে না থাকায় প্রতি ৩০s incremental
+          // pull-এ balance overwrite হচ্ছিল। এটাই data হারানোর মূল কারণ।
+          let effectiveCloudRow = cloudRow;
+          if (tableKey === 'accounts' && localRow.balance !== undefined) {
+            effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+          }
+
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
           // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
           if (localRow.keep_records !== undefined || localRow.recycle_bin !== undefined || localRow.courses !== undefined) {
@@ -3566,7 +3569,7 @@ const SyncEngine = (() => {
             // Cloud sync must NOT overwrite these because user changes them locally.
             // Previously: only kept local if cloud field was empty (bug: cloud stale value won).
             const always_local_fields = ['expense_start_date', 'expense_end_date', 'running_batch', 'monthly_target'];
-            const merged = { ...cloudRow };
+            const merged = { ...effectiveCloudRow };
             for (const f of protected_fields) {
               if (localRow[f] && !merged[f]) merged[f] = localRow[f];
             }
@@ -3593,10 +3596,10 @@ const SyncEngine = (() => {
             const _localPaid = parseFloat(localRow.paidAmount ?? localRow.paid_amount ?? 0) || 0;
             const _cloudPaid = parseFloat(cloudRow.paidAmount ?? cloudRow.paid_amount ?? 0) || 0;
             if (_localPaid > 0 && _cloudPaid === 0 && cloudRow.paidAmount === undefined && cloudRow.paid_amount === undefined) {
-              const salMerged = { ...cloudRow, paidAmount: _localPaid, paid_amount: _localPaid };
+              const salMerged = { ...effectiveCloudRow, paidAmount: _localPaid, paid_amount: _localPaid };
               localMap.set(cloudRow.id, salMerged);
             } else {
-              localMap.set(cloudRow.id, cloudRow);
+              localMap.set(cloudRow.id, effectiveCloudRow);
             }
           }
         }
@@ -3724,7 +3727,15 @@ const SyncEngine = (() => {
           }
           rows[idx] = merged;
         } else if (idx >= 0) {
-          let merged = { ...rows[idx], ...newRow };
+          // ✅ CRITICAL FIX (2026-07-05): accounts.balance local-authoritative — realtime event
+          // Realtime UPDATE event এলে spread করলে cloud-এর balance local-কে overwrite করত।
+          // accounts table-এর ক্ষেত্রে balance সবসময় local থেকে নিতে হবে।
+          let merged;
+          if (table === 'accounts' && rows[idx].balance !== undefined) {
+            merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
+          } else {
+            merged = { ...rows[idx], ...newRow };
+          }
           const salKey = (typeof DB !== 'undefined' && DB.salary) ? DB.salary : 'salary';
           const exKey = (typeof DB !== 'undefined' && DB.exams) ? DB.exams : 'exams';
           // ✅ FIX: Salary partial payment — cloud-এ paid_amount column না থাকলে
