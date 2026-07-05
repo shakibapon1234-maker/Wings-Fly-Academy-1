@@ -2268,10 +2268,14 @@ const SupabaseSync = (() => {
         }
         return;
       }
-      // ✅ Cooldown check — skip table if it failed recently to stop console flooding
+      // ✅ Cooldown check — throttle console flooding when Supabase rejects a table.
+      // ⚠️ CRITICAL FIX (2026-07-05): cooldown-এ থাকলে SKIP করা যাবে না — record-টা
+      // retry_queue-তে রাখতে হবে। আগে silently skip করায় ওই 60s window-এ enter করা
+      // সব data cloud-এ যাচ্ছিল না এবং retry queue-তেও যাচ্ছিল না — data হারাচ্ছিল।
       const now = Date.now();
       if (_pushCooldown[table] && now - _pushCooldown[table] < PUSH_COOLDOWN_MS) {
-        return; // silently skip — still within cooldown window
+        _queueRetry(table, record); // queue করো, skip নয়
+        return;
       }
 
       let clean = _prepareRecordForCloud(table, record);
@@ -3643,7 +3647,12 @@ const SyncEngine = (() => {
         if (!rows.length) continue;
         const cleanRows = rows.map(r => SupabaseSync._prepareRecordForCloud(key, r));
         const { error } = await client.from(key).upsert(cleanRows, { onConflict: 'id' });
-        if (error) console.error(`[Sync] Push failed for "${key}":`, error);
+        if (error) {
+          // ⚠️ CRITICAL FIX (2026-07-05): bulk push error → প্রতিটি row আলাদাভাবে
+          // retry_queue-তে রাখো। আগে শুধু console.error করা হতো — data চিরতরে হারাত।
+          console.error(`[Sync] Bulk push failed for "${key}" — queuing ${rows.length} records for retry:`, error);
+          rows.forEach(r => _queueRetry(key, r));
+        }
       }
       setStatus('synced');
       if (!silent && typeof Utils !== 'undefined') Utils.toast('Push complete ✅', 'success');
