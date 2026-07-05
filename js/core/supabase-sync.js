@@ -3062,6 +3062,7 @@ const SupabaseSync = (() => {
     pullActivityLog: _pullActivityFromCloud, // ✅ সব device-এর activity log sync করে
     _restoredIds,
     _prepareRecordForCloud,
+    _queueRetry,
     normalizeSalaryForCloud: _normalizeSalaryForCloud,
     normalizeSalaryFromCloud: _normalizeSalaryFromCloud,
     normalizeExamForCloud: _normalizeExamForCloud,
@@ -3309,7 +3310,7 @@ const SyncEngine = (() => {
             try {
               const p = window.location.pathname;
               return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
-            } catch(e) { return false; }
+            } catch { return false; }
           })();
           if (_isMainRoot && merged[0].academy_name &&
               _invalidMainNames.includes(String(merged[0].academy_name).trim())) {
@@ -3660,7 +3661,7 @@ const SyncEngine = (() => {
           // ⚠️ CRITICAL FIX (2026-07-05): bulk push error → প্রতিটি row আলাদাভাবে
           // retry_queue-তে রাখো। আগে শুধু console.error করা হতো — data চিরতরে হারাত।
           console.error(`[Sync] Bulk push failed for "${key}" — queuing ${rows.length} records for retry:`, error);
-          rows.forEach(r => _queueRetry(key, r));
+          rows.forEach(r => SupabaseSync._queueRetry(key, r));
         }
       }
       setStatus('synced');
@@ -3738,7 +3739,7 @@ const SyncEngine = (() => {
           }
           // ✅ GUARD: realtime settings update-এ invalid academy_name block
           const _rtInvalidNames = ['Nasrin Academy', 'shakib academy', 'Safa Academy'];
-          const _rtIsMain = (() => { try { const p = window.location.pathname; return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index'); } catch(e) { return false; } })();
+          const _rtIsMain = (() => { try { const p = window.location.pathname; return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index'); } catch { return false; } })();
           if (_rtIsMain && merged.academy_name && _rtInvalidNames.includes(String(merged.academy_name).trim())) {
             merged.academy_name = localRow.academy_name || 'Wings Fly Aviation Academy';
             console.warn('[Realtime] Blocked invalid academy_name:', newRow.academy_name, '→ kept:', merged.academy_name);

@@ -1421,13 +1421,13 @@ const SettingsModule = (() => {
                 try {
                   if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
                     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-                    let ec = {}; try { ec = JSON.parse(cfg.exam_settings || '{}'); } catch {}
+                    let ec = {}; try { ec = JSON.parse(cfg.exam_settings || '{}'); } catch { /* ignore */ }
                     if (ec.repair_cutoff_date) {
                       localStorage.setItem('wfa_repair_cutoff_date', ec.repair_cutoff_date);
                       return '✅ Cutoff active: ' + ec.repair_cutoff_date + ' (DB থেকে restore)';
                     }
                   }
-                } catch {}
+                } catch { /* ignore */ }
               }
               return lsVal ? '✅ Cutoff active: ' + lsVal : '⚪ কোনো cutoff set নেই — সব student repair করে।';
             })()}

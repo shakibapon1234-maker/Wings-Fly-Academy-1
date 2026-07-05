@@ -637,7 +637,7 @@ const App = (() => {
         try {
           const p = window.location.pathname;
           return p === '/' || p === '/Wings-Fly-Academy-1/' || p.startsWith('/Wings-Fly-Academy-1/index');
-        } catch(e) { return false; }
+        } catch { return false; }
       })();
 
       const allSettings = SupabaseSync.getAll(DB.settings);
