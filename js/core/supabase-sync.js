@@ -3339,24 +3339,28 @@ const SyncEngine = (() => {
         }
 
 
-        // ✅ CRITICAL FIX: accounts.balance is ALWAYS local-authoritative.
-        // Local balance = maintained by real transactions (updateAccountBalance).
-        // Cloud pull must NEVER overwrite local balance — cloud can add NEW accounts
-        // but existing account balances stay as they are in local IDB.
-        // This prevents REST API direct edits (or any cloud change) from wiping out
-        // balances that were set by actual salary payments, student fees, etc.
+        // ✅ BALANCE SYNC FIX (2026-07-05 v2): accounts.balance — timestamp-based resolution.
+        // "Local always wins" ছিল ভুল — multi-device sync ভেঙে দিচ্ছিল (PC2 কখনো update পাচ্ছিল না)।
+        // সঠিক নিয়ম:
+        //   - Cloud নতুন (updated_at বেশি) → cloud balance নাও (other device-এ transaction হয়েছে)
+        //   - Local নতুন (updated_at বেশি) → local balance রাখো (local uncommitted transaction আছে)
+        //   - New account (শুধু cloud-এ) → cloud balance নাও
         if (key === 'accounts' && localRows.length > 0) {
-          const localBalanceMap = {};
+          const localAccountMap = {};
           localRows.forEach(function(r) {
-            if (r && r.id != null) localBalanceMap[r.id] = r.balance;
+            if (r && r.id != null) localAccountMap[r.id] = r;
           });
-          merged = merged.map(function(r) {
-            if (r && r.id in localBalanceMap) {
-              // Existing account — keep local balance, update other fields from cloud
-              return Object.assign({}, r, { balance: localBalanceMap[r.id] });
+          merged = merged.map(function(cloudRow) {
+            const localRow = localAccountMap[cloudRow.id];
+            if (!localRow) return cloudRow; // New account — use cloud
+            const localTime = new Date(localRow.updated_at || 0).getTime();
+            const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
+            if (localTime > cloudTime) {
+              // Local নতুন — local balance রাখো (pending push আছে)
+              return Object.assign({}, cloudRow, { balance: localRow.balance });
             }
-            // New account (only in cloud) — use cloud balance as-is
-            return r;
+            // Cloud নতুন — cloud balance নাও (other device-এ transaction হয়েছে)
+            return cloudRow;
           });
         }
 
@@ -3557,12 +3561,17 @@ const SyncEngine = (() => {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
         if (cloudTime >= localTime) {
-          // ✅ CRITICAL FIX (2026-07-05): accounts.balance local-authoritative — incremental merge
-          // Full pull-এ এই protection আছে (line ~3344). এখানে না থাকায় প্রতি ৩০s incremental
-          // pull-এ balance overwrite হচ্ছিল। এটাই data হারানোর মূল কারণ।
+          // ✅ BALANCE SYNC FIX (2026-07-05 v2): accounts.balance — timestamp-based
+          // Cloud নতুন হলে cloud balance, local নতুন হলে local balance
           let effectiveCloudRow = cloudRow;
           if (tableKey === 'accounts' && localRow.balance !== undefined) {
-            effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+            const _lTime = new Date(localRow.updated_at || 0).getTime();
+            const _cTime = new Date(cloudRow.updated_at || 0).getTime();
+            if (_lTime > _cTime) {
+              // Local নতুন — local balance রাখো
+              effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+            }
+            // else: cloud নতুন — cloud balance নাও (multi-device sync)
           }
 
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
@@ -3736,12 +3745,21 @@ const SyncEngine = (() => {
           }
           rows[idx] = merged;
         } else if (idx >= 0) {
-          // ✅ CRITICAL FIX (2026-07-05): accounts.balance local-authoritative — realtime event
-          // Realtime UPDATE event এলে spread করলে cloud-এর balance local-কে overwrite করত।
-          // accounts table-এর ক্ষেত্রে balance সবসময় local থেকে নিতে হবে।
+          // ✅ BALANCE SYNC FIX (2026-07-05 v2): accounts.balance — realtime event
+          // Realtime event মানে cloud এইমাত্র update হয়েছে — সবসময় cloud balance নাও।
+          // উদাহরণ: PC1-এ transaction হয়েছে, realtime event PC2-তে এসেছে — PC2 cloud balance নেবে ✅
+          // নিয়ম: local-এ pending (unpushed) transaction থাকলে local updated_at cloud-র চেয়ে নতুন হবে।
           let merged;
           if (table === 'accounts' && rows[idx].balance !== undefined) {
-            merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
+            const _lTime = new Date(rows[idx].updated_at || 0).getTime();
+            const _cTime = new Date(newRow.updated_at || 0).getTime();
+            if (_lTime > _cTime) {
+              // Local নতুন (pending push) — local balance রাখো
+              merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
+            } else {
+              // Cloud নতুন — cloud balance নাও (other device-এ transaction)
+              merged = { ...rows[idx], ...newRow };
+            }
           } else {
             merged = { ...rows[idx], ...newRow };
           }
