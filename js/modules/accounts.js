@@ -608,7 +608,23 @@ const Accounts = (() => {
       // Get old balance to calculate difference
       const old = SupabaseSync.getById(DB.accounts, existingId);
       const oldBal = parseFloat(old?.balance) || 0;
+      const delta = bal - oldBal;
       SupabaseSync.update(DB.accounts, existingId, { type, balance: bal }, { bypassLog: true });
+
+      // ✅ FIX (2026-07-07): manual balance edit-কে ledger-এ real delta হিসেবে record করো,
+      // যাতে pull-এর পর recalculateAccountBalancesFromLedger() এটাকে preserve করে (Section 17)।
+      if (Math.abs(delta) > 0.001 && typeof SupabaseSync.insert === 'function') {
+        SupabaseSync.insert(DB.finance, {
+          type: delta > 0 ? 'Income' : 'Expense',
+          method: accountName,
+          category: 'Balance Adjustment',
+          description: 'Manual balance correction',
+          amount: Math.abs(delta),
+          date: new Date().toISOString().split('T')[0],
+          note: 'Manual balance correction',
+          person: '',
+        });
+      }
 
       // Opening balance entries removed — account balance is the direct source of truth
       if (typeof SupabaseSync.logActivity === 'function') {
@@ -618,6 +634,20 @@ const Accounts = (() => {
       }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal }, { bypassLog: true });
+      // ✅ FIX (2026-07-07): new account-এর initial balance-কেও ledger-এ record করো যাতে
+      // recalc এর পরেও থাকে (Section 17)।
+      if (bal > 0.001 && typeof SupabaseSync.insert === 'function') {
+        SupabaseSync.insert(DB.finance, {
+          type: 'Income',
+          method: accountName,
+          category: 'Balance Adjustment',
+          description: 'Initial balance',
+          amount: bal,
+          date: new Date().toISOString().split('T')[0],
+          note: 'Initial account balance',
+          person: '',
+        });
+      }
       if (typeof SupabaseSync.logActivity === 'function') {
         SupabaseSync.logActivity('add', 'accounts',
           `নতুন একাউন্ট যোগ: ${accountName} — প্রারম্ভিক ব্যালেন্স ৳${bal.toLocaleString()}`

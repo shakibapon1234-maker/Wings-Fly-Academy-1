@@ -3047,7 +3047,11 @@ const SupabaseSync = (() => {
       const allAccounts = getAll('accounts');
 
       // Diagnostic / phantom categories skip করা হবে
-      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+      // ✅ FIX (2026-07-07): 'Balance Adjustment' আর skip করবে না — manual correction এখন
+      // ledger-এ real delta হিসেবে থাকে, তাই recalc-এ count করতে হবে যাতে reconcile-এর
+      // পরেও manual balance ঠিক থাকে (AUDIT_IGNORE Section 17)। 'Opening Balance' exclude
+      // রাখা হয়েছে কারণ সেটা baseline-এর আওতায়।
+      const phantomCategories = new Set(['Opening Balance']);
       const diagNotes = new Set([
         'Auto-generated diagnostic payment',
         'Auto-generated diagnostic exam payment',
@@ -3369,6 +3373,11 @@ const SyncEngine = (() => {
       }
 
       let hasChanges = false;
+      // ✅ FIX (2026-07-07): re-derive balances from the merged ledger after a pull so
+      // transactions from every device are counted (no LWW loss). AUDIT_IGNORE Section 17.
+      let _balanceRelevantChanged = false;
+      const _financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+      const _loansKey   = (typeof DB !== 'undefined' && DB.loans)  ? DB.loans  : 'loans';
 
       for (const key of _cloudTableKeys()) {
         if (missingTables.has(key)) continue;
@@ -3530,15 +3539,12 @@ const SyncEngine = (() => {
           });
           merged = merged.map(function(cloudRow) {
             const localRow = localAccountMap[cloudRow.id];
-            if (!localRow) return cloudRow; // New account — use cloud
-            const localTime = new Date(localRow.updated_at || 0).getTime();
-            const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
-            if (localTime > cloudTime) {
-              // Local নতুন — local balance রাখো (pending push আছে)
-              return Object.assign({}, cloudRow, { balance: localRow.balance });
-            }
-            // Cloud নতুন — cloud balance নাও (other device-এ transaction হয়েছে)
-            return cloudRow;
+            if (!localRow) return cloudRow; // New account (cloud-only) — use cloud balance
+            // ✅ FIX (2026-07-07): balance is DERIVED from finance_ledger + loans, NOT synced as
+            // an absolute last-writer-wins value — LWW silently dropped transactions
+            // (AUDIT_IGNORE Section 17). Keep local balance during merge; the true balance is
+            // re-derived from the merged ledger after the pull.
+            return Object.assign({}, cloudRow, { balance: localRow.balance });
           });
         }
 
@@ -3547,9 +3553,25 @@ const SyncEngine = (() => {
         if (oldJson !== newJson) {
           SupabaseSync.setAll(key, merged);
           hasChanges = true;
+          // ✅ FIX (2026-07-07): flag balance-relevant tables for post-pull ledger re-derive.
+          if (key === 'accounts' || key === _financeKey || key === _loansKey) {
+            _balanceRelevantChanged = true;
+          }
           if (!isFullPull) {
             console.log(`[Sync] Incremental pull: ${cloudRows?.length || 0} changed rows for "${key}"`);
           }
+        }
+      }
+
+      // ✅ FIX (2026-07-07): re-derive account balances from the merged ledger so that
+      // transactions from ALL devices are counted — never via LWW on the absolute balance.
+      // finance_ledger + loans are append-only & conflict-safe, so the union of both devices'
+      // entries yields the correct balance. AUDIT_IGNORE Section 17.
+      if (_balanceRelevantChanged && typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
+        try {
+          await SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
+        } catch (e) {
+          console.warn('[Sync] Post-pull balance reconcile failed:', e);
         }
       }
 
@@ -3738,19 +3760,13 @@ const SyncEngine = (() => {
       } else {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
-        // ✅ BUG FIX (2026-07-07): accounts.balance — timestamp-based resolution
-        // CRITICAL: balance guard must be computed BEFORE the cloudTime>=localTime gate.
-        // Previously the inner _lTime>_cTime check was inside `if(cloudTime>=localTime)` —
-        // meaning it could NEVER be true (outer block already guarantees cloud is newer).
-        // Local balance was therefore NEVER protected during 30s incremental pulls.
-        // Fix: resolve effective balance unconditionally, then apply to the cloud row.
+        // ✅ FIX (2026-07-07, AUDIT_IGNORE Section 20): accounts.balance is ledger-derived,
+        // NOT timestamp LWW. During merge we keep the local balance (cloud absolute never
+        // overwrites local transactions); the true balance is re-derived from the merged
+        // ledger after the pull (_pullCoreInternal post-pull reconcile).
         let effectiveCloudRow = cloudRow;
         if (tableKey === 'accounts' && localRow.balance !== undefined) {
-          if (localTime > cloudTime) {
-            // Local নতুন (pending push আছে) — local balance রাখো
-            effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
-          }
-          // else: cloud নতুন — cloud balance নাও (multi-device sync) ✅
+          effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
         }
         if (cloudTime >= localTime) {
 
@@ -3931,15 +3947,9 @@ const SyncEngine = (() => {
           // নিয়ম: local-এ pending (unpushed) transaction থাকলে local updated_at cloud-র চেয়ে নতুন হবে।
           let merged;
           if (table === 'accounts' && rows[idx].balance !== undefined) {
-            const _lTime = new Date(rows[idx].updated_at || 0).getTime();
-            const _cTime = new Date(newRow.updated_at || 0).getTime();
-            if (_lTime > _cTime) {
-              // Local নতুন (pending push) — local balance রাখো
-              merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
-            } else {
-              // Cloud নতুন — cloud balance নাও (other device-এ transaction)
-              merged = { ...rows[idx], ...newRow };
-            }
+            // ✅ FIX (2026-07-07): local authoritative during merge (AUDIT_IGNORE Section 17).
+            // Balance is re-derived from the merged ledger after the next pull.
+            merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
           } else {
             merged = { ...rows[idx], ...newRow };
           }
