@@ -2679,14 +2679,34 @@ const SupabaseSync = (() => {
     let totalAmount = 0;
     const auditLog = [];
 
+    // ✅ Cutoff date এখানে আগে থেকেই লাগবে — ধ্বংসাত্মক deletion-এও এই একই
+    // cutoff apply করার জন্য (নিচে দেখুন, fix 2026-07-07)।
+    const cutoffDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+
     // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
     // ✅ SAFE: শুধু ledger থেকে মুছি, balance touch করি না।
     // recalculateAccountBalancesFromLedger() পরে সব balance fresh করবে।
+    //
+    // 🔴 FIX (2026-07-07): আগে এই deletion cutoff-বিহীন ছিল, কিন্তু নিচের
+    // Step 4 (re-creation) cutoff-এর আগের student skip করে দেয়। ফলে
+    // cutoff-এর আগের REPAIR- entry এখানে মুছে যেত কিন্তু আর কখনো ফিরে
+    // আসত না — cutoff date "fixed" থাকা সত্ত্বেও প্রতিবার repair চাপলে
+    // পুরনো ledger data স্থায়ীভাবে হারিয়ে যাচ্ছিল (real backup-এ ৪১টা
+    // entry, ৳৩,৫১,৪৯৯ পাওয়া গেছে যেগুলো এই কারণে হারানোর ঝুঁকিতে ছিল)।
+    // এখন deletion-ও cutoff-gated — Step 4-এর নিয়মের সাথে সামঞ্জস্যপূর্ণ।
     const repairedEntries = allFinance.filter(f => {
       const isRepaired = f.description && (f.description.includes('(Repaired)') || f.description.includes('(Auto-healed)'));
       const isAutoRepairedNote = f.note && f.note.includes('Auto-repaired');
       const isRepairId = f.id && f.id.startsWith('REPAIR-');
-      return isRepaired || isAutoRepairedNote || isRepairId;
+      if (!(isRepaired || isAutoRepairedNote || isRepairId)) return false;
+
+      if (cutoffDate) {
+        const entryDate = (f.date || '').split('T')[0];
+        // cutoff-এর আগের repaired entry — Step 4 এটা recreate করবে না,
+        // তাই এখানে delete করলে চিরতরে হারিয়ে যাবে। Touch করবেন না।
+        if (entryDate && entryDate < cutoffDate) return false;
+      }
+      return true;
     });
 
     repairedEntries.forEach(f => {
@@ -2752,7 +2772,7 @@ const SupabaseSync = (() => {
     // 4. Find and backfill missing entries using deterministic IDs (REPAIR-student_id)
     // ✅ CUTOFF DATE: wfa_repair_cutoff_date set থাকলে, তার আগে ভর্তি হওয়া students skip।
     // এটা migration / old data থেকে balance corruption রোধ করে।
-    const cutoffDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    // (cutoffDate ইতিমধ্যে function-এর শুরুতে declare করা হয়েছে — উপরে দেখুন)
     let cutoffSkipped = 0;
 
     allStudents.forEach(s => {
