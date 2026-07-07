@@ -25,17 +25,24 @@ const Accounts = (() => {
     const cashAccounts = accounts.filter(a => a.type === 'Cash' && a.name === 'Cash');
     if (cashAccounts.length === 0) return { id: '', type: 'Cash', balance: 0 };
     if (cashAccounts.length === 1) return cashAccounts[0];
-    // ✅ FIX: Pick the LARGEST absolute balance — the real, active Cash account.
-    // A stale zero-balance duplicate (from setup-wizard race condition) would
-    // otherwise always win over the real account via the < comparison.
+    // ✅ FIX (2026-07-07, audit): AUDIT_IGNORE Section 7 অনুযায়ী balance-এর সাইজ
+    // (বড়/ছোট) দিয়ে duplicate বাছাই করা নির্ভরযোগ্য না — phantom duplicate-এর balance
+    // ইউজারের manual adjustment-এর কারণে real account-এর চেয়ে বড়ও হতে পারে।
+    // এখন supabase-sync.js → _updateBalanceCoreInternal()-এর সাথে সামঞ্জস্যপূর্ণ নিয়ম:
+    // সবচেয়ে পুরনো created_at = আসল account (যেখানে transaction গুলো আসলে পোস্ট হয়)।
+    // এই দুই জায়গায় ভিন্ন নিয়ম থাকলে display আর actual transaction target আলাদা
+    // account-এ চলে যেতে পারে — যা আবার balance mismatch তৈরি করত।
     return cashAccounts.reduce((best, a) => {
-      return Math.abs(Utils.safeNum(a.balance)) > Math.abs(Utils.safeNum(best.balance)) ? a : best;
+      return new Date(a.created_at || 0) < new Date(best.created_at || 0) ? a : best;
     });
   }
 
   function normalizeAccounts(accounts) {
-    const seen = new Set();
-    const normalized = [];
+    // ✅ FIX (2026-07-07, audit): dedup rule unify করা হলো dashboard.js /
+    // _updateBalanceCoreInternal()-এর সাথে — "প্রথম যেটা পাওয়া যায়" রাখার বদলে
+    // সবচেয়ে পুরনো created_at জেতে, যাতে duplicate row থাকলেও তিন জায়গায়
+    // একই account দেখানো/ব্যবহার হয়।
+    const byKey = new Map();
     accounts.forEach(a => {
       const name = String(a.name || '').trim();
       if (a.type === 'Cash' && name !== 'Cash') return;
@@ -47,11 +54,12 @@ const Accounts = (() => {
         if (!name) return; // drop only if completely empty
       }
       const key = `${a.type}||${name}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      normalized.push(a);
+      const existing = byKey.get(key);
+      if (!existing || new Date(a.created_at || 0) < new Date(existing.created_at || 0)) {
+        byKey.set(key, a);
+      }
     });
-    return normalized;
+    return Array.from(byKey.values());
   }
 
 

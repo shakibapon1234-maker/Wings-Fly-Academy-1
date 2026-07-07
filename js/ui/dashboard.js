@@ -20,8 +20,12 @@ const DashboardModule = (() => {
   }
 
   function normalizeAccounts(accounts) {
-    const seen = new Set();
-    const normalized = [];
+    // ✅ FIX (2026-07-07, audit): আগে dedup "প্রথম যেটা array-এ পাওয়া যায়" রাখত —
+    // IDB/cloud থেকে আসা row-এর order অনির্দিষ্ট (arbitrary), তাই duplicate থাকলে
+    // Dashboard-এ কোন account দেখাবে তা এলোমেলো হতে পারত। এখন supabase-sync.js →
+    // _updateBalanceCoreInternal() এবং accounts.js → getPrimaryCashAccount()-এর
+    // মতো একই নিয়ম: সবচেয়ে পুরনো created_at জেতে (যেখানে transaction গুলো পোস্ট হয়)।
+    const byKey = new Map(); // key -> account
     accounts.forEach(a => {
       const name = String(a.name || '').trim();
       if (a.type === 'Cash' && name !== 'Cash') return;
@@ -30,11 +34,12 @@ const DashboardModule = (() => {
         if (invalid) return;
       }
       const key = `${a.type}||${name}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      normalized.push(a);
+      const existing = byKey.get(key);
+      if (!existing || new Date(a.created_at || 0) < new Date(existing.created_at || 0)) {
+        byKey.set(key, a);
+      }
     });
-    return normalized;
+    return Array.from(byKey.values());
   }
 
   function getStats() {

@@ -135,8 +135,13 @@ const BackupRestore = (() => {
             const accountEntries = [];
             if (backup.cashBalance) {
               const bal = typeof backup.cashBalance === 'object' ? (backup.cashBalance.amount || backup.cashBalance.balance || 0) : backup.cashBalance;
-              // ✅ Duplicate guard: existing Cash আছে কিনা দেখো — থাকলে নতুন row যোগ করো না
-              const existingCash = (tableData.accounts || []).find(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
+              // ✅ FIX (2026-07-07, audit): আগে `tableData.accounts` চেক করা হতো, কিন্তু
+              // সেটা এই ব্লকের নিচে (লাইন ~166-এ) অ্যাসাইন হয় — তাই এই চেক সবসময়
+              // খালি array-এর বিরুদ্ধে চলত, effectively dead code। সঠিক variable
+              // (এই import pass-এ এখন পর্যন্ত তৈরি হওয়া accountEntries) ব্যবহার করা হলো,
+              // যাতে ভবিষ্যতে এই ব্লকের উপরে আরেকটা Cash-adding সোর্স যোগ হলেও
+              // duplicate তৈরি না হয়।
+              const existingCash = accountEntries.find(a => a.type === 'Cash' && String(a.name || '').trim() === 'Cash');
               if (existingCash) {
                 existingCash.balance = bal;
                 existingCash.updated_at = new Date().toISOString();

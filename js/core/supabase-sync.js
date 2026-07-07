@@ -2811,9 +2811,43 @@ const SupabaseSync = (() => {
     return { fixedCount, totalAmount, auditLog, cutoffSkipped };
   }
 
+  // ✅ FIX (2026-07-07, audit): baseline map আগে শুধু localStorage-এ থাকত — cutoff
+  // *date* এখন settings DB-তেও persist হয় (Section 14.5.1) কিন্তু baseline *amounts*
+  // হতো না। Browser cache clear/নতুন device-এ cutoff date DB থেকে ফিরে আসত ঠিকই,
+  // কিন্তু baseline হারিয়ে যেত — তখন _resolveCutoffBaselines() বর্তমান (সম্ভবত তখনও
+  // ভুল) balance থেকে নতুন baseline derive করে নিত, যা repair-এর মূল উদ্দেশ্যই নষ্ট
+  // করে দিত। এখন baseline-ও settings.exam_settings JSON field-এ সেভ হয়।
+  function _getBaselinesFromDB() {
+    try {
+      const rows = getAll('settings');
+      const cfg = rows && rows[0];
+      if (!cfg) return null;
+      let examCfg = {};
+      try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
+      return examCfg.repair_cutoff_baselines || null;
+    } catch { return null; }
+  }
+
+  function _saveBaselinesToDB(map) {
+    try {
+      const rows = getAll('settings');
+      const cfg = rows && rows[0];
+      if (!cfg) return;
+      let examCfg = {};
+      try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
+      if (map && Object.keys(map).length) {
+        examCfg.repair_cutoff_baselines = map;
+      } else {
+        delete examCfg.repair_cutoff_baselines;
+      }
+      SupabaseSync.update('settings', cfg.id, { exam_settings: JSON.stringify(examCfg) }, { bypassLog: true });
+    } catch (e) { console.warn('[Sync] Failed to save cutoff baselines to DB:', e); }
+  }
+
   /**
    * Cutoff active হলে pre-cutoff balance anchor (migration data preserve)।
-   * Snapshot না থাকলে current stored − post-cutoff net থেকে derive করে।
+   * localStorage → settings DB → (snapshot কোথাও না থাকলে) current stored −
+   * post-cutoff net থেকে derive — এই ক্রমে চেক করা হয়।
    */
   function _resolveCutoffBaselines(allAccounts, netByMethod) {
     let baselines = {};
@@ -2822,6 +2856,15 @@ const SupabaseSync = (() => {
     } catch { baselines = {}; }
 
     if (Object.keys(baselines).length > 0) return baselines;
+
+    // localStorage-এ না থাকলে settings DB থেকে restore করার চেষ্টা করো
+    // (browser cache clear / নতুন device / backup import-এর পর এটাই একমাত্র bridge)।
+    const dbBaselines = _getBaselinesFromDB();
+    if (dbBaselines && Object.keys(dbBaselines).length > 0) {
+      try { localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(dbBaselines)); } catch { /* ignore */ }
+      console.info('[Sync] Cutoff baselines restored from settings DB.');
+      return dbBaselines;
+    }
 
     allAccounts.forEach(acc => {
       let methodKey = null;
@@ -2839,6 +2882,7 @@ const SupabaseSync = (() => {
     try {
       localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(baselines));
     } catch { /* ignore */ }
+    _saveBaselinesToDB(baselines);
     return baselines;
   }
 
@@ -2854,7 +2898,16 @@ const SupabaseSync = (() => {
     try {
       localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(map));
     } catch { /* ignore */ }
+    _saveBaselinesToDB(map);
     return map;
+  }
+
+  // ✅ FIX (2026-07-07, audit): cutoff clear করার সময় localStorage-এর পাশাপাশি
+  // DB-এর baseline copy-ও মুছতে হবে, নাহলে পরের cutoff set-এ পুরনো baseline
+  // DB থেকে ফিরে এসে ভুল anchor ব্যবহার হতে পারে।
+  function clearCutoffBaselines() {
+    try { localStorage.removeItem('wfa_repair_cutoff_baselines'); } catch { /* ignore */ }
+    _saveBaselinesToDB(null);
   }
 
   /**
@@ -3053,6 +3106,7 @@ const SupabaseSync = (() => {
     repairMissingStudentFinance,
     recalculateAccountBalancesFromLedger,
     snapshotCutoffBaselines,
+    clearCutoffBaselines,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,

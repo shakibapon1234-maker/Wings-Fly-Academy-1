@@ -926,3 +926,48 @@ if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
 - **বাকি কাজ:** `android/app/src/main/assets/public/js/core/supabase-sync.js` — `npx cap sync android` চালিয়ে sync করা দরকার (Android build করার আগে)
 
 *আপডেট: 2026-07-07 (2) — Section 18: `_syncInProgress` cross-closure variable shadowing fix — মিথ্যা "Suspicious Balance Change" alert বন্ধ হলো।*
+
+---
+
+## 19. পূর্ণাঙ্গ অ্যাকাউন্ট/সিঙ্ক সিস্টেম অডিট — ৩টি বাগ ফিক্স (2026-07-07, ৩য়)
+
+**পটভূমি:** ইউজার-অনুরোধে পুরো account/sync system (mergeRows, mergeIncremental, realtime handler, push, updateAccountBalance, dedup logic সহ) একসাথে পূর্ণাঙ্গ অডিট করা হয়। root ও `www/` কনফার্ম identical পাওয়া গেছে; নিচের ৩টি সমস্যা কোডে পাওয়া গেছে।
+
+### 19.1 — Duplicate account সিলেকশন লজিক তিন ফাইলে তিন রকম ছিল
+
+**সমস্যা:** duplicate Cash/Bank/Mobile account row থেকে গেলে (legacy phantom data — Section 8 দেখুন), তিনটা জায়গা তিন রকম row বেছে নিত:
+- `supabase-sync.js → _updateBalanceCoreInternal()` → oldest `created_at` (transaction target)
+- `accounts.js → getPrimaryCashAccount()` → largest balance (Accounts ট্যাব display)
+- `dashboard.js → normalizeAccounts()` → array-এ প্রথম যেটা পাওয়া যায় (arbitrary order)
+
+ফলে Dashboard, Accounts ট্যাব, আর আসল transaction — তিনটা তিন account-এর balance দেখাতে/ব্যবহার করতে পারত। ঠিক Section 7-এর ৳৩৮,০৩০ বনাম ৳৮,৫১৯ সমস্যার মতোই আবার ঘটার ঝুঁকি ছিল।
+
+**Fix:** তিনটা জায়গাতেই একই নিয়ম — **oldest `created_at` জেতে** (`_updateBalanceCoreInternal()`-এর নিয়মের সাথে মিলিয়ে)।
+
+**প্রভাবিত ফাইল:** `js/modules/accounts.js` (`getPrimaryCashAccount()`, `normalizeAccounts()`), `js/ui/dashboard.js` (`normalizeAccounts()`)
+
+### 19.2 — Cutoff baseline শুধু localStorage-এ ছিল, DB-তে persist হতো না
+
+**সমস্যা:** Section 14.5.1-এ cutoff *date* settings DB-তেও persist করা শুরু হয়েছিল, কিন্তু `wfa_repair_cutoff_baselines` (আসল anchor balance) শুধু localStorage-এ থেকে যেত। Cache clear/নতুন device হলে date DB থেকে ফিরে আসত, কিন্তু baseline হারিয়ে যেত এবং `_resolveCutoffBaselines()` তখন **বর্তমান (সম্ভবত তখনও ভুল) balance** থেকে নতুন baseline derive করে নিত — repair-এর মূল সুরক্ষা নষ্ট হয়ে যেত।
+
+**Fix:** baseline এখন settings-এর `exam_settings` JSON field-এ cutoff date-এর মতোই dual-persist হয় (`_getBaselinesFromDB()`, `_saveBaselinesToDB()`)। `_resolveCutoffBaselines()` এখন localStorage → settings DB → derive — এই ক্রমে চেক করে। `clearRepairCutoff()`-ও এখন DB baseline মুছে দেয় (নতুন `SupabaseSync.clearCutoffBaselines()`)।
+
+**প্রভাবিত ফাইল:** `js/core/supabase-sync.js` (`_resolveCutoffBaselines()`, `snapshotCutoffBaselines()`, নতুন `_getBaselinesFromDB()`/`_saveBaselinesToDB()`/`clearCutoffBaselines()`), `js/ui/settings.js` (`clearRepairCutoff()`)
+
+### 19.3 — Backup import-এর duplicate-Cash guard dead code ছিল
+
+**সমস্যা:** `backup-restore.js` legacy import-এ `existingCash` চেক করত `tableData.accounts` — কিন্তু সেটা এই ব্লকের নিচেই অ্যাসাইন হতো, তাই চেকটা সবসময় খালি array-এর বিরুদ্ধে চলত (কোনো effect ছিল না)। এখনকার কোডে ক্ষতি হয়নি (এই path-এ একবারই Cash entry যোগ হতে পারে) কিন্তু ভবিষ্যতে আরেকটা Cash-adding সোর্স যোগ হলে duplicate ঠেকাতো না।
+
+**Fix:** সঠিক variable (`accountEntries`, এই pass-এ এখন পর্যন্ত তৈরি হওয়া entries) ব্যবহার করা হয়েছে।
+
+**প্রভাবিত ফাইল:** `js/core/backup-restore.js`
+
+### যাচাই
+- `node build-www.js` চালিয়ে root ↔ `www/` sync কনফার্ম করা হয়েছে (byte-identical)।
+- সব 5টা edited ফাইল syntax-checked (`node --check`)।
+- পুরো Vitest suite (102 tests, 6 files) — সব পাস।
+
+### বাকি কাজ
+- `android/app/src/main/assets/public/` — এখনো পুরনো কপি; পরের Android build-এর আগে `npx cap sync android` চালাতে হবে।
+
+*আপডেট: 2026-07-07 (৩) — Section 19: পূর্ণাঙ্গ অডিটে পাওয়া ৩টি বাগ ফিক্স — duplicate account selection unify, cutoff baseline DB persistence, backup-restore dead-code guard fix।*

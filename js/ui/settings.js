@@ -5661,6 +5661,11 @@ ${expenseEntries.length > 0 ? `
     localStorage.removeItem('wfa_repair_cutoff_date');
     localStorage.removeItem('wfa_repair_cutoff_baselines');
     _saveCutoffToDB(''); // ✅ DB থেকেও সরাও
+    // ✅ FIX (2026-07-07, audit): baseline-ও DB থেকে সরাও, নাহলে পরের cutoff set-এ
+    // পুরনো baseline DB থেকে ফিরে এসে ভুল anchor ব্যবহার হতে পারে।
+    if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.clearCutoffBaselines === 'function') {
+      SupabaseSync.clearCutoffBaselines();
+    }
     Utils.toast('⚪ Cutoff সরানো হয়েছে — এখন সব student repair হবে।', 'info', 4000);
     const el = document.getElementById('cutoff-display');
     if (el) el.textContent = '⚪ কোনো cutoff set নেই — সব student repair করে।';
