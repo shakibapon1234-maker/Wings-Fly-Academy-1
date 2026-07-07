@@ -884,3 +884,45 @@ if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
 - `www/js/modules/students.js` — `node build-www.js` দিয়ে sync করা হয়েছে
 
 *আপডেট: 2026-07-07 — Section 17: Balance update regression fix — mergeIncremental unreachable guard + saveEditedInitialPayment missing balance call।*
+
+---
+
+## 18. `_syncInProgress` Variable Shadowing — মিথ্যা "Suspicious Balance Change" Alert (2026-07-07 — পূর্ণাঙ্গ অ্যাকাউন্ট সিস্টেম অডিট)
+
+**পটভূমি:** পুরো account/sync system-এর end-to-end অডিটে (mergeRows, mergeIncremental, realtime handler, push, updateAccountBalance, ensureDefaultCashAccount সব একসাথে চেক করার সময়) এই বাগ ধরা পড়ে।
+
+**ফাইল:** `js/core/supabase-sync.js`
+
+### Root Cause
+
+`SupabaseSync` এবং `SyncEngine` — দুটো **আলাদা IIFE/closure**। দুটোতেই নিজস্ব `let _syncInProgress = false;` ঘোষণা করা ছিল:
+
+- `SupabaseSync.setAll()`-এ "Suspicious Direct Balance Change Detection" গার্ড এই condition চেক করত: `!_syncInProgress` (SupabaseSync-এর নিজের কপি)।
+- `SyncEngine._pullCore()` প্রতি pull-এর শুরুতে `_syncInProgress = true` আর শেষে `false` সেট করত — কিন্তু এটা **SyncEngine-এর নিজের আলাদা কপি**, `SupabaseSync`-এর কপিকে ছোঁয়ই না।
+
+**ফলাফল:** `SupabaseSync`-এর `_syncInProgress` চিরকাল `false` থেকে যেত (কখনো `true` হতো না)। তাই প্রতিটা sync pull-এ — এমনকি সম্পূর্ণ বৈধ multi-device sync-এও (অন্য ডিভাইসে transaction হয়ে cloud balance এই ডিভাইসে sync হয়ে এলে) — Data Monitor-এর "Suspicious Direct Balance Change" detector ভুলভাবে ফায়ার করত:
+- Console warning
+- `wfa_balance_alerts`-এ মিথ্যা entry
+- User-facing error toast (10 সেকেন্ড)
+- `wfa:suspicious_balance` event
+
+এটা প্রকৃত balance corruption করত না (ডেটা ঠিকই সেভ হতো), কিন্তু প্রতিটা normal multi-device sync-কে সন্দেহজনক ঘটনা হিসেবে দেখাত — বিশ্বাসযোগ্যতা নষ্ট করে ও বিভ্রান্তি তৈরি করে।
+
+### Fix (2026-07-07)
+
+`_syncInProgress`-এর বদলে window-scoped shared flag `window._syncPullInProgress` ব্যবহার করা হয়েছে (যেমন `_realtimeEventInProgress` এবং `_legitimateBalanceChangeInProgress` আগে থেকেই window-scoped ছিল):
+
+- `SyncEngine._pullCore()` → `window._syncPullInProgress = true/false`
+- `SupabaseSync.setAll()` guard → `!window._syncPullInProgress`
+- `SyncEngine`-এর dead/অকার্যকর local `_syncInProgress` variable সম্পূর্ণ সরানো হয়েছে
+
+### নিয়ম (ভবিষ্যতের জন্য — বাধ্যতামূলক)
+
+**Cross-module state flag (এক module সেট করে, আরেক module চেক করে) কখনো `let`/module-local ভ্যারিয়েবল দিয়ে করা যাবে না — সবসময় `window.*` ব্যবহার করতে হবে।** `SupabaseSync` এবং `SyncEngine` একই ফাইলে থাকলেও তারা আলাদা IIFE — নাম এক হলেও ভ্যারিয়েবল shadow হয়ে যায় এবং silently কোনো effect ফেলে না (কোনো error/exception হয় না, তাই ধরা কঠিন)।
+
+### প্রভাবিত ফাইল — 2026-07-07 (Section 18)
+- `js/core/supabase-sync.js` — `SupabaseSync.setAll()` guard + `SyncEngine._pullCore()`: `window._syncPullInProgress` shared flag
+- `www/js/core/supabase-sync.js` — `node build-www.js` দিয়ে sync করা হয়েছে
+- **বাকি কাজ:** `android/app/src/main/assets/public/js/core/supabase-sync.js` — `npx cap sync android` চালিয়ে sync করা দরকার (Android build করার আগে)
+
+*আপডেট: 2026-07-07 (2) — Section 18: `_syncInProgress` cross-closure variable shadowing fix — মিথ্যা "Suspicious Balance Change" alert বন্ধ হলো।*

@@ -382,7 +382,13 @@ const TABLE_COLUMNS = {
 
 const SupabaseSync = (() => {
 
-  let _syncInProgress = false;
+  // ⚠️ NOTE (2026-07-07 fix): এই module-এর ভেতরে আলাদা `_syncInProgress` রাখা হতো,
+  // কিন্তু SyncEngine তার নিজের ভিন্ন closure-এ থাকা `_syncInProgress` টগল করত —
+  // দুটো সম্পূর্ণ আলাদা ভ্যারিয়েবল থাকায় SyncEngine-এর pull কখনো এই মডিউলের flag
+  // true করতে পারত না (variable shadowing)। ফলাফল: প্রতিটা sync pull-এ (অন্য
+  // device-এর বৈধ transaction sync হয়ে আসার সময়ও) "Suspicious Direct Balance
+  // Change" মিথ্যা alert ফায়ার হতো। এখন window-scoped `window._syncPullInProgress`
+  // ব্যবহার করা হচ্ছে যাতে দুই module একই flag শেয়ার করে।
 
   // —— IDB-backed table storage ——
   function getAll(table) {
@@ -431,7 +437,7 @@ const SupabaseSync = (() => {
   function setAll(table, rows) {
     try {
       // ✅ Suspicious Direct Balance Change Detection System
-      if (table === 'accounts' && !window._realtimeEventInProgress && !_syncInProgress && Array.isArray(rows)) {
+      if (table === 'accounts' && !window._realtimeEventInProgress && !window._syncPullInProgress && Array.isArray(rows)) {
         try {
           const oldAccounts = WFA_IDB.getTable('accounts') || [];
           rows.forEach(newAcc => {
@@ -3090,7 +3096,6 @@ const SyncEngine = (() => {
   let realtimeChannels = [];
   let _lastSyncTime = 0;
   let _lastPullTimestamp = null;
-  let _syncInProgress = false;
   const missingTables = new Set();
 
   // —— Storage Size Guard (IndexedDB-aware) ——
@@ -3155,11 +3160,14 @@ const SyncEngine = (() => {
   }
 
   async function _pullCore(opts = {}) {
-    _syncInProgress = true;
+    // ✅ FIX (2026-07-07): window-scoped flag — আগে module-local `_syncInProgress`
+    // ব্যবহার হতো যা SupabaseSync.setAll()-এর ভিন্ন closure-এর ভ্যারিয়েবল থেকে
+    // সম্পূর্ণ আলাদা ছিল (variable shadowing), তাই কখনো effect ফেলত না।
+    window._syncPullInProgress = true;
     try {
       return await _pullCoreInternal(opts);
     } finally {
-      _syncInProgress = false;
+      window._syncPullInProgress = false;
     }
   }
 
