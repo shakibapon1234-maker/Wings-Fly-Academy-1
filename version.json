@@ -1,7 +1,7 @@
 {
-  "version": "5.1.1",
-  "deploy_id": "20260702-audit-fixes",
-  "changelog": "Cache-bust for unshipped fixes since 20260626 (balance-corruption root cause fix, recycle bin restore fix, cutoff date feature, and other app.js/supabase-sync.js/students.js/certificates.js/license.js changes — see AUDIT.md changelog). Also adds student-portal.html to IntegrityGuard vital URL checks.",
+  "version": "5.1.2",
+  "deploy_id": "20260707-cutoff-snapshot-fix",
+  "changelog": "Fix cutoff date sync timing mismatch and double counting on boundary dates when taking snapshot baselines.",
   "size": "~2MB",
-  "released": "2026-07-02"
+  "released": "2026-07-07"
 }

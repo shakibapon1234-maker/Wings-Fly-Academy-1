@@ -2935,14 +2935,80 @@ const SupabaseSync = (() => {
   }
 
   function snapshotCutoffBaselines() {
+    const cutoffDate = getRepairCutoffDate();
     const allAccounts = getAll('accounts');
     const map = {};
+
+    // ✅ FIX: Cutoff date-এর দিনের বা পরের entries যদি ইতিমধ্যে balance-এ ইফেক্ট ফেলে থাকে,
+    // তাহলে raw balance-কে baseline ধরলে recalculate-এ সেগুলো double-count (দ্বিগুণ বিয়োগ/যোগ) হয়।
+    // সমাধান: বর্তমান balance থেকে post-cutoff net টুকু বিয়োগ করে প্রকৃত baseline বের করি।
+    const netByMethod = {};
+    if (cutoffDate) {
+      const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+      const allFinance = getAll(financeKey);
+      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+      const diagNotes = new Set([
+        'Auto-generated diagnostic payment',
+        'Auto-generated diagnostic exam payment',
+        'Auto-generated diagnostic salary payment',
+        'Auto-generated diagnostic loan finance',
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
+
+      allFinance.forEach(f => {
+        if (!f || !f.amount || !f.method) return;
+        if (phantomCategories.has(f.category)) return;
+        if (f.note && diagNotes.has(f.note)) return;
+
+        const entryDate = (f.date || '').split('T')[0];
+        if (entryDate && entryDate >= cutoffDate) {
+          if (f._isLoan) return;
+          const amt = parseFloat(f.amount) || 0;
+          if (amt <= 0) return;
+          const method = f.method;
+          const type = f.type || '';
+          const isIncome  = type === 'Income'       || type === 'Transfer In' || type === 'Investment In';
+          const isExpense = type === 'Expense'      || type === 'Transfer Out' || type === 'Investment Out';
+          if (!isIncome && !isExpense) return;
+          if (!netByMethod[method]) netByMethod[method] = 0;
+          netByMethod[method] += isIncome ? amt : -amt;
+        }
+      });
+
+      // Loans
+      const loansKey = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
+      const allLoans = getAll(loansKey);
+      const diagLoanNotes = new Set([
+        'Auto-generated diagnostic loan',
+        'Auto-generated diagnostic loan [UPDATED]',
+      ]);
+      allLoans.forEach(loan => {
+        if (!loan || !loan.amount || !loan.method) return;
+        if (loan.note && diagLoanNotes.has(loan.note)) return;
+        const loanDate = (loan.date || '').split('T')[0];
+        if (loanDate && loanDate >= cutoffDate) {
+          const amt = parseFloat(loan.amount) || 0;
+          if (amt <= 0) return;
+          const method = loan.method;
+          const isGiving = loan.type === 'Loan Giving' || loan.direction === 'given';
+          if (!netByMethod[method]) netByMethod[method] = 0;
+          netByMethod[method] += isGiving ? -amt : amt;
+        }
+      });
+    }
+
     allAccounts.forEach(acc => {
       let key = null;
       if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') key = 'Cash';
       else if (acc.type === 'Bank_Detail' || acc.type === 'Mobile_Detail') key = acc.name;
-      if (key) map[key] = Math.round((parseFloat(acc.balance) || 0) * 100) / 100;
+      if (key) {
+        const stored = parseFloat(acc.balance) || 0;
+        const postNet = netByMethod[key] || 0;
+        map[key] = Math.round((stored - postNet) * 100) / 100;
+      }
     });
+
     try {
       localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(map));
     } catch { /* ignore */ }

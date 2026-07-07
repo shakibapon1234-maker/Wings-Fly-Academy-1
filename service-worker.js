@@ -6,7 +6,7 @@
 // ✅ Bumped 2026-07-02: many core/module files changed since 20260626 without a cache-bust
 // (app.js, supabase-sync.js, students.js, certificates.js, license.js, id-cards.js,
 // result-sheet.js, institution-mode.js, backup-restore.js, utils.js). See AUDIT.md changelog.
-const DEPLOY_ID = '20260702-audit-fixes';
+const DEPLOY_ID = '20260707-cutoff-snapshot-fix';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
