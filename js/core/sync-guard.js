@@ -225,7 +225,9 @@ const SyncGuard = (() => {
       const finance  = window.SupabaseSync ? window.SupabaseSync.getAll('finance_ledger') : [];
       const loans    = window.SupabaseSync ? window.SupabaseSync.getAll('loans') : [];
       const accounts = window.SupabaseSync ? window.SupabaseSync.getAll('accounts') : [];
-      const fromDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+      const fromDate = (window.SupabaseSync && typeof window.SupabaseSync.getRepairCutoffDate === 'function')
+        ? window.SupabaseSync.getRepairCutoffDate()
+        : (localStorage.getItem('wfa_repair_cutoff_date') || '');
 
       const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
       const diagNotes = new Set([

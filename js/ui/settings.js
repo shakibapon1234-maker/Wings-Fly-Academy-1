@@ -1415,21 +1415,10 @@ const SettingsModule = (() => {
           এরপর থেকে Repair শুধু <strong style="color:#ffd700">নতুন student</strong>-দের জন্য কাজ করবে। পুরনো data আর touch করবে না।<br/>
           <span id="cutoff-display" style="font-size:.82rem;color:var(--text-muted);">
             ${(() => {
-              // DB থেকে cutoff restore করো (localStorage না থাকলে)
-              const lsVal = localStorage.getItem('wfa_repair_cutoff_date') || '';
-              if (!lsVal) {
-                try {
-                  if (typeof SupabaseSync !== 'undefined' && typeof DB !== 'undefined') {
-                    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
-                    let ec = {}; try { ec = JSON.parse(cfg.exam_settings || '{}'); } catch { /* ignore */ }
-                    if (ec.repair_cutoff_date) {
-                      localStorage.setItem('wfa_repair_cutoff_date', ec.repair_cutoff_date);
-                      return '✅ Cutoff active: ' + ec.repair_cutoff_date + ' (DB থেকে restore)';
-                    }
-                  }
-                } catch { /* ignore */ }
-              }
-              return lsVal ? '✅ Cutoff active: ' + lsVal : '⚪ কোনো cutoff set নেই — সব student repair করে।';
+              const cutoff = (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getRepairCutoffDate === 'function')
+                ? SupabaseSync.getRepairCutoffDate()
+                : (localStorage.getItem('wfa_repair_cutoff_date') || '');
+              return cutoff ? '✅ Cutoff active: ' + cutoff : '⚪ কোনো cutoff set নেই — সব student repair করে।';
             })()}
           </span>
         </p>
@@ -6011,7 +6000,9 @@ ${expenseEntries.length > 0 ? `
       Utils.toast('SupabaseSync module not loaded — reload the page', 'error');
       return;
     }
-    const cutoff = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    const cutoff = (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getRepairCutoffDate === 'function')
+      ? SupabaseSync.getRepairCutoffDate()
+      : (localStorage.getItem('wfa_repair_cutoff_date') || '');
     const cutoffMsg = cutoff
       ? `\n\nBalance Cutoff: ${cutoff} — এর আগের entries গণনায় আসবে না।`
       : '\n\n⚠️ Cutoff date set নেই — সব entries (পুরনো সহ) গণনায় আসবে।';
