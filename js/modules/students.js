@@ -1750,6 +1750,20 @@ const Students = (() => {
       return;
     }
 
+    // ✅ BUG FIX (2026-07-07): updateAccountBalance ছিল না — initial payment edit করলে
+    // account balance পরিবর্তন হচ্ছিল না। Old initial reverse করো, new initial apply করো।
+    const oldInitial = Math.max(0, Utils.safeNum(s.paid) - sum);
+    if (typeof SupabaseSync.updateAccountBalance === 'function') {
+      if (oldInitial > 0) {
+        // পুরনো initial reverse (out) — Cash দিয়ে ধরা হয় কারণ initial-এ method নেই
+        SupabaseSync.updateAccountBalance('Cash', oldInitial, 'out', true);
+      }
+      if (newInitial > 0) {
+        // নতুন initial apply (in)
+        SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
+      }
+    }
+
     const newPaid = newInitial + sum;
     const newDue  = Math.max(0, totalFee - newPaid);
     SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });

@@ -805,3 +805,82 @@ if (error) {
 - `www/js/core/supabase-sync.js` — `node build-www.js` দিয়ে sync করা হয়েছে
 
 *আপডেট: 2026-07-05 (2) — Section 16: Push silent failure root cause + fix (cooldown queue + bulk retry)।*
+
+---
+
+## 17. Balance Update না হওয়ার দুটো বাগ — ফিক্স (2026-07-07)
+
+**User রিপোর্ট:** Student payment পরিবর্তন করলে Account Balance অটোমেটিক আপডেট হচ্ছে না। একই সমস্যা আগে কখনো হয়নি — সাম্প্রতিক কোনো fix-এ regression তৈরি হয়েছে।
+
+---
+
+### বাগ ১ — `mergeIncremental()` এ balance guard unreachable ছিল (Critical Regression)
+
+**ফাইল:** `js/core/supabase-sync.js` → `mergeIncremental()`
+
+**Root Cause:**
+
+```javascript
+// আগের (ভুল) কোড:
+if (cloudTime >= localTime) {          // ← outer gate: cloud is newer-or-equal
+  if (_lTime > _cTime) {               // ← inner check: UNREACHABLE!
+    effectiveCloudRow = { ...cloudRow, balance: localRow.balance }; // never runs
+  }
+}
+```
+
+`if (cloudTime >= localTime)` ব্লকে ঢোকার মানেই cloud নতুন বা সমান। তাই ভেতরে `_lTime > _cTime` (local নতুন) কখনো `true` হওয়া সম্ভব নয় — এটা logical impossibility।
+
+**ফলাফল:** প্রতি ৩০ সেকেন্ডের incremental pull-এ cloud-এর `balance` সর্বদা local-কে overwrite করত। `updateAccountBalance()` দিয়ে সঠিকভাবে save হওয়া balance পরের 30s sync-এ cloud-এর পুরনো value দিয়ে মুছে যাচ্ছিল।
+
+**Fix (2026-07-07):** Balance resolution logic `if (cloudTime >= localTime)` গেটের **বাইরে** নিয়ে আসা হয়েছে — unconditionally compute করে তারপর গেটে apply:
+
+```javascript
+// নতুন (সঠিক) কোড:
+let effectiveCloudRow = cloudRow;
+if (tableKey === 'accounts' && localRow.balance !== undefined) {
+  if (localTime > cloudTime) {   // ← local নতুন = pending push আছে
+    effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+  }
+  // else: cloud নতুন = cloud balance নাও (multi-device sync) ✅
+}
+if (cloudTime >= localTime) {    // ← এখন effectiveCloudRow সঠিক balance বহন করছে
+  ...
+}
+```
+
+> **গুরুত্বপূর্ণ নিয়ম (ভবিষ্যতের জন্য):**
+> `mergeIncremental()`-এ accounts.balance guard সর্বদা outer timestamp gate-এর **আগে** থাকতে হবে।
+> AUDIT_IGNORE Section 15-এর নিয়ম এখনো valid: mergeRows(), mergeIncremental(), realtime handler — তিনটিতেই guard থাকতে হবে।
+
+---
+
+### বাগ ২ — `saveEditedInitialPayment()` এ `updateAccountBalance()` ছিল না
+
+**ফাইল:** `js/modules/students.js` → `saveEditedInitialPayment()`
+
+**Root Cause:** Student-এর initial (admission-এর সময়ের, method-বিহীন) payment edit করলে `students.paid` ও `students.due` আপডেট হচ্ছিল, কিন্তু `updateAccountBalance()` কল না থাকায় `accounts.balance` পরিবর্তন হচ্ছিল না।
+
+**Fix (2026-07-07):**
+
+```javascript
+// পুরনো amount reverse (out), নতুন amount apply (in) — Cash account ব্যবহার করে
+const oldInitial = Math.max(0, student.paid - ledgerSum);
+if (oldInitial > 0) SupabaseSync.updateAccountBalance('Cash', oldInitial, 'out', true);
+if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
+```
+
+> **নোট:** Initial payment-এ payment method থাকে না (admission-এ Cash ধরে নেওয়া হয়)।
+> যদি initial payment Cash-এ নেওয়া না হয়ে থাকে এবং account balance mismatch দেখা যায়,
+> Settings → Data Management → **Repair Finance Ledger** চালান।
+
+---
+
+### প্রভাবিত ফাইল — 2026-07-07 (Section 17)
+
+- `js/core/supabase-sync.js` — `mergeIncremental()`: balance guard outer gate-এর আগে নিয়ে আসা হয়েছে
+- `js/modules/students.js` — `saveEditedInitialPayment()`: `updateAccountBalance()` call যোগ করা হয়েছে
+- `www/js/core/supabase-sync.js` — `node build-www.js` দিয়ে sync করা হয়েছে
+- `www/js/modules/students.js` — `node build-www.js` দিয়ে sync করা হয়েছে
+
+*আপডেট: 2026-07-07 — Section 17: Balance update regression fix — mergeIncremental unreachable guard + saveEditedInitialPayment missing balance call।*

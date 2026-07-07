@@ -3561,19 +3561,21 @@ const SyncEngine = (() => {
       } else {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
-        if (cloudTime >= localTime) {
-          // ✅ BALANCE SYNC FIX (2026-07-05 v2): accounts.balance — timestamp-based
-          // Cloud নতুন হলে cloud balance, local নতুন হলে local balance
-          let effectiveCloudRow = cloudRow;
-          if (tableKey === 'accounts' && localRow.balance !== undefined) {
-            const _lTime = new Date(localRow.updated_at || 0).getTime();
-            const _cTime = new Date(cloudRow.updated_at || 0).getTime();
-            if (_lTime > _cTime) {
-              // Local নতুন — local balance রাখো
-              effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
-            }
-            // else: cloud নতুন — cloud balance নাও (multi-device sync)
+        // ✅ BUG FIX (2026-07-07): accounts.balance — timestamp-based resolution
+        // CRITICAL: balance guard must be computed BEFORE the cloudTime>=localTime gate.
+        // Previously the inner _lTime>_cTime check was inside `if(cloudTime>=localTime)` —
+        // meaning it could NEVER be true (outer block already guarantees cloud is newer).
+        // Local balance was therefore NEVER protected during 30s incremental pulls.
+        // Fix: resolve effective balance unconditionally, then apply to the cloud row.
+        let effectiveCloudRow = cloudRow;
+        if (tableKey === 'accounts' && localRow.balance !== undefined) {
+          if (localTime > cloudTime) {
+            // Local নতুন (pending push আছে) — local balance রাখো
+            effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
           }
+          // else: cloud নতুন — cloud balance নাও (multi-device sync) ✅
+        }
+        if (cloudTime >= localTime) {
 
           // ✅ FIX: settings table-এ keep_records/recycle_bin/activity_log/snapshots
           // cloud থেকে missing আসলে local version রাখো — এই fields cloud-এ truncate হতে পারে
