@@ -2953,7 +2953,10 @@ const SupabaseSync = (() => {
       const allAccounts = getAll('accounts');
 
       // Diagnostic / phantom categories skip করা হবে
-      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+      // ✅ Section 20 (2026-07-07): 'Balance Adjustment' এখন count হয় —
+      // manual correction recalc-এর পরেও preserve হওয়া দরকার।
+      // 'Opening Balance' skip থাকছে কারণ সেটা cutoff baseline-এর আওতায়।
+      const phantomCategories = new Set(['Opening Balance']);
       const diagNotes = new Set([
         'Auto-generated diagnostic payment',
         'Auto-generated diagnostic exam payment',
@@ -3452,10 +3455,14 @@ const SyncEngine = (() => {
         if (oldJson !== newJson) {
           SupabaseSync.setAll(key, merged);
           hasChanges = true;
+          // Track which tables changed for post-pull recalculate decision
+          if (!document._wfa_pull_changed_tables) document._wfa_pull_changed_tables = new Set();
+          document._wfa_pull_changed_tables.add(key);
           if (!isFullPull) {
             console.log(`[Sync] Incremental pull: ${cloudRows?.length || 0} changed rows for "${key}"`);
           }
         }
+
       }
 
       _lastSyncTime     = Date.now();
@@ -3473,6 +3480,26 @@ const SyncEngine = (() => {
 
       if (hasChanges) {
         window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { direction: 'pull' } }));
+        // ✅ Section 20 (2026-07-07): Post-pull ledger re-derive.
+        // Timestamp-based LWW (local/cloud wins) একা যথেষ্ট নয় — clock skew,
+        // retry delay, বা multi-device race-এ balance ভুল হতে পারে।
+        // Finance ledger append-only ও conflict-safe, তাই pull-এর পর ledger
+        // থেকে balance re-derive করলে সব device-এর transaction union হয়।
+        // silent:true → কোনো toast বা activity log নেই, শুধু IDB update + push।
+        if (typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
+          const _changedTables = new Set(
+            Array.from(document._wfa_pull_changed_tables || [])
+          );
+          const _needsRecalc = _changedTables.has('accounts') ||
+                               _changedTables.has('finance_ledger') ||
+                               _changedTables.has('loans');
+          if (_needsRecalc || isFullPull) {
+            // isFullPull-এও চালাও — প্রথম load বা forced full sync-এ বিশেষভাবে দরকার
+            SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
+          }
+          // Cleanup
+          try { delete document._wfa_pull_changed_tables; } catch { /* ignore */ }
+        }
       }
 
       await SupabaseSync.processRetryQueue();

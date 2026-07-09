@@ -1044,3 +1044,103 @@ if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
 - **বাকি কাজ:** `android/app/src/main/assets/public/` — `npx cap sync android` চালিয়ে sync করা দরকার (Android build-এর আগে)
 
 *আপডেট: 2026-07-07 (৪) — Section 20: Balance sync কে LWW থেকে ledger-derived-এ বদল — daily data loss / scrambled balance সমাধান।*
+
+---
+
+## 21. Post-Pull Ledger Reconcile Missing + Balance Adjustment Skip Bug (2026-07-09)
+
+**পটভূমি:** User রিপোর্ট করেন Bikash account থেকে ৳1,500 "Cartiz for printer" Expense Finance Ledger-এ সঠিকভাবে রেকর্ড হলেও Bikash-এর account balance ৳2,911 (cutoff baseline) থেকে ৳1,411-এ কমেনি। Repair চালিয়ে ঠিক হলেও মূল কারণ খোঁজার নির্দেশ দেওয়া হয়।
+
+### Root Cause — দুটো Bug
+
+#### Bug ১: `_pullCoreInternal()` শেষে post-pull ledger reconcile ছিল না
+
+**Section 20 (2026-07-07)-তে বলা হয়েছিল:**
+> `_pullCoreInternal()` শেষে — যদি `accounts` / `finance_ledger` / `loans` টেবিল pull-এ বদলায় — তাহলে silent ভাবে `recalculateAccountBalancesFromLedger({ silent: true })` চালায়।
+
+**কিন্তু কোডে এটা implement হয়নি।** তাই:
+
+```
+১. User expense add → updateAccountBalance → local Bikash ৳1,411 ✅
+   → _pushRecord() → cloud push: Bikash ৳1,411, updated_at = T_cloud
+
+২. পরের Full Pull বা Incremental Pull:
+   → cloud Bikash timestamp (T_cloud) > local timestamp (T_local_expense)
+     কারণ: clock skew / async timing / Supabase server time
+   → "Cloud নতুন" → cloud balance জেতে
+   → কিন্তু cloud-এ যদি পুরনো ৳2,911 থাকে (push delay/fail) → ৳2,911 ফিরে আসে ❌
+
+৩. Finance Ledger-এ expense entry আছে, কিন্তু account balance ভুল
+   → Repair চালিয়েই শুধু ঠিক করা যাচ্ছিল
+```
+
+**কেন Repair-এ ঠিক হচ্ছিল কিন্তু পরের sync-এ আবার ভুল হতে পারত:**
+`recalculateAccountBalancesFromLedger()` চালিয়ে balance ৳1,411-এ আনা হয় এবং cloud-এ push হয়। কিন্তু পরের full pull-এ cloud timestamp comparison-এ cloud জিতলে আবার পুরনো মান ফিরে আসতে পারত — কারণ post-pull reconcile ছিল না।
+
+#### Bug ২: `recalculateAccountBalancesFromLedger()` এ `'Balance Adjustment'` skip হচ্ছিল
+
+**ফাইল:** `js/core/supabase-sync.js` → `recalculateAccountBalancesFromLedger()`
+
+Section 20 বলেছে: `'Balance Adjustment'` entries এখন count হবে (phantomCategories থেকে সরানো হয়েছে)।  
+কিন্তু কোডে (line 2956) এখনো ছিল:
+```javascript
+const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']); // ← ভুল
+```
+ফলে manual balance adjustment করলে Repair-এ সেটা হারিয়ে যাচ্ছিল।
+
+### চূড়ান্ত Fix (2026-07-09)
+
+#### Fix ১: Post-pull ledger reconcile যোগ করা
+
+**ফাইল:** `js/core/supabase-sync.js` → `_pullCoreInternal()`
+
+```javascript
+// hasChanges হলে কোন tables বদলেছে track করো:
+if (!document._wfa_pull_changed_tables) document._wfa_pull_changed_tables = new Set();
+document._wfa_pull_changed_tables.add(key);
+
+// Pull শেষে — hasChanges block-এ:
+if (typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
+  const _needsRecalc = changedTables.has('accounts') ||
+                       changedTables.has('finance_ledger') ||
+                       changedTables.has('loans');
+  if (_needsRecalc || isFullPull) {
+    SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
+  }
+}
+```
+
+**কেন এটা কাজ করে:**
+- Finance ledger append-only ও conflict-safe — `id` দিয়ে deduplicate হয়
+- Pull-এ দুই device-এর সব ledger entries merge হয়
+- তারপর ledger থেকে balance re-derive করলে দুটো device-এর transaction-ই union হয়
+- Cloud balance-এর timestamp কে "জেতার" সুযোগ থাকে না — ledger-ই source of truth
+
+#### Fix ২: `'Balance Adjustment'` phantomCategories থেকে সরানো
+
+```javascript
+// আগে (ভুল):
+const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+
+// এখন (সঠিক — Section 20):
+const phantomCategories = new Set(['Opening Balance']);
+// 'Balance Adjustment' এখন count হয় — accounts.js saveBalance() ledger entry হিসেবে রাখে
+```
+
+### নিয়ম (ভবিষ্যতের জন্য — বাধ্যতামূলক)
+
+1. **Post-pull reconcile সরাবেন না।** `_pullCoreInternal()` শেষের `recalculateAccountBalancesFromLedger({ silent: true })` call-টি — এটাই multi-device safety + timestamp-skew protection-এর মূল। এটা remove করলে balance আবার timestamp LWW-তে পড়ে।
+2. **`recalculateAccountBalancesFromLedger()` এ নতুন category skip করতে চাইলে** phantom বা diag category হলে `diagNotes` set-এ `note` দিয়ে ফিল্টার করুন — `phantomCategories` (category field) শুধু `'Opening Balance'` রাখুন।
+3. **Timestamp-based balance resolution (Local/Cloud wins LWW)** আর কখনো accounts.balance-এর final source of truth হবে না। LWW শুধু merge-এর intermediate step — final truth সবসময় ledger-derived।
+
+### Verification
+
+- `node --check js/core/supabase-sync.js` → ✅ syntax OK
+- `node build-www.js` → ✅ www/ sync করা হয়েছে
+- `npx vitest run` → ✅ 102/102 tests passed
+
+### প্রভাবিত ফাইল — 2026-07-09 (Section 21)
+- `js/core/supabase-sync.js` — `_pullCoreInternal()`: table change tracking + post-pull silent recalculate; `recalculateAccountBalancesFromLedger()`: 'Balance Adjustment' un-skip
+- `www/js/core/supabase-sync.js` — `node build-www.js` দিয়ে sync করা হয়েছে
+
+*আপডেট: 2026-07-09 — Section 21: Post-pull ledger reconcile missing + Balance Adjustment phantom skip bug — দুটো fix, 102 tests pass।*
