@@ -34,15 +34,17 @@ const Students = (() => {
   let filterBatch  = '';
   let filterCourse = '';
   let filterStatus = '';
+  let filterDue    = ''; // '' = all, 'due' = has outstanding due, 'paid' = fully paid
   let editingId    = null;
   let currentPage  = 1;
   let pageSize     = 20;
 
-  // Filter persistence: batch/course/status/page only (search is session-local, not restored)
+  // Filter persistence: batch/course/status/due/page only (search is session-local, not restored)
   function _saveFilterState() {
     sessionStorage.setItem('wfa_students_batch', filterBatch);
     sessionStorage.setItem('wfa_students_course', filterCourse);
     sessionStorage.setItem('wfa_students_status', filterStatus);
+    sessionStorage.setItem('wfa_students_due', filterDue);
     sessionStorage.setItem('wfa_students_page', String(currentPage));
   }
 
@@ -50,6 +52,7 @@ const Students = (() => {
     filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
     filterCourse = Utils.decodeHtmlEntities(sessionStorage.getItem('wfa_students_course') || '');
     filterStatus = sessionStorage.getItem('wfa_students_status') || '';
+    filterDue    = sessionStorage.getItem('wfa_students_due') || '';
     const savedPage = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
     currentPage = Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1;
     // Legacy: global search / old builds saved search text — drop so list is not blank
@@ -60,6 +63,7 @@ const Students = (() => {
     sessionStorage.removeItem('wfa_students_batch');
     sessionStorage.removeItem('wfa_students_course');
     sessionStorage.removeItem('wfa_students_status');
+    sessionStorage.removeItem('wfa_students_due');
     sessionStorage.removeItem('wfa_students_page');
   }
 
@@ -100,10 +104,10 @@ const Students = (() => {
   /** If filters hide every row but data exists, clear filters (fixes blank list until Reset). */
   function _sanitizeStaleFilters(all) {
     if (!all.length) return;
-    const hasFilter = searchQuery || filterBatch || filterCourse || filterStatus;
+    const hasFilter = searchQuery || filterBatch || filterCourse || filterStatus || filterDue;
     if (!hasFilter) return;
     if (applyFilters(all).length > 0) return;
-    searchQuery = filterBatch = filterCourse = filterStatus = '';
+    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = '';
     currentPage = 1;
     _clearFilterState();
     if (typeof Utils !== 'undefined' && Utils.toast) {
@@ -176,6 +180,11 @@ const Students = (() => {
           <option value="Active"   ${filterStatus==='Active'  ?'selected':''}>Active</option>
           <option value="Inactive" ${filterStatus==='Inactive'?'selected':''}>Inactive</option>
         </select>
+        <select class="form-control" onchange="Students.onFilter('due',this.value)">
+          <option value="">All (Due/Paid)</option>
+          <option value="due"  ${filterDue==='due' ?'selected':''}>Due Only</option>
+          <option value="paid" ${filterDue==='paid'?'selected':''}>Fully Paid</option>
+        </select>
         <button class="btn-secondary btn-sm" onclick="Students.resetFilters()"><i class="fa fa-rotate-left"></i> Reset</button>
         <button class="btn-success btn-sm"   onclick="Students.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('students-print-area')"><i class="fa fa-print"></i> Print</button>
@@ -193,7 +202,7 @@ const Students = (() => {
                 <th>Phone</th>
                 <th>${Utils.esc(courseLabel)}</th>
                 <th>${Utils.esc(batchLabel)}</th>
-                <th>${Utils.esc(sessionLabel)}</th>
+                <th>${_isSchoolMode() ? Utils.esc(sessionLabel) : 'Admission Date'}</th>
                 <th>Total Fee</th>
                 <th>Pay</th>
                 <th>Due</th>
@@ -237,7 +246,7 @@ const Students = (() => {
             <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">DUE</span>
             <span style="font-size:0.92rem;font-weight:800;color:#ff4757;font-family:var(--font-ui)">${Utils.takaEn(totalDue)}</span>
           </span>
-          ${(searchQuery||filterBatch||filterCourse||filterStatus)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filtered.length} of ${all.length} students</span>`:''}
+          ${(searchQuery||filterBatch||filterCourse||filterStatus||filterDue)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filtered.length} of ${all.length} students</span>`:''}
         </div>
       </div>
     `;
@@ -256,7 +265,7 @@ const Students = (() => {
         <td>${Utils.esc(s.phone)||'—'}</td>
         <td>${Utils.displayText(s.course)||'—'}</td>
         <td>${Utils.esc(s.batch)||'—'}</td>
-        <td>${Utils.esc(s.session)||'—'}</td>
+        <td>${_isSchoolMode() ? (Utils.esc(s.session)||'—') : Utils.formatDateDMY(s.admission_date)}</td>
         <td style="font-family:var(--font-en)">${Utils.takaEn(s.total_fee)}</td>
         <td class="ledger-income">${Utils.takaEn(s.paid)}</td>
         <td class="${Utils.safeNum(s.due)>0?'ledger-expense':''}">${Utils.takaEn(s.due)}</td>
@@ -287,6 +296,8 @@ const Students = (() => {
     if (filterBatch)  r = r.filter(s => String(s.batch  || '').trim() === String(filterBatch).trim());
     if (filterCourse) r = r.filter(s => _normCourse(s.course) === _normCourse(filterCourse));
     if (filterStatus) r = r.filter(s => (s.status||'Active') === filterStatus);
+    if (filterDue === 'due')  r = r.filter(s => Utils.safeNum(s.due) > 0);
+    if (filterDue === 'paid') r = r.filter(s => Utils.safeNum(s.due) <= 0);
     return r;
   }
 
@@ -303,13 +314,14 @@ const Students = (() => {
     if (type === 'batch')  filterBatch  = val;
     if (type === 'course') filterCourse = val;
     if (type === 'status') filterStatus = val;
+    if (type === 'due')    filterDue    = val;
     currentPage = 1;
     _saveFilterState(); // ✅ BUG #3 FIX: Save filter
     render();
   }
 
   function resetFilters() {
-    searchQuery = filterBatch = filterCourse = filterStatus = '';
+    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = '';
     currentPage = 1;
     _clearFilterState(); // ✅ BUG #3 FIX: Clear saved filters
     render();
