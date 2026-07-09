@@ -325,6 +325,34 @@ const BackupRestore = (() => {
           //    AUDIT_IGNORE Section 8: accounts.balance শুধু incremental updateAccountBalance() দিয়ে।
           localStorage.setItem('wfa_finance_backfill_v1', '1');
 
+          // ✅ CRITICAL FIX (Section 22): Backup import-এর পর cutoff date ও baselines
+          // localStorage-এ restore করতে হবে। নাহলে reload-এর পর first full pull-এ
+          // recalculateAccountBalancesFromLedger() cutoff ছাড়াই চলে এবং পুরো পুরনো ledger
+          // থেকে ভুল balance দেখায় (backup-এ correct balance ছিল ১ সেকেন্ড, তারপর হারায়)।
+          try {
+            const restoredSettings = SupabaseSync.getAll('settings');
+            if (restoredSettings && restoredSettings.length) {
+              let examCfg = {};
+              try { examCfg = JSON.parse(restoredSettings[0].exam_settings || '{}'); } catch { examCfg = {}; }
+              // Restore cutoff date to localStorage
+              if (examCfg.repair_cutoff_date) {
+                localStorage.setItem('wfa_repair_cutoff_date', examCfg.repair_cutoff_date);
+                console.info('[Backup] Cutoff date restored to localStorage:', examCfg.repair_cutoff_date);
+              } else {
+                localStorage.removeItem('wfa_repair_cutoff_date');
+              }
+              // Restore cutoff baselines to localStorage
+              if (examCfg.repair_cutoff_baselines && Object.keys(examCfg.repair_cutoff_baselines).length) {
+                localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(examCfg.repair_cutoff_baselines));
+                console.info('[Backup] Cutoff baselines restored to localStorage:', examCfg.repair_cutoff_baselines);
+              } else {
+                localStorage.removeItem('wfa_repair_cutoff_baselines');
+              }
+            }
+          } catch (cutoffErr) {
+            console.warn('[Backup] Could not restore cutoff from settings:', cutoffErr);
+          }
+
           setTimeout(() => {
             location.reload();
           }, 1500);
