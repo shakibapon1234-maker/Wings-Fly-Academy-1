@@ -2667,34 +2667,6 @@ const SupabaseSync = (() => {
    * Idempotent: duplicate তৈরি হয় না — deterministic ID (REPAIR-studentId) ব্যবহার করে।
    * Account balance: অপরিবর্তিত থাকে।
    */
-  /**
-   * DB settings (exam_settings.repair_cutoff_date) থেকে cutoff date উদ্ধার করে।
-   * localStorage-এ না থাকলে বা ভিন্ন থাকলে sync করে।
-   */
-  function getRepairCutoffDate() {
-    let cutoff = '';
-    if (typeof DB !== 'undefined' && DB.settings) {
-      try {
-        const cfg = getAll(DB.settings)[0] || {};
-        let examCfg = {};
-        try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
-        cutoff = examCfg.repair_cutoff_date || '';
-      } catch (e) {
-        console.warn('[SupabaseSync] Failed to parse exam_settings from DB:', e);
-      }
-    }
-    const lsVal = localStorage.getItem('wfa_repair_cutoff_date') || '';
-    if (cutoff) {
-      if (lsVal !== cutoff) {
-        localStorage.setItem('wfa_repair_cutoff_date', cutoff);
-        console.info('[SupabaseSync] Syncing cutoff date from DB to localStorage:', cutoff);
-      }
-    } else {
-      cutoff = lsVal;
-    }
-    return cutoff;
-  }
-
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
@@ -2709,7 +2681,7 @@ const SupabaseSync = (() => {
 
     // ✅ Cutoff date এখানে আগে থেকেই লাগবে — ধ্বংসাত্মক deletion-এও এই একই
     // cutoff apply করার জন্য (নিচে দেখুন, fix 2026-07-07)।
-    const cutoffDate = getRepairCutoffDate();
+    const cutoffDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
 
     // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
     // ✅ SAFE: শুধু ledger থেকে মুছি, balance touch করি না।
@@ -2935,80 +2907,14 @@ const SupabaseSync = (() => {
   }
 
   function snapshotCutoffBaselines() {
-    const cutoffDate = getRepairCutoffDate();
     const allAccounts = getAll('accounts');
     const map = {};
-
-    // ✅ FIX: Cutoff date-এর দিনের বা পরের entries যদি ইতিমধ্যে balance-এ ইফেক্ট ফেলে থাকে,
-    // তাহলে raw balance-কে baseline ধরলে recalculate-এ সেগুলো double-count (দ্বিগুণ বিয়োগ/যোগ) হয়।
-    // সমাধান: বর্তমান balance থেকে post-cutoff net টুকু বিয়োগ করে প্রকৃত baseline বের করি।
-    const netByMethod = {};
-    if (cutoffDate) {
-      const financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
-      const allFinance = getAll(financeKey);
-      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
-      const diagNotes = new Set([
-        'Auto-generated diagnostic payment',
-        'Auto-generated diagnostic exam payment',
-        'Auto-generated diagnostic salary payment',
-        'Auto-generated diagnostic loan finance',
-        'Auto-generated diagnostic loan',
-        'Auto-generated diagnostic loan [UPDATED]',
-      ]);
-
-      allFinance.forEach(f => {
-        if (!f || !f.amount || !f.method) return;
-        if (phantomCategories.has(f.category)) return;
-        if (f.note && diagNotes.has(f.note)) return;
-
-        const entryDate = (f.date || '').split('T')[0];
-        if (entryDate && entryDate >= cutoffDate) {
-          if (f._isLoan) return;
-          const amt = parseFloat(f.amount) || 0;
-          if (amt <= 0) return;
-          const method = f.method;
-          const type = f.type || '';
-          const isIncome  = type === 'Income'       || type === 'Transfer In' || type === 'Investment In';
-          const isExpense = type === 'Expense'      || type === 'Transfer Out' || type === 'Investment Out';
-          if (!isIncome && !isExpense) return;
-          if (!netByMethod[method]) netByMethod[method] = 0;
-          netByMethod[method] += isIncome ? amt : -amt;
-        }
-      });
-
-      // Loans
-      const loansKey = (typeof DB !== 'undefined' && DB.loans) ? DB.loans : 'loans';
-      const allLoans = getAll(loansKey);
-      const diagLoanNotes = new Set([
-        'Auto-generated diagnostic loan',
-        'Auto-generated diagnostic loan [UPDATED]',
-      ]);
-      allLoans.forEach(loan => {
-        if (!loan || !loan.amount || !loan.method) return;
-        if (loan.note && diagLoanNotes.has(loan.note)) return;
-        const loanDate = (loan.date || '').split('T')[0];
-        if (loanDate && loanDate >= cutoffDate) {
-          const amt = parseFloat(loan.amount) || 0;
-          if (amt <= 0) return;
-          const method = loan.method;
-          const isGiving = loan.type === 'Loan Giving' || loan.direction === 'given';
-          if (!netByMethod[method]) netByMethod[method] = 0;
-          netByMethod[method] += isGiving ? -amt : amt;
-        }
-      });
-    }
-
     allAccounts.forEach(acc => {
       let key = null;
       if (acc.type === 'Cash' && String(acc.name || '').trim() === 'Cash') key = 'Cash';
       else if (acc.type === 'Bank_Detail' || acc.type === 'Mobile_Detail') key = acc.name;
-      if (key) {
-        const stored = parseFloat(acc.balance) || 0;
-        const postNet = netByMethod[key] || 0;
-        map[key] = Math.round((stored - postNet) * 100) / 100;
-      }
+      if (key) map[key] = Math.round((parseFloat(acc.balance) || 0) * 100) / 100;
     });
-
     try {
       localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(map));
     } catch { /* ignore */ }
@@ -3040,18 +2946,14 @@ const SupabaseSync = (() => {
     // ✅ Cutoff date: options.fromDate > wfa_repair_cutoff_date > (none)
     // Cutoff-এর আগের finance entries calculation থেকে বাদ যাবে।
     // এটা migration/পুরনো data-র কারণে balance eliminate হওয়া থেকে রক্ষা করে।
-    const fromDate = options.fromDate || getRepairCutoffDate();
+    const fromDate = options.fromDate || localStorage.getItem('wfa_repair_cutoff_date') || '';
 
     try {
       const allFinance = getAll(financeKey);
       const allAccounts = getAll('accounts');
 
       // Diagnostic / phantom categories skip করা হবে
-      // ✅ FIX (2026-07-07): 'Balance Adjustment' আর skip করবে না — manual correction এখন
-      // ledger-এ real delta হিসেবে থাকে, তাই recalc-এ count করতে হবে যাতে reconcile-এর
-      // পরেও manual balance ঠিক থাকে (AUDIT_IGNORE Section 17)। 'Opening Balance' exclude
-      // রাখা হয়েছে কারণ সেটা baseline-এর আওতায়।
-      const phantomCategories = new Set(['Opening Balance']);
+      const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
       const diagNotes = new Set([
         'Auto-generated diagnostic payment',
         'Auto-generated diagnostic exam payment',
@@ -3217,7 +3119,6 @@ const SupabaseSync = (() => {
 
   return {
     getAll, getById, setAll, insert, update, remove, generateId, _deleteFromCloud,
-    getRepairCutoffDate,
     getDeletedIds, clearDeletedIds, untrackDeletion, processRetryQueue, _deviceId,
     restoreRecycleBinItem, permanentDeleteRecycleBinItem, emptyRecycleBin,
     updateAccountBalance,
@@ -3373,11 +3274,6 @@ const SyncEngine = (() => {
       }
 
       let hasChanges = false;
-      // ✅ FIX (2026-07-07): re-derive balances from the merged ledger after a pull so
-      // transactions from every device are counted (no LWW loss). AUDIT_IGNORE Section 17.
-      let _balanceRelevantChanged = false;
-      const _financeKey = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
-      const _loansKey   = (typeof DB !== 'undefined' && DB.loans)  ? DB.loans  : 'loans';
 
       for (const key of _cloudTableKeys()) {
         if (missingTables.has(key)) continue;
@@ -3539,12 +3435,15 @@ const SyncEngine = (() => {
           });
           merged = merged.map(function(cloudRow) {
             const localRow = localAccountMap[cloudRow.id];
-            if (!localRow) return cloudRow; // New account (cloud-only) — use cloud balance
-            // ✅ FIX (2026-07-07): balance is DERIVED from finance_ledger + loans, NOT synced as
-            // an absolute last-writer-wins value — LWW silently dropped transactions
-            // (AUDIT_IGNORE Section 17). Keep local balance during merge; the true balance is
-            // re-derived from the merged ledger after the pull.
-            return Object.assign({}, cloudRow, { balance: localRow.balance });
+            if (!localRow) return cloudRow; // New account — use cloud
+            const localTime = new Date(localRow.updated_at || 0).getTime();
+            const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
+            if (localTime > cloudTime) {
+              // Local নতুন — local balance রাখো (pending push আছে)
+              return Object.assign({}, cloudRow, { balance: localRow.balance });
+            }
+            // Cloud নতুন — cloud balance নাও (other device-এ transaction হয়েছে)
+            return cloudRow;
           });
         }
 
@@ -3553,25 +3452,9 @@ const SyncEngine = (() => {
         if (oldJson !== newJson) {
           SupabaseSync.setAll(key, merged);
           hasChanges = true;
-          // ✅ FIX (2026-07-07): flag balance-relevant tables for post-pull ledger re-derive.
-          if (key === 'accounts' || key === _financeKey || key === _loansKey) {
-            _balanceRelevantChanged = true;
-          }
           if (!isFullPull) {
             console.log(`[Sync] Incremental pull: ${cloudRows?.length || 0} changed rows for "${key}"`);
           }
-        }
-      }
-
-      // ✅ FIX (2026-07-07): re-derive account balances from the merged ledger so that
-      // transactions from ALL devices are counted — never via LWW on the absolute balance.
-      // finance_ledger + loans are append-only & conflict-safe, so the union of both devices'
-      // entries yields the correct balance. AUDIT_IGNORE Section 17.
-      if (_balanceRelevantChanged && typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
-        try {
-          await SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
-        } catch (e) {
-          console.warn('[Sync] Post-pull balance reconcile failed:', e);
         }
       }
 
@@ -3760,13 +3643,19 @@ const SyncEngine = (() => {
       } else {
         const localTime = new Date(localRow.updated_at || 0).getTime();
         const cloudTime = new Date(cloudRow.updated_at || 0).getTime();
-        // ✅ FIX (2026-07-07, AUDIT_IGNORE Section 20): accounts.balance is ledger-derived,
-        // NOT timestamp LWW. During merge we keep the local balance (cloud absolute never
-        // overwrites local transactions); the true balance is re-derived from the merged
-        // ledger after the pull (_pullCoreInternal post-pull reconcile).
+        // ✅ BUG FIX (2026-07-07): accounts.balance — timestamp-based resolution
+        // CRITICAL: balance guard must be computed BEFORE the cloudTime>=localTime gate.
+        // Previously the inner _lTime>_cTime check was inside `if(cloudTime>=localTime)` —
+        // meaning it could NEVER be true (outer block already guarantees cloud is newer).
+        // Local balance was therefore NEVER protected during 30s incremental pulls.
+        // Fix: resolve effective balance unconditionally, then apply to the cloud row.
         let effectiveCloudRow = cloudRow;
         if (tableKey === 'accounts' && localRow.balance !== undefined) {
-          effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+          if (localTime > cloudTime) {
+            // Local নতুন (pending push আছে) — local balance রাখো
+            effectiveCloudRow = Object.assign({}, cloudRow, { balance: localRow.balance });
+          }
+          // else: cloud নতুন — cloud balance নাও (multi-device sync) ✅
         }
         if (cloudTime >= localTime) {
 
@@ -3947,9 +3836,15 @@ const SyncEngine = (() => {
           // নিয়ম: local-এ pending (unpushed) transaction থাকলে local updated_at cloud-র চেয়ে নতুন হবে।
           let merged;
           if (table === 'accounts' && rows[idx].balance !== undefined) {
-            // ✅ FIX (2026-07-07): local authoritative during merge (AUDIT_IGNORE Section 17).
-            // Balance is re-derived from the merged ledger after the next pull.
-            merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
+            const _lTime = new Date(rows[idx].updated_at || 0).getTime();
+            const _cTime = new Date(newRow.updated_at || 0).getTime();
+            if (_lTime > _cTime) {
+              // Local নতুন (pending push) — local balance রাখো
+              merged = Object.assign({}, rows[idx], newRow, { balance: rows[idx].balance });
+            } else {
+              // Cloud নতুন — cloud balance নাও (other device-এ transaction)
+              merged = { ...rows[idx], ...newRow };
+            }
           } else {
             merged = { ...rows[idx], ...newRow };
           }

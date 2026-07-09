@@ -6,7 +6,9 @@
 // ✅ Bumped 2026-07-02: many core/module files changed since 20260626 without a cache-bust
 // (app.js, supabase-sync.js, students.js, certificates.js, license.js, id-cards.js,
 // result-sheet.js, institution-mode.js, backup-restore.js, utils.js). See AUDIT.md changelog.
-const DEPLOY_ID = '20260707-cutoff-snapshot-fix';
+// ✅ Bumped 2026-07-08: Activity Log rebuilt — extracted into new js/ui/activity-log.js
+// (added to precache below), settings.js updated to delegate to it.
+const DEPLOY_ID = '20260708-activity-log-rewrite';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
@@ -53,6 +55,7 @@ const STATIC_ASSETS = [
   './js/core/mobile-nav.js',
   './js/ui/dashboard.js',
   './js/ui/login.js',
+  './js/ui/activity-log.js',
   './js/ui/settings.js',
   './js/ui/settings-student-portal.js',
   './js/modules/students.js',
