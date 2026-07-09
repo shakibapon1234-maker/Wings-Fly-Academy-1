@@ -1144,3 +1144,51 @@ const phantomCategories = new Set(['Opening Balance']);
 - `www/js/core/supabase-sync.js` — `node build-www.js` দিয়ে sync করা হয়েছে
 
 *আপডেট: 2026-07-09 — Section 21: Post-pull ledger reconcile missing + Balance Adjustment phantom skip bug — দুটো fix, 102 tests pass।*
+
+---
+
+## 22. Backup Import-এর পর Balance ভুল হওয়া — Cutoff Restore Missing (2026-07-10)
+
+**পটভূমি:** User backup import করলে ১ সেকেন্ড সঠিক balance (৳22,712) দেখায়, তারপরেই ৳8,97,300-এ বদলে যায়।
+
+### Root Cause
+
+**Backup import flow:**
+1. `tableData` থেকে সব table (accounts, finance_ledger, settings ইত্যাদি) IDB-তে restore হয়।
+2. `settings[0].exam_settings` JSON-এ `repair_cutoff_date: "2026-07-05"` ও `repair_cutoff_baselines: {...}` সংরক্ষিত ছিল। এগুলো DB-তে সঠিকভাবে restore হয়।
+3. **কিন্তু `localStorage`-এ** `wfa_repair_cutoff_date` ও `wfa_repair_cutoff_baselines` **write হয়নি**।
+4. `location.reload()` চালু হয় → page reload।
+5. Reload-এর পর first full pull-এ `_pullCoreInternal()` → `recalculateAccountBalancesFromLedger({ silent: true })` চালায়।
+6. `recalculateAccountBalancesFromLedger()` `localStorage.getItem('wfa_repair_cutoff_date')` পড়ে — **কিন্তু সেটা ফাঁকা** (restore হয়নি)।
+7. ফলে cutoff ছাড়াই পুরো historical ledger (batch 17-20 এর সব ৳911,600 income + ৳716,959 expense) merge হয় → Cash net = ৳1,94,641 (ভুল)।
+8. Bank/Mobile-ও ভুল হয় → মোট ৳8,97,300 দেখায়।
+
+### Fix — `js/core/backup-restore.js`
+
+Import শেষে, `location.reload()` call-এর আগে, restored settings থেকে cutoff date ও baselines `localStorage`-এ write করা হলো:
+
+```javascript
+// Restore cutoff date ও baselines — নাহলে post-reload recalc ভুল হবে
+const restoredSettings = SupabaseSync.getAll('settings');
+if (restoredSettings && restoredSettings.length) {
+  let examCfg = JSON.parse(restoredSettings[0].exam_settings || '{}');
+  if (examCfg.repair_cutoff_date) {
+    localStorage.setItem('wfa_repair_cutoff_date', examCfg.repair_cutoff_date);
+  }
+  if (examCfg.repair_cutoff_baselines) {
+    localStorage.setItem('wfa_repair_cutoff_baselines', JSON.stringify(examCfg.repair_cutoff_baselines));
+  }
+}
+```
+
+### নিয়ম (ভবিষ্যতের জন্য — বাধ্যতামূলক)
+
+1. **Backup import-এর পরে সবসময়** settings DB থেকে cutoff ও baselines `localStorage`-এ sync করুন।
+2. **`recalculateAccountBalancesFromLedger()` cutoff ছাড়া চললে** পুরো historical ledger count হয় — ব্যালেন্স অনেক বড় দেখায়।
+3. **Section 21-এর post-pull reconcile** এখন সঠিকভাবে কাজ করবে কারণ reload-এর পর localStorage-এ cutoff থাকবে।
+
+### প্রভাবিত ফাইল — 2026-07-10 (Section 22)
+- `js/core/backup-restore.js` — `importBackup()`: post-restore cutoff/baseline localStorage sync
+- `www/js/core/backup-restore.js` — `node build-www.js` দিয়ে sync করা হয়েছে
+
+*আপডেট: 2026-07-10 — Section 22: Backup import-এর পর balance ৳8,97,300 হওয়ার bug fix — cutoff date ও baselines localStorage-এ restore করা হলো।*
