@@ -1989,7 +1989,7 @@ const SettingsModule = (() => {
         </div>
 
         <!-- Filter Row -->
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;margin-bottom:16px;">
           <div class="form-group" style="margin:0">
             <label class="settings-label">SELECT BATCH</label>
             <select id="bp-batch" class="form-control">
@@ -2018,6 +2018,24 @@ const SettingsModule = (() => {
               <i class="fa fa-calendar-days" style="position:absolute;right:12px;color:var(--brand-primary);font-size:0.9rem;pointer-events:none;"></i>
             </div>
             <input type="hidden" id="bp-end-raw" value="${today}" />
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="settings-label"><i class="fa fa-wallet" style="color:var(--brand-primary);margin-right:4px;"></i>INCOME PAYMENT METHOD</label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <select id="bp-paymethod" class="form-control" style="padding-right:36px;">
+                <option value="">💳 All Methods</option>
+                <option value="Cash">💵 Cash</option>
+                ${(Utils.getPaymentMethodsHTML ? (() => {
+                  const tmp = document.createElement('select');
+                  tmp.innerHTML = Utils.getPaymentMethodsHTML();
+                  return [...tmp.querySelectorAll('option')]
+                    .filter(o => o.value && o.value !== 'Cash')
+                    .map(o => `<option value="${o.value}">${o.text}</option>`)
+                    .join('');
+                })() : '<option value="Bank">🏦 Bank</option><option value="Mobile Banking">📱 Mobile Banking</option>')}
+              </select>
+              <i class="fa fa-filter" style="position:absolute;right:32px;color:var(--brand-primary);font-size:0.8rem;pointer-events:none;"></i>
+            </div>
           </div>
         </div>
         <!-- flatpickr is initialized via _initSettingsDatePickers() on tab switch -->
@@ -2054,22 +2072,24 @@ const SettingsModule = (() => {
   }
 
   function renderBatchReport() {
-    const batch   = document.getElementById('bp-batch')?.value || '';
+    const batch     = document.getElementById('bp-batch')?.value || '';
     // Flatpickr hidden raw values (YYYY-MM-DD)
-    const start   = document.getElementById('bp-start-raw')?.value ||
-                    document.getElementById('bp-start')?.value || '';
-    const end     = document.getElementById('bp-end-raw')?.value ||
-                    document.getElementById('bp-end')?.value || '';
-    const prevBal = parseFloat(document.getElementById('bp-prev')?.value || 0) || 0;
+    const start     = document.getElementById('bp-start-raw')?.value ||
+                      document.getElementById('bp-start')?.value || '';
+    const end       = document.getElementById('bp-end-raw')?.value ||
+                      document.getElementById('bp-end')?.value || '';
+    const prevBal   = parseFloat(document.getElementById('bp-prev')?.value || 0) || 0;
+    const payMethod = document.getElementById('bp-paymethod')?.value || '';
 
     const students = SupabaseSync.getAll(DB.students);
     const finance  = SupabaseSync.getAll(DB.finance);
     const container = document.getElementById('bp-report-area');
-    if (container) container.innerHTML = buildBatchReport(students, finance, batch, start, end, prevBal);
+    if (container) container.innerHTML = buildBatchReport(students, finance, batch, start, end, prevBal, payMethod);
   }
 
-  function buildBatchReport(students, finance, selectedBatch, startDate, endDate, prevBalance) {
-    prevBalance = parseFloat(prevBalance) || 0;
+  function buildBatchReport(students, finance, selectedBatch, startDate, endDate, prevBalance, filterMethod) {
+    prevBalance  = parseFloat(prevBalance) || 0;
+    filterMethod = (filterMethod || '').trim();
 
     // ── Students filtered by batch ──
     const batchStudents = selectedBatch
@@ -2079,11 +2099,23 @@ const SettingsModule = (() => {
     // Get student IDs for finance lookup
     const _studentIds = new Set(batchStudents.map(s => s.id || s.student_id));
 
-    // ── Income: from student fees (finance entries for these students) ──
-    // Also count direct paid from student records
-    const totalStudentFee  = batchStudents.reduce((s, st) => s + (parseFloat(st.total_fee) || 0), 0);
-    const totalCollected   = batchStudents.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
-    const totalDue         = batchStudents.reduce((s, st) => s + (parseFloat(st.due) || 0), 0);
+    // ── Income: from student fees ──
+    // When filterMethod is set, only count payments made via that method.
+    // totalCollected always reflects all-time paid (for display in student table).
+    const totalStudentFee = batchStudents.reduce((s, st) => s + (parseFloat(st.total_fee) || 0), 0);
+    const totalCollected  = batchStudents.reduce((s, st) => s + (parseFloat(st.paid) || 0), 0);
+    const totalDue        = batchStudents.reduce((s, st) => s + (parseFloat(st.due) || 0), 0);
+
+    // Filtered income: sum only fee_history payments matching filterMethod
+    const filteredIncome = filterMethod
+      ? batchStudents.reduce((sum, st) => {
+          const history = Array.isArray(st.fee_history) ? st.fee_history : [];
+          const matched = history
+            .filter(p => (p.method || 'Cash').trim().toLowerCase() === filterMethod.toLowerCase())
+            .reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+          return sum + matched;
+        }, 0)
+      : totalCollected;
 
     // ── Expenses: by date range (batch-tagged or general) ──
     const expenseEntries = finance.filter(f => {
@@ -2113,7 +2145,7 @@ const SettingsModule = (() => {
     // ── Income = ALL collected fees from batch students (NO date filter) ──
     // Date range applies to EXPENSES only, not income.
     // Students in a batch enroll at different times, so all-time collected is the correct income figure.
-    const grossIncome = totalCollected;  // from batchStudents.reduce paid
+    const grossIncome = filteredIncome;  // filtered by payMethod if selected
     const netProfit   = grossIncome - totalExpense + prevBalance;
     const isProfit    = netProfit >= 0;
 
@@ -2129,12 +2161,36 @@ const SettingsModule = (() => {
       expCats[cat] += parseFloat(f.amount) || 0;
     });
 
+    // ── Income breakdown by payment method (from fee_history of each batch student) ──
+    const incMethods = {};
+    batchStudents.forEach(st => {
+      const history = Array.isArray(st.fee_history) ? st.fee_history : [];
+      // When filterMethod is active, only include matching payments
+      const filtered = filterMethod
+        ? history.filter(p => (p.method || 'Cash').trim().toLowerCase() === filterMethod.toLowerCase())
+        : history;
+      filtered.forEach(pay => {
+        const meth = (pay.method || 'Cash').trim();
+        if (!incMethods[meth]) incMethods[meth] = 0;
+        incMethods[meth] += parseFloat(pay.amount) || 0;
+      });
+      // If no filterMethod, count unrecorded initial paid as Cash (Initial)
+      if (!filterMethod) {
+        const historyTotal = history.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
+        const unrecorded   = (parseFloat(st.paid) || 0) - historyTotal;
+        if (unrecorded > 0.01) {
+          if (!incMethods['Cash (Initial)']) incMethods['Cash (Initial)'] = 0;
+          incMethods['Cash (Initial)'] += unrecorded;
+        }
+      }
+    });
+
     // ── Store data for export ──
     window._bpReportData = {
-      batch: selectedBatch || 'All Batches', startDate, endDate, prevBalance,
+      batch: selectedBatch || 'All Batches', startDate, endDate, prevBalance, filterMethod,
       batchStudents, expenseEntries,
       totalStudentFee, totalCollected, totalDue, totalExpense,
-      grossIncome, netProfit,
+      grossIncome, netProfit, incMethods,
       academyName, reportDate
     };
 
@@ -2159,7 +2215,9 @@ const SettingsModule = (() => {
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:20px;">
         ${bpCard('fa-users', '#00d9ff', 'মোট ছাত্র', batchStudents.length, '')}
         ${bpCard('fa-money-bill-wave', '#ffd700', 'মোট কোর্স ফি', '৳' + totalStudentFee.toLocaleString('en-IN'), '')}
-        ${bpCard('fa-circle-check', '#00ff88', 'সংগৃহীত ফি', '৳' + totalCollected.toLocaleString('en-IN'), 'green')}
+        ${filterMethod
+          ? bpCard('fa-filter', '#a78bfa', filterMethod + ' আয়', '৳' + filteredIncome.toLocaleString('en-IN'), 'purple')
+          : bpCard('fa-circle-check', '#00ff88', 'সংগৃহীত ফি', '৳' + totalCollected.toLocaleString('en-IN'), 'green')}
         ${bpCard('fa-circle-xmark', '#ff4757', 'বাকি ডিউ', '৳' + totalDue.toLocaleString('en-IN'), 'red')}
         ${bpCard('fa-receipt', '#ff9a00', 'মোট খরচ', '৳' + totalExpense.toLocaleString('en-IN'), 'orange')}
         ${bpCard(isProfit ? 'fa-trending-up' : 'fa-trending-down', isProfit ? '#00ff88' : '#ff4757',
@@ -2176,13 +2234,25 @@ const SettingsModule = (() => {
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
           <!-- Income Side -->
           <div>
-            <div style="font-weight:700;color:#00ff88;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(0,255,136,0.2);padding-bottom:6px;">
-              ✦ আয় (Income)
+            <div style="font-weight:700;color:#00ff88;margin-bottom:10px;font-size:0.85rem;border-bottom:1px solid rgba(0,255,136,0.2);padding-bottom:6px;display:flex;align-items:center;gap:8px;">
+              <span>✦ আয় (Income) — পেমেন্ট পদ্ধতি অনুযায়ী</span>
+              ${filterMethod ? `<span style="background:rgba(167,139,250,0.2);border:1px solid rgba(167,139,250,0.5);color:#a78bfa;font-size:0.7rem;padding:2px 8px;border-radius:20px;font-weight:700;">⚡ ${filterMethod} Only</span>` : ''}
             </div>
-            ${plRow('ব্যাচের মোট সংগৃহীত ফি (সম্পূর্ণ)', totalCollected, '#00ff88')}
-            ${prevBalance !== 0 ? plRow('পূর্ববর্তী ব্যালেন্স', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
+            ${Object.keys(incMethods).length > 0
+              ? Object.entries(incMethods).map(([meth, amt]) => {
+                  const ic = meth.toLowerCase().includes('bank') ? '#00d4ff'
+                           : meth.toLowerCase().includes('mobile') || meth.toLowerCase().includes('bkash') || meth.toLowerCase().includes('nagad') ? '#a78bfa'
+                           : '#00ff88';
+                  const icon = meth.toLowerCase().includes('bank') ? '🏦'
+                             : meth.toLowerCase().includes('mobile') || meth.toLowerCase().includes('bkash') || meth.toLowerCase().includes('nagad') ? '📱'
+                             : '💵';
+                  return plRow(`${icon} ${meth}`, amt, ic);
+                }).join('')
+              : plRow('💵 ব্যাচের মোট সংগৃহীত ফি', filteredIncome, '#00ff88')
+            }
+            ${prevBalance !== 0 ? plRow('📋 পূর্ববর্তী ব্যালেন্স', prevBalance, prevBalance >= 0 ? '#00ff88' : '#ff4757') : ''}
             <div style="border-top:1.5px solid rgba(0,255,136,0.3);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:800;">
-              <span style="color:#fff;">মোট আয়</span>
+              <span style="color:#fff;">মোট আয়${filterMethod ? ` (${filterMethod})` : ''}</span>
               <span style="color:#00ff88;">৳${grossIncome.toLocaleString('en-IN')}</span>
             </div>
           </div>
@@ -2311,7 +2381,7 @@ const SettingsModule = (() => {
   }
 
   function bpCard(icon, color, label, value, glow) {
-    const glowMap = { green: 'rgba(0,255,136,0.15)', red: 'rgba(255,71,87,0.15)', orange: 'rgba(255,154,0,0.15)' };
+    const glowMap = { green: 'rgba(0,255,136,0.15)', red: 'rgba(255,71,87,0.15)', orange: 'rgba(255,154,0,0.15)', purple: 'rgba(167,139,250,0.15)' };
     const bg = glowMap[glow] || 'rgba(0,0,0,0.25)';
     return `
       <div style="background:${bg};border:1px solid ${color}30;border-radius:10px;padding:14px;text-align:center;">
@@ -2353,6 +2423,8 @@ const SettingsModule = (() => {
       if (!expCats[cat]) expCats[cat] = 0;
       expCats[cat] += parseFloat(f.amount) || 0;
     });
+
+    const incMethods = d.incMethods || {};
 
     const html = `<!DOCTYPE html>
 <html lang="bn">
@@ -2455,8 +2527,16 @@ const SettingsModule = (() => {
   <div class="pl-title">📊 লাভ-ক্ষতি হিসাব (P&amp;L Statement)</div>
   <div class="pl-grid">
     <div>
-      <div class="pl-col-title" style="color:#15803d;">আয় (Income)</div>
-      <div class="pl-row"><span>ছাত্র ফি সংগ্রহ</span><span style="color:#15803d;font-weight:700;">৳${totalCollected.toLocaleString('en-IN')}</span></div>
+      <div class="pl-col-title" style="color:#15803d;">আয় (Income) — পদ্ধতি অনুযায়ী</div>
+      ${Object.keys(incMethods).length > 0
+        ? Object.entries(incMethods).map(([meth, amt]) => {
+            const icon = meth.toLowerCase().includes('bank') ? '🏦'
+                       : (meth.toLowerCase().includes('mobile') || meth.toLowerCase().includes('bkash') || meth.toLowerCase().includes('nagad')) ? '📱'
+                       : '💵';
+            return `<div class="pl-row"><span>${icon} ${meth}</span><span style="color:#15803d;font-weight:700;">৳${amt.toLocaleString('en-IN')}</span></div>`;
+          }).join('')
+        : `<div class="pl-row"><span>💵 ছাত্র ফি সংগ্রহ</span><span style="color:#15803d;font-weight:700;">৳${totalCollected.toLocaleString('en-IN')}</span></div>`
+      }
       ${otherIncome > 0 ? `<div class="pl-row"><span>অন্যান্য আয়</span><span style="color:#15803d;font-weight:700;">৳${otherIncome.toLocaleString('en-IN')}</span></div>` : ''}
       ${prevBalance !== 0 ? `<div class="pl-row"><span>পূর্ব ব্যালেন্স</span><span style="font-weight:700;color:${prevBalance >= 0 ? '#15803d' : '#b91c1c'};">৳${prevBalance.toLocaleString('en-IN')}</span></div>` : ''}
       <div class="pl-total"><span>মোট আয়</span><span style="color:#15803d;">৳${grossIncome.toLocaleString('en-IN')}</span></div>
@@ -2607,11 +2687,15 @@ ${expenseEntries.length > 0 ? `
     expenseRows.push({ '#': '', 'তারিখ': '— মোট খরচ —', 'বিবরণ': '', 'ক্যাটাগরি': '', 'পদ্ধতি': '', 'পরিমাণ (৳)': totalExpense });
 
     // Sheet 3: P&L Summary
+    const incMethods = d.incMethods || {};
     const summaryRows = [
       { 'বিবরণ': 'মোট ছাত্র', 'পরিমাণ (৳)': batchStudents.length },
       { 'বিবরণ': 'মোট কোর্স ফি', 'পরিমাণ (৳)': totalStudentFee },
-      { 'বিবরণ': 'সংগৃহীত ফি (Income)', 'পরিমাণ (৳)': totalCollected },
+      { 'বিবরণ': '── আয় বিবরণ ──', 'পরিমাণ (৳)': '' },
+      ...Object.entries(incMethods).map(([meth, amt]) => ({ 'বিবরণ': `  আয় — ${meth}`, 'পরিমাণ (৳)': amt })),
+      { 'বিবরণ': 'মোট সংগৃহীত ফি (Income)', 'পরিমাণ (৳)': totalCollected },
       { 'বিবরণ': 'বকেয়া ডিউ', 'পরিমাণ (৳)': totalDue },
+      { 'বিবরণ': '── ব্যয় বিবরণ ──', 'পরিমাণ (৳)': '' },
       { 'বিবরণ': 'মোট খরচ (Expense)', 'পরিমাণ (৳)': totalExpense },
       { 'বিবরণ': 'পূর্ব ব্যালেন্স', 'পরিমাণ (৳)': d.prevBalance },
       { 'বিবরণ': netProfit >= 0 ? 'নিট মুনাফা' : 'নিট ক্ষতি', 'পরিমাণ (৳)': netProfit },

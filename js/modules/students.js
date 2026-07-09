@@ -30,30 +30,33 @@ const Students = (() => {
   }
 
   /* ── State ── */
-  let searchQuery  = '';
-  let filterBatch  = '';
-  let filterCourse = '';
-  let filterStatus = '';
-  let filterDue    = ''; // '' = all, 'due' = has outstanding due, 'paid' = fully paid
+  let searchQuery    = '';
+  let filterBatch    = '';
+  let filterCourse   = '';
+  let filterStatus   = '';
+  let filterDue      = ''; // '' = all, 'due' = has outstanding due, 'paid' = fully paid
+  let filterPayMethod = ''; // '' = all, 'Cash' / 'Bank' / mobile name = payments via that method
   let editingId    = null;
   let currentPage  = 1;
   let pageSize     = 20;
 
-  // Filter persistence: batch/course/status/due/page only (search is session-local, not restored)
+  // Filter persistence: batch/course/status/due/payMethod/page only (search is session-local, not restored)
   function _saveFilterState() {
     sessionStorage.setItem('wfa_students_batch', filterBatch);
     sessionStorage.setItem('wfa_students_course', filterCourse);
     sessionStorage.setItem('wfa_students_status', filterStatus);
     sessionStorage.setItem('wfa_students_due', filterDue);
+    sessionStorage.setItem('wfa_students_paymethod', filterPayMethod);
     sessionStorage.setItem('wfa_students_page', String(currentPage));
   }
 
   function _loadFilterState() {
-    filterBatch  = sessionStorage.getItem('wfa_students_batch') || '';
-    filterCourse = Utils.decodeHtmlEntities(sessionStorage.getItem('wfa_students_course') || '');
-    filterStatus = sessionStorage.getItem('wfa_students_status') || '';
-    filterDue    = sessionStorage.getItem('wfa_students_due') || '';
-    const savedPage = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
+    filterBatch      = sessionStorage.getItem('wfa_students_batch') || '';
+    filterCourse     = Utils.decodeHtmlEntities(sessionStorage.getItem('wfa_students_course') || '');
+    filterStatus     = sessionStorage.getItem('wfa_students_status') || '';
+    filterDue        = sessionStorage.getItem('wfa_students_due') || '';
+    filterPayMethod  = sessionStorage.getItem('wfa_students_paymethod') || '';
+    const savedPage  = parseInt(sessionStorage.getItem('wfa_students_page') || '1', 10);
     currentPage = Number.isFinite(savedPage) && savedPage > 0 ? savedPage : 1;
     // Legacy: global search / old builds saved search text — drop so list is not blank
     sessionStorage.removeItem('wfa_students_search');
@@ -64,6 +67,7 @@ const Students = (() => {
     sessionStorage.removeItem('wfa_students_course');
     sessionStorage.removeItem('wfa_students_status');
     sessionStorage.removeItem('wfa_students_due');
+    sessionStorage.removeItem('wfa_students_paymethod');
     sessionStorage.removeItem('wfa_students_page');
   }
 
@@ -104,10 +108,10 @@ const Students = (() => {
   /** If filters hide every row but data exists, clear filters (fixes blank list until Reset). */
   function _sanitizeStaleFilters(all) {
     if (!all.length) return;
-    const hasFilter = searchQuery || filterBatch || filterCourse || filterStatus || filterDue;
+    const hasFilter = searchQuery || filterBatch || filterCourse || filterStatus || filterDue || filterPayMethod;
     if (!hasFilter) return;
     if (applyFilters(all).length > 0) return;
-    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = '';
+    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = filterPayMethod = '';
     currentPage = 1;
     _clearFilterState();
     if (typeof Utils !== 'undefined' && Utils.toast) {
@@ -185,6 +189,18 @@ const Students = (() => {
           <option value="due"  ${filterDue==='due' ?'selected':''}>Due Only</option>
           <option value="paid" ${filterDue==='paid'?'selected':''}>Fully Paid</option>
         </select>
+        <select class="form-control" onchange="Students.onFilter('paymethod',this.value)" title="Filter by payment method used">
+          <option value="">💳 All Methods</option>
+          <option value="Cash"  ${filterPayMethod==='Cash'?'selected':''}>💵 Cash</option>
+          ${(Utils.getPaymentMethodsHTML ? (() => {
+            const tmp = document.createElement('select');
+            tmp.innerHTML = Utils.getPaymentMethodsHTML(filterPayMethod);
+            return [...tmp.querySelectorAll('option')]
+              .filter(o => o.value && o.value !== 'Cash')
+              .map(o => `<option value="${o.value}" ${filterPayMethod===o.value?'selected':''}>${o.text}</option>`)
+              .join('');
+          })() : `<option value="Bank" ${filterPayMethod==='Bank'?'selected':''}>🏦 Bank</option><option value="Mobile Banking" ${filterPayMethod==='Mobile Banking'?'selected':''}>📱 Mobile Banking</option>`)}
+        </select>
         <button class="btn-secondary btn-sm" onclick="Students.resetFilters()"><i class="fa fa-rotate-left"></i> Reset</button>
         <button class="btn-success btn-sm"   onclick="Students.exportExcel()"><i class="fa fa-file-excel"></i> Excel</button>
         <button class="btn-secondary btn-sm" onclick="Utils.printArea('students-print-area')"><i class="fa fa-print"></i> Print</button>
@@ -246,7 +262,7 @@ const Students = (() => {
             <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">DUE</span>
             <span style="font-size:0.92rem;font-weight:800;color:#ff4757;font-family:var(--font-ui)">${Utils.takaEn(totalDue)}</span>
           </span>
-          ${(searchQuery||filterBatch||filterCourse||filterStatus||filterDue)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filtered.length} of ${all.length} students</span>`:''}
+          ${(searchQuery||filterBatch||filterCourse||filterStatus||filterDue||filterPayMethod)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filtered.length} of ${all.length} students</span>`:''}
         </div>
       </div>
     `;
@@ -290,14 +306,22 @@ const Students = (() => {
   ══════════════════════════════════════════ */
   function applyFilters(rows) {
     let r = rows;
-    if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['name','student_id','phone','email','batch']);
+    if (searchQuery)     r = Utils.searchFilter(r, searchQuery, ['name','student_id','phone','email','batch']);
     // ✅ FIX: trim + string comparison — strict equality miss করত যদি batch
     // number হিসেবে store হয় (20 vs '20') বা whitespace থাকে (' 20')
-    if (filterBatch)  r = r.filter(s => String(s.batch  || '').trim() === String(filterBatch).trim());
-    if (filterCourse) r = r.filter(s => _normCourse(s.course) === _normCourse(filterCourse));
-    if (filterStatus) r = r.filter(s => (s.status||'Active') === filterStatus);
+    if (filterBatch)     r = r.filter(s => String(s.batch  || '').trim() === String(filterBatch).trim());
+    if (filterCourse)    r = r.filter(s => _normCourse(s.course) === _normCourse(filterCourse));
+    if (filterStatus)    r = r.filter(s => (s.status||'Active') === filterStatus);
     if (filterDue === 'due')  r = r.filter(s => Utils.safeNum(s.due) > 0);
     if (filterDue === 'paid') r = r.filter(s => Utils.safeNum(s.due) <= 0);
+    // Filter by payment method: keep students who have at least one fee_history payment via that method
+    if (filterPayMethod) {
+      const mLower = filterPayMethod.toLowerCase();
+      r = r.filter(s => {
+        const history = Array.isArray(s.fee_history) ? s.fee_history : [];
+        return history.some(p => (p.method || 'Cash').trim().toLowerCase() === mLower);
+      });
+    }
     return r;
   }
 
@@ -311,17 +335,18 @@ const Students = (() => {
   }
 
   function onFilter(type, val) {
-    if (type === 'batch')  filterBatch  = val;
-    if (type === 'course') filterCourse = val;
-    if (type === 'status') filterStatus = val;
-    if (type === 'due')    filterDue    = val;
+    if (type === 'batch')     filterBatch     = val;
+    if (type === 'course')    filterCourse    = val;
+    if (type === 'status')    filterStatus    = val;
+    if (type === 'due')       filterDue       = val;
+    if (type === 'paymethod') filterPayMethod = val;
     currentPage = 1;
     _saveFilterState(); // ✅ BUG #3 FIX: Save filter
     render();
   }
 
   function resetFilters() {
-    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = '';
+    searchQuery = filterBatch = filterCourse = filterStatus = filterDue = filterPayMethod = '';
     currentPage = 1;
     _clearFilterState(); // ✅ BUG #3 FIX: Clear saved filters
     render();
