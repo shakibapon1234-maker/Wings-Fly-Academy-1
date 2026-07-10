@@ -2955,16 +2955,9 @@ const SupabaseSync = (() => {
       const allFinance = getAll(financeKey);
       const allAccounts = getAll('accounts');
 
-<<<<<<< Updated upstream
-      // Diagnostic / phantom categories skip করা হবে
-      // ✅ Section 20 (2026-07-07): 'Balance Adjustment' এখন count হয় —
-      // manual correction recalc-এর পরেও preserve হওয়া দরকার।
-      // 'Opening Balance' skip থাকছে কারণ সেটা cutoff baseline-এর আওতায়।
-=======
       // ✅ Section 20 (2026-07-07): 'Balance Adjustment' entries recalc-এ count করা হয় —
       // সেগুলো manual balance correction ledger-এ রেকর্ড হয় (saveBalance() pattern)।
       // শুধু 'Opening Balance' skip হয় (baseline-এর আওতায়)।
->>>>>>> Stashed changes
       const phantomCategories = new Set(['Opening Balance']);
       const diagNotes = new Set([
         'Auto-generated diagnostic payment',
