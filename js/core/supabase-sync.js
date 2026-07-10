@@ -3204,6 +3204,10 @@ const SyncEngine = (() => {
   let realtimeChannels = [];
   let _lastSyncTime = 0;
   let _lastPullTimestamp = null;
+  // A destructive operation (for example finance repair) must not rely on an
+  // empty cache from a newly opened device. This flag is set only after the
+  // current session has completed every table in a cloud pull successfully.
+  let _hasSuccessfulCloudPull = false;
   const missingTables = new Set();
 
   // —— Storage Size Guard (IndexedDB-aware) ——
@@ -3268,6 +3272,8 @@ const SyncEngine = (() => {
   }
 
   async function _pullCore(opts = {}) {
+    // A failed or incomplete pull must not authorize destructive repair.
+    _hasSuccessfulCloudPull = false;
     // ✅ FIX (2026-07-07): window-scoped flag — আগে module-local `_syncInProgress`
     // ব্যবহার হতো যা SupabaseSync.setAll()-এর ভিন্ন closure-এর ভ্যারিয়েবল থেকে
     // সম্পূর্ণ আলাদা ছিল (variable shadowing), তাই কখনো effect ফেলত না।
@@ -3503,6 +3509,7 @@ const SyncEngine = (() => {
 
       _lastSyncTime     = Date.now();
       _lastPullTimestamp = pullStartedAt;
+      _hasSuccessfulCloudPull = true;
 
       setStatus(realtimeChannels.length > 0 ? 'realtime' : 'synced');
 
@@ -4064,7 +4071,12 @@ const SyncEngine = (() => {
   function resetSyncAnchor() {
     _lastPullTimestamp = null;
     _lastSyncTime = 0;
+    _hasSuccessfulCloudPull = false;
     console.info('[Sync] Sync anchor reset. Next pull will be a full pull.');
+  }
+
+  function hasSuccessfulCloudPull() {
+    return _hasSuccessfulCloudPull;
   }
 
   setupNetworkListeners();
@@ -4089,7 +4101,7 @@ const SyncEngine = (() => {
   }
 
   return {
-    pull, push, syncAll, fullPull, resetSyncAnchor,
+    pull, push, syncAll, fullPull, resetSyncAnchor, hasSuccessfulCloudPull,
     startAutoSync, stopAutoSync,
     startRealtime, stopRealtime,
     getLocal, setLocal,

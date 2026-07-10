@@ -5737,6 +5737,23 @@ ${expenseEntries.length > 0 ? `
       Utils.toast('SupabaseSync module not loaded — reload the page', 'error');
       return;
     }
+    // New device/browser caches start empty. Force a complete cloud pull before
+    // reading the cutoff, otherwise a fast click could run repair with no
+    // cutoff and alter pre-cutoff migration data.
+    if (typeof SyncEngine === 'undefined' || typeof SyncEngine.fullPull !== 'function') {
+      Utils.toast('Cloud sync is not ready — reload and wait for sync to finish.', 'error');
+      return;
+    }
+    Utils.toast('☁️ Checking cloud data and balance cutoff…', 'info', 2500);
+    try {
+      await SyncEngine.fullPull({ silent: true });
+    } catch (e) {
+      console.warn('[Settings] Pre-repair cloud pull failed:', e);
+    }
+    if (typeof SyncEngine.hasSuccessfulCloudPull !== 'function' || !SyncEngine.hasSuccessfulCloudPull()) {
+      Utils.toast('⚠️ Cloud sync complete হয়নি — নিরাপত্তার জন্য Repair চালানো হয়নি। Internet সংযোগ যাচাই করে আবার চেষ্টা করুন।', 'error', 6000);
+      return;
+    }
     const cutoff = (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getRepairCutoffDate === 'function')
       ? SupabaseSync.getRepairCutoffDate()
       : (localStorage.getItem('wfa_repair_cutoff_date') || '');
