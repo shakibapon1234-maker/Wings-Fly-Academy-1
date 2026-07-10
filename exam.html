@@ -675,7 +675,10 @@ function loadData(callback) {
 
   // Fetch directly from Supabase REST API (bypasses IndexedDB/cache)
   // Fetch settings rows and find the active row containing exam questions in client side logic
-  fetch(`${SUPA_URL}/rest/v1/settings?select=exam_questions,exam_settings`, {
+  // ✅ Fix: always prefer the canonical 'main' settings row (id='main' per Supabase DDL).
+  // Questions may live in a stray row, and the active flag may live in 'main' — so merge
+  // exam_settings from the 'main' row onto the questions row to avoid a stale "exam closed" state.
+  fetch(`${SUPA_URL}/rest/v1/settings?select=id,exam_questions,exam_settings`, {
     headers: {
       'apikey': SUPA_KEY,
       'Authorization': 'Bearer ' + SUPA_KEY,
@@ -685,9 +688,14 @@ function loadData(callback) {
   .then(r => r.json())
   .then(data => {
     if (Array.isArray(data) && data.length > 0) {
-      // Find the row that actually contains the questions
-      const validRow = data.find(row => row.exam_questions && row.exam_questions !== '[]' && row.exam_questions !== 'null');
+      // Find the canonical 'main' row and the row that actually contains the questions
+      const mainRow = data.find(row => row.id === 'main');
+      const validRow = data.find(row => row.exam_questions && row.exam_questions !== '[]' && row.exam_questions !== 'null') || mainRow;
       if (validRow) {
+        // Merge exam_settings from 'main' if the questions row itself lacks it
+        if ((!validRow.exam_settings || validRow.exam_settings === 'null') && mainRow && mainRow !== validRow) {
+          validRow.exam_settings = mainRow.exam_settings;
+        }
         console.log('[Exam] Active Settings fetched from Supabase ✓');
         parseAndApply(validRow);
       } else {
@@ -1316,18 +1324,19 @@ function loadAdminPreview() {
       'Content-Type': 'application/json',
     }
   })
-  .then(r => {
-    if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
-    return r.json();
-  })
-  .then(data => {
-    console.log('[AdminPreview] Supabase response:', data);
-    if (!Array.isArray(data) || !data[0]) {
-      content.innerHTML = `<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি। Supabase-এ settings table এবং RLS policy চেক করুন।</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Response: ${JSON.stringify(data)}</div>`;
-      return;
-    }
-    const s = data[0];
+   .then(r => {
+     if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+     return r.json();
+   })
+   .then(data => {
+     console.log('[AdminPreview] Supabase response:', data);
+     if (!Array.isArray(data) || data.length === 0) {
+       content.innerHTML = `<div style="color:#ff9800;">⚠️ কোনো সেটিংস পাওয়া যায়নি। Supabase-এ settings table এবং RLS policy চেক করুন।</div>
+         <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:8px;">Response: ${JSON.stringify(data)}</div>`;
+       return;
+     }
+     // ✅ Prefer the canonical 'main' settings row
+     const s = data.find(row => row.id === 'main') || data[0];
     let settings = {};
     let qs = [];
     try { settings = typeof s.exam_settings === 'string' ? JSON.parse(s.exam_settings) : (s.exam_settings || {}); } catch(e) {}

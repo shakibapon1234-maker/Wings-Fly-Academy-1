@@ -25,6 +25,48 @@ function _adminEsc(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+// Canonical settings row = id 'main' (matches Supabase DDL: id text primary key default 'main').
+// Using getAll(settings)[0] is unsafe: multiple settings rows can exist, and the admin
+// would write the "active" flag to a DIFFERENT row than the one holding the questions,
+// causing the student (exam.html) to read a stale/missing active flag.
+function _settingsRowId() { return 'main'; }
+
+function _getSettingsRow() {
+  const rows = SupabaseSync.getAll(DB.settings) || [];
+  return rows.find(r => r.id === _settingsRowId()) || rows[0] || null;
+}
+
+// Returns the canonical settings row, creating the 'main' row locally if missing.
+function _ensureSettingsRow() {
+  const existing = _getSettingsRow();
+  if (existing && existing.id) return existing;
+  const fresh = { id: _settingsRowId() };
+  SupabaseSync.insert(DB.settings, fresh, { bypassLog: true });
+  return SupabaseSync.getById(DB.settings, _settingsRowId()) || fresh;
+}
+
+// Merge exam data from any stray settings rows into the canonical 'main' row so the
+// student always reads a single consistent row.
+function _consolidateSettingsRows() {
+  try {
+    const rows = SupabaseSync.getAll(DB.settings) || [];
+    if (rows.length <= 1) return;
+    const main = rows.find(r => r.id === _settingsRowId()) || rows[0];
+    let changed = false;
+    rows.forEach(r => {
+      if (r === main) return;
+      if ((!main.exam_questions || main.exam_questions === '[]') &&
+          r.exam_questions && r.exam_questions !== '[]') {
+        main.exam_questions = r.exam_questions; changed = true;
+      }
+      if (!main.exam_settings && r.exam_settings) {
+        main.exam_settings = r.exam_settings; changed = true;
+      }
+    });
+    if (changed) SupabaseSync.update(DB.settings, main.id, main, { bypassLog: true });
+  } catch (e) { console.warn('[AdminPanel] consolidate failed:', e?.message); }
+}
+
 async function doLogin() {
   const val = document.getElementById('adminPass').value;
   if (!val) { document.getElementById('loginError').style.display = 'block'; return; }
@@ -81,7 +123,7 @@ function switchTab(name) {
 // QUESTIONS CRUD
 function _migrateExamLocalStorage() {
   try {
-    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const cfg = _ensureSettingsRow();
     let changed = false;
     const legacyQ = localStorage.getItem('wfa_questions');
     if (legacyQ && !cfg.exam_questions) {
@@ -105,7 +147,7 @@ function _migrateExamLocalStorage() {
 function getQuestions() {
   try {
     _migrateExamLocalStorage();
-    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const cfg = _getSettingsRow() || {};
     const stored = cfg.exam_questions;
     if (stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return [];
@@ -114,7 +156,7 @@ function getQuestions() {
 
 function saveQuestions(qs) {
   try {
-    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const cfg = _ensureSettingsRow();
     cfg.exam_questions = JSON.stringify(qs);
     if (cfg.id) {
       SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
@@ -315,7 +357,7 @@ function exportResults() {
 function getSettings() {
   try {
     _migrateExamLocalStorage();
-    const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+    const cfg = _getSettingsRow() || {};
     const stored = cfg.exam_settings;
     if(stored) return typeof stored === 'string' ? JSON.parse(stored) : stored;
     return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' };
@@ -329,7 +371,7 @@ function saveSettings() {
   s.maxWarnings = parseInt(document.getElementById('maxWarnInput').value) || 3;
   s.examName = document.getElementById('examNameInput').value;
   s.examDate = document.getElementById('examDateInput').value;
-  const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+  const cfg = _ensureSettingsRow();
   cfg.exam_settings = JSON.stringify(s);
   if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
 }
@@ -351,8 +393,7 @@ function loadSettings() {
 function toggleExamActive() {
   const s = getSettings();
   s.active = s.active === false ? true : false;
-  localStorage.setItem('wfa_settings', JSON.stringify(s));
-  const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
+  const cfg = _ensureSettingsRow();
   cfg.exam_settings = JSON.stringify(s);
   if (cfg.id) SupabaseSync.update(DB.settings, cfg.id, cfg, { bypassLog: true });
   const toggle = document.getElementById('examActiveToggle');
@@ -518,6 +559,7 @@ function importQuestions(event) {
 // INIT
 function loadAll() {
   WFA_IDB.onReady(() => {
+    _consolidateSettingsRows();
     renderQuestionList();
     loadSettings();
   });
