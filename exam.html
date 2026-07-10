@@ -664,6 +664,7 @@ function loadData(callback) {
 
       totalSeconds = (examSettings.duration || 10) * 60;
       remainingSeconds = totalSeconds;
+      maxWarnings = Math.max(1, parseInt(examSettings.maxWarnings, 10) || 3);
       // Always call callback — let startExam decide what to show
       // (questions.length===0 is handled inside startExam/renderQuestions)
       if (callback) callback();
@@ -685,7 +686,10 @@ function loadData(callback) {
       'Content-Type': 'application/json',
     }
   })
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) throw new Error(`Settings request failed (${r.status})`);
+    return r.json();
+  })
   .then(data => {
     if (Array.isArray(data) && data.length > 0) {
       // Find the canonical 'main' row and the row that actually contains the questions
@@ -784,6 +788,14 @@ function startExam() {
         return;
       }
 
+      // প্রশ্ন না থাকলে পরীক্ষা শুরু করা যাবে না।
+      // এই যাচাই না থাকায় খালি পরীক্ষাতেও timer/warning চালু হয়ে 0/0 ফলাফল হচ্ছিল।
+      if (!hasUsableQuestions()) {
+        alert('এই এক্সামের জন্য এখনো কোনো বৈধ প্রশ্ন পাওয়া যায়নি। প্রশ্ন যোগ করে আবার চেষ্টা করুন।');
+        showSection('loginSection');
+        return;
+      }
+
       // ✅ Check per subject via Supabase (local IDB is empty on student devices)
       const currentSubject = examSettings.examName || '';
       const alreadyTaken = await checkExamTakenRemote(studentId, studentName, currentSubject);
@@ -852,11 +864,19 @@ function buildShuffledQuestions() {
   });
 }
 
+function hasUsableQuestions() {
+  return Array.isArray(questions) && questions.length > 0 && questions.every(q =>
+    q && String(q.question || '').trim() && Array.isArray(q.options) &&
+    q.options.length >= 2 && q.options.every(option => String(option || '').trim()) &&
+    Number.isInteger(Number(q.answer)) && Number(q.answer) >= 0 && Number(q.answer) < q.options.length
+  );
+}
+
 // =====================
 // RENDER — ONE BY ONE
 // =====================
 function renderQuestions() {
-  if (questions.length === 0) {
+  if (!hasUsableQuestions()) {
     document.getElementById('questionsContainer').innerHTML = `
       <div class="no-questions">
         <div class="icon">📭</div>
@@ -1147,12 +1167,14 @@ function dismissWarning() {
 // SUBMIT
 // =====================
 function autoSubmit() {
+  if (!hasUsableQuestions()) return;
   examActive = false;
   clearInterval(timerInterval);
   showResults();
 }
 
 function submitExam() {
+  if (!hasUsableQuestions()) return;
   const answered = Object.keys(answers).length;
   const totalQ = (shuffledQuestions && shuffledQuestions.length) ? shuffledQuestions.length : questions.length;
   if (answered < totalQ) {
@@ -1168,6 +1190,13 @@ function submitExam() {
 // RESULTS
 // =====================
 function showResults() {
+  if (!hasUsableQuestions()) {
+    examActive = false;
+    clearInterval(timerInterval);
+    document.getElementById('timerBar').style.display = 'none';
+    showSection('loginSection');
+    return;
+  }
   document.getElementById('timerBar').style.display = 'none';
 
   let correct = 0;

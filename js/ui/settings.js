@@ -2093,7 +2093,7 @@ const SettingsModule = (() => {
 
     // ── Students filtered by batch ──
     const batchStudents = selectedBatch
-      ? students.filter(s => s.batch === selectedBatch)
+      ? students.filter(s => String(s.batch) === String(selectedBatch))
       : students;
 
     // Get student IDs for finance lookup
@@ -2145,9 +2145,9 @@ const SettingsModule = (() => {
     // ── Income = ALL collected fees from batch students (NO date filter) ──
     // Date range applies to EXPENSES only, not income.
     // Students in a batch enroll at different times, so all-time collected is the correct income figure.
-    const grossIncome = filteredIncome;  // filtered by payMethod if selected
-    const netProfit   = grossIncome - totalExpense + prevBalance;
-    const isProfit    = netProfit >= 0;
+    let grossIncome = filteredIncome;  // filtered by payMethod if selected
+    let netProfit   = grossIncome - totalExpense + prevBalance;
+    let isProfit    = netProfit >= 0;
 
     const cfg = SupabaseSync.getAll(DB.settings)[0] || {};
     const academyName = cfg.academy_name || 'Wings Fly Aviation Academy';
@@ -2161,29 +2161,59 @@ const SettingsModule = (() => {
       expCats[cat] += parseFloat(f.amount) || 0;
     });
 
-    // ── Income breakdown by payment method (from fee_history of each batch student) ──
+    // ── Income breakdown by payment method ─────────────────────────────
+    // Finance ledger preserves the actual payment method. Legacy students
+    // may only have a paid total, so fee_history is retained as a fallback.
     const incMethods = {};
-    batchStudents.forEach(st => {
-      const history = Array.isArray(st.fee_history) ? st.fee_history : [];
-      // When filterMethod is active, only include matching payments
-      const filtered = filterMethod
-        ? history.filter(p => (p.method || 'Cash').trim().toLowerCase() === filterMethod.toLowerCase())
-        : history;
-      filtered.forEach(pay => {
-        const meth = (pay.method || 'Cash').trim();
-        if (!incMethods[meth]) incMethods[meth] = 0;
-        incMethods[meth] += parseFloat(pay.amount) || 0;
-      });
-      // If no filterMethod, count unrecorded initial paid as Cash (Initial)
-      if (!filterMethod) {
-        const historyTotal = history.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);
-        const unrecorded   = (parseFloat(st.paid) || 0) - historyTotal;
-        if (unrecorded > 0.01) {
-          if (!incMethods['Cash (Initial)']) incMethods['Cash (Initial)'] = 0;
-          incMethods['Cash (Initial)'] += unrecorded;
-        }
-      }
+    const studentByRef = new Map();
+    batchStudents.forEach((st, index) => {
+      const key = String(st.id || st.student_id || index);
+      if (st.id) studentByRef.set(String(st.id), key);
+      if (st.student_id) studentByRef.set(String(st.student_id), key);
     });
+    const ledgerByStudent = new Map();
+    finance.forEach(entry => {
+      if (entry.type !== 'Income' || entry.category !== 'Student Fee') return;
+      const key = studentByRef.get(String(entry.ref_id || ''));
+      if (!key) return;
+      if (!ledgerByStudent.has(key)) ledgerByStudent.set(key, []);
+      ledgerByStudent.get(key).push(entry);
+    });
+    const methodGroup = method => {
+      const value = String(method || 'Cash').trim();
+      const normalized = value.toLowerCase();
+      if (normalized.includes('cash')) return 'Cash';
+      if (normalized.includes('bank') || normalized.includes('brac')) return 'Bank';
+      if (normalized.includes('mobile') || /bkash|bikash|nagad|rocket|upay/.test(normalized) || /^01\d{9}$/.test(value.replace(/[\s-]/g, ''))) return 'Mobile Banking';
+      return value || 'Other';
+    };
+    const addIncome = (method, amount) => {
+      const value = parseFloat(amount) || 0;
+      const detail = String(method || 'Cash').trim() || 'Cash';
+      if (value <= 0 || (filterMethod && detail.toLowerCase() !== filterMethod.toLowerCase())) return;
+      const group = methodGroup(detail);
+      incMethods[group] = (incMethods[group] || 0) + value;
+    };
+    batchStudents.forEach((st, index) => {
+      const key = String(st.id || st.student_id || index);
+      const ledgerPayments = ledgerByStudent.get(key) || [];
+      if (ledgerPayments.length) {
+        ledgerPayments.forEach(payment => addIncome(payment.method, payment.amount));
+        return;
+      }
+      const history = Array.isArray(st.fee_history) ? st.fee_history : [];
+      history.forEach(payment => addIncome(payment.method, payment.amount));
+      const historyTotal = history.reduce((sum, payment) => sum + (parseFloat(payment.amount) || 0), 0);
+      const unrecorded = (parseFloat(st.paid) || 0) - historyTotal;
+      if (unrecorded > 0.01) addIncome('Cash (Initial)', unrecorded);
+    });
+
+    // The selector must use the same ledger-based method totals as the report.
+    if (filterMethod) {
+      grossIncome = Object.values(incMethods).reduce((sum, amount) => sum + amount, 0);
+      netProfit = grossIncome - totalExpense + prevBalance;
+      isProfit = netProfit >= 0;
+    }
 
     // ── Store data for export ──
     window._bpReportData = {
