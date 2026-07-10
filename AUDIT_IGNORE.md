@@ -1047,6 +1047,7 @@ if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
 
 ---
 
+<<<<<<< Updated upstream
 ## 21. Post-Pull Ledger Reconcile Missing + Balance Adjustment Skip Bug (2026-07-09)
 
 **পটভূমি:** User রিপোর্ট করেন Bikash account থেকে ৳1,500 "Cartiz for printer" Expense Finance Ledger-এ সঠিকভাবে রেকর্ড হলেও Bikash-এর account balance ৳2,911 (cutoff baseline) থেকে ৳1,411-এ কমেনি। Repair চালিয়ে ঠিক হলেও মূল কারণ খোঁজার নির্দেশ দেওয়া হয়।
@@ -1192,3 +1193,83 @@ if (restoredSettings && restoredSettings.length) {
 - `www/js/core/backup-restore.js` — `node build-www.js` দিয়ে sync করা হয়েছে
 
 *আপডেট: 2026-07-10 — Section 22: Backup import-এর পর balance ৳8,97,300 হওয়ার bug fix — cutoff date ও baselines localStorage-এ restore করা হলো।*
+=======
+## 21. Balance Inflate Bug — ৳22,712 → ৳24,212 (2026-07-09)
+
+**User রিপোর্ট:** Total balance ৳22,712 থেকে হঠাৎ ৳24,212 হয়ে গেছে (পার্থক্য ৳1,500)।
+
+### Root Cause — Section 20-এর incomplete implementation
+
+Section 20-এ সিদ্ধান্ত হয়েছিল:
+1. `saveBalance()` → `Balance Adjustment` ledger entry তৈরি করবে (manual correction preserve-এর জন্য)
+2. `recalculateAccountBalancesFromLedger()` → `Balance Adjustment` entries **count করবে** (phantomCategories থেকে বাদ)
+
+কিন্তু **কোডে অসামঞ্জস্য ছিল:**
+- `saveBalance()` ✅ entry তৈরি করছিল (Section 20 অনুযায়ী সঠিক)
+- `recalculateAccountBalancesFromLedger()` ❌ `phantomCategories = new Set(['Opening Balance', 'Balance Adjustment'])` — এখনো skip করছিল
+- Startup cleanup ❌ `Balance Adjustment` entries মুছে দিচ্ছিল
+- Pull filter ❌ cloud থেকে `Balance Adjustment` entries block করছিল
+
+**ফলাফল:**
+- `saveBalance()` entry তৈরি করে cloud-এ push করে
+- কিন্তু recalc এগুলো গণনায় নেয় না → balance double-count হয় না (এটা ঠিক)
+- কিন্তু `updateAccountBalance()` incremental দিয়ে balance বাড়ে, তারপর recalc সেই increase-কে undo করে না
+- পরের pull-এ যখন recalc চলে, মাঝের পার্থক্য হিসেবে inflate দেখায়
+
+### চূড়ান্ত Fix (2026-07-09)
+
+Section 20-এর সাথে কোড সামঞ্জস্য করা হয়েছে — তিনটি জায়গায়:
+
+#### Fix 1: `recalculateAccountBalancesFromLedger()` — `Balance Adjustment` include করো
+```js
+// আগে (ভুল):
+const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
+// এখন (Section 20 অনুযায়ী সঠিক):
+const phantomCategories = new Set(['Opening Balance']); // শুধু Opening Balance skip
+```
+ফলে manual `saveBalance()` corrections recalc-এর পরেও থাকবে।
+
+#### Fix 2: Startup cleanup — শুধু `Opening Balance` মুছবে
+```js
+// আগে: Opening Balance + Balance Adjustment উভয় মুছত
+.filter(f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment')
+// এখন: শুধু Opening Balance মুছবে
+.filter(f => f.category === 'Opening Balance')
+```
+Incorrect v2 cleanup flag-ও সরানো হয়েছে।
+
+#### Fix 3: Pull filter — শুধু `Opening Balance` filter করো
+```js
+// আগে: উভয় ছেঁকে ফেলত
+const _phantomCats = new Set(['Opening Balance', 'Balance Adjustment']);
+merged = merged.filter(f => !_phantomCats.has(f.category));
+// এখন: শুধু Opening Balance filter
+merged = merged.filter(f => f.category !== 'Opening Balance');
+```
+
+### গুরুত্বপূর্ণ নিয়ম (ভবিষ্যতের জন্য)
+
+1. **`Balance Adjustment` entries কখনো cleanup/filter/skip করবেন না** — এগুলো Section 20-এর legitimate ledger records।
+2. **`Opening Balance` শুধুই phantom** — পুরনো broken `_upsertOpeningEntry()` system তৈরি করত; এগুলো সরানো যাবে।
+3. **`phantomCategories`-এ `'Balance Adjustment'` রাখবেন না** — `recalculateAccountBalancesFromLedger()`, snapshot, বা যেকোনো skip logic-এ।
+4. **Startup cleanup flag:** `wfa_stale_cleanup_v1` — শুধু `Opening Balance` মুছবে। `v2` ভুল ছিল, `v1`-এ ফিরে আসা হয়েছে।
+
+### কোড থেকে balance inflation-এর ঘটনাক্রম (এখন fixed)
+
+| ধাপ | আগে | এখন |
+|-----|-----|-----|
+| `saveBalance()` edit | `Balance Adjustment` entry তৈরি ✅ | একই ✅ |
+| Cloud push | Entry cloud-এ যায় ✅ | একই ✅ |
+| `recalculateAccountBalancesFromLedger()` | Entry skip → manual correction হারায় ❌ | Entry count → correction থাকে ✅ |
+| Startup cleanup | `Balance Adjustment` মুছে দেয় ❌ | শুধু `Opening Balance` মুছবে ✅ |
+| Pull filter | `Balance Adjustment` block করে ❌ | শুধু `Opening Balance` block করে ✅ |
+
+### প্রভাবিত ফাইল — 2026-07-09 (Section 21)
+- `js/core/supabase-sync.js`:
+  - `recalculateAccountBalancesFromLedger()`: `phantomCategories` থেকে `'Balance Adjustment'` বাদ
+  - Startup IDB cleanup: শুধু `'Opening Balance'` filter, `'Balance Adjustment'` রক্ষা করা হয়েছে
+  - `_pullCoreInternal()`: pull-এ শুধু `'Opening Balance'` filter, `'Balance Adjustment'` pass করা হয়েছে
+- `js/modules/accounts.js` — `saveBalance()`: Section 20 পর্যন্ত unchanged (entry তৈরি correct)
+
+*আপডেট: 2026-07-09 — Section 21: Balance inflate bug ৳22,712→৳24,212 — Section 20 incomplete implementation fix (recalculate phantom categories, startup cleanup, pull filter)।*
+>>>>>>> Stashed changes

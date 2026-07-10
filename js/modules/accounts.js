@@ -611,8 +611,9 @@ const Accounts = (() => {
       const delta = bal - oldBal;
       SupabaseSync.update(DB.accounts, existingId, { type, balance: bal }, { bypassLog: true });
 
-      // ✅ FIX (2026-07-07): manual balance edit-কে ledger-এ real delta হিসেবে record করো,
-      // যাতে pull-এর পর recalculateAccountBalancesFromLedger() এটাকে preserve করে (Section 17)।
+      // ✅ FIX (Section 20 / 2026-07-07): manual balance edit-কে ledger-এ real delta হিসেবে record করো,
+      // যাতে pull-এর পর recalculateAccountBalancesFromLedger() এটাকে preserve করে (Section 20 নিয়ম ৩)।
+      // recalc এখন 'Balance Adjustment' entries count করে (সাধারণ Income/Expense হিসেবে)।
       if (Math.abs(delta) > 0.001 && typeof SupabaseSync.insert === 'function') {
         SupabaseSync.insert(DB.finance, {
           type: delta > 0 ? 'Income' : 'Expense',
@@ -634,8 +635,8 @@ const Accounts = (() => {
       }
     } else {
       SupabaseSync.insert(DB.accounts, { type, balance: bal }, { bypassLog: true });
-      // ✅ FIX (2026-07-07): new account-এর initial balance-কেও ledger-এ record করো যাতে
-      // recalc এর পরেও থাকে (Section 17)।
+      // ✅ FIX (Section 20 / 2026-07-07): new account-এর initial balance-কেও ledger-এ record করো
+      // যাতে recalc এর পরেও থাকে (Section 20 নিয়ম ৯)।
       if (bal > 0.001 && typeof SupabaseSync.insert === 'function') {
         SupabaseSync.insert(DB.finance, {
           type: 'Income',

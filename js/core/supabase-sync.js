@@ -134,25 +134,28 @@ const WFA_IDB = (() => {
       // One-time migration from localStorage
       await _migrateFromLocalStorage();
 
-      // ── One-time cleanup of stale phantom finance entries ──────────────
-      // Remove "Opening Balance" and "Balance Adjustment" entries that were
-      // created by the old broken _upsertOpeningEntry() system in accounts.js.
-      // This flag ensures cleanup runs only once per device.
+      // ── One-time cleanup of stale phantom finance entries ───────────────────────
+      // Remove ONLY "Opening Balance" entries that were created by the old
+      // broken _upsertOpeningEntry() system in accounts.js.
+      // NOTE: "Balance Adjustment" entries must NOT be removed here —
+      // they are legitimate ledger records per AUDIT_IGNORE Section 20.
       const CLEANUP_FLAG = 'wfa_stale_cleanup_v1';
       if (!localStorage.getItem(CLEANUP_FLAG)) {
         try {
           const finance = _cache['finance_ledger'] || [];
           const staleIds = finance
-            .filter(f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment')
+            .filter(f => f.category === 'Opening Balance')
             .map(f => f.id);
           if (staleIds.length > 0) {
             staleIds.forEach(id => {
               _cache['finance_ledger'] = (_cache['finance_ledger'] || []).filter(f => f.id !== id);
             });
             _writeToIDB('finance_ledger', _cache['finance_ledger']);
-            console.info(`[IDB] One-time cleanup: removed ${staleIds.length} stale phantom finance_ledger entries (Opening Balance / Balance Adjustment)`);
+            console.info(`[IDB] One-time cleanup: removed ${staleIds.length} stale phantom finance_ledger entries (Opening Balance only)`);
           }
           localStorage.setItem(CLEANUP_FLAG, '1');
+          // Remove incorrect v2 flag if it was set (that version also removed Balance Adjustment entries)
+          localStorage.removeItem('wfa_stale_cleanup_v2');
         } catch (cleanupErr) {
           console.warn('[IDB] Stale cleanup failed (non-critical):', cleanupErr);
         }
@@ -2952,10 +2955,16 @@ const SupabaseSync = (() => {
       const allFinance = getAll(financeKey);
       const allAccounts = getAll('accounts');
 
+<<<<<<< Updated upstream
       // Diagnostic / phantom categories skip করা হবে
       // ✅ Section 20 (2026-07-07): 'Balance Adjustment' এখন count হয় —
       // manual correction recalc-এর পরেও preserve হওয়া দরকার।
       // 'Opening Balance' skip থাকছে কারণ সেটা cutoff baseline-এর আওতায়।
+=======
+      // ✅ Section 20 (2026-07-07): 'Balance Adjustment' entries recalc-এ count করা হয় —
+      // সেগুলো manual balance correction ledger-এ রেকর্ড হয় (saveBalance() pattern)।
+      // শুধু 'Opening Balance' skip হয় (baseline-এর আওতায়)।
+>>>>>>> Stashed changes
       const phantomCategories = new Set(['Opening Balance']);
       const diagNotes = new Set([
         'Auto-generated diagnostic payment',
@@ -3339,7 +3348,12 @@ const SyncEngine = (() => {
         // কিন্তু Finance UI এই flag দিয়ে loan entries লুকায়।
         // Cloud pull-এ এই flag হারিয়ে গেলে loan entries Finance tab-এ দেখা যায়।
         // Fix: pull-এর পর category==='Loan' ও type loan rows-এ _isLoan:true restore করো।
+        // NOTE: 'Balance Adjustment' entries pull-এ filter করা যাবে না — Section 20 অনুযায়ী
+        // এগুলো legitimate ledger entries যা recalc-এ preserve হওয়া দরকার।
         if (key === 'finance_ledger' && merged.length > 0) {
+          // ✅ Only filter 'Opening Balance' (phantom from old _upsertOpeningEntry system)
+          // 'Balance Adjustment' must be kept — AUDIT_IGNORE Section 20 rule 3 & 4
+          merged = merged.filter(f => f.category !== 'Opening Balance');
           merged = merged.map(function(f) {
             if (!f._isLoan && f.category === 'Loan' &&
                 (f.type === 'Loan Giving' || f.type === 'Loan Receiving')) {
