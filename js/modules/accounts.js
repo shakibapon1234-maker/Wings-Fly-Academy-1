@@ -634,9 +634,22 @@ const Accounts = (() => {
         );
       }
     } else {
-      SupabaseSync.insert(DB.accounts, { type, balance: bal }, { bypassLog: true });
-      // ✅ FIX (Section 20 / 2026-07-07): new account-এর initial balance-কেও ledger-এ record করো
-      // যাতে recalc এর পরেও থাকে (Section 20 নিয়ম ৯)।
+      // ✅ FIX (2026-07-07, audit): আগে এখানে `name` ফিল্ড সেট হতো না (শুধু `{ type, balance }`)।
+      // getPrimaryCashAccount() কিন্তু `a.type === 'Cash' && a.name === 'Cash'` দিয়ে খোঁজে —
+      // name ছাড়া তৈরি account পরে আর খুঁজে পাওয়া যেত না, ফলে পরের বার "Set Initial Balance"
+      // চাপলে আবার নতুন Cash row তৈরি হয়ে duplicate account (AUDIT_IGNORE Section 7-এর মতোই
+      // ৳৩৮,০৩০ বনাম ৳৮,৫১৯ সমস্যা) হতে পারত। এখন name সেট করা হচ্ছে এবং defensive existing-check
+      // যোগ করা হয়েছে যাতে ভুলক্রমে দুইবার insert না হয়।
+      const _existing = SupabaseSync.getAll(DB.accounts).find(
+        a => a.type === type && String(a.name || '').trim() === accountName
+      );
+      if (_existing) {
+        SupabaseSync.update(DB.accounts, _existing.id, { balance: bal }, { bypassLog: true });
+      } else {
+        SupabaseSync.insert(DB.accounts, { type, name: accountName, balance: bal }, { bypassLog: true });
+      }
+      // ✅ FIX (2026-07-07): new account-এর initial balance-কেও ledger-এ record করো যাতে
+      // recalc এর পরেও থাকে (Section 17)।
       if (bal > 0.001 && typeof SupabaseSync.insert === 'function') {
         SupabaseSync.insert(DB.finance, {
           type: 'Income',

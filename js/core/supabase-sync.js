@@ -2670,6 +2670,34 @@ const SupabaseSync = (() => {
    * Idempotent: duplicate তৈরি হয় না — deterministic ID (REPAIR-studentId) ব্যবহার করে।
    * Account balance: অপরিবর্তিত থাকে।
    */
+  /**
+   * DB settings (exam_settings.repair_cutoff_date) থেকে cutoff date উদ্ধার করে।
+   * localStorage-এ না থাকলে বা ভিন্ন থাকলে sync করে।
+   */
+  function getRepairCutoffDate() {
+    let cutoff = '';
+    if (typeof DB !== 'undefined' && DB.settings) {
+      try {
+        const cfg = getAll(DB.settings)[0] || {};
+        let examCfg = {};
+        try { examCfg = JSON.parse(cfg.exam_settings || '{}'); } catch { examCfg = {}; }
+        cutoff = examCfg.repair_cutoff_date || '';
+      } catch (e) {
+        console.warn('[SupabaseSync] Failed to parse exam_settings from DB:', e);
+      }
+    }
+    const lsVal = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    if (cutoff) {
+      if (lsVal !== cutoff) {
+        localStorage.setItem('wfa_repair_cutoff_date', cutoff);
+        console.info('[SupabaseSync] Syncing cutoff date from DB to localStorage:', cutoff);
+      }
+    } else {
+      cutoff = lsVal;
+    }
+    return cutoff;
+  }
+
   function repairMissingStudentFinance(options = {}) {
     const silent = !!options.silent;
     const defaultMethod = options.method || 'Cash';
@@ -2684,7 +2712,7 @@ const SupabaseSync = (() => {
 
     // ✅ Cutoff date এখানে আগে থেকেই লাগবে — ধ্বংসাত্মক deletion-এও এই একই
     // cutoff apply করার জন্য (নিচে দেখুন, fix 2026-07-07)।
-    const cutoffDate = localStorage.getItem('wfa_repair_cutoff_date') || '';
+    const cutoffDate = getRepairCutoffDate();
 
     // 1. Clean up any existing repaired/auto-healed entries first (local & Supabase cloud queue)
     // ✅ SAFE: শুধু ledger থেকে মুছি, balance touch করি না।
@@ -2949,7 +2977,7 @@ const SupabaseSync = (() => {
     // ✅ Cutoff date: options.fromDate > wfa_repair_cutoff_date > (none)
     // Cutoff-এর আগের finance entries calculation থেকে বাদ যাবে।
     // এটা migration/পুরনো data-র কারণে balance eliminate হওয়া থেকে রক্ষা করে।
-    const fromDate = options.fromDate || localStorage.getItem('wfa_repair_cutoff_date') || '';
+    const fromDate = options.fromDate || getRepairCutoffDate();
 
     try {
       const allFinance = getAll(financeKey);
@@ -3132,6 +3160,7 @@ const SupabaseSync = (() => {
     recalculateAccountBalancesFromLedger,
     snapshotCutoffBaselines,
     clearCutoffBaselines,
+    getRepairCutoffDate,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,

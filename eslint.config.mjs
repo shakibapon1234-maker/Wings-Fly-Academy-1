@@ -34,6 +34,7 @@ export default [
         LoginUI: "readonly",
         DashboardModule: "readonly",
         SettingsModule: "readonly",
+        ActivityLog: "readonly",
         // ── Feature Modules ──
         Students: "readonly",
         Finance: "readonly",

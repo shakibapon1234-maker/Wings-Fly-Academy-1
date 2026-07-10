@@ -3369,7 +3369,6 @@ ${expenseEntries.length > 0 ? `
   // ~30 existing bare `logActivity(...)` calls throughout this file, and
   // the exported SettingsModule.* names some HTML still references,
   // keep working without touching every call site.
-  function getActivityLogs() { return ActivityLog.getLogs(); }
   function logActivity(action, type, description) { ActivityLog.log(action, type, description); }
   async function clearActivityLog() { return ActivityLog.clear(); }
   function refreshActivityPanel() { ActivityLog.refresh(); }
