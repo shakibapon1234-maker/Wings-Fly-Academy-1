@@ -104,7 +104,10 @@ const ActivityLog = (() => {
     return filtered.slice().sort((a, b) => {
       const ta = new Date(a.created_at || 0).getTime();
       const tb = new Date(b.created_at || 0).getTime();
-      return tb - ta;
+      if (tb !== ta) return tb - ta;
+      // Two writes can share the same millisecond; use the generated id as a
+      // stable tie-breaker so a cloud merge never shuffles newest rows.
+      return String(b.id || '').localeCompare(String(a.id || ''));
     });
   }
 

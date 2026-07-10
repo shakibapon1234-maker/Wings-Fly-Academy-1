@@ -60,6 +60,12 @@ window.SettingsMonitor = (function () {
               : '<span style="font-size:.62rem;color:#ff4757;opacity:.6;margin-left:4px" title="Snapshot নেই">⚠️</span>';
 
           const amtColor = String(c.type || '').toLowerCase() === 'expense' ? 'var(--error)' : 'var(--success)';
+          // Read-only audit trail: show stored snapshots only, never recalculate balances.
+          const afterTotal = Number(c.snapshot?.accounts?.totalBalance);
+          const beforeTotal = Number(transactions[i + 1]?.snapshot?.accounts?.totalBalance);
+          const balanceTrail = Number.isFinite(afterTotal)
+            ? `${Number.isFinite(beforeTotal) ? _taka(beforeTotal) + ' → ' : '— → '}${_taka(afterTotal)}`
+            : 'Snapshot নেই';
 
           return `
           <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsMonitor.showSnapshot(${i})" title="Click to see account snapshot at this transaction">
@@ -69,7 +75,7 @@ window.SettingsMonitor = (function () {
             <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
             <td style="font-size:.82rem">${_esc(c.category) || '—'}</td>
             <td style="font-size:.82rem">${_esc(c.person) || '—'}</td>
-            <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${amtColor}">${c.amount ? _taka(c.amount) : '—'}</td>
+            <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${amtColor}">${c.amount ? _taka(c.amount) : '—'}</td><td class="text-right" style="font-family:var(--font-ui);font-size:.76rem;color:#f0c040;white-space:nowrap">${balanceTrail}</td>
           </tr>
           <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
         }).join('');
@@ -81,14 +87,14 @@ window.SettingsMonitor = (function () {
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
           <div style="display:flex;align-items:center;gap:10px">
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsMonitor.refresh()"><i class="fa fa-rotate"></i> Refresh</button>
-            <button type="button" class="btn btn-outline btn-sm" style="color:#ffd700;border-color:rgba(255,215,0,0.3)" onclick="SettingsMonitor.rebuildData()" title="Rebuild from existing finance ledger"><i class="fa fa-database"></i> Rebuild Data</button>
+
           </div>
         </div>
         <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
+            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th><th class="text-right">RECORDED BALANCE</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -223,7 +229,7 @@ window.SettingsMonitor = (function () {
       <div style="font-size:.72rem;color:rgba(255,255,255,0.28);padding:8px 0 2px;border-top:1px solid rgba(255,255,255,0.07);line-height:1.6">
         <i class="fa fa-circle-info" style="margin-right:5px;opacity:.6"></i>
         প্রতিটি row-এর snapshot সেই transaction add হওয়ার সময় নেওয়া হয়েছে।
-        পুরনো entry-র জন্য <strong>Rebuild Data</strong> চাপুন।
+        পুরনো entry-তে snapshot না থাকলে সেটি historicalভাবে পুনর্গঠন করা হয় না।
       </div>`;
 
     _openModal(
@@ -377,7 +383,7 @@ window.SettingsMonitor = (function () {
   return {
     buildPanelHTML,   // settings.js থেকে call হয়
     showSnapshot,     // table row onclick
-    rebuildData,      // Rebuild button
+    // Historical rebuild intentionally unavailable: it would not be a real snapshot.
     refresh,          // Refresh button
     inject,           // lazy-modules compatibility
   };

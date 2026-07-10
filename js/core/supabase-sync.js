@@ -1070,18 +1070,24 @@ const SupabaseSync = (() => {
         console.warn('[ActivityLog] Pull failed:', error.message);
         return;
       }
-      if (!data || !data.length) return;
+      const cloudRows = Array.isArray(data) ? data : [];
 
-      // Local + Cloud merge — union by id, newest first
+      // Local + Cloud merge — union by id, newest first. Entries created while
+      // offline are kept locally and are re-pushed below after connectivity returns.
       const local = _getActivityLogs();
+      const cloudIds = new Set(cloudRows.map(row => row.id));
       const mergedMap = new Map(local.map(l => [l.id, l]));
-      data.forEach(row => {
+      cloudRows.forEach(row => {
         if (!mergedMap.has(row.id)) mergedMap.set(row.id, row);
       });
       const merged = Array.from(mergedMap.values())
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
         .slice(0, 500);
       localStorage.setItem('wfa_activity_log', JSON.stringify(merged));
+      // Retry local-only entries after an offline period. Upsert is idempotent.
+      local.filter(entry => entry && entry.id && !cloudIds.has(entry.id))
+        .forEach(entry => { _pushActivityToCloud(entry); });
+      try { window.dispatchEvent(new CustomEvent('wfa:activity-log', { detail: { source: 'cloud-pull' } })); } catch { /* ignore */ }
     } catch (e) {
       if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('connection')) {
         _activityCooldownUntil = Date.now() + 60000;

@@ -8,7 +8,7 @@
 // result-sheet.js, institution-mode.js, backup-restore.js, utils.js). See AUDIT.md changelog.
 // ✅ Bumped 2026-07-08: Activity Log rebuilt — extracted into new js/ui/activity-log.js
 // (added to precache below), settings.js updated to delegate to it.
-const DEPLOY_ID = '20260710-repair-cloud-sync-guard';
+const DEPLOY_ID = '20260710-monitor-real-snapshots';
 
 const CACHE_NAME = `wfa-v10-${DEPLOY_ID}`;
 const API_CACHE = 'wfa-api-cache-v1';
