@@ -1276,3 +1276,57 @@ CapSpeech.addListener('partialResults', (data) => { ... processCommand(cmd) ... 
 - `www/`, `android/app/src/main/assets/public/` — পুরোপুরি resync
 
 *আপডেট: 2026-07-10 — Section 23: Native APK-তে voice command না শোনার মূল কারণ (partialResults result discarded) ফিক্স, AUDIT_IGNORE.md merge-conflict cleanup, version.json/build resync।*
+
+---
+
+## 24. Voice Assistant — Section 23-এর ফিক্সের পরও "Running..." অবস্থায় আটকে থাকা (2026-07-10, rebuild করে reinstall করার পরেও রিপোর্ট হয়েছে)
+
+**পটভূমি:** Section 23-এ `partialResults:false` হলে ফলাফল আসে কোথায় সেই বাগ ফিক্স করা হয়েছিল। User নতুন APK build করে reinstall করার পরও assistant "🎤 Running... (Press Escape to stop)" দেখাতে থাকে কিন্তু কোনো command-এ react করে না।
+
+### Root Cause — Native plugin-এর `onError` প্রতিটা transient error-এ recognizer বন্ধ করে দেয়, কিন্তু continuous mode-এ restart করা হতো না
+
+`node_modules/@capacitor-community/speech-recognition`-এর Android source (`SpeechRecognitionListener.onError()`) দেখায় যে **যেকোনো error হলেই** (`ERROR_NO_MATCH` "No match", `ERROR_SPEECH_TIMEOUT` "No speech input", `ERROR_AUDIO`, `ERROR_NETWORK` ইত্যাদি — এগুলো বাস্তব ব্যবহারে খুবই সাধারণ, একটু থামলেই হয়) — `call.reject(errorMssg)` চালায়, আর Android-এর native `SpeechRecognizer` নিজেই recognition বন্ধ করে দেয় (auto-restart করে না)।
+
+`js/modules/voice-assistant.js`-এর native `recognition.start()`-এর `catch` ব্লক আগে ছিল:
+```js
+} catch(e) {
+  console.warn('[Voice Native] Start Error', e);
+  if (!isContinuous) stopUI();   // ← continuous mode-এ কিছুই করা হতো না!
+}
+```
+মানে continuous mode-এ (যেটা normal ব্যবহারের ডিফল্ট) **যেকোনো transient error UI-কে "Running…" অবস্থায় রেখেই recognition permanently থামিয়ে দিত** — Escape চাপা বা app reload ছাড়া আর কখনো শুনতো না, অথচ দেখতে "চলছে" মনে হতো।
+
+### Fix
+`catch` ব্লককে দুই ভাগে ভাগ করা হলো:
+- **Permanent error** ("Missing permission" / "not available") → hard-stop, UI-তে স্পষ্ট error toast দেখায়, doll minimize হয়।
+- **Transient error** (no match/timeout/audio/network/busy) → `isContinuous && isActive` হলে 800ms পর স্বয়ংক্রিয়ভাবে `recognition.start()` আবার চালায় (ঠিক browser `SpeechRecognition.onerror`-এর harmless-error handling-এর মতোই)।
+
+**প্রভাবিত ফাইল:** `js/modules/voice-assistant.js` — `www/`, `android/app/src/main/assets/public/`-এও `node build-www.js && npx cap sync android` দিয়ে sync করা হয়েছে।
+
+### নিয়ম (ভবিষ্যতের জন্য)
+native plugin call-এর `catch`/`onerror` handler লেখার সময় সবসময় ভাবুন: **continuous/loop mode-এ error এলে কী হবে?** — শুধু "না-continuous হলে থামাও" যথেষ্ট না; transient error-এ restart করার path-ও থাকতে হবে, নাহলে UI "চলছে" দেখাবে কিন্তু আসলে কিছুই শুনবে না। এটা silent-failure-এর একটা সাধারণ প্যাটার্ন — ভবিষ্যতে অন্য native listener (camera, push ইত্যাদি) লেখার সময়ও এই চেক করুন।
+
+*আপডেট: 2026-07-10 — Section 24: Native voice recognition continuous-mode error-এ silently থেমে যাওয়ার বাগ ফিক্স (Section 23-এর ফলো-আপ, real-device rebuild-এর পরও রিপোর্ট হয়েছিল)।*
+
+---
+
+## 25. Voice Assistant — Android-এ থামানোর কোনো উপায় ছিল না (শুধু Escape, যা মোবাইলে নেই) — 2026-07-10
+
+**User রিপোর্ট:** "Android-এ AI Assistant কীভাবে বন্ধ করব? Escape বাটন তো নেই, কিন্তু লেখা আছে Escape চাপো।"
+
+### Root Cause
+
+`js/modules/voice-assistant.js`-এ continuous listening বন্ধ করার **একমাত্র** পথ ছিল একটা physical keyboard `keydown` listener:
+```js
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && ...) dismissAssistant();
+});
+```
+আর ডল-এ (avatar) ট্যাপ করলে (`toggleListening()`) already-listening অবস্থায় শুধু একটা বার্তা দেখাতো — "Press Escape to stop" — কিন্তু আসলে **কিছুই বন্ধ করতো না**। Android/touch device-এ কোনো physical Escape key নেই, তাই মোবাইল ইউজারদের জন্য assistant বন্ধ করার literally কোনো উপায়ই ছিল না (App reload/kill ছাড়া)।
+
+### Fix
+`toggleListening()`-কে সত্যিকারের toggle বানানো হলো — assistant চলা অবস্থায় ডল-এ আবার ট্যাপ করলে এখন `dismissAssistant()` কল হয় এবং বন্ধ হয়ে যায়। সব on-screen/spoken hint ("Press Escape to stop") পাল্টে "Tap the doll to stop" / "ডল-এ ট্যাপ করুন" করা হয়েছে (title tooltip, listening bubble, voice-help speech, help table)। Desktop-এ Escape key-ও আগের মতোই কাজ করবে (bonus shortcut হিসেবে রাখা হয়েছে, সরানো হয়নি)।
+
+**প্রভাবিত ফাইল:** `js/modules/voice-assistant.js` — `www/`, `android/app/src/main/assets/public/`-এও sync করা হয়েছে।
+
+*আপডেট: 2026-07-10 — Section 25: Android-এ voice assistant বন্ধ করার কোনো touch-friendly উপায় ছিল না — ডল-এ ট্যাপ করে টগল করার fix।*

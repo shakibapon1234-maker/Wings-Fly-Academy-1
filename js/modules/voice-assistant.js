@@ -72,7 +72,7 @@ const VoiceAssistant = (() => {
     btn = document.createElement('div');
     btn.id = 'ai-avatar-container';
     btn.className = ''; // Reverted: Show normally by default
-    btn.title = 'AI Assistant — Click to start (Escape to stop) — English & Bengali supported';
+    btn.title = 'AI Assistant — Tap to start, tap again to stop (Escape also works on desktop) — English & Bengali supported';
     btn.innerHTML = buildDollHTML();
     btn.onclick = toggleListening;
     document.body.appendChild(btn);
@@ -135,7 +135,33 @@ const VoiceAssistant = (() => {
             _handleNativeResult(nativeResult);
           } catch(e) {
             console.warn('[Voice Native] Start Error', e);
-            if (!isContinuous) stopUI();
+            // ✅ BUG FIX: Android's native SpeechRecognizer stops itself after EVERY
+            // error — including harmless/expected ones like "No match" or "No speech
+            // input" (a short pause is enough to trigger these). The old code only
+            // called stopUI() when NOT in continuous mode, so in continuous mode any
+            // such error just silently killed listening for good while the doll kept
+            // showing "🎤 Running…" — looking active but never actually listening again.
+            const msg = String(e && (e.message || e)) || '';
+            const isPermanent = /missing permission|not available/i.test(msg);
+            if (isPermanent) {
+              _hardStop = true;
+              isContinuous = false;
+              isActive = false;
+              isListening = false;
+              const permMsg = currentLang === 'bn-IN' ? '🔒 মাইক অনুমতি/সার্ভিস সমস্যা। Settings চেক করুন।' : '🔒 Mic permission/service issue. Check Settings.';
+              showBubble(permMsg, true);
+              if (typeof Utils !== 'undefined') Utils.toast(permMsg, 'error', 5000);
+              stopUI();
+            } else if (isContinuous && isActive) {
+              // Transient error (no match / timeout / audio / busy / network) — retry.
+              setTimeout(() => {
+                if (_hardStop || !isContinuous || !isActive) return;
+                _isAutoRestarting = true;
+                recognition.start();
+              }, 800);
+            } else {
+              stopUI();
+            }
           }
         },
         stop: async () => {
@@ -811,10 +837,14 @@ const VoiceAssistant = (() => {
 
   function toggleListening() {
     if (!recognition) return;
-    // ★ MODIFIED: One click enables continuous listening
+    // ✅ BUG FIX: on Android/touch devices there is no Escape key, so the old
+    // "only Escape stops it" behaviour left mobile users with literally no way
+    // to stop continuous mode. Tapping the doll again now stops it too — this
+    // also matches how a toggle button is expected to behave everywhere.
     if (isListening && isContinuous) {
-      // Already in continuous mode, don't toggle off - only Escape will stop
-      showBubble(currentLang === 'bn-IN' ? '🎤 চলছে... (Escape এ থামান)' : '🎤 Running... (Press Escape to stop)', false);
+      dismissAssistant();
+      const msg = currentLang === 'bn-IN' ? '🛑 থামিয়ে দিয়েছি' : '🛑 Stopped';
+      showBubble(msg, false);
     } else if (!isListening) {
       // Start continuous listening
       startContinuousListening();
@@ -833,15 +863,18 @@ const VoiceAssistant = (() => {
       isListening = true;
       if (btn) btn.classList.remove('minimized'); // ★ NEW: Expand when listening
       btn.classList.add('listening');
+      // ✅ FIX: "Press Escape to stop" is meaningless on Android/touch — there is
+      // no Escape key. Tell the user to tap the doll instead (works everywhere;
+      // Escape still works too as a bonus shortcut on desktop).
       const msg = currentLang === 'bn-IN' 
-        ? '🎤 চলছে... Escape এ থামান'
-        : '🎤 Continuous mode ON... Press Escape to stop';
+        ? '🎤 চলছে... থামাতে ডল-এ ট্যাপ করুন'
+        : '🎤 Listening… tap the doll to stop';
       showBubble(msg, true);
       if (typeof Utils !== 'undefined') Utils.toast(msg, 'info');
     } catch(e) { console.warn('[Voice] Start failed:', e); }
   }
 
-  // ★ Stop + minimize doll (Escape / "you can go")
+  // ★ Stop + minimize doll (Escape / tap doll / "you can go")
   function dismissAssistant(silent = false) {
     synth.cancel();
     _isSpeaking = false;
@@ -1654,13 +1687,13 @@ const VoiceAssistant = (() => {
   }
 
   function reportHelp() {
-    speak('I now support English and Bengali commands. Click to start continuous listening, press Escape to stop. ' +
+    speak('I now support English and Bengali commands. Tap to start continuous listening, tap again to stop. ' +
           'Try saying: open settings, how many students, what time is it, or tell me a joke.');
     
     showReport('Voice Commands — v4.1 (Bilingual)','fa-circle-question',[
       ['🎙️ MODE ──────────────────','─────────',          '#00e5ff'],
       ['Click avatar',               'Start listening',    '#00ff88'],
-      ['Press ESCAPE',               'Stop listening',     '#ff4757'],
+      ['Tap avatar again',           'Stop listening',     '#ff4757'],
       ['Supports English',           'Yes ✓',              '#00e5ff'],
       ['Supports Bengali',           'Yes ✓ (নতুন)',      '#00ff88'],
       ['── NAVIGATION ──────────────','─────────',         '#555'],
