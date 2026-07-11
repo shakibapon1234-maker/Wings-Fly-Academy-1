@@ -1047,7 +1047,6 @@ if (newInitial > 0) SupabaseSync.updateAccountBalance('Cash', newInitial, 'in');
 
 ---
 
-<<<<<<< Updated upstream
 ## 21. Post-Pull Ledger Reconcile Missing + Balance Adjustment Skip Bug (2026-07-09)
 
 **পটভূমি:** User রিপোর্ট করেন Bikash account থেকে ৳1,500 "Cartiz for printer" Expense Finance Ledger-এ সঠিকভাবে রেকর্ড হলেও Bikash-এর account balance ৳2,911 (cutoff baseline) থেকে ৳1,411-এ কমেনি। Repair চালিয়ে ঠিক হলেও মূল কারণ খোঁজার নির্দেশ দেওয়া হয়।
@@ -1148,6 +1147,41 @@ const phantomCategories = new Set(['Opening Balance']);
 
 ---
 
+## 21B. Balance Inflate Bug — ৳22,712 → ৳24,212 (2026-07-09, Section 21-এর সাথে একই দিনের সম্পর্কিত ফলো-আপ)
+
+**User রিপোর্ট:** Total balance ৳22,712 থেকে হঠাৎ ৳24,212 হয়ে গেছে (পার্থক্য ৳1,500)।
+
+### Root Cause — Section 20-এর incomplete implementation
+
+Section 20-এ সিদ্ধান্ত হয়েছিল:
+1. `saveBalance()` → `Balance Adjustment` ledger entry তৈরি করবে (manual correction preserve-এর জন্য)
+2. `recalculateAccountBalancesFromLedger()` → `Balance Adjustment` entries **count করবে** (phantomCategories থেকে বাদ)
+
+কিন্তু **কোডে অসামঞ্জস্য ছিল:**
+- `saveBalance()` ✅ entry তৈরি করছিল (Section 20 অনুযায়ী সঠিক)
+- `recalculateAccountBalancesFromLedger()` ❌ `phantomCategories = new Set(['Opening Balance', 'Balance Adjustment'])` — এখনো skip করছিল
+- Startup cleanup ❌ `Balance Adjustment` entries মুছে দিচ্ছিল
+- Pull filter ❌ cloud থেকে `Balance Adjustment` entries block করছিল
+
+### চূড়ান্ত Fix (2026-07-09) — তিনটি জায়গায়
+
+1. `recalculateAccountBalancesFromLedger()` — `phantomCategories` এখন শুধু `Set(['Opening Balance'])`।
+2. Startup IDB cleanup — শুধু `'Opening Balance'` মুছবে (cleanup flag `wfa_stale_cleanup_v1`-এ ফিরে আসা হয়েছে, `v2` সরানো হয়েছে)।
+3. Pull filter (`_pullCoreInternal()`) — শুধু `'Opening Balance'` filter করে, `'Balance Adjustment'` pass করে।
+
+### গুরুত্বপূর্ণ নিয়ম (ভবিষ্যতের জন্য)
+
+1. **`Balance Adjustment` entries কখনো cleanup/filter/skip করবেন না** — এগুলো Section 20-এর legitimate ledger records।
+2. **`Opening Balance` শুধুই phantom** — পুরনো broken `_upsertOpeningEntry()` system তৈরি করত; এগুলো সরানো যাবে।
+3. **`phantomCategories`-এ `'Balance Adjustment'` রাখবেন না** — `recalculateAccountBalancesFromLedger()`, snapshot, বা যেকোনো skip logic-এ।
+
+### প্রভাবিত ফাইল — 2026-07-09 (Section 21B)
+- `js/core/supabase-sync.js`: `recalculateAccountBalancesFromLedger()` phantomCategories fix, startup cleanup fix, pull filter fix — **যাচাই করা হয়েছে, বর্তমান কোডে প্রয়োগ করা আছে।**
+
+*আপডেট: 2026-07-09 — Section 21B: Balance inflate bug ৳22,712→৳24,212 — Section 20 incomplete implementation fix। (দ্রষ্টব্য: এই সেকশনটি আগে একটি resolve না হওয়া git merge conflict-এর কারণে ফাইলে ডুপ্লিকেট "Section 21" হিসেবে ছিল — 2026-07-10-এ পরিষ্কার করে 21B হিসেবে renumber করা হলো।)*
+
+---
+
 ## 22. Backup Import-এর পর Balance ভুল হওয়া — Cutoff Restore Missing (2026-07-10)
 
 **পটভূমি:** User backup import করলে ১ সেকেন্ড সঠিক balance (৳22,712) দেখায়, তারপরেই ৳8,97,300-এ বদলে যায়।
@@ -1193,83 +1227,52 @@ if (restoredSettings && restoredSettings.length) {
 - `www/js/core/backup-restore.js` — `node build-www.js` দিয়ে sync করা হয়েছে
 
 *আপডেট: 2026-07-10 — Section 22: Backup import-এর পর balance ৳8,97,300 হওয়ার bug fix — cutoff date ও baselines localStorage-এ restore করা হলো।*
-=======
-## 21. Balance Inflate Bug — ৳22,712 → ৳24,212 (2026-07-09)
 
-**User রিপোর্ট:** Total balance ৳22,712 থেকে হঠাৎ ৳24,212 হয়ে গেছে (পার্থক্য ৳1,500)।
+---
 
-### Root Cause — Section 20-এর incomplete implementation
+## 23. Voice Assistant — Native APK-এ কোনো Command শোনেনি (Result Discarded) + Doc/Build Housekeeping (2026-07-10)
 
-Section 20-এ সিদ্ধান্ত হয়েছিল:
-1. `saveBalance()` → `Balance Adjustment` ledger entry তৈরি করবে (manual correction preserve-এর জন্য)
-2. `recalculateAccountBalancesFromLedger()` → `Balance Adjustment` entries **count করবে** (phantomCategories থেকে বাদ)
+**User রিপোর্ট:** মোবাইলে ইনস্টল করা APK-তে AI Assistant কাজ করে না — মাইক্রোফোন permission দেওয়া থাকলেও কোনো voice command শুনতে পায় না/react করে না।
 
-কিন্তু **কোডে অসামঞ্জস্য ছিল:**
-- `saveBalance()` ✅ entry তৈরি করছিল (Section 20 অনুযায়ী সঠিক)
-- `recalculateAccountBalancesFromLedger()` ❌ `phantomCategories = new Set(['Opening Balance', 'Balance Adjustment'])` — এখনো skip করছিল
-- Startup cleanup ❌ `Balance Adjustment` entries মুছে দিচ্ছিল
-- Pull filter ❌ cloud থেকে `Balance Adjustment` entries block করছিল
+### Root Cause — `partialResults: false` হলে ফলাফল `start()`-এর resolve value-তে আসে, event-এ নয়
 
-**ফলাফল:**
-- `saveBalance()` entry তৈরি করে cloud-এ push করে
-- কিন্তু recalc এগুলো গণনায় নেয় না → balance double-count হয় না (এটা ঠিক)
-- কিন্তু `updateAccountBalance()` incremental দিয়ে balance বাড়ে, তারপর recalc সেই increase-কে undo করে না
-- পরের pull-এ যখন recalc চলে, মাঝের পার্থক্য হিসেবে inflate দেখায়
-
-### চূড়ান্ত Fix (2026-07-09)
-
-Section 20-এর সাথে কোড সামঞ্জস্য করা হয়েছে — তিনটি জায়গায়:
-
-#### Fix 1: `recalculateAccountBalancesFromLedger()` — `Balance Adjustment` include করো
+`js/modules/voice-assistant.js`-এ native (Capacitor `@capacitor-community/speech-recognition`) path-এ:
 ```js
-// আগে (ভুল):
-const phantomCategories = new Set(['Opening Balance', 'Balance Adjustment']);
-// এখন (Section 20 অনুযায়ী সঠিক):
-const phantomCategories = new Set(['Opening Balance']); // শুধু Opening Balance skip
+await CapSpeech.start({ ..., partialResults: false, popup: false }); // result বাতিল করা হচ্ছিল
 ```
-ফলে manual `saveBalance()` corrections recalc-এর পরেও থাকবে।
-
-#### Fix 2: Startup cleanup — শুধু `Opening Balance` মুছবে
+আর ফলাফল ধরার জন্য একমাত্র হ্যান্ডলার ছিল:
 ```js
-// আগে: Opening Balance + Balance Adjustment উভয় মুছত
-.filter(f => f.category === 'Opening Balance' || f.category === 'Balance Adjustment')
-// এখন: শুধু Opening Balance মুছবে
-.filter(f => f.category === 'Opening Balance')
+CapSpeech.addListener('partialResults', (data) => { ... processCommand(cmd) ... });
 ```
-Incorrect v2 cleanup flag-ও সরানো হয়েছে।
+কিন্তু প্লাগইনের নিজের definition অনুযায়ী `'partialResults'` ইভেন্ট **শুধু `partialResults: true` হলেই** emit হয়। `partialResults: false` দেওয়া থাকায় `start()` নিজেই `{ matches }` নিয়ে resolve করে — event কখনো fire-ই হতো না। ফলে:
+- মাইক পারমিশন ঠিকই ছিল (তাই "🎤 শুনছি…" দেখাতো, শোনাও শুরু হতো)।
+- কিন্তু recognized text কখনো `processCommand()`-এ পৌঁছাতো না — তাই কোনো command execute হতো না, কোনো response-ও আসতো না।
 
-#### Fix 3: Pull filter — শুধু `Opening Balance` filter করো
-```js
-// আগে: উভয় ছেঁকে ফেলত
-const _phantomCats = new Set(['Opening Balance', 'Balance Adjustment']);
-merged = merged.filter(f => !_phantomCats.has(f.category));
-// এখন: শুধু Opening Balance filter
-merged = merged.filter(f => f.category !== 'Opening Balance');
-```
+### Fix
+`CapSpeech.start()`-এর resolve value সরাসরি capture করে একটা shared `_handleNativeResult()`-এ পাঠানো হয়েছে (এটাই `processCommand`, bubble show, ও continuous-mode restart লজিক চালায়)। `partialResults: true`-এর জন্য listener-ও রাখা হয়েছে (future-proof), কিন্তু মূল path এখন resolve value থেকেই চলে।
 
-### গুরুত্বপূর্ণ নিয়ম (ভবিষ্যতের জন্য)
+**প্রভাবিত ফাইল:** `js/modules/voice-assistant.js` (native `recognition.start`/`_handleNativeResult`), `www/`, `android/app/src/main/assets/public/` — `node build-www.js && npx cap sync android` দিয়ে sync করা হয়েছে।
 
-1. **`Balance Adjustment` entries কখনো cleanup/filter/skip করবেন না** — এগুলো Section 20-এর legitimate ledger records।
-2. **`Opening Balance` শুধুই phantom** — পুরনো broken `_upsertOpeningEntry()` system তৈরি করত; এগুলো সরানো যাবে।
-3. **`phantomCategories`-এ `'Balance Adjustment'` রাখবেন না** — `recalculateAccountBalancesFromLedger()`, snapshot, বা যেকোনো skip logic-এ।
-4. **Startup cleanup flag:** `wfa_stale_cleanup_v1` — শুধু `Opening Balance` মুছবে। `v2` ভুল ছিল, `v1`-এ ফিরে আসা হয়েছে।
+### সাথে পাওয়া ২টি housekeeping ইস্যু (bug নয়, কিন্তু গুরুত্বপূর্ণ)
 
-### কোড থেকে balance inflation-এর ঘটনাক্রম (এখন fixed)
+**১. `AUDIT_IGNORE.md`-এ resolve না হওয়া git merge conflict ছিল।** পুরোনো `git stash`/pull conflict থেকে `<<<<<<< Updated upstream` / `=======` / `>>>>>>> Stashed changes` marker রয়ে গিয়েছিল, ফলে ডুপ্লিকেট "Section 21" (দুটো ভিন্ন bug — Post-Pull Reconcile ও Balance Inflate — একই নম্বরে) তৈরি হয়েছিল। কোড-লেভেলে দুটো fix-ই আগে থেকে প্রয়োগ করা ছিল (যাচাই করা হয়েছে) — শুধু ডকুমেন্টেশন এলোমেলো ছিল। এখন দ্বিতীয়টিকে **Section 21B** হিসেবে renumber করে conflict marker সরানো হয়েছে; কোনো তথ্য হারায়নি।
 
-| ধাপ | আগে | এখন |
-|-----|-----|-----|
-| `saveBalance()` edit | `Balance Adjustment` entry তৈরি ✅ | একই ✅ |
-| Cloud push | Entry cloud-এ যায় ✅ | একই ✅ |
-| `recalculateAccountBalancesFromLedger()` | Entry skip → manual correction হারায় ❌ | Entry count → correction থাকে ✅ |
-| Startup cleanup | `Balance Adjustment` মুছে দেয় ❌ | শুধু `Opening Balance` মুছবে ✅ |
-| Pull filter | `Balance Adjustment` block করে ❌ | শুধু `Opening Balance` block করে ✅ |
+**২. `version.json` পুরনো (2026-07-07) থেকে যাওয়ায় `build-www.js`/`npx cap sync` চালালে `service-worker.js`-এর হাতে-বসানো নতুন `DEPLOY_ID` (`20260710-monitor-real-snapshots`) আবার পুরনো মানে auto-sync হয়ে যাচ্ছিল** (`build-www.js` DEPLOY_ID-কে `version.json`-এর `deploy_id` থেকে derive করে)। এর মানে জুলাই ৯-১০ তারিখের সব fix (activity log realtime retry, Data Monitor recorded-balance column, backup-restore cutoff fix, post-pull reconcile)-এর জন্য PWA cache বাস্ট হতো না — আগে থেকে ইনস্টল করা ইউজাররা পুরনো cached কোডই পেতে থাকতেন। `version.json`-কে `5.1.3` / `20260710-monitor-voice-fix`-এ আপডেট করে পুনরায় build চালানো হয়েছে; এখন root/www/android তিনটাই byte-identical এবং `DEPLOY_ID` সঠিক।
 
-### প্রভাবিত ফাইল — 2026-07-09 (Section 21)
-- `js/core/supabase-sync.js`:
-  - `recalculateAccountBalancesFromLedger()`: `phantomCategories` থেকে `'Balance Adjustment'` বাদ
-  - Startup IDB cleanup: শুধু `'Opening Balance'` filter, `'Balance Adjustment'` রক্ষা করা হয়েছে
-  - `_pullCoreInternal()`: pull-এ শুধু `'Opening Balance'` filter, `'Balance Adjustment'` pass করা হয়েছে
-- `js/modules/accounts.js` — `saveBalance()`: Section 20 পর্যন্ত unchanged (entry তৈরি correct)
+### নিয়ম (ভবিষ্যতের জন্য)
+1. `service-worker.js`-এর `DEPLOY_ID` হাতে বসালে **সাথে সাথে `version.json`-এর `deploy_id`-ও আপডেট করুন** — নাহলে পরের `build-www.js` রান সেটা রিসেট করে দেবে।
+2. Native mobile feature (speech recognition, camera ইত্যাদি) যোগ/এডিট করার সময় প্লাগইনের `.d.ts`/definitions ফাইল চেক করে **কোন event কখন fire হয়** নিশ্চিত হয়ে নিন — assumption-এর ওপর ভিত্তি করে listener বসাবেন না।
+3. `git stash`/merge-এর পর সবসময় `grep -rn "^<<<<<<< \|^>>>>>>> "` দিয়ে conflict marker চেক করুন, বিশেষত `AUDIT_IGNORE.md`-এর মতো knowledge-base ফাইলে।
 
-*আপডেট: 2026-07-09 — Section 21: Balance inflate bug ৳22,712→৳24,212 — Section 20 incomplete implementation fix (recalculate phantom categories, startup cleanup, pull filter)।*
->>>>>>> Stashed changes
+### Verification
+- `node --check` — সব edited ফাইল pass (পুরো `js/` ট্রি স্ক্যান করা হয়েছে, কোনো syntax error নেই)।
+- root ↔ `www/` ↔ `android/app/src/main/assets/public/` — এখন byte-identical (credential ফাইল বাদে)।
+- Vitest এই sandbox-এ চালানো যায়নি (`@rollup/rollup-linux-x64-gnu` native module missing — পরিবেশগত সমস্যা, কোড ইস্যু নয়); dev machine-এ `npx vitest run` দিয়ে confirm করে নেবেন।
+
+### প্রভাবিত ফাইল — 2026-07-10 (Section 23)
+- `js/modules/voice-assistant.js` — native result handling fix
+- `AUDIT_IGNORE.md` — merge conflict resolved, Section 21B যোগ
+- `version.json` — 5.1.3 / `20260710-monitor-voice-fix`
+- `www/`, `android/app/src/main/assets/public/` — পুরোপুরি resync
+
+*আপডেট: 2026-07-10 — Section 23: Native APK-তে voice command না শোনার মূল কারণ (partialResults result discarded) ফিক্স, AUDIT_IGNORE.md merge-conflict cleanup, version.json/build resync।*

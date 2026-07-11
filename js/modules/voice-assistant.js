@@ -118,14 +118,21 @@ const VoiceAssistant = (() => {
               }
             }
             _isAutoRestarting = false;
-            
-            await CapSpeech.start({
+
+            // ✅ BUG FIX: when partialResults is false, the plugin does NOT emit the
+            // 'partialResults' event at all — it resolves start() directly with
+            // { matches }. The old code awaited this and threw the result away, so
+            // the doll would say "Listening…" but never react to anything (mic
+            // permission looked fine because listening genuinely started — the
+            // recognized text was just never read).
+            const nativeResult = await CapSpeech.start({
               language: currentLang,
               maxResults: 1,
               prompt: currentLang === 'bn-IN' ? 'শুনছি...' : 'Listening...',
               partialResults: false,
               popup: false,
             });
+            _handleNativeResult(nativeResult);
           } catch(e) {
             console.warn('[Voice Native] Start Error', e);
             if (!isContinuous) stopUI();
@@ -137,14 +144,16 @@ const VoiceAssistant = (() => {
         }
       };
 
-      // Listener for native results
-      CapSpeech.addListener('partialResults', (data) => {
-        if (data.matches && data.matches.length > 0) {
+      // Shared handling for a recognized result, whether it arrives via the
+      // resolved start() promise (partialResults:false) or the event listener
+      // below (kept for plugin versions / configs that do use partialResults:true).
+      function _handleNativeResult(data) {
+        if (data && data.matches && data.matches.length > 0) {
           const cmd = data.matches[0].toLowerCase().trim();
           console.log('[Voice v4 Native] Command received:', cmd);
           showBubble(`"${cmd}"`, false);
           processCommand(cmd);
-          
+
           // Native stops listening after one command, so we restart it if continuous
           if (isContinuous && isActive && isListening) {
              setTimeout(() => {
@@ -152,8 +161,17 @@ const VoiceAssistant = (() => {
                recognition.start();
              }, 800);
           }
+        } else if (isContinuous && isActive && isListening) {
+          // No speech recognized (e.g. silence/timeout) — keep listening in continuous mode.
+          setTimeout(() => {
+            _isAutoRestarting = true;
+            recognition.start();
+          }, 800);
         }
-      });
+      }
+
+      // Listener for native results (only fires if partialResults:true is ever used)
+      CapSpeech.addListener('partialResults', _handleNativeResult);
       
     } else if (SR) {
       recognition = new SR();
