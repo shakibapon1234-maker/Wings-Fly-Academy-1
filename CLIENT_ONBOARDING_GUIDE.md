@@ -15,9 +15,9 @@
 
 1. Supabase Dashboard → SQL Editor
 2. নিচের ফাইলটি খুলুন এবং সম্পূর্ণ SQL কপি করুন:
-   → `supabase/master_setup.sql`
+   → `supabase/CLIENT_MASTER_SETUP.sql`
 3. SQL Editor-এ paste করুন → "Run" চাপুন
-4. ✅ "Success. No rows returned" দেখলে সফল
+4. ✅ শেষে "AcadeFlow Client Setup Complete!" status message এবং RLS টেবিলের তালিকা দেখলে সফল
 
 ## ✅ STEP 3 — Supabase Credentials Note করুন
 
@@ -25,29 +25,30 @@ Supabase Dashboard → Settings → API:
 - **Project URL**: `https://XXXXXXXX.supabase.co` ← এটা নোট করুন
 - **anon / public key**: `eyJhbGci...` ← এটা নোট করুন
 
-## ✅ STEP 4 — Client App Deploy করুন
+## ✅ STEP 4 — Client App Deploy করুন (`new-client.ps1` দিয়ে automated)
 
-### GitHub-এ নতুন Repository তৈরি:
-1. https://github.com এ লগইন করুন (আপনার account)
-2. "New Repository" → Name: `client-[academy-short-name]`
-   উদাহরণ: `client-greenleaf`, `client-skybird`
-3. Public → "Create repository"
+Manual git clone/copy করার দরকার নেই — পুরো প্রসেসটা `new-client.ps1` script দিয়ে automate করা আছে।
 
-### Code Push করুন (PowerShell):
+### আগে থেকে যা লাগবে:
+- আগে একবার `node build-www.js` চালিয়ে `www/` folder up-to-date আছে কিনা নিশ্চিত করুন
+- GitHub-এ client-এর জন্য একটা নতুন (empty) repository তৈরি করে রাখুন
+  → https://github.com/new → Name: `client-[academy-short-name]` (উদাহরণ: `client-greenleaf`) → Public → Create
+
+### Script চালান (PowerShell):
 ```powershell
-# Wings-Fly-Academy-1 folder-এ এই command চালান
-git clone https://github.com/YOUR_USERNAME/client-greenleaf.git temp_client
-Copy-Item -Recurse E:\DESKTOP\Wings-Fly-Academy-1\www\* temp_client\
-cd temp_client
-
-# Client-এর Supabase credentials সেট করুন
-# supabase-secrets.js ফাইলটি edit করুন:
-# const WFA_SUPABASE_SECRETS = { url: 'CLIENT_URL', anonKey: 'CLIENT_KEY' };
-
-git add .
-git commit -m "Initial client deployment"
-git push origin main
+# Wings-Fly-Academy-1 folder-এ
+.\new-client.ps1
 ```
+Script ধাপে ধাপে জিজ্ঞেস করবে:
+- Customer Code (যেমন `GL01`), Academy Name, GitHub Repo Name, GitHub Username
+- Package (Basic/Pro/Custom), Institution Type (Coaching/School/College)
+- Client-এর Supabase Project URL ও Anon Key (STEP 3 থেকে নেওয়া)
+
+এরপর script নিজে থেকেই:
+1. `www/`-এর কপি নিয়ে `E:\Task\Client ID\<repo-name>` folder তৈরি করে
+2. `js/core/supabase-secrets.js`-এ client credentials বসিয়ে দেয় (frozen)
+3. মূল প্রজেক্টের `js/core/clients-metadata.js`-এ নতুন client যোগ করে ও push করে (যাতে Client Manager-এ দেখা যায়)
+4. Git init/commit করে, চাইলে সাথে সাথে GitHub-এ push-ও করে দেয়
 
 ### GitHub Pages চালু করুন:
 1. Repository → Settings → Pages

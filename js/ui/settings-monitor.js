@@ -242,7 +242,7 @@ window.SettingsMonitor = (function () {
   /* ══════════════════════════════════════════════════════════
      REBUILD DATA
   ══════════════════════════════════════════════════════════ */
-  function rebuildData() {
+  function _rebuildData() {
     try {
       const DB        = window.DB;
       const allFinance = (typeof SupabaseSync !== 'undefined') ? SupabaseSync.getAll(DB.finance) : [];

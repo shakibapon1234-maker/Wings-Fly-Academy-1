@@ -4672,7 +4672,7 @@ ${expenseEntries.length > 0 ? `
   // ─── Rebuild Monitor Data ───────────────────────────────────────
   // Finance ledger থেকে শেষ ১৫টি ট্রান্সেকশন নিয়ে Data Monitor-এ populate করে।
   // যদি wfa_recent_changes খালি হয়ে যায় বা হারিয়ে যায়, এই function দিয়ে rebuild করা যায়।
-  function rebuildMonitorData() {
+  function _rebuildMonitorData() {
     try {
       const allFinance = SupabaseSync.getAll(DB.finance);
       const allowedTypes = [
@@ -7141,7 +7141,7 @@ ${expenseEntries.length > 0 ? `
           (Supabase Edge Function-এ set করা secret)। এটি শুধু এই ডিভাইসে localStorage-এ সেভ হয়।
         </p>
         <div style="display:flex;gap:10px">
-          <input id="cm-admin-secret" type="text" autocomplete="off" class="form-control" placeholder="ADMIN_GEN_SECRET" style="flex:1;font-family:monospace; -webkit-text-security: disc; text-security: disc;" />
+          <input id="cm-admin-secret" type="password" autocomplete="new-password" class="form-control" placeholder="ADMIN_GEN_SECRET" style="flex:1;font-family:monospace;" />
           <button onclick="_wfaSaveAdminSecret && _wfaSaveAdminSecret()" style="background:rgba(123,47,247,0.2);border:1px solid rgba(123,47,247,0.4);color:#b57ff7;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;white-space:nowrap">💾 Save</button>
         </div>
       </div>

@@ -372,7 +372,7 @@ function _showSettingsAlert(message, type = 'success') {
   el.style.display = 'block';
   setTimeout(() => { el.style.display = 'none'; }, 3000);
 }
-function saveSettings(showFeedback = false) {
+function saveSettings(_showFeedback = false) {
   const s = getSettings();
   s.duration = parseInt(document.getElementById('durationInput').value) || 10;
   s.passMark = parseInt(document.getElementById('passMarkInput').value) || 60;

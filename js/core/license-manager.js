@@ -22,16 +22,9 @@
   // ── Admin secret storage key (saved in localStorage by admin, used per-call)
   const _ADMIN_SECRET_KEY = 'wfa_license_admin_secret';
 
-  // ── Load / save admin secret from localStorage (session-only memory)
+  // ── Load admin secret from localStorage
   function _getAdminSecret() {
     try {
-      // First check the dedicated input if the panel is open
-      const inputEl = document.getElementById('cm-admin-secret');
-      if (inputEl && inputEl.value.trim()) {
-        // Auto-save whenever a value is in the field
-        localStorage.setItem(_ADMIN_SECRET_KEY, inputEl.value.trim());
-        return inputEl.value.trim();
-      }
       return localStorage.getItem(_ADMIN_SECRET_KEY) || '';
     } catch { return ''; }
   }
@@ -41,7 +34,7 @@
     try {
       const saved = localStorage.getItem(_ADMIN_SECRET_KEY) || '';
       const inputEl = document.getElementById('cm-admin-secret');
-      if (inputEl && saved && !inputEl.value) inputEl.value = saved;
+      if (inputEl) inputEl.value = saved;
     } catch { /* ignore */ }
   }
 

@@ -48,9 +48,9 @@ window.InstitutionMode = (() => {
   };
 
   const TYPE_META = {
-    coaching: { icon: '🏫', label: 'Coaching Centre', labelBn: 'কোচিং সেন্টার' },
-    school:   { icon: '🏛️', label: 'School',          labelBn: 'স্কুল' },
-    college:  { icon: '🎓', label: 'College',         labelBn: 'কলেজ' },
+    coaching: { icon: '🏫', label: 'Coaching Centre', labelBn: 'কোচিং সেন্টার', color: '#00d2ff' },
+    school:   { icon: '🏛️', label: 'School',          labelBn: 'স্কুল',         color: '#a855f7' },
+    college:  { icon: '🎓', label: 'College',         labelBn: 'কলেজ',         color: '#f5a623' },
   };
 
   let _memoryType = null;
