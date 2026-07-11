@@ -39,7 +39,19 @@ const VoiceAssistant = (() => {
   let isListening   = false;
   let isActive      = false;  // ✅ NEW: Track if voice assistant is currently active
   let recognition   = null;
-  let synth         = window.speechSynthesis;
+  // ✅ MOBILE APK FIX: Android's WebView (used by Capacitor) does NOT implement
+  // the Web Speech Synthesis API — window.speechSynthesis is `undefined` there,
+  // even though it exists fine in a normal desktop/mobile browser. Every call
+  // like synth.cancel()/synth.speak() used to throw immediately, which is why
+  // the assistant "stopped listening" right after login on the packaged app:
+  // the crash happened inside speak()/init() before recognition could ever run.
+  // We fall back to a harmless no-op stub so nothing throws.
+  const _hasTTS = typeof window.speechSynthesis !== 'undefined';
+  let synth = _hasTTS ? window.speechSynthesis : {
+    cancel: () => {},
+    speak: () => {},
+    getVoices: () => [],
+  };
   let voiceInstance = null;
   let btn           = null;
   let lastSpeech    = '';
@@ -50,6 +62,13 @@ const VoiceAssistant = (() => {
   let _isAutoRestarting = false; // ✅ Fix: prevent repeated 'speak now' toasts
   let _isSpeaking = false;    // ✅ Fix: track if speech synthesis is currently active
   let _hardStop   = false;    // ✅ Fix: set true on Escape/perm-error, blocks any auto-restart
+
+  // ✅ NATIVE TTS (Android APK audio replies): since window.speechSynthesis
+  // doesn't exist in the Capacitor Android WebView, real audio replies on
+  // mobile go through the @capacitor-community/text-to-speech native plugin
+  // instead. These are set once in init(); speak() picks whichever is available.
+  let _isNativePlatform = false;
+  let CapTTS = null;
 
   // ── Animated Walk State ───────────────────────────────────────
   let walkTrail     = null;   // SVG overlay for the trail dots
@@ -95,6 +114,16 @@ const VoiceAssistant = (() => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const isNative = window.Capacitor && window.Capacitor.isNativePlatform();
     const CapSpeech = window.Capacitor?.Plugins?.SpeechRecognition;
+
+    // ✅ Native audio replies on Android: use the TextToSpeech Capacitor plugin
+    // since window.speechSynthesis isn't available inside the app's WebView.
+    _isNativePlatform = !!isNative;
+    CapTTS = window.Capacitor?.Plugins?.TextToSpeech || null;
+    if (_isNativePlatform && CapTTS) {
+      console.log('[Voice v4] Using Capacitor Native TextToSpeech plugin for audio replies');
+    } else if (_isNativePlatform && !CapTTS) {
+      console.warn('[Voice v4] Native platform detected but TextToSpeech plugin not found — replies will be text-only.');
+    }
 
     if (isNative && CapSpeech) {
       console.log('[Voice v4] Using Capacitor Native SpeechRecognition plugin');
@@ -773,43 +802,102 @@ const VoiceAssistant = (() => {
                  || voices[0] || null;
   }
 
+  // Shared "started talking" / "finished talking" handlers, used by both the
+  // native (Capacitor) and browser (Web Speech API) code paths below, so the
+  // continuous-listening resume logic only has to live in one place.
+  function _onSpeechStart() {
+    _isSpeaking = true;
+    if (btn) btn.classList.add('talking');
+    // Prevent mic from picking up the synthesized voice
+    if (recognition && isListening) {
+      try { recognition.stop(); } catch { /* ignore */ }
+    }
+  }
+
+  function _onSpeechEnd() {
+    _isSpeaking = false;
+    if (btn) btn.classList.remove('talking');
+    // Resume listening automatically after speaking if in continuous mode
+    if (isContinuous && isActive) {
+      setTimeout(() => {
+        if (!_isSpeaking && !isListening) {
+          try {
+            _isAutoRestarting = true;
+            recognition.start();
+            isListening = true;
+          } catch { /* ignore */ }
+        }
+      }, 300);
+    }
+  }
+
+  // Cancels whatever is currently speaking, regardless of which TTS backend
+  // is in use (native Capacitor plugin vs. browser Web Speech API).
+  function _ttsCancel() {
+    if (_isNativePlatform && CapTTS && CapTTS.stop) {
+      try { CapTTS.stop(); } catch { /* ignore */ }
+    }
+    try { synth.cancel(); } catch { /* ignore */ }
+  }
+
   function speak(text) {
     if (!text) return;
     lastSpeech = text;
-    synth.cancel();
-    try {
-      const u = new SpeechSynthesisUtterance(text);
-      if (!voiceInstance) setVoice();
-      u.voice = voiceInstance;
-      u.pitch = 1.15;
-      u.rate  = 1.0;
-      u.onstart = () => {
-        _isSpeaking = true;
-        if (btn) btn.classList.add('talking');
-        // Prevent mic from picking up the synthesized voice
-        if (recognition && isListening) {
-          try { recognition.stop(); } catch { /* ignore */ }
+    showBubble(text);
+
+    // ✅ MOBILE APK AUDIO FIX: On Android (packaged app) there is no
+    // window.speechSynthesis — real audio replies go through the native
+    // @capacitor-community/text-to-speech plugin instead.
+    if (_isNativePlatform && CapTTS) {
+      _onSpeechStart();
+      (async () => {
+        try {
+          if (CapTTS.stop) { try { await CapTTS.stop(); } catch { /* ignore */ } }
+          await CapTTS.speak({
+            text,
+            lang: currentLang === 'bn-IN' ? 'bn-IN' : 'en-US',
+            rate: 1.0,
+            pitch: 1.15,
+            volume: 1.0,
+          });
+        } catch (e) {
+          console.warn('[Voice] Native TTS speak error:', e);
+        } finally {
+          _onSpeechEnd();
         }
-      };
-      u.onend = () => {
-        _isSpeaking = false;
-        if (btn) btn.classList.remove('talking');
-        // Resume listening automatically after speaking if in continuous mode
-        if (isContinuous && isActive) {
-          setTimeout(() => {
-            if (!_isSpeaking && !isListening) {
-              try { 
-                _isAutoRestarting = true;
-                recognition.start(); 
-                isListening = true;
-              } catch { /* ignore */ }
-            }
-          }, 300);
+      })();
+      return;
+    }
+
+    // ✅ Browser / desktop: standard Web Speech Synthesis API.
+    if (_hasTTS && typeof SpeechSynthesisUtterance !== 'undefined') {
+      synth.cancel();
+      try {
+        const u = new SpeechSynthesisUtterance(text);
+        if (!voiceInstance) setVoice();
+        u.voice = voiceInstance;
+        u.pitch = 1.15;
+        u.rate  = 1.0;
+        u.onstart = _onSpeechStart;
+        u.onend   = _onSpeechEnd;
+        synth.speak(u);
+      } catch(e) { console.warn('[Voice] speak error:', e); }
+      return;
+    }
+
+    // ✅ Last-resort fallback: no TTS engine anywhere. Reply is already shown
+    // in the bubble above — just keep continuous listening alive.
+    if (isContinuous && isActive) {
+      setTimeout(() => {
+        if (!isListening && !_isSpeaking) {
+          try {
+            _isAutoRestarting = true;
+            recognition.start();
+            isListening = true;
+          } catch { /* ignore */ }
         }
-      };
-      synth.speak(u);
-      showBubble(text);
-    } catch(e) { console.warn('[Voice] speak error:', e); }
+      }, 300);
+    }
   }
 
   function greetUser() {
@@ -876,7 +964,7 @@ const VoiceAssistant = (() => {
 
   // ★ Stop + minimize doll (Escape / tap doll / "you can go")
   function dismissAssistant(silent = false) {
-    synth.cancel();
+    _ttsCancel();
     _isSpeaking = false;
     _hardStop = true;
     isContinuous = false;
@@ -1382,19 +1470,43 @@ const VoiceAssistant = (() => {
       "Check the weather, check the fuel, Wings Fly Academy is really cool! High in the air, we feel so free, the masters of the sky we'll be!"
     ];
     const song = lyrics[Math.floor(Math.random() * lyrics.length)];
-    
-    // Change pitch/rate for "singing" effect
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(song);
-    if (!voiceInstance) setVoice();
-    u.voice = voiceInstance;
-    u.pitch = 1.35;
-    u.rate  = 0.95;
-    u.onstart = () => btn && btn.classList.add('talking');
-    u.onend   = () => btn && btn.classList.remove('talking');
-    synth.speak(u);
     showBubble(`🎵 ${song}`, true);
     setTimeout(() => hideBubble(), 5000);
+
+    // Change pitch/rate for a "singing" effect — works on both native (Android
+    // APK, via CapTTS) and browser (Web Speech API) backends.
+    if (_isNativePlatform && CapTTS) {
+      if (btn) btn.classList.add('talking');
+      (async () => {
+        try {
+          if (CapTTS.stop) { try { await CapTTS.stop(); } catch { /* ignore */ } }
+          await CapTTS.speak({
+            text: song,
+            lang: currentLang === 'bn-IN' ? 'bn-IN' : 'en-US',
+            rate: 0.95,
+            pitch: 1.35,
+            volume: 1.0,
+          });
+        } catch (e) {
+          console.warn('[Voice] Native TTS singSong error:', e);
+        } finally {
+          if (btn) btn.classList.remove('talking');
+        }
+      })();
+      return;
+    }
+
+    if (_hasTTS && typeof SpeechSynthesisUtterance !== 'undefined') {
+      synth.cancel();
+      const u = new SpeechSynthesisUtterance(song);
+      if (!voiceInstance) setVoice();
+      u.voice = voiceInstance;
+      u.pitch = 1.35;
+      u.rate  = 0.95;
+      u.onstart = () => btn && btn.classList.add('talking');
+      u.onend   = () => btn && btn.classList.remove('talking');
+      synth.speak(u);
+    }
   }
 
   // 📢 Scroll commands
@@ -1731,7 +1843,7 @@ const VoiceAssistant = (() => {
 
     // ── STOP ─────────────────────────────────────────────────────
     if (/\b(stop|quiet|shh|silence|shut up|be quiet|থামো|চুপ থাক)\b/.test(cmd)) {
-      synth.cancel(); hideBubble(); speak(currentLang === 'bn-IN' ? 'ঠিক আছে, চুপ থাকছি।' : 'Okay, I\'ll be quiet.'); return;
+      _ttsCancel(); hideBubble(); speak(currentLang === 'bn-IN' ? 'ঠিক আছে, চুপ থাকছি।' : 'Okay, I\'ll be quiet.'); return;
     }
 
     // ── YOU CAN GO NOW (Disable/Dismiss Assistant) ─────────────────
