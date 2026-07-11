@@ -364,7 +364,15 @@ function getSettings() {
   } catch { return { active:true, duration:10, passMark:60, maxWarnings:3, examName:'', examDate:'' }; }
 }
 
-function saveSettings() {
+function _showSettingsAlert(message, type = 'success') {
+  const el = document.getElementById('examSettingsAlert');
+  if (!el) return;
+  el.className = `alert alert-${type}`;
+  el.textContent = message;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+function saveSettings(showFeedback = false) {
   const s = getSettings();
   s.duration = parseInt(document.getElementById('durationInput').value) || 10;
   s.passMark = parseInt(document.getElementById('passMarkInput').value) || 60;
