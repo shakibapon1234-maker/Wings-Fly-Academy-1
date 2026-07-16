@@ -123,6 +123,7 @@ const DashboardModule = (() => {
     const rTotalExpense = expStart
       ? finance.filter(f => {
           if (f.type !== 'Expense') return false;
+          if (f.category === 'Balance Adjustment') return false;
           // ✅ Loan Guard: skip any loan-related entry — loans only affect balance, not P&L
           if (isLoanEntry(f)) return false;
           const fd = normDate(f.date);

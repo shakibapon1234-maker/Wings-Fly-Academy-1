@@ -3423,6 +3423,27 @@ const SyncEngine = (() => {
             merged[0].security_answer = localRows[0].security_answer;
           }
 
+          // ✅ FIX (Section 27): exam_settings cutoff protection in _pullCore as well
+          if (localRows[0].exam_settings && merged[0].exam_settings !== undefined) {
+            try {
+              const localExam = JSON.parse(localRows[0].exam_settings || '{}');
+              const mergedExam = JSON.parse(merged[0].exam_settings || '{}');
+              let examChanged = false;
+              if (localExam.repair_cutoff_date && !mergedExam.repair_cutoff_date) {
+                mergedExam.repair_cutoff_date = localExam.repair_cutoff_date;
+                examChanged = true;
+              }
+              if (localExam.repair_cutoff_baselines &&
+                  (!mergedExam.repair_cutoff_baselines || Object.keys(mergedExam.repair_cutoff_baselines).length === 0)) {
+                mergedExam.repair_cutoff_baselines = localExam.repair_cutoff_baselines;
+                examChanged = true;
+              }
+              if (examChanged) {
+                merged[0].exam_settings = JSON.stringify(mergedExam);
+              }
+            } catch { /* JSON parse error — skip */ }
+          }
+
           // ✅ FIX: keep_records, recycle_bin, activity_log, snapshots — এগুলো large JSON fields।
           // Supabase pull/realtime payload-এ এরা missing বা truncated আসতে পারে।
           // Cloud-এ এই field না থাকলে local version সবসময় preserve করো।

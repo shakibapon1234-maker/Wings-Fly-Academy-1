@@ -1396,12 +1396,14 @@ if (localRow.exam_settings) {
 
 ### প্রভাবিত ফাইল
 
-`js/core/supabase-sync.js` — `mergeRows()` (line ~3613), `mergeIncremental()` (line ~3753)
+`js/core/supabase-sync.js` — `mergeRows()` (line ~3613), `mergeIncremental()` (line ~3753), `_pullCore()` (line ~3425)
+`js/ui/dashboard.js` — `rTotalExpense` calculation (line ~124)
 
 ### Data Analysis (Final Bekup 11)
 
 - **41টি Auto-repaired entries** (total ৳3,51,499) — সব pre-cutoff date, recalc-এ সঠিকভাবে skip হচ্ছিল ✅
 - **Stored balance (backup 11):** Cash ৳4,089, Bikash ৳71 — ledger calculation-এর সাথে **exact match** ✅
 - **সমস্যা backup-এর data-তে নয়** — sync conflict-এ baselines হারানোর কারণে runtime-এ balance inflate হচ্ছিল
+- **ড্যাশবোর্ডের অতিরিক্ত খরচ:** অটো-হেল করার কারণে তৈরি হওয়া `Balance Adjustment` ক্যাটাগরির এন্ট্রিগুলো রানিং ব্যাচের খরচে কাউন্ট হচ্ছিল কারণ `dashboard.js` এ একে বাদ দেওয়া হয়নি (অল-টাইম খরচে অলরেডি বাদ দেওয়া ছিল)। ড্যাশবোর্ডে রানিং ব্যাচের খরচে `Balance Adjustment` এক্সক্লুড করা হয়েছে।
 
-*আপডেট: 2026-07-16 — Section 27: exam_settings Cutoff Sync Loss Bug Fix।*
+*আপডেট: 2026-07-16 — Section 27: exam_settings Cutoff Sync Loss Bug Fix & Dashboard Balance Adjustment Filter Fix।*
