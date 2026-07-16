@@ -273,6 +273,9 @@ const Finance = (() => {
     if (!filterType || (filterType !== 'Loan Giving' && filterType !== 'Loan Receiving')) {
       r = r.filter(f => !f._isLoan);
     }
+    // ✅ Exclude 'Balance Adjustment' from main ledger list (they are managed in Settings -> Balance Adjustment)
+    r = r.filter(f => f.category !== 'Balance Adjustment');
+
     if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['description','category','note']);
     if (filterType)   r = r.filter(f=>f.type===filterType);
     if (filterMethod) r = r.filter(f=>f.method===filterMethod);
