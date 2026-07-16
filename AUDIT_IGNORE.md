@@ -1346,6 +1346,62 @@ document.addEventListener('keydown', (e) => {
 ৩. **ইনপুট ফিল্ড সিকিউর করা:** settings.js-এ ইনপুট টাইপ `text` থেকে `password` এবং `autocomplete="new-password"` করা হয়েছে, যা ব্রাউজারের অটোফিল প্রতিরোধ করে।
 ৪. **ফাইল সিঙ্ক:** ডাউনলোডকৃত `institution-mode.js` এবং `settings-institution.js` তিনটি টার্গেট ডিরেক্টরিতেই (`js/core/`, `www/js/core/`, এবং `android/...`) সিঙ্ক করা হয়েছে এবং `npm run build:mobile` চালিয়ে নিশ্চিত করা হয়েছে।
 
+
 **প্রভাবিত ফাইল:** `js/core/license-manager.js`, `js/ui/settings.js`, `js/core/institution-mode.js`, `js/core/settings-institution.js`
 
 *আপডেট: 2026-07-11 — Section 26: License Server Admin Secret ওভাররাইট ও ফোল্ডার সিঙ্ক সমস্যার সমাধান।*
+
+---
+
+## Section 27: exam_settings Cutoff Sync Loss Bug — Balance Inflate Root Cause (2026-07-16)
+
+### সমস্যার বিবরণ
+
+ব্যবহারকারী রিপোর্ট করেছিলেন: নতুন expense যোগ করার পরে account balance অনেক বেড়ে যাচ্ছে (৳2,000 হওয়ার কথা ছিল, কিন্তু লক্ষাধিক টাকা দেখাচ্ছে)। ১০-১৫ দিন ঠিক ছিল, হঠাৎ করে বেড়ে গেছে।
+
+### Root Cause
+
+**`mergeRows()` এবং `mergeIncremental()`-এ `settings` table-এর `exam_settings` field protect করা ছিল না।**
+
+ঘটনার ক্রম:
+1. `_saveBaselinesToDB()` settings row update করে (`exam_settings` JSON-এ `repair_cutoff_baselines` সহ) → cloud push
+2. Cloud sync pull-এ settings row আসে — cloud row-এর `updated_at` বেশি নতুন
+3. Cloud জেতে → কিন্তু cloud-এর `exam_settings`-এ `repair_cutoff_baselines` ছিল না (cloud-এ পৌঁছানোর আগে overwrite হয়েছিল বা cloud থেকে missing ছিল)
+4. Local `exam_settings` (baselines সহ) cloud version-এ overwrite হয়ে গেল
+5. পরের `recalculateAccountBalancesFromLedger()` → `_resolveCutoffBaselines()` → baselines পেল না → **fallback: current_balance - postNet থেকে derive** → **wrong baseline saved**
+6. পরের recalc → wrong baseline + post-cutoff net = inflated balance
+
+### কেন "এতদিন ঠিক ছিল"?
+
+Cloud settings row-এর timestamp যতক্ষণ local-এর চেয়ে পুরনো ছিল, local জিতত এবং baselines safe থাকত। কিন্তু কোনো একটি push/pull race condition-এ cloud row নতুন হয়ে গেলেই bug trigger হত। এটা non-deterministic — তাই "হঠাৎ" মনে হয়েছিল।
+
+### Fix (2026-07-16)
+
+**`mergeIncremental()` এবং `mergeRows()` উভয়তেই** settings row cloud-জিতলেও `exam_settings` থেকে `repair_cutoff_date` এবং `repair_cutoff_baselines` local value preserve করার logic যোগ করা হয়েছে।
+
+```javascript
+// exam_settings protection — cloud sync-এ cutoff data হারাবে না
+if (localRow.exam_settings) {
+  const localExam = JSON.parse(localRow.exam_settings || '{}');
+  const mergedExam = JSON.parse(merged.exam_settings || '{}');
+  if (localExam.repair_cutoff_date && !mergedExam.repair_cutoff_date) {
+    mergedExam.repair_cutoff_date = localExam.repair_cutoff_date;
+  }
+  if (localExam.repair_cutoff_baselines && !mergedExam.repair_cutoff_baselines) {
+    mergedExam.repair_cutoff_baselines = localExam.repair_cutoff_baselines;
+  }
+  merged.exam_settings = JSON.stringify(mergedExam);
+}
+```
+
+### প্রভাবিত ফাইল
+
+`js/core/supabase-sync.js` — `mergeRows()` (line ~3613), `mergeIncremental()` (line ~3753)
+
+### Data Analysis (Final Bekup 11)
+
+- **41টি Auto-repaired entries** (total ৳3,51,499) — সব pre-cutoff date, recalc-এ সঠিকভাবে skip হচ্ছিল ✅
+- **Stored balance (backup 11):** Cash ৳4,089, Bikash ৳71 — ledger calculation-এর সাথে **exact match** ✅
+- **সমস্যা backup-এর data-তে নয়** — sync conflict-এ baselines হারানোর কারণে runtime-এ balance inflate হচ্ছিল
+
+*আপডেট: 2026-07-16 — Section 27: exam_settings Cutoff Sync Loss Bug Fix।*

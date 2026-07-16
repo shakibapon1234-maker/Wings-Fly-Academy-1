@@ -3624,6 +3624,30 @@ const SyncEngine = (() => {
               existing.status = localPaid >= total ? 'Paid' : 'Partial';
             }
             merged.set(row.id, existing);
+          } else {
+            merged.set(row.id, existing);
+          }
+          // ✅ FIX (Section 27): mergeRows-এও exam_settings cutoff protection।
+          // cloud settings row জিতলেও local repair_cutoff_date/baselines হারাবে না।
+          const finalRow = merged.get(row.id) || existing;
+          if (row.exam_settings && finalRow && finalRow.exam_settings !== undefined) {
+            try {
+              const localExam = JSON.parse(row.exam_settings || '{}');
+              const finalExam = JSON.parse(finalRow.exam_settings || '{}');
+              let examChanged = false;
+              if (localExam.repair_cutoff_date && !finalExam.repair_cutoff_date) {
+                finalExam.repair_cutoff_date = localExam.repair_cutoff_date;
+                examChanged = true;
+              }
+              if (localExam.repair_cutoff_baselines &&
+                  (!finalExam.repair_cutoff_baselines || Object.keys(finalExam.repair_cutoff_baselines).length === 0)) {
+                finalExam.repair_cutoff_baselines = localExam.repair_cutoff_baselines;
+                examChanged = true;
+              }
+              if (examChanged) {
+                merged.set(row.id, { ...finalRow, exam_settings: JSON.stringify(finalExam) });
+              }
+            } catch { /* JSON parse error — skip */ }
           }
         }
       }
@@ -3762,6 +3786,29 @@ const SyncEngine = (() => {
                   }
                 } catch { /* Not a JSON array — skip smart merge for this field */ }
               }
+            }
+            // ✅ FIX (Section 27): exam_settings — repair_cutoff_date ও repair_cutoff_baselines
+            // cloud pull-এ হারিয়ে যাচ্ছিল (balance inflate-এর root cause)।
+            // local exam_settings-এ cutoff data থাকলে cloud version merge করে
+            // local-এর cutoff data preserve করো।
+            if (localRow.exam_settings) {
+              try {
+                const localExam = JSON.parse(localRow.exam_settings || '{}');
+                const mergedExam = JSON.parse(merged.exam_settings || '{}');
+                let examChanged = false;
+                if (localExam.repair_cutoff_date && !mergedExam.repair_cutoff_date) {
+                  mergedExam.repair_cutoff_date = localExam.repair_cutoff_date;
+                  examChanged = true;
+                }
+                if (localExam.repair_cutoff_baselines &&
+                    (!mergedExam.repair_cutoff_baselines || Object.keys(mergedExam.repair_cutoff_baselines).length === 0)) {
+                  mergedExam.repair_cutoff_baselines = localExam.repair_cutoff_baselines;
+                  examChanged = true;
+                }
+                if (examChanged) {
+                  merged.exam_settings = JSON.stringify(mergedExam);
+                }
+              } catch { /* JSON parse error — skip exam_settings protection for this row */ }
             }
             localMap.set(cloudRow.id, merged);
           } else {
