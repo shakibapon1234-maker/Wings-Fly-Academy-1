@@ -3173,16 +3173,64 @@ ${expenseEntries.length > 0 ? `
   // TAB 11: MONITOR
   // ════════════════════════════════════════════════════════════════
   function panelMonitor() {
-    // ✅ Root-cause fix: এই প্যানেলের আসল লজিক এখন js/ui/settings-monitor.js-এ,
-    // যেটা cloud-synced monitor_ledger টেবিল থেকে raw (no-calculation) data দেখায়।
-    // আগে এখানে localStorage 'wfa_recent_changes' থেকে সরাসরি পড়া হতো (rolling ১৫-এন্ট্রি,
-    // একাধিক জায়গা থেকে clear হয়ে যেত) — সেই duplicate কোড সরানো হলো।
-    if (typeof SettingsMonitor !== 'undefined' && typeof SettingsMonitor.buildPanelHTML === 'function') {
-      return SettingsMonitor.buildPanelHTML(activeTab);
-    }
-    return `<div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
-      <div class="settings-card glow-purple"><div class="settings-card-title"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
-      <p style="color:var(--text-muted)">Monitor module লোড হয়নি — পেজ রিফ্রেশ করুন।</p></div></div>`;
+    // wfa_recent_changes — শুধু finance transactions (supabase-sync.js)
+    const transactions = Utils.safeJSON(localStorage.getItem('wfa_recent_changes'), []);
+
+    // Transaction type badge color
+    const txBadge = type => {
+      const t = String(type || '').toLowerCase();
+      if (t === 'income')           return 'badge-success';
+      if (t === 'expense')          return 'badge-error';
+      if (t.startsWith('transfer')) return 'badge-warning';
+      if (t === 'loan giving')      return 'badge-warning';
+      if (t === 'loan receiving')   return 'badge-info';
+      return 'badge-info';
+    };
+
+    return `
+    <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
+      <div class="settings-card glow-purple">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+          <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <button type="button" class="btn btn-outline btn-sm" onclick="SettingsModule.refreshMonitor()"><i class="fa fa-rotate"></i> Refresh</button>
+
+          </div>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
+
+        <div class="table-wrapper">
+          <table>
+            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th></tr></thead>
+            <tbody>
+              ${transactions.length === 0 ?
+                `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>` :
+                transactions.map((c, i) => {
+                  const actionLabel = c.action === 'update' ? '✏️ Edit' : c.action === 'delete' ? '🗑️ Delete' : c.action === 'restore' ? '↩️ Restore' : '➕ New';
+                  const actionColor = c.action === 'update' ? '#00d9ff' : c.action === 'delete' ? '#ff4757' : c.action === 'restore' ? '#ffd700' : '#00ff88';
+                  const actionBg    = c.action === 'update' ? 'rgba(0,217,255,0.10)' : c.action === 'delete' ? 'rgba(255,71,87,0.10)' : c.action === 'restore' ? 'rgba(255,215,0,0.10)' : 'rgba(0,255,136,0.10)';
+                  // ✅ Rebuilt vs Real snapshot indicator
+                  const snapshotBadge = c.rebuilt
+                    ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
+                    : '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>';
+                  return `
+                  <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsModule.showMonitorSnapshot(${i})" title="Click to see account snapshot at this transaction">
+                    <td>${i + 1}${snapshotBadge}</td>
+                    <td style="font-size:.82rem">${c.date || '—'}</td>
+                    <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
+                    <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
+                    <td style="font-size:.82rem">${c.category || '—'}</td>
+                    <td style="font-size:.82rem">${c.person || '—'}</td>
+                    <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${String(c.type||'').toLowerCase()==='expense'?'var(--error)':'var(--success)'}">${c.amount ? Utils.takaEn(c.amount) : '—'}</td>
+                  </tr>
+                  <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
+                }).join('')
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
   }
   // ════════════════════════════════════════════════════════════════
   // HELPER FUNCTIONS
@@ -5068,7 +5116,7 @@ ${expenseEntries.length > 0 ? `
   }
 
   // ── Export All Data ───────────────────────────────────────────
-  function exportAllData() {
+  async function exportAllData() {
     const allData = {};
     for (const [_key, tableName] of Object.entries(DB)) {
       let rows = SupabaseSync.getAll(tableName);
@@ -5087,14 +5135,16 @@ ${expenseEntries.length > 0 ? `
     allData._version = '2';
     const json = JSON.stringify(allData, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `wfa_backup_${typeof Utils !== 'undefined' ? Utils.today() : new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    logActivity('add', 'backup', 'Exported all data (password fields excluded)');
-    Utils.toast('All data exported ✅ (password fields excluded for security)', 'success');
+    const filename = `wfa_backup_${typeof Utils !== 'undefined' ? Utils.today() : new Date().toISOString().split('T')[0]}.json`;
+    // ✅ Utils.saveFile writes the file via Capacitor Filesystem + opens the
+    // native Share sheet on the Android APK, and falls back to the old
+    // browser download on web/PWA. The old direct a.download click never
+    // actually saved a file inside the Capacitor WebView.
+    const ok = await Utils.saveFile(filename, blob, 'application/json');
+    if (ok) {
+      logActivity('add', 'backup', 'Exported all data (password fields excluded)');
+      Utils.toast('All data exported ✅ (password fields excluded for security)', 'success');
+    }
   }
 
   // ── Data Migration ────────────────────────────────────────────

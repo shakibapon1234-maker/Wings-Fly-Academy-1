@@ -8,7 +8,7 @@ const BackupRestore = (() => {
   const BACKUP_VERSION = 'wfa_backup_v2';
 
   // ── Export: Full local database dump ────────────────────────
-  function exportBackup() {
+  async function exportBackup() {
     try {
       const tables = ['students', 'finance_ledger', 'accounts', 'loans', 'exams',
                        'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings'];
@@ -38,19 +38,18 @@ const BackupRestore = (() => {
 
       const json = JSON.stringify(backup, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
       const dateStr = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      a.href = url;
-      a.download = `WingsFly_Backup_${dateStr}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      // ✅ Utils.saveFile handles both the Capacitor native APK (via
+      // Filesystem + Share) and the plain browser/PWA fallback.
+      const ok = typeof Utils !== 'undefined'
+        ? await Utils.saveFile(`WingsFly_Backup_${dateStr}.json`, blob, 'application/json')
+        : false;
 
-      if (typeof Utils !== 'undefined') {
+      if (ok && typeof Utils !== 'undefined') {
         Utils.toast(`✅ Backup exported — ${totalRows} records across ${tables.length} tables`, 'success', 5000);
       }
 
-      return true;
+      return ok;
     } catch (e) {
       console.error('[Backup] Export failed:', e);
       if (typeof Utils !== 'undefined') Utils.toast('❌ Backup export failed: ' + e.message, 'error');

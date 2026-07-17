@@ -637,6 +637,93 @@ const Utils = (() => {
     }, 500);
   }
 
+  // ── Save/Export File — works in browser AND in Capacitor native APK ──
+  // `data` may be: a Blob, an ArrayBuffer/Uint8Array, or a dataURL string
+  // (e.g. from canvas.toDataURL()). `mimeType` is only used when `data`
+  // is not already a Blob/dataURL.
+  //
+  // Why this exists: on the web, `<a download>` + a blob URL works because
+  // the browser's own download manager saves the file. Inside the
+  // Capacitor Android WebView there is no such download manager — the
+  // click silently does nothing, so old code appeared to "succeed" (no
+  // JS error) while no file was ever written to the phone. On native we
+  // now write the file into the app's sandbox via @capacitor/filesystem
+  // and immediately hand it to @capacitor/share, which opens Android's
+  // native share sheet so the user can save it to Downloads/Drive/etc.
+  async function saveFile(filename, data, mimeType) {
+    const isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    const Filesystem = window.Capacitor?.Plugins?.Filesystem;
+    const Share = window.Capacitor?.Plugins?.Share;
+
+    if (isNative && Filesystem) {
+      try {
+        const base64Data = await _toBase64(data, mimeType);
+        const written = await Filesystem.writeFile({
+          path: filename,
+          data: base64Data,
+          directory: 'CACHE', // app-private sandbox — no storage permission needed
+        });
+        if (Share && typeof Share.share === 'function') {
+          await Share.share({
+            title: filename,
+            dialogTitle: 'ফাইল সেভ / শেয়ার করুন',
+            files: [written.uri],
+          });
+        } else {
+          toast(`ফাইল তৈরি হয়েছে: ${filename}`, 'success');
+        }
+        return true;
+      } catch (e) {
+        // User closing the native share sheet also lands here on some
+        // Android versions — don't show a scary error for that case.
+        const msg = (e && e.message) || '';
+        if (/cancel/i.test(msg)) return false;
+        console.error('[Utils.saveFile] Native save failed:', e);
+        toast('ফাইল সেভ করতে সমস্যা হয়েছে: ' + msg, 'error');
+        return false;
+      }
+    }
+
+    // ── Web / PWA fallback: original anchor-download approach ──
+    try {
+      const isDataUrl = typeof data === 'string' && data.startsWith('data:');
+      const blob = isDataUrl ? null : (data instanceof Blob ? data : new Blob([data], { type: mimeType || 'application/octet-stream' }));
+      const url = isDataUrl ? data : URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      if (!isDataUrl) setTimeout(() => URL.revokeObjectURL(url), 4000);
+      return true;
+    } catch (e) {
+      console.error('[Utils.saveFile] Web download failed:', e);
+      toast('ডাউনলোড ব্যর্থ: ' + (e.message || ''), 'error');
+      return false;
+    }
+  }
+
+  // Convert Blob / ArrayBuffer / Uint8Array / dataURL → raw base64 (no "data:...base64," prefix)
+  function _toBase64(data, mimeType) {
+    if (typeof data === 'string') {
+      // Already a dataURL, e.g. canvas.toDataURL()
+      const comma = data.indexOf(',');
+      return Promise.resolve(comma >= 0 ? data.slice(comma + 1) : data);
+    }
+    const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType || 'application/octet-stream' });
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result || '';
+        const comma = result.indexOf(',');
+        resolve(comma >= 0 ? result.slice(comma + 1) : result);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
   // ── Excel Export (SheetJS) ────────────────────────────────
   function exportExcel(rows, filename, sheetName) {
     if (!rows || !rows.length) { toast('No data available', 'warn'); return; }
@@ -655,8 +742,12 @@ const Utils = (() => {
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Sheet1');
-      XLSX.writeFile(wb, `${filename || 'export'}_${today()}.xlsx`);
-      toast('Excel Downloaded ✓', 'success');
+      // ✅ Use array output + saveFile instead of XLSX.writeFile, which
+      // does its own internal a.download click and silently fails
+      // inside the Capacitor Android WebView (see Utils.saveFile above).
+      const wbArray = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      saveFile(`${filename || 'export'}_${today()}.xlsx`, wbArray, 'application/octet-stream')
+        .then(ok => { if (ok) toast('Excel Downloaded ✓', 'success'); });
     };
     if (typeof XLSX !== 'undefined') { run(); return; }
     if (window.LazyLibs) {
@@ -681,10 +772,7 @@ const Utils = (() => {
       ...rows.map(r => headers.map(h => `"${_csvSanitize(r[h])}"`).join(','))
     ].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = filename; a.click();
-    URL.revokeObjectURL(url);
+    saveFile(filename, blob, 'text/csv;charset=utf-8');
   }
 
   // ── Debounce ──────────────────────────────────────────────
@@ -1028,6 +1116,9 @@ const Utils = (() => {
       generateStudentId,
       // Print & Export
       printArea, exportExcel, downloadCSV,
+      // ✅ Central save/share helper — use this for ANY new export feature
+      // so it works correctly inside the Capacitor Android APK too.
+      saveFile,
       // Paths
       resolveAppUrl,
       // Misc

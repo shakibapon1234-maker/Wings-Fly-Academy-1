@@ -283,14 +283,16 @@ const CertificatesModule = (() => {
   function downloadQR(studentName) {
     const canvas = document.querySelector('#qr-render-target canvas');
     const img = document.querySelector('#qr-render-target img, #qr-img-fallback');
+    const filename = `QR_${studentName.replace(/\s+/g,'_')}.png`;
     if (canvas) {
-      const a = document.createElement('a');
-      a.download = `QR_${studentName.replace(/\s+/g,'_')}.png`;
-      a.href = canvas.toDataURL('image/png'); a.click();
+      Utils.saveFile(filename, canvas.toDataURL('image/png'));
     } else if (img) {
-      const a = document.createElement('a');
-      a.download = `QR_${studentName.replace(/\s+/g,'_')}.png`;
-      a.href = img.src; a.target = '_blank'; a.click();
+      // Remote/fallback <img> (e.g. api.qrserver.com) — fetch it into a
+      // Blob first so Utils.saveFile can hand it to native Filesystem/Share.
+      fetch(img.src)
+        .then(res => res.blob())
+        .then(blob => Utils.saveFile(filename, blob, 'image/png'))
+        .catch(() => Utils.toast('QR ডাউনলোড ব্যর্থ হয়েছে।', 'error'));
     } else {
       Utils.toast('QR image পাওয়া যায়নি।', 'error');
     }

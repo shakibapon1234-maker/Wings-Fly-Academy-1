@@ -250,7 +250,13 @@ const ResultSheet = (() => {
           pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
           heightLeft -= pageHeight;
         }
-        pdf.save(`result_${_class}_${_exam}_${_year}.pdf`);
+        // ✅ jsPDF's own pdf.save() does an internal a.download click,
+        // which silently fails inside the Capacitor Android WebView.
+        // Get the PDF as a Blob instead and route it through
+        // Utils.saveFile (native Filesystem+Share on APK, browser
+        // download on web).
+        const pdfBlob = pdf.output('blob');
+        await Utils.saveFile(`result_${_class}_${_exam}_${_year}.pdf`, pdfBlob, 'application/pdf');
       } catch (err) {
         if (wrapper.parentNode) document.body.removeChild(wrapper);
         console.error('[ResultSheet] PDF export failed', err);

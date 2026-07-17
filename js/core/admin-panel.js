@@ -349,8 +349,12 @@ function exportResults() {
   results.forEach(r => rows.push([r.name,r.id,r.correct,r.total,r.pct+'%',r.passed?'উত্তীর্ণ':'অনুত্তীর্ণ',r.warnings||0,r.date]));
   const csv = rows.map(r => r.join(',')).join('\n');
   const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='wfa_results.csv'; a.click();
+  if (typeof Utils !== 'undefined') {
+    Utils.saveFile('wfa_results.csv', blob, 'text/csv;charset=utf-8;');
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='wfa_results.csv'; a.click();
+  }
 }
 
 // SETTINGS
@@ -542,8 +546,12 @@ function _showLogoAlert(msg, type) {
 function exportQuestions() {
   const qs = getQuestions();
   const blob = new Blob([JSON.stringify(qs, null, 2)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download='wfa_questions.json'; a.click();
+  if (typeof Utils !== 'undefined') {
+    Utils.saveFile('wfa_questions.json', blob, 'application/json');
+  } else {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='wfa_questions.json'; a.click();
+  }
 }
 
 function importQuestions(event) {
