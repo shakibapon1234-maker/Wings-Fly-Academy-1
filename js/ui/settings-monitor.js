@@ -23,61 +23,23 @@ window.SettingsMonitor = (function () {
      PANEL HTML
   ══════════════════════════════════════════════════════════ */
   function buildPanelHTML(activeTab) {
-    const transactions = _loadTransactions();
+    const entries = _loadLedger();
 
-    const txBadge = type => {
-      const t = String(type || '').toLowerCase();
-      if (t === 'income')           return 'badge-success';
-      if (t === 'expense')          return 'badge-error';
-      if (t.startsWith('transfer')) return 'badge-warning';
-      if (t === 'loan giving')      return 'badge-warning';
-      if (t === 'loan receiving')   return 'badge-info';
-      return 'badge-info';
-    };
-
-    const rows = transactions.length === 0
-      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">No transactions yet — Income বা Expense add করলে এখানে দেখাবে।</td></tr>`
-      : transactions.map((c, i) => {
-          const actionLabel = c.action === 'update'  ? '✏️ Edit'
-                           : c.action === 'delete'  ? '🗑️ Delete'
-                           : c.action === 'restore' ? '↩️ Restore'
-                           : '➕ New';
-          const actionColor = c.action === 'update'  ? '#00d9ff'
-                           : c.action === 'delete'  ? '#ff4757'
-                           : c.action === 'restore' ? '#ffd700'
-                           : '#00ff88';
-          const actionBg = c.action === 'update'  ? 'rgba(0,217,255,0.10)'
-                        : c.action === 'delete'  ? 'rgba(255,71,87,0.10)'
-                        : c.action === 'restore' ? 'rgba(255,215,0,0.10)'
-                        : 'rgba(0,255,136,0.10)';
-
-          // rebuilt vs real snapshot indicator
-          const hasSnap = !!(c.snapshot && c.snapshot.accounts && c.snapshot.accounts.list);
-          const snapshotBadge = c.rebuilt
-            ? '<span style="font-size:.62rem;color:#ffd700;opacity:.7;margin-left:4px" title="Rebuild থেকে তৈরি — আসল snapshot নয়">🔄</span>'
-            : hasSnap
-              ? '<span style="font-size:.62rem;color:#00ff88;opacity:.5;margin-left:4px" title="Real-time snapshot ✓">📸</span>'
-              : '<span style="font-size:.62rem;color:#ff4757;opacity:.6;margin-left:4px" title="Snapshot নেই">⚠️</span>';
-
-          const amtColor = String(c.type || '').toLowerCase() === 'expense' ? 'var(--error)' : 'var(--success)';
-          // Read-only audit trail: show stored snapshots only, never recalculate balances.
-          const afterTotal = Number(c.snapshot?.accounts?.totalBalance);
-          const beforeTotal = Number(transactions[i + 1]?.snapshot?.accounts?.totalBalance);
-          const balanceTrail = Number.isFinite(afterTotal)
-            ? `${Number.isFinite(beforeTotal) ? _taka(beforeTotal) + ' → ' : '— → '}${_taka(afterTotal)}`
-            : 'Snapshot নেই';
-
+    const rows = entries.length === 0
+      ? `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">কোনো এন্ট্রি নেই — কোনো account-এর balance change হলে এখানে দেখাবে।</td></tr>`
+      : entries.map((r) => {
+          const dirColor = r.direction === 'in' ? 'var(--success)' : 'var(--error)';
+          const dirLabel = r.direction === 'in' ? '⬇ In' : '⬆ Out';
+          const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
           return `
-          <tr class="monitor-recent-row" style="cursor:pointer" onclick="SettingsMonitor.showSnapshot(${i})" title="Click to see account snapshot at this transaction">
-            <td>${i + 1}${snapshotBadge}</td>
-            <td style="font-size:.82rem">${c.date || '—'}</td>
-            <td><span style="font-size:.72rem;font-weight:700;color:${actionColor};background:${actionBg};border:1px solid ${actionColor}44;padding:2px 8px;border-radius:20px;white-space:nowrap">${actionLabel}</span></td>
-            <td><span class="badge ${txBadge(c.type)}">${c.type || '—'}</span></td>
-            <td style="font-size:.82rem">${_esc(c.category) || '—'}</td>
-            <td style="font-size:.82rem">${_esc(c.person) || '—'}</td>
-            <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${amtColor}">${c.amount ? _taka(c.amount) : '—'}</td><td class="text-right" style="font-family:var(--font-ui);font-size:.76rem;color:#f0c040;white-space:nowrap">${balanceTrail}</td>
-          </tr>
-          <tr><td colspan="7" style="padding:0"><div class="monitor-bar" style="width:${Math.max(15, 100 - i * 9)}%"></div></td></tr>`;
+          <tr>
+            <td style="font-size:.82rem">${dateStr}</td>
+            <td style="font-size:.82rem">${_esc(r.account_method) || '—'}</td>
+            <td><span style="font-size:.72rem;font-weight:700;color:${dirColor}">${dirLabel}</span></td>
+            <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${dirColor}">${_taka(r.change_amount)}</td>
+            <td class="text-right" style="font-family:var(--font-ui);font-size:.82rem;color:#f0c040;white-space:nowrap">${_taka(r.balance_before)} → ${_taka(r.balance_after)}</td>
+            <td style="font-size:.78rem;color:var(--text-muted)">${_esc(r.source_note) || '—'}</td>
+          </tr>`;
         }).join('');
 
     return `
@@ -87,14 +49,13 @@ window.SettingsMonitor = (function () {
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
           <div style="display:flex;align-items:center;gap:10px">
             <button type="button" class="btn btn-outline btn-sm" onclick="SettingsMonitor.refresh()"><i class="fa fa-rotate"></i> Refresh</button>
-
           </div>
         </div>
-        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Last 15 financial transactions। একটি row-এ click করলে সেই সময়ের account balance snapshot দেখাবে।</p>
+        <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:16px">Raw ledger — প্রতিটি balance change-এর আগে/পরের মান, cloud-এ সংরক্ষিত। কোনো calculation নেই, account-এ যা আছে ঠিক তাই দেখানো হয়।</p>
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>#</th><th>DATE</th><th>ACTION</th><th>TYPE</th><th>CATEGORY</th><th>PERSON / DETAIL</th><th class="text-right">AMOUNT</th><th class="text-right">RECORDED BALANCE</th></tr></thead>
+            <thead><tr><th>DATE</th><th>ACCOUNT</th><th>DIRECTION</th><th class="text-right">AMOUNT</th><th class="text-right">BALANCE (BEFORE → AFTER)</th><th>NOTE</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
@@ -318,6 +279,22 @@ window.SettingsMonitor = (function () {
   /* ══════════════════════════════════════════════════════════
      PRIVATE HELPERS
   ══════════════════════════════════════════════════════════ */
+
+  /**
+   * ✅ FIX: Cloud-synced monitor_ledger থেকে raw ledger entries লোড করে।
+   * SupabaseSync.getMonitorLedger() → IndexedDB → newest first।
+   */
+  function _loadLedger() {
+    try {
+      if (typeof SupabaseSync !== 'undefined' && typeof SupabaseSync.getMonitorLedger === 'function') {
+        return SupabaseSync.getMonitorLedger();
+      }
+    } catch (e) {
+      console.warn('[SettingsMonitor] _loadLedger failed:', e?.message || e);
+    }
+    return [];
+  }
+
   function _loadTransactions() {
     try {
       return JSON.parse(localStorage.getItem('wfa_recent_changes') || '[]');

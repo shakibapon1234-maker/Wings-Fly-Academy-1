@@ -358,6 +358,7 @@ const DB = {
   school_classes:   'school_classes',
   school_subjects:  'school_subjects',
   school_marks:     'school_marks',
+  monitor:          'monitor_ledger',
   // Aliases — certificate/id-card data lives on students until dedicated tables exist
   certificates:     'students',
   id_cards:         'students',

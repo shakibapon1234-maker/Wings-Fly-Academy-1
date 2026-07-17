@@ -665,6 +665,29 @@ const SupabaseSync = (() => {
     }
   }
 
+  /**
+   * ✅ RAW LEDGER — কোনো calculation নেই।
+   * শুধু _updateBalanceCoreInternal-এ যে currentBal/newBal ইতিমধ্যে
+   * computed আছে, সেই একই raw সংখ্যাগুলো cloud-synced monitor_ledger
+   * টেবিলে সরাসরি save করে। localStorage না — IndexedDB + Supabase,
+   * তাই device পাল্টালেও/reinstall করলেও data থাকবে। কোনো cap নেই (১৫-এর মতো)।
+   */
+  function _logMonitorLedger(methodName, before, after, amount, direction, note) {
+    try {
+      const row = {
+        account_method: String(methodName || ''),
+        balance_before: Number(before) || 0,
+        balance_after:  Number(after)  || 0,
+        change_amount:  Number(amount) || 0,
+        direction:      direction === 'in' ? 'in' : 'out',
+        source_note:    note ? String(note).slice(0, 200) : '',
+      };
+      insert(DB.monitor, row, { bypassLog: true });
+    } catch (e) {
+      console.warn('[MonitorLedger] log failed:', e?.message || e);
+    }
+  }
+
   const _MONITOR_INCOME_TYPES  = ['income', 'transfer in', 'loan receiving', 'investment in'];
   const _MONITOR_EXPENSE_TYPES = ['expense', 'transfer out', 'loan giving', 'investment out'];
 
@@ -2633,6 +2656,8 @@ const SupabaseSync = (() => {
       // ✅ Deferred snapshot: balance update সম্পন্ন — এখন DataMonitor snapshot নাও
       // এটা pure screenshot: accounts.balance-এর current state সরাসরি save হবে
       _finalizeMonitorSnapshot();
+      // ✅ Raw cloud-synced ledger — currentBal/newBal ইতিমধ্যে computed, শুধু save করছি
+      _logMonitorLedger(methodName, currentBal, newBal, normalizedAmount, direction);
       return true;
     } catch (e) {
       console.warn('[Sync] _updateBalanceCore failed:', e);
@@ -3168,6 +3193,11 @@ const SupabaseSync = (() => {
     clearCutoffBaselines,
     getRepairCutoffDate,
     buildMonitorSnapshotAtRecord: _buildMonitorSnapshotAtRecord,
+    // ✅ Raw ledger — no calculation, cloud-synced. Newest first.
+    getMonitorLedger: () => {
+      const rows = getAll(DB.monitor) || [];
+      return rows.slice().sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+    },
     getMonitorSnapshot: _getMonitorSnapshot,  // ✅ Public: reads accounts.balance directly (real snapshot)
     TABLE_COLUMNS,
     _addToRecycleBinPublic: _addToRecycleBin,
