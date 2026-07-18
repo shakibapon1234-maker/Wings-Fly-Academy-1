@@ -381,6 +381,7 @@ const TABLE_COLUMNS = {
   school_subjects: ['id','class_name','subject_name','full_marks','pass_marks','is_active','created_at','updated_at'],
   school_marks: ['id','student_id','student_no','student_name','class_name','section','roll_no','academic_year','exam_type','subject_id','subject_name','marks_obtained','full_marks','grade','gpa','pass','created_at','updated_at'],
   sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
+  monitor_ledger: ['id','account_method','balance_before','balance_after','change_amount','direction','source_note','created_at','updated_at'],
 };
 
 const SupabaseSync = (() => {
