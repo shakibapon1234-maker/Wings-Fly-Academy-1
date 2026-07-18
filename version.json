@@ -1,7 +1,7 @@
 {
   "version": "5.1.3",
-  "deploy_id": "20260710-monitor-voice-fix",
-  "changelog": "Activity log offline retry + stable sort, Data Monitor recorded-balance column, backup-import cutoff/baseline restore, post-pull ledger reconcile, and native voice assistant result handling fix.",
+  "deploy_id": "20260718-monitor-ui-fix",
+  "changelog": "Data Monitor UI cache fix — Service Worker forced update for corrected raw ledger display.",
   "size": "~2MB",
   "released": "2026-07-10"
 }
