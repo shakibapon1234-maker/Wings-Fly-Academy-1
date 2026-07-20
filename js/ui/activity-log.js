@@ -338,7 +338,7 @@ const ActivityLog = (() => {
     <div class="settings-panel ${isActive ? 'active' : ''}" data-panel="activity">
       <div class="settings-card-title" style="color:var(--brand-primary)">
         <i class="fa fa-list-check"></i> FULL ACTIVITY LOG
-        <div style="display:flex;gap:8px;align-items:center">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="settings-top-action"
             style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
             onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{ActivityLog.refresh();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
@@ -473,6 +473,162 @@ const ActivityLog = (() => {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
   }
 
+  // ── Download helpers ─────────────────────────────────────────────────────
+
+  /** বর্তমানে visible (filtered) rows collect করে */
+  function _getVisibleLogs() {
+    const fa = document.getElementById('alog-filter-action')?.value || 'all';
+    const ft = document.getElementById('alog-filter-type')?.value   || 'all';
+    const fs = (document.getElementById('alog-search')?.value || '').trim().toLowerCase();
+    return getLogs().filter(l => {
+      if (fa !== 'all' && l.action !== fa) return false;
+      if (ft !== 'all' && l.type   !== ft) return false;
+      if (fs && !String(l.description || '').toLowerCase().includes(fs)) return false;
+      return true;
+    });
+  }
+
+  function _fmtTime(l) {
+    if (l.created_at) {
+      try {
+        return new Date(l.created_at).toLocaleString('en-BD', {
+          day:'2-digit', month:'short', year:'numeric',
+          hour:'2-digit', minute:'2-digit'
+        });
+      } catch { /* fallthrough */ }
+    }
+    return l.time || '—';
+  }
+
+  /* ── Excel (CSV) download ──────────────────────────────────── */
+  function downloadExcel() {
+    const logs = _getVisibleLogs();
+    if (!logs.length) { Utils.toast('কোনো log নেই — ডাউনলোড করার কিছু নেই', 'warning'); return; }
+
+    const BOM = '\uFEFF'; // UTF-8 BOM for Excel Bangla support
+    const headers = ['#', 'তারিখ ও সময়', 'Action', 'Module', 'বিস্তারিত', 'Status', 'Device'];
+    const rows = logs.map((l, i) => [
+      i + 1,
+      _fmtTime(l),
+      (l.action || '').toUpperCase(),
+      (TYPE_META[l.type] || { label: l.type || '—' }).label,
+      String(l.description || '').replace(/"/g, '""'),
+      l.status === 'failed' ? 'Failed' : 'OK',
+      l.device_id ? String(l.device_id).slice(-6) : '—',
+    ]);
+
+    const csv = BOM + [headers, ...rows]
+      .map(r => r.map(c => `"${c}"`).join(','))
+      .join('\r\n');
+
+    const now   = new Date();
+    const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const blob  = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url   = URL.createObjectURL(blob);
+    const a     = document.createElement('a');
+    a.href      = url;
+    a.download  = `activity-log-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+
+    Utils.toast(`✅ Excel ডাউনলোড হচ্ছে (${logs.length} টি row)`, 'success');
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+      SupabaseSync.logActivity('export', 'settings', `Activity Log Excel export — ${logs.length} rows`);
+    }
+  }
+
+  /* ── PDF download (browser print-to-PDF) ──────────────────── */
+  function downloadPDF() {
+    const logs = _getVisibleLogs();
+    if (!logs.length) { Utils.toast('কোনো log নেই — ডাউনলোড করার কিছু নেই', 'warning'); return; }
+
+    const now      = new Date();
+    const stamp    = now.toLocaleString('en-BD', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const instName = (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll)
+      ? (SupabaseSync.getAll('settings')[0]?.academy_name || 'Wings Fly Academy')
+      : 'Wings Fly Academy';
+
+    const tableRows = logs.map((l, i) => {
+      const tm  = TYPE_META[l.type]    || { label: l.type || '—' };
+      const am  = ACTION_META[l.action]|| { badge:(l.action||'?').toUpperCase() };
+      const status = l.status === 'failed' ? '❌ Failed' : '✅ OK';
+      return `<tr style="border-bottom:1px solid #e5e7eb">
+        <td style="padding:6px 8px;text-align:center;color:#6b7280;font-size:11px">${i+1}</td>
+        <td style="padding:6px 8px;font-size:11px;white-space:nowrap">${_fmtTime(l)}</td>
+        <td style="padding:6px 8px">
+          <span style="padding:2px 8px;border-radius:12px;font-size:10px;font-weight:700;
+            background:${l.action==='add'?'#dcfce7':l.action==='delete'?'#fee2e2':l.action==='edit'?'#dbeafe':'#f3f4f6'};
+            color:${l.action==='add'?'#166534':l.action==='delete'?'#991b1b':l.action==='edit'?'#1e40af':'#374151'}">
+            ${am.badge}
+          </span>
+        </td>
+        <td style="padding:6px 8px;font-size:11px">${tm.label}</td>
+        <td style="padding:6px 8px;font-size:11px;max-width:280px">${Utils.esc ? Utils.esc(l.description||'') : (l.description||'')}</td>
+        <td style="padding:6px 8px;font-size:11px;text-align:center">${status}</td>
+        <td style="padding:6px 8px;font-size:10px;color:#9ca3af">${l.device_id?String(l.device_id).slice(-6):'—'}</td>
+      </tr>`;
+    }).join('');
+
+    const html = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<title>Activity Log — ${instName}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;600;700&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Noto Sans Bengali',Arial,sans-serif;font-size:12px;color:#111;padding:24px;background:#fff}
+  h1{font-size:20px;font-weight:700;color:#1e3a5f;margin-bottom:2px}
+  .sub{font-size:12px;color:#6b7280;margin-bottom:18px}
+  .badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:10px;font-weight:700}
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  thead{background:#1e3a5f;color:#fff}
+  th{padding:8px 8px;font-size:11px;font-weight:600;text-align:left}
+  tr:nth-child(even){background:#f9fafb}
+  @media print{
+    body{padding:12px}
+    button{display:none!important}
+    .no-print{display:none!important}
+  }
+</style>
+</head>
+<body>
+  <h1>📋 Activity Log Report</h1>
+  <div class="sub">${instName} &nbsp;|&nbsp; তৈরি: ${stamp} &nbsp;|&nbsp; মোট: ${logs.length} টি log</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:36px">#</th>
+        <th style="width:130px">তারিখ ও সময়</th>
+        <th style="width:70px">Action</th>
+        <th style="width:110px">Module</th>
+        <th>বিস্তারিত</th>
+        <th style="width:60px;text-align:center">Status</th>
+        <th style="width:60px">Device</th>
+      </tr>
+    </thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <div class="no-print" style="margin-top:20px;text-align:center">
+    <button onclick="window.print()" style="padding:10px 28px;background:#1e3a5f;color:#fff;border:none;border-radius:8px;font-size:14px;cursor:pointer">🖨️ Print / Save as PDF</button>
+    <p style="margin-top:8px;font-size:11px;color:#9ca3af">Browser-এর Print dialog থেকে "Save as PDF" select করুন</p>
+  </div>
+</body>
+</html>`;
+
+    const w = window.open('', '_blank', 'width=900,height=700');
+    if (!w) { Utils.toast('Popup blocked — browser-এ popup allow করুন', 'warning'); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 800);
+
+    Utils.toast(`✅ PDF preview খুলেছে (${logs.length} টি row)`, 'success');
+    if (typeof SupabaseSync !== 'undefined' && SupabaseSync.logActivity) {
+      SupabaseSync.logActivity('export', 'settings', `Activity Log PDF export — ${logs.length} rows`);
+    }
+  }
+
   // Same-device instant refresh (fired synchronously by SupabaseSync.logActivity)
   window.addEventListener('wfa:activity-log', () => {
     if (document.querySelector('[data-panel="activity"].active')) refresh();
@@ -482,6 +638,7 @@ const ActivityLog = (() => {
     panel, refresh, filter, clearFilters, clear, log,
     pullAndRefresh, startAutoRefresh, stopAutoRefresh,
     getLogs, getActivityLogs,
+    downloadPDF, downloadExcel,
   };
 })();
 
