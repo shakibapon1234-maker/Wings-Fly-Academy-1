@@ -42,8 +42,43 @@ window.SettingsMonitor = (function () {
           </tr>`;
         }).join('');
 
+    // ── Balance Update Card ──────────────────────────────────────────
+    const accounts = (typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.accounts || 'accounts') : [])
+      .filter(a => a && a.type && (a.balance !== undefined));
+    const acBalanceRows = accounts.length === 0
+      ? `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:12px">কোনো account পাওয়া যায়নি</td></tr>`
+      : accounts.map(a => {
+          const bal = Number(a.balance || 0);
+          return `<tr>
+            <td style="font-size:.85rem">${_esc(a.name || a.type)}</td>
+            <td style="font-size:.85rem;color:var(--text-muted)">${_esc(a.type)}</td>
+            <td class="text-right" style="font-family:var(--font-ui);font-size:.9rem;font-weight:700;color:#f0c040">${_taka(bal)}</td>
+            <td style="text-align:center">
+              <button type="button" class="btn btn-outline btn-sm" style="font-size:.72rem;padding:3px 10px" onclick="SettingsMonitor.showBalanceUpdateModal('${_esc(a.id)}','${_esc(a.name||a.type)}','${_esc(a.type)}',${bal})">
+                <i class="fa fa-pen"></i> Update
+              </button>
+            </td>
+          </tr>`;
+        }).join('');
+
     return `
     <div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
+
+      <!-- ✅ Balance Update Card -->
+      <div class="settings-card" style="border:1px solid rgba(255,170,0,0.25);background:rgba(255,170,0,0.05);margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+          <div class="settings-card-title" style="margin-bottom:0;color:#ffaa00"><i class="fa fa-scale-balanced"></i> Balance Update</div>
+          <span style="font-size:.75rem;color:var(--text-muted)">কোনো account-এর balance ভুল হলে এখান থেকে সঠিক মান বসান — এরপর থেকে হিসাব সেখান থেকে শুরু হবে</span>
+        </div>
+        <div class="table-wrapper" style="max-height:220px;overflow-y:auto">
+          <table>
+            <thead><tr><th>ACCOUNT NAME</th><th>TYPE</th><th class="text-right">CURRENT BALANCE</th><th style="text-align:center">ACTION</th></tr></thead>
+            <tbody>${acBalanceRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Raw Ledger Card -->
       <div class="settings-card glow-purple">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:8px">
           <div class="settings-card-title" style="margin-bottom:0"><i class="fa fa-chart-line"></i> DATA MONITOR</div>
@@ -355,14 +390,100 @@ window.SettingsMonitor = (function () {
   }
 
   /* ══════════════════════════════════════════════════════════
+     BALANCE UPDATE MODAL
+  ══════════════════════════════════════════════════════════ */
+  function showBalanceUpdateModal(accountId, accountName, accountType, currentBalance) {
+    const body = `
+      <div style="padding:8px 0">
+        <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:16px">
+          <b style="color:#ffaa00">${_esc(accountName)}</b> (${_esc(accountType)}) account-এর সঠিক balance লিখুন।<br>
+          <span style="font-size:.78rem">বর্তমান: <b style="color:#f0c040">${_taka(currentBalance)}</b> — পার্থক্য স্বয়ংক্রিয়ভাবে <i>Balance Adjustment</i> হিসেবে ledger-এ যাবে।</span>
+        </p>
+        <div style="margin-bottom:14px">
+          <label style="font-size:.8rem;color:var(--text-muted);display:block;margin-bottom:4px">নতুন ব্যালেন্স (৳)</label>
+          <input id="monitor-bal-input" type="number" min="0" step="1" value="${currentBalance}"
+            style="width:100%;padding:10px 14px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,170,0,0.35);border-radius:8px;color:#fff;font-size:1rem;font-family:var(--font-ui)"
+            onkeydown="if(event.key==='Enter')SettingsMonitor.applyBalanceUpdate('${_esc(accountId)}','${_esc(accountName)}','${_esc(accountType)}',${currentBalance})"
+          />
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          <button type="button" class="btn btn-outline btn-sm" onclick="Utils.closeModal ? Utils.closeModal() : document.querySelector('.modal-overlay')?.remove()">বাতিল</button>
+          <button type="button" class="btn btn-warning btn-sm" style="background:rgba(255,170,0,0.18);border:1px solid #ffaa00;color:#ffaa00"
+            onclick="SettingsMonitor.applyBalanceUpdate('${_esc(accountId)}','${_esc(accountName)}','${_esc(accountType)}',${currentBalance})">
+            <i class="fa fa-check"></i> Balance আপডেট করুন
+          </button>
+        </div>
+      </div>`;
+    _openModal(`⚖️ Balance Update — ${accountName}`, body, '480px');
+    setTimeout(() => { const el = document.getElementById('monitor-bal-input'); if(el) el.focus(); }, 100);
+  }
+
+  function applyBalanceUpdate(accountId, accountName, accountType, oldBalance) {
+    const input = document.getElementById('monitor-bal-input');
+    if (!input) return;
+    const newBal = parseFloat(input.value);
+    if (isNaN(newBal) || newBal < 0) {
+      _toast('সঠিক balance লিখুন (০ বা বেশি)', 'error');
+      return;
+    }
+    const delta = newBal - oldBalance;
+
+    try {
+      // 1. Account balance আপডেট করো
+      if (accountId) {
+        SupabaseSync.update(DB.accounts || 'accounts', accountId, { balance: newBal }, { bypassLog: true });
+      }
+
+      // 2. AUDIT_IGNORE Section 20 — Balance Adjustment ledger entry তৈরি করো
+      //    যাতে recalculateAccountBalancesFromLedger() এই মান preserve করে
+      if (Math.abs(delta) > 0.001) {
+        SupabaseSync.insert(DB.finance || 'finance_ledger', {
+          type: delta > 0 ? 'Income' : 'Expense',
+          method: accountName,
+          category: 'Balance Adjustment',
+          description: 'Data Monitor manual balance correction',
+          amount: Math.abs(delta),
+          date: new Date().toISOString().split('T')[0],
+          note: `Balance Monitor: ${_taka(oldBalance)} → ${_taka(newBal)}`,
+          person: '',
+        });
+      }
+
+      // 3. Activity log
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('edit', 'accounts',
+          `[Data Monitor] Balance Update: ${accountName} — ${_taka(oldBalance)} → ${_taka(newBal)}`
+        );
+      }
+
+      // 4. Ledger recalculate (AUDIT_IGNORE Section 20/21 — post-update reconcile)
+      if (typeof SupabaseSync.recalculateAccountBalancesFromLedger === 'function') {
+        SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
+      }
+
+      // 5. Modal বন্ধ করো ও UI refresh করো
+      if (typeof Utils !== 'undefined' && Utils.closeModal) Utils.closeModal();
+      else { const overlay = document.querySelector('.modal-overlay'); if(overlay) overlay.remove(); }
+
+      _toast(`✅ ${accountName} balance আপডেট: ${_taka(newBal)}`, 'success');
+      setTimeout(() => _refreshModal(), 400);
+
+    } catch (err) {
+      console.error('[SettingsMonitor] applyBalanceUpdate failed:', err);
+      _toast('Balance update ব্যর্থ হয়েছে — console চেক করুন', 'error');
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════
      PUBLIC API
   ══════════════════════════════════════════════════════════ */
   return {
-    buildPanelHTML,   // settings.js থেকে call হয়
-    showSnapshot,     // table row onclick
-    // Historical rebuild intentionally unavailable: it would not be a real snapshot.
-    refresh,          // Refresh button
-    inject,           // lazy-modules compatibility
+    buildPanelHTML,          // settings.js থেকে call হয়
+    showSnapshot,            // table row onclick
+    refresh,                 // Refresh button
+    inject,                  // lazy-modules compatibility
+    showBalanceUpdateModal,  // Balance Update button onclick
+    applyBalanceUpdate,      // Balance Update modal save
   };
 
 })();
