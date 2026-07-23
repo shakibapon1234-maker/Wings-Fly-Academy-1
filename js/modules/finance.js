@@ -344,8 +344,8 @@ const Finance = (() => {
               <select id="ff-type" class="ff-select" onchange="Finance.updateCategoryDropdown(this)">
                 <option value="Income"         ${d.type==='Income'?'selected':''}>Income (+)</option>
                 <option value="Expense"        ${d.type==='Expense'?'selected':''}>Expense (-)</option>
-                <option value="Loan Giving"    ${d.type==='Loan Giving'?'selected':''}>Loan Given</option>
-                <option value="Loan Receiving" ${d.type==='Loan Receiving'?'selected':''}>Loan Taken</option>
+                ${d.type==='Loan Giving'    ? '<option value="Loan Giving" selected>Loan Given</option>' : ''}
+                ${d.type==='Loan Receiving' ? '<option value="Loan Receiving" selected>Loan Taken</option>' : ''}
                 <option value="Transfer In"    ${d.type==='Transfer In'?'selected':''}>Transfer In</option>
                 <option value="Transfer Out"   ${d.type==='Transfer Out'?'selected':''}>Transfer Out</option>
                 <option value="Investment In"  ${d.type==='Investment In'?'selected':''}>Investment In ↗️</option>
