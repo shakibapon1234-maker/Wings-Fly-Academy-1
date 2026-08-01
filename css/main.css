@@ -3765,62 +3765,96 @@ thead th {
 .salary-status-pending { color: #ff9800; font-weight: 700; text-shadow: 0 0 6px rgba(255,152,0,0.3); }
 .salary-status-overdue { color: #ff4757; font-weight: 700; text-shadow: 0 0 6px rgba(255,71,87,0.3); }
 
-/* Month picker — calendar icon visible on dark background */
-.salary-month-wrap {
+/* Month picker & Navigation styling */
+.salary-month-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.salary-month-nav-btn {
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.25);
+  color: #00d4ff;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.salary-month-nav-btn:hover {
+  background: rgba(0, 212, 255, 0.25);
+  border-color: #00d4ff;
+  color: #fff;
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+}
+
+.salary-month-nav-btn:active {
+  transform: scale(0.95);
+}
+
+.salary-month-picker-container {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: 8px;
+  padding: 0 8px;
   cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
-.salary-month-wrap::after {
-  content: '\f073';
-  font-family: 'Font Awesome 6 Free';
-  font-weight: 900;
-  font-size: 1.15rem;
+
+.salary-month-picker-container:hover {
+  border-color: rgba(0, 212, 255, 0.5);
+  box-shadow: 0 0 12px rgba(0, 212, 255, 0.15);
+}
+
+.salary-month-icon {
   color: #00d4ff;
-  text-shadow: 0 0 10px rgba(0, 212, 255, 0.45);
+  font-size: 0.95rem;
+  margin-right: 6px;
   pointer-events: none;
   flex-shrink: 0;
 }
-.salary-month-picker,
-#salary-month-picker {
-  position: relative;
+
+.salary-month-picker-input {
   flex: 1;
   min-width: 0;
-  padding: 4px 36px 4px 0;
+  height: 32px;
   background: transparent;
   border: none;
   color: #fff;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   font-family: var(--font-ui, system-ui, sans-serif);
   outline: none;
   cursor: pointer;
   color-scheme: dark;
 }
-.salary-month-picker::-webkit-calendar-picker-indicator,
-#salary-month-picker::-webkit-calendar-picker-indicator {
-  position: absolute;
-  right: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  opacity: 0;
+
+.salary-month-picker-input::-webkit-calendar-picker-indicator {
   cursor: pointer;
+  filter: invert(0.85) sepia(1) saturate(5) hue-rotate(155deg);
+  opacity: 0.85;
+  transition: opacity 0.2s, transform 0.2s;
 }
-.salary-month-picker:hover,
-#salary-month-picker:hover {
-  color: #00d4ff;
+
+.salary-month-picker-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.15);
 }
-.salary-month-picker:focus,
-#salary-month-picker:focus {
-  color: #00d4ff;
-  box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.25);
-  border-radius: 6px;
-}
+
 #sal-month.salary-month-picker,
 input[type="month"].salary-month-picker.form-control {
   color-scheme: dark;

@@ -21,10 +21,73 @@
 const Salary = (() => {
 
   let editingId = null;
+  let selectedMonth = null;
 
   /* ══════════════════════════════════════════
      HELPERS
   ══════════════════════════════════════════ */
+
+  function currentMonth() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+  }
+
+  function shiftMonth(ym, delta) {
+    if (!ym) ym = currentMonth();
+    var parts = ym.split('-');
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1 + delta;
+    var d = new Date(y, m, 1);
+    var resY = d.getFullYear();
+    var resM = String(d.getMonth() + 1).padStart(2, '0');
+    return resY + '-' + resM;
+  }
+
+  function getSelectedMonth() {
+    if (!selectedMonth) {
+      selectedMonth = (document.getElementById('salary-month-picker') || {}).value || currentMonth();
+    }
+    return selectedMonth;
+  }
+
+  function setMonth(ym) {
+    if (ym) {
+      selectedMonth = ym;
+    }
+    renderContent();
+  }
+
+  function prevMonth() {
+    selectedMonth = shiftMonth(getSelectedMonth(), -1);
+    renderContent();
+  }
+
+  function nextMonth() {
+    selectedMonth = shiftMonth(getSelectedMonth(), 1);
+    renderContent();
+  }
+
+  function onMonthInputChange(val) {
+    if (val) {
+      selectedMonth = val;
+      renderContent();
+    }
+  }
+
+  function triggerMonthPicker(e) {
+    var picker = document.getElementById('salary-month-picker');
+    if (!picker) return;
+    if (e && e.target === picker) return;
+    try {
+      if (typeof picker.showPicker === 'function') {
+        picker.showPicker();
+      } else {
+        picker.focus();
+      }
+    } catch (err) {
+      picker.focus();
+    }
+  }
 
   function getRecords() {
     if (typeof DB === 'undefined' || typeof SupabaseSync === 'undefined') return [];
@@ -47,11 +110,6 @@ const Salary = (() => {
     });
   }
 
-  function currentMonth() {
-    const d = new Date();
-    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-  }
-
   function monthLabel(ym) {
     if (!ym) return '—';
     const parts = ym.split('-');
@@ -64,10 +122,6 @@ const Salary = (() => {
   // ✅ Bug #10 Fix: local formatDate() removed, now uses Utils.formatDateDMY() for DD/MM/YYYY consistency.
   function formatDate(dateStr) {
     return Utils.formatDateDMY(dateStr);
-  }
-
-  function getSelectedMonth() {
-    return (document.getElementById('salary-month-picker') || {}).value || currentMonth();
   }
 
   function calcNet(r) {
@@ -377,11 +431,23 @@ const Salary = (() => {
         '</div>' +
       '</div>' +
       '<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:16px; margin-bottom:32px;">' +
-        '<div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7);">' +
-          '<div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTH / YEAR</div>' +
-          '<label class="salary-month-wrap" for="salary-month-picker" title="মাস পরিবর্তন করুন">' +
-            '<input type="month" id="salary-month-picker" class="salary-month-picker" value="' + cm + '" onchange="Salary.renderContent()" />' +
-          '</label>' +
+        '<div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:12px 16px; background:rgba(0,5,20,0.7); display:flex; flex-direction:column; justify-content:center;">' +
+          '<div style="font-size:.72rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">' +
+            '<span>MONTH / YEAR</span>' +
+            '<span style="font-size:.75rem; color:#fff; font-weight:700;">' + monthLabel(cm) + '</span>' +
+          '</div>' +
+          '<div class="salary-month-control-bar">' +
+            '<button type="button" class="salary-month-nav-btn" onclick="Salary.prevMonth()" title="পূর্ববর্তী মাস (Previous Month)">' +
+              '<i class="fa fa-chevron-left"></i>' +
+            '</button>' +
+            '<div class="salary-month-picker-container" onclick="Salary.triggerMonthPicker(event)" title="মাস সিলেক্ট করুন">' +
+              '<i class="fa fa-calendar-alt salary-month-icon"></i>' +
+              '<input type="month" id="salary-month-picker" class="salary-month-picker-input" value="' + cm + '" onchange="Salary.onMonthInputChange(this.value)" />' +
+            '</div>' +
+            '<button type="button" class="salary-month-nav-btn" onclick="Salary.nextMonth()" title="পরবর্তী মাস (Next Month)">' +
+              '<i class="fa fa-chevron-right"></i>' +
+            '</button>' +
+          '</div>' +
         '</div>' +
         '<div style="border:1px solid rgba(0,212,255,0.25); border-radius:12px; padding:16px; background:rgba(0,5,20,0.7);">' +
           '<div style="font-size:.75rem; color:#00d4ff; text-transform:uppercase; font-weight:700; margin-bottom:8px;">MONTHLY BUDGET</div>' +
@@ -974,6 +1040,9 @@ const Salary = (() => {
     onStaffSelect: onStaffSelect, updateNetDisplay: updateNetDisplay,
     syncFromHR: syncFromHR, syncAllFromHR: syncAllFromHR,
     _syncPayDate: _syncPayDate, getSummary: getSummary,
+    getSelectedMonth: getSelectedMonth, setMonth: setMonth,
+    prevMonth: prevMonth, nextMonth: nextMonth,
+    onMonthInputChange: onMonthInputChange, triggerMonthPicker: triggerMonthPicker,
   };
 
 })();

@@ -32,6 +32,18 @@ function monthLabel(ym) {
   return (months[parseInt(m, 10) - 1] || '?') + ' ' + y;
 }
 
+// ── Mirror: salary.js → shiftMonth ──────────────────────
+function shiftMonth(ym, delta) {
+  if (!ym) ym = '2026-08';
+  var parts = ym.split('-');
+  var y = parseInt(parts[0], 10);
+  var m = parseInt(parts[1], 10) - 1 + delta;
+  var d = new Date(y, m, 1);
+  var resY = d.getFullYear();
+  var resM = String(d.getMonth() + 1).padStart(2, '0');
+  return resY + '-' + resM;
+}
+
 // ═══════════════════════════════════════════════════════
 // TESTS
 // ═══════════════════════════════════════════════════════
@@ -99,5 +111,25 @@ describe('Salary.monthLabel — Month Display', () => {
 
   it('empty string দিলে "—" রিটার্ন করে', () => {
     expect(monthLabel('')).toBe('—');
+  });
+});
+
+// ─────────────────────────────────────────────────────────
+
+describe('Salary.shiftMonth — Month Shift Navigation', () => {
+  it('2026-08 - 1 → "2026-07" (previous month)', () => {
+    expect(shiftMonth('2026-08', -1)).toBe('2026-07');
+  });
+
+  it('2026-01 - 1 → "2025-12" (previous year December)', () => {
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+  });
+
+  it('2026-08 + 1 → "2026-09" (next month)', () => {
+    expect(shiftMonth('2026-08', 1)).toBe('2026-09');
+  });
+
+  it('2026-12 + 1 → "2027-01" (next year January)', () => {
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01');
   });
 });
