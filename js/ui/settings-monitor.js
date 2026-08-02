@@ -45,6 +45,8 @@ window.SettingsMonitor = (function () {
     // ── Balance Update Card ──────────────────────────────────────────
     const accounts = (typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.accounts || 'accounts') : [])
       .filter(a => a && a.type && (a.balance !== undefined));
+    // টোটাল অ্যাকাউন্টস ব্যালেন্স — শুধু উপরের accounts array-এর balance যোগফল, অন্য কোনো সোর্স/ক্যালকুলেশন নেই
+    const acGrandTotal = accounts.reduce((sum, a) => sum + Number(a.balance || 0), 0);
     const acBalanceRows = accounts.length === 0
       ? `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:12px">কোনো account পাওয়া যায়নি</td></tr>`
       : accounts.map(a => {
@@ -75,6 +77,10 @@ window.SettingsMonitor = (function () {
             <thead><tr><th>ACCOUNT NAME</th><th>TYPE</th><th class="text-right">CURRENT BALANCE</th><th style="text-align:center">ACTION</th></tr></thead>
             <tbody>${acBalanceRows}</tbody>
           </table>
+        </div>
+        <div style="display:flex;justify-content:flex-end;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(255,170,0,0.25)">
+          <span style="font-size:.85rem;color:var(--text-muted);font-weight:600">টোটাল অ্যাকাউন্টস ব্যালেন্স</span>
+          <span style="font-size:1.2rem;font-weight:900;color:#00d9ff;font-family:var(--font-ui)">${_taka(acGrandTotal)}</span>
         </div>
       </div>
 
