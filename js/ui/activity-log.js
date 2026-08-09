@@ -58,6 +58,15 @@ const ActivityLog = (() => {
     export:   { badge:'EXPORT',   color:'#b537f2', bg:'rgba(181,55,242,0.12)', icon:'fa-file-export' },
     transfer: { badge:'TRANSFER', color:'#ffa502', bg:'rgba(255,165,2,0.12)',  icon:'fa-arrow-right-arrow-left' },
     print:    { badge:'PRINT',    color:'#00d9ff', bg:'rgba(0,217,255,0.10)',  icon:'fa-print' },
+    payment:  { badge:'PAYMENT',  color:'#00ff88', bg:'rgba(0,255,136,0.14)', icon:'fa-money-bill' },
+    update:   { badge:'UPDATE',   color:'#00d9ff', bg:'rgba(0,217,255,0.12)', icon:'fa-pen' },
+  };
+
+  const PERIOD_LABELS = {
+    today:     '📅 আজ',
+    yesterday: '📅 গতকাল',
+    week:      '📅 ৭ দিন',
+    all:       '📅 সব সময়',
   };
 
   // High-confidence explicit pairs: kept for the descriptions that read
@@ -83,6 +92,167 @@ const ActivityLog = (() => {
 
   const MERGE_MS       = 6000;   // window to fold in side-effect entries
   const BULK_WINDOW_MS = 25000;  // window to collapse repeated same type+action rows
+
+  // Auto sync/reconcile noise — hides from default view (still in storage)
+  function _isSystemNoise(entry) {
+    if (!entry) return false;
+    const desc = String(entry.description || '');
+    if (entry.action !== 'system') return false;
+    if (/Account balance recalculated from Finance Ledger/i.test(desc)) return true;
+    if (entry.type === 'accounts' && /recalculated|re-?derive/i.test(desc)) return true;
+    return false;
+  }
+
+  function _logDate(l) {
+    if (!l) return null;
+    const raw = l.created_at || l.time;
+    if (!raw) return null;
+    const dt = new Date(raw);
+    return isNaN(dt.getTime()) ? null : dt;
+  }
+
+  function _periodBounds(period) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+    if (period === 'today') return { start: today, end: tomorrow };
+    if (period === 'yesterday') {
+      const y = new Date(today);
+      y.setDate(today.getDate() - 1);
+      return { start: y, end: today };
+    }
+    if (period === 'week') {
+      const w = new Date(today);
+      w.setDate(today.getDate() - 7);
+      return { start: w, end: tomorrow };
+    }
+    return { start: null, end: null };
+  }
+
+  function _matchesPeriod(l, period) {
+    if (!period || period === 'all') return true;
+    const dt = _logDate(l);
+    if (!dt) return false;
+    const { start, end } = _periodBounds(period);
+    return dt >= start && dt < end;
+  }
+
+  function _financeRows() {
+    if (typeof SupabaseSync === 'undefined' || !SupabaseSync.getAll) return [];
+    const key = (typeof DB !== 'undefined' && DB.finance) ? DB.finance : 'finance_ledger';
+    return SupabaseSync.getAll(key) || [];
+  }
+
+  function _financeInPeriod(f, period) {
+    if (!period || period === 'all') return true;
+    const dStr = String(f.date || f.created_at || '').split('T')[0];
+    if (!dStr) return false;
+    const d = new Date(dStr + 'T12:00:00');
+    if (isNaN(d.getTime())) return false;
+    const { start, end } = _periodBounds(period);
+    return d >= start && d < end;
+  }
+
+  function _taka(n) {
+    const v = Math.round(Number(n) || 0);
+    return '৳' + v.toLocaleString('en-IN');
+  }
+
+  function _applyDisplayFilters(logs, { period = 'today', hideSystem = true } = {}) {
+    return logs.filter(l => {
+      if (hideSystem && _isSystemNoise(l)) return false;
+      return _matchesPeriod(l, period);
+    });
+  }
+
+  /** Smart digest — counts + amounts from finance ledger + activity log */
+  function _computeWorkSummary(period) {
+    const logs = _applyDisplayFilters(getLogs(), { period, hideSystem: true });
+    const finance = _financeRows().filter(f => _financeInPeriod(f, period));
+
+    const incomeRows  = finance.filter(f => f.type === 'Income');
+    const expenseRows = finance.filter(f => f.type === 'Expense');
+    const studentFeeRows = finance.filter(f => (f.category || '') === 'Student Fee' && f.type === 'Income');
+    const salaryRows  = finance.filter(f => (f.category || '') === 'Salary' && f.type === 'Expense');
+    const examRows    = finance.filter(f => (f.category || '') === 'Exam Fee' && f.type === 'Income');
+
+    const sum = (rows) => rows.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+
+    const newStudents = logs.filter(l => l.type === 'students' && l.action === 'add').length;
+    const studentPayLogs = logs.filter(l => l.type === 'students' && (l.action === 'payment' || /installment|instalment|ফি|payment/i.test(l.description || ''))).length;
+    const studentPayments = Math.max(studentPayLogs, studentFeeRows.length);
+    const edits   = logs.filter(l => l.action === 'edit' || l.action === 'update').length;
+    const deletes = logs.filter(l => l.action === 'delete').length;
+
+    return {
+      period,
+      label: PERIOD_LABELS[period] || PERIOD_LABELS.all,
+      newStudents,
+      studentPayments,
+      studentFeeTotal: sum(studentFeeRows),
+      incomeCount: incomeRows.length,
+      incomeTotal: sum(incomeRows),
+      expenseCount: expenseRows.length,
+      expenseTotal: sum(expenseRows),
+      salaryCount: salaryRows.length,
+      salaryTotal: sum(salaryRows),
+      examCount: examRows.length,
+      examTotal: sum(examRows),
+      edits,
+      deletes,
+      activityCount: logs.length,
+    };
+  }
+
+  function _buildSummaryHTML(summary) {
+    const cards = [
+      { icon: 'fa-user-plus', color: '#00d9ff', label: 'নতুন ছাত্র', value: `${summary.newStudents} জন` },
+      { icon: 'fa-money-bill-wave', color: '#00ff88', label: 'ফি সংগ্রহ', value: `${summary.studentPayments}টি`, sub: summary.studentFeeTotal ? _taka(summary.studentFeeTotal) : '' },
+      { icon: 'fa-arrow-trend-up', color: '#00ff88', label: 'আয়', value: `${summary.incomeCount}টি`, sub: _taka(summary.incomeTotal) },
+      { icon: 'fa-arrow-trend-down', color: '#ff4757', label: 'খরচ', value: `${summary.expenseCount}টি`, sub: _taka(summary.expenseTotal) },
+      { icon: 'fa-money-check', color: '#b537f2', label: 'বেতন', value: `${summary.salaryCount}টি`, sub: summary.salaryTotal ? _taka(summary.salaryTotal) : '—' },
+      { icon: 'fa-file-lines', color: '#ffd700', label: 'পরীক্ষা ফি', value: `${summary.examCount}টি`, sub: summary.examTotal ? _taka(summary.examTotal) : '—' },
+      { icon: 'fa-pen', color: '#ffa502', label: 'এডিট', value: `${summary.edits}টি`, sub: '' },
+      { icon: 'fa-trash', color: '#ff6b6b', label: 'ডিলিট', value: `${summary.deletes}টি`, sub: '' },
+    ];
+
+    const cardsHtml = cards.map(c => `
+      <div class="alog-summary-card">
+        <div class="alog-summary-icon" style="color:${c.color};background:${c.color}18;border:1px solid ${c.color}33">
+          <i class="fa ${c.icon}"></i>
+        </div>
+        <div class="alog-summary-body">
+          <div class="alog-summary-label">${c.label}</div>
+          <div class="alog-summary-value" style="color:${c.color}">${c.value}</div>
+          ${c.sub ? `<div class="alog-summary-sub">${c.sub}</div>` : ''}
+        </div>
+      </div>`).join('');
+
+    const title = summary.period === 'today' ? 'আজকের কাজের সারাংশ'
+                : summary.period === 'yesterday' ? 'গতকালের কাজের সারাংশ'
+                : summary.period === 'week' ? 'গত ৭ দিনের সারাংশ'
+                : 'সার্বিক সারাংশ';
+
+    return `
+      <div class="alog-daily-summary">
+        <div class="alog-summary-head">
+          <div><i class="fa fa-chart-pie"></i> ${title}</div>
+          <span class="alog-summary-meta">${summary.activityCount}টি কাজের লগ</span>
+        </div>
+        <div class="alog-summary-grid">${cardsHtml}</div>
+      </div>`;
+  }
+
+  function _getFilterState() {
+    return {
+      period: document.getElementById('alog-filter-period')?.value || 'today',
+      action: document.getElementById('alog-filter-action')?.value || 'all',
+      type:   document.getElementById('alog-filter-type')?.value   || 'all',
+      search: (document.getElementById('alog-search')?.value || '').trim(),
+      hideSystem: document.getElementById('alog-hide-system')?.checked !== false,
+    };
+  }
 
   // ── Storage helpers ──────────────────────────────────────────────────────
   function _rawLogs() {
@@ -245,11 +415,14 @@ const ActivityLog = (() => {
     return merged;
   }
 
-  function _buildRows(logs, filterAction, filterType, filterSearch) {
+  function _buildRows(logs, filterAction, filterType, filterSearch, filterPeriod, hideSystem) {
     if (!logs || logs.length === 0)
       return `<tr><td colspan="7" class="no-data"><i class="fa fa-inbox"></i> কোনো activity নেই</td></tr>`;
 
-    let items = logs;
+    let items = _applyDisplayFilters(logs, {
+      period: filterPeriod || 'today',
+      hideSystem: hideSystem !== false,
+    });
     if (filterAction && filterAction !== 'all') items = items.filter(l => l.action === filterAction);
     if (filterType   && filterType   !== 'all') items = items.filter(l => l.type   === filterType);
     if (filterSearch) {
@@ -330,15 +503,28 @@ const ActivityLog = (() => {
   // ── Panel HTML (used by SettingsModule.buildAllPanels) ──────────────────
   function panel(isActive) {
     const logs = getLogs();
-    const addCount    = logs.filter(l => l.action === 'add').length;
-    const editCount   = logs.filter(l => l.action === 'edit').length;
-    const deleteCount = logs.filter(l => l.action === 'delete').length;
+    const period = 'today';
+    const visible = _applyDisplayFilters(logs, { period, hideSystem: true });
+    const summary = _computeWorkSummary(period);
+    const addCount    = visible.filter(l => l.action === 'add').length;
+    const editCount   = visible.filter(l => l.action === 'edit' || l.action === 'update').length;
+    const deleteCount = visible.filter(l => l.action === 'delete').length;
 
     return `
     <div class="settings-panel ${isActive ? 'active' : ''}" data-panel="activity">
       <div class="settings-card-title" style="color:var(--brand-primary)">
         <i class="fa fa-list-check"></i> FULL ACTIVITY LOG
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="settings-top-action"
+            style="background:rgba(0,255,136,0.10);border-color:rgba(0,255,136,0.35);color:#00ff88"
+            onclick="ActivityLog.downloadExcel()" title="Excel (CSV) ডাউনলোড">
+            <i class="fa fa-file-excel"></i> EXCEL
+          </button>
+          <button class="settings-top-action"
+            style="background:rgba(255,71,87,0.10);border-color:rgba(255,71,87,0.35);color:#ff6b6b"
+            onclick="ActivityLog.downloadPDF()" title="PDF ডাউনলোড">
+            <i class="fa fa-file-pdf"></i> PDF
+          </button>
           <button class="settings-top-action"
             style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
             onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{ActivityLog.refresh();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
@@ -350,8 +536,10 @@ const ActivityLog = (() => {
         </div>
       </div>
 
+      <div id="alog-summary-wrap">${_buildSummaryHTML(summary)}</div>
+
       <div class="activity-stats">
-        <span class="activity-stat-badge" id="astat-total" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-primary)">মোট: ${logs.length}</span>
+        <span class="activity-stat-badge" id="astat-total" style="background:var(--bg-surface);border:1px solid var(--border);color:var(--text-primary)">মোট: ${visible.length}</span>
         <span class="activity-stat-badge" id="astat-add" style="background:rgba(0,255,136,0.10);color:#00ff88;border:1px solid rgba(0,255,136,0.25)">+ যোগ ${addCount}</span>
         <span class="activity-stat-badge" id="astat-edit" style="background:rgba(0,217,255,0.10);color:#00d9ff;border:1px solid rgba(0,217,255,0.25)">✏ এডিট ${editCount}</span>
         <span class="activity-stat-badge" id="astat-del" style="background:rgba(255,71,87,0.10);color:#ff4757;border:1px solid rgba(255,71,87,0.25)">🗑 ডিলিট ${deleteCount}</span>
@@ -362,11 +550,18 @@ const ActivityLog = (() => {
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.07)">
         <i class="fa fa-filter" style="color:var(--brand-primary);font-size:.82rem"></i>
+        <select id="alog-filter-period" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="ActivityLog.filter()">
+          <option value="today" selected>📅 আজ</option>
+          <option value="yesterday">📅 গতকাল</option>
+          <option value="week">📅 ৭ দিন</option>
+          <option value="all">📅 সব সময়</option>
+        </select>
         <select id="alog-filter-action" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="ActivityLog.filter()">
           <option value="all">সব Action</option>
           <option value="add">➕ ADD</option>
           <option value="edit">✏️ EDIT</option>
           <option value="delete">🗑 DELETE</option>
+          <option value="payment">💰 PAYMENT</option>
           <option value="restore">↩ RESTORE</option>
           <option value="system">⚙ SYSTEM</option>
           <option value="export">📤 EXPORT</option>
@@ -375,6 +570,7 @@ const ActivityLog = (() => {
           <option value="all">সব Module</option>
           <option value="students">👨‍🎓 ছাত্র তালিকা</option>
           <option value="finance_ledger">💰 আয়-ব্যয় লেজার</option>
+          <option value="finance">💰 আয়-ব্যয়</option>
           <option value="accounts">🏦 একাউন্ট</option>
           <option value="loans">💳 লোন</option>
           <option value="salary">💵 বেতন</option>
@@ -392,6 +588,10 @@ const ActivityLog = (() => {
           <i class="fa fa-search" style="color:rgba(255,255,255,0.35);font-size:.78rem"></i>
           <input type="text" id="alog-search" placeholder="সার্চ করুন…" style="background:none;border:none;outline:none;color:#fff;font-size:.82rem;width:100%;font-family:var(--font-ui)" oninput="ActivityLog.filter()" />
         </div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:rgba(255,255,255,0.55);cursor:pointer;white-space:nowrap">
+          <input type="checkbox" id="alog-hide-system" checked onchange="ActivityLog.filter()" style="accent-color:#00d4ff" />
+          সিস্টেম লগ লুকান
+        </label>
         <button onclick="ActivityLog.clearFilters()" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.5);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:.78rem">✕ ক্লিয়ার</button>
       </div>
 
@@ -409,7 +609,7 @@ const ActivityLog = (() => {
             </tr>
           </thead>
           <tbody id="alog-tbody">
-            ${_buildRows(logs)}
+            ${_buildRows(logs, 'all', 'all', '', period, true)}
           </tbody>
         </table>
       </div>
@@ -419,33 +619,36 @@ const ActivityLog = (() => {
   // ── Live refresh (in-place tbody + stats update, no modal rebuild) ──────
   function refresh() {
     const fresh  = getLogs();
+    const fs = _getFilterState();
+    const visible = _applyDisplayFilters(fresh, { period: fs.period, hideSystem: fs.hideSystem });
     const p  = document.querySelector('[data-panel="activity"]');
     if (!p) return;
-    const addC   = fresh.filter(l => l.action === 'add').length;
-    const editC  = fresh.filter(l => l.action === 'edit').length;
-    const delC   = fresh.filter(l => l.action === 'delete').length;
+    const addC   = visible.filter(l => l.action === 'add').length;
+    const editC  = visible.filter(l => l.action === 'edit' || l.action === 'update').length;
+    const delC   = visible.filter(l => l.action === 'delete').length;
     const tot = document.getElementById('astat-total');
     const add = document.getElementById('astat-add');
     const edi = document.getElementById('astat-edit');
     const del = document.getElementById('astat-del');
-    if (tot) tot.textContent = `মোট: ${fresh.length}`;
+    if (tot) tot.textContent = `মোট: ${visible.length}`;
     if (add) add.textContent = `+ যোগ ${addC}`;
     if (edi) edi.textContent = `✏ এডিট ${editC}`;
     if (del) del.textContent = `🗑 ডিলিট ${delC}`;
+    const summaryWrap = document.getElementById('alog-summary-wrap');
+    if (summaryWrap) summaryWrap.innerHTML = _buildSummaryHTML(_computeWorkSummary(fs.period));
     const tbody = document.getElementById('alog-tbody') || p.querySelector('tbody');
     if (!tbody) return;
-    const fa = document.getElementById('alog-filter-action')?.value || 'all';
-    const ft = document.getElementById('alog-filter-type')?.value   || 'all';
-    const fs = (document.getElementById('alog-search')?.value || '').trim();
-    tbody.innerHTML = _buildRows(fresh, fa, ft, fs);
+    tbody.innerHTML = _buildRows(fresh, fs.action, fs.type, fs.search, fs.period, fs.hideSystem);
   }
 
   function filter() { refresh(); }
 
   function clearFilters() {
+    const fp = document.getElementById('alog-filter-period'); if (fp) fp.value = 'today';
     const fa = document.getElementById('alog-filter-action'); if (fa) fa.value = 'all';
     const ft = document.getElementById('alog-filter-type');   if (ft) ft.value = 'all';
     const fs = document.getElementById('alog-search');        if (fs) fs.value = '';
+    const hs = document.getElementById('alog-hide-system');   if (hs) hs.checked = true;
     refresh();
   }
 
@@ -477,15 +680,28 @@ const ActivityLog = (() => {
 
   /** বর্তমানে visible (filtered) rows collect করে */
   function _getVisibleLogs() {
-    const fa = document.getElementById('alog-filter-action')?.value || 'all';
-    const ft = document.getElementById('alog-filter-type')?.value   || 'all';
-    const fs = (document.getElementById('alog-search')?.value || '').trim().toLowerCase();
-    return getLogs().filter(l => {
-      if (fa !== 'all' && l.action !== fa) return false;
-      if (ft !== 'all' && l.type   !== ft) return false;
-      if (fs && !String(l.description || '').toLowerCase().includes(fs)) return false;
-      return true;
-    });
+    const fs = _getFilterState();
+    let items = _applyDisplayFilters(getLogs(), { period: fs.period, hideSystem: fs.hideSystem });
+    if (fs.action !== 'all') items = items.filter(l => l.action === fs.action);
+    if (fs.type   !== 'all') items = items.filter(l => l.type   === fs.type);
+    if (fs.search) {
+      const q = fs.search.toLowerCase();
+      items = items.filter(l =>
+        String(l.description || '').toLowerCase().includes(q) ||
+        String(l.type || '').toLowerCase().includes(q));
+    }
+    return items;
+  }
+
+  function _summaryTextForExport(summary) {
+    return [
+      `নতুন ছাত্র: ${summary.newStudents} জন`,
+      `ফি সংগ্রহ: ${summary.studentPayments}টি (${_taka(summary.studentFeeTotal)})`,
+      `আয়: ${summary.incomeCount}টি (${_taka(summary.incomeTotal)})`,
+      `খরচ: ${summary.expenseCount}টি (${_taka(summary.expenseTotal)})`,
+      `বেতন: ${summary.salaryCount}টি (${_taka(summary.salaryTotal)})`,
+      `এডিট: ${summary.edits}টি | ডিলিট: ${summary.deletes}টি`,
+    ].join(' | ');
   }
 
   function _fmtTime(l) {
@@ -505,8 +721,11 @@ const ActivityLog = (() => {
     const logs = _getVisibleLogs();
     if (!logs.length) { Utils.toast('কোনো log নেই — ডাউনলোড করার কিছু নেই', 'warning'); return; }
 
+    const fs = _getFilterState();
+    const summary = _computeWorkSummary(fs.period);
     const BOM = '\uFEFF'; // UTF-8 BOM for Excel Bangla support
     const headers = ['#', 'তারিখ ও সময়', 'Action', 'Module', 'বিস্তারিত', 'Status', 'Device'];
+    const summaryRow = ['', 'সারাংশ', '', '', _summaryTextForExport(summary), '', ''];
     const rows = logs.map((l, i) => [
       i + 1,
       _fmtTime(l),
@@ -517,17 +736,18 @@ const ActivityLog = (() => {
       l.device_id ? String(l.device_id).slice(-6) : '—',
     ]);
 
-    const csv = BOM + [headers, ...rows]
+    const csv = BOM + [headers, summaryRow, ...rows]
       .map(r => r.map(c => `"${c}"`).join(','))
       .join('\r\n');
 
     const now   = new Date();
     const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+    const periodTag = fs.period === 'all' ? 'all' : fs.period;
     const blob  = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url   = URL.createObjectURL(blob);
     const a     = document.createElement('a');
     a.href      = url;
-    a.download  = `activity-log-${stamp}.csv`;
+    a.download  = `activity-log-${periodTag}-${stamp}.csv`;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
@@ -543,11 +763,22 @@ const ActivityLog = (() => {
     const logs = _getVisibleLogs();
     if (!logs.length) { Utils.toast('কোনো log নেই — ডাউনলোড করার কিছু নেই', 'warning'); return; }
 
+    const fs = _getFilterState();
+    const summary = _computeWorkSummary(fs.period);
     const now      = new Date();
     const stamp    = now.toLocaleString('en-BD', { day:'2-digit', month:'long', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const instName = (typeof SupabaseSync !== 'undefined' && SupabaseSync.getAll)
       ? (SupabaseSync.getAll('settings')[0]?.academy_name || 'Wings Fly Academy')
       : 'Wings Fly Academy';
+
+    const summaryCards = [
+      ['নতুন ছাত্র', `${summary.newStudents} জন`],
+      ['ফি সংগ্রহ', `${summary.studentPayments}টি · ${_taka(summary.studentFeeTotal)}`],
+      ['আয়', `${summary.incomeCount}টি · ${_taka(summary.incomeTotal)}`],
+      ['খরচ', `${summary.expenseCount}টি · ${_taka(summary.expenseTotal)}`],
+      ['বেতন', `${summary.salaryCount}টি · ${_taka(summary.salaryTotal)}`],
+      ['এডিট/ডিলিট', `${summary.edits} / ${summary.deletes}`],
+    ].map(([k, v]) => `<div style="flex:1;min-width:120px;padding:10px;background:#f3f4f6;border-radius:8px"><div style="font-size:10px;color:#6b7280">${k}</div><div style="font-size:13px;font-weight:700;color:#1e3a5f;margin-top:2px">${v}</div></div>`).join('');
 
     const tableRows = logs.map((l, i) => {
       const tm  = TYPE_META[l.type]    || { label: l.type || '—' };
@@ -595,7 +826,8 @@ const ActivityLog = (() => {
 </head>
 <body>
   <h1>📋 Activity Log Report</h1>
-  <div class="sub">${instName} &nbsp;|&nbsp; তৈরি: ${stamp} &nbsp;|&nbsp; মোট: ${logs.length} টি log</div>
+  <div class="sub">${instName} &nbsp;|&nbsp; ${PERIOD_LABELS[fs.period] || ''} &nbsp;|&nbsp; তৈরি: ${stamp} &nbsp;|&nbsp; মোট: ${logs.length} টি log</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px">${summaryCards}</div>
   <table>
     <thead>
       <tr>

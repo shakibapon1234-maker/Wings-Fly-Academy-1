@@ -3144,8 +3144,11 @@ const SupabaseSync = (() => {
       if (!silent && negativeBalanceWarn && typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast('⚠️ কিছু account-এ balance negative — ledger অনুযায়ী সঠিক মান দেখানো হচ্ছে।', 'warning', 5000);
       }
-      _logActivity('system', 'accounts',
-        `Account balance recalculated from Finance Ledger (from ${fromDate || 'all'}). ${summary}`);
+      // Silent post-pull reconcile — activity log-এ লিখবেন না (AUDIT_IGNORE §12)
+      if (!silent) {
+        _logActivity('system', 'accounts',
+          `Account balance recalculated from Finance Ledger (from ${fromDate || 'all'}). ${summary}`);
+      }
 
       if (!silent && typeof Utils !== 'undefined' && Utils.toast) {
         Utils.toast(`✅ Balance recalculate হয়েছে।${cutoffNote} ${summary}`, 'success', 6000);
