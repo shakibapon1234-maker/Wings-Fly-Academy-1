@@ -67,6 +67,7 @@ const ActivityLog = (() => {
     yesterday: '📅 গতকাল',
     week:      '📅 ৭ দিন',
     all:       '📅 সব সময়',
+    custom:    '📅 কাস্টম রেঞ্জ',
   };
 
   // High-confidence explicit pairs: kept for the descriptions that read
@@ -127,15 +128,40 @@ const ActivityLog = (() => {
       w.setDate(today.getDate() - 7);
       return { start: w, end: tomorrow };
     }
+    if (period === 'custom') {
+      const fromVal = document.getElementById('alog-date-from')?.value || '';
+      const toVal   = document.getElementById('alog-date-to')?.value   || '';
+      if (!fromVal && !toVal) return { start: null, end: null }; // no range picked yet — treat as unbounded
+      const start = fromVal ? new Date(fromVal + 'T00:00:00') : null;
+      let end = null;
+      if (toVal) {
+        end = new Date(toVal + 'T00:00:00');
+        end.setDate(end.getDate() + 1); // make "to" date inclusive
+      }
+      return { start, end };
+    }
     return { start: null, end: null };
+  }
+
+  // Human-readable label for the currently picked custom range (export filenames/titles)
+  function _customRangeLabel() {
+    const fromVal = document.getElementById('alog-date-from')?.value || '';
+    const toVal   = document.getElementById('alog-date-to')?.value   || '';
+    if (fromVal && toVal) return `${fromVal} – ${toVal}`;
+    if (fromVal) return `${fromVal} থেকে এখন পর্যন্ত`;
+    if (toVal)   return `${toVal} পর্যন্ত`;
+    return 'কাস্টম রেঞ্জ';
   }
 
   function _matchesPeriod(l, period) {
     if (!period || period === 'all') return true;
+    const { start, end } = _periodBounds(period);
+    if (!start && !end) return true; // 'all', or 'custom' with no dates picked yet
     const dt = _logDate(l);
     if (!dt) return false;
-    const { start, end } = _periodBounds(period);
-    return dt >= start && dt < end;
+    if (start && dt < start) return false;
+    if (end && dt >= end) return false;
+    return true;
   }
 
   function _financeRows() {
@@ -146,12 +172,15 @@ const ActivityLog = (() => {
 
   function _financeInPeriod(f, period) {
     if (!period || period === 'all') return true;
+    const { start, end } = _periodBounds(period);
+    if (!start && !end) return true; // 'all', or 'custom' with no dates picked yet
     const dStr = String(f.date || f.created_at || '').split('T')[0];
     if (!dStr) return false;
     const d = new Date(dStr + 'T12:00:00');
     if (isNaN(d.getTime())) return false;
-    const { start, end } = _periodBounds(period);
-    return d >= start && d < end;
+    if (start && d < start) return false;
+    if (end && d >= end) return false;
+    return true;
   }
 
   function _taka(n) {
@@ -232,6 +261,7 @@ const ActivityLog = (() => {
     const title = summary.period === 'today' ? 'আজকের কাজের সারাংশ'
                 : summary.period === 'yesterday' ? 'গতকালের কাজের সারাংশ'
                 : summary.period === 'week' ? 'গত ৭ দিনের সারাংশ'
+                : summary.period === 'custom' ? `${_customRangeLabel()} — সারাংশ`
                 : 'সার্বিক সারাংশ';
 
     return `
@@ -550,12 +580,18 @@ const ActivityLog = (() => {
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center;padding:10px 14px;background:rgba(255,255,255,0.03);border-radius:10px;border:1px solid rgba(255,255,255,0.07)">
         <i class="fa fa-filter" style="color:var(--brand-primary);font-size:.82rem"></i>
-        <select id="alog-filter-period" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="ActivityLog.filter()">
+        <select id="alog-filter-period" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="ActivityLog.onPeriodChange()">
           <option value="today" selected>📅 আজ</option>
           <option value="yesterday">📅 গতকাল</option>
           <option value="week">📅 ৭ দিন</option>
           <option value="all">📅 সব সময়</option>
+          <option value="custom">📅 কাস্টম রেঞ্জ</option>
         </select>
+        <div id="alog-date-range-wrap" style="display:none;align-items:center;gap:6px">
+          <input type="date" id="alog-date-from" class="form-control" style="width:135px;font-size:.76rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 8px" onchange="ActivityLog.filter()" />
+          <span style="color:rgba(255,255,255,0.4);font-size:.76rem">থেকে</span>
+          <input type="date" id="alog-date-to" class="form-control" style="width:135px;font-size:.76rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 8px" onchange="ActivityLog.filter()" />
+        </div>
         <select id="alog-filter-action" class="form-control" style="width:130px;font-size:.78rem;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#fff;border-radius:7px;padding:6px 10px" onchange="ActivityLog.filter()">
           <option value="all">সব Action</option>
           <option value="add">➕ ADD</option>
@@ -643,12 +679,23 @@ const ActivityLog = (() => {
 
   function filter() { refresh(); }
 
+  // Period select toggles the custom date-range inputs, then refreshes
+  function onPeriodChange() {
+    const period = document.getElementById('alog-filter-period')?.value || 'today';
+    const wrap = document.getElementById('alog-date-range-wrap');
+    if (wrap) wrap.style.display = (period === 'custom') ? 'flex' : 'none';
+    refresh();
+  }
+
   function clearFilters() {
     const fp = document.getElementById('alog-filter-period'); if (fp) fp.value = 'today';
     const fa = document.getElementById('alog-filter-action'); if (fa) fa.value = 'all';
     const ft = document.getElementById('alog-filter-type');   if (ft) ft.value = 'all';
     const fs = document.getElementById('alog-search');        if (fs) fs.value = '';
     const hs = document.getElementById('alog-hide-system');   if (hs) hs.checked = true;
+    const df = document.getElementById('alog-date-from');     if (df) df.value = '';
+    const dt = document.getElementById('alog-date-to');       if (dt) dt.value = '';
+    const wrap = document.getElementById('alog-date-range-wrap'); if (wrap) wrap.style.display = 'none';
     refresh();
   }
 
@@ -742,7 +789,9 @@ const ActivityLog = (() => {
 
     const now   = new Date();
     const stamp = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
-    const periodTag = fs.period === 'all' ? 'all' : fs.period;
+    const periodTag = fs.period === 'custom'
+      ? (document.getElementById('alog-date-from')?.value || 'x') + '_to_' + (document.getElementById('alog-date-to')?.value || 'x')
+      : (fs.period === 'all' ? 'all' : fs.period);
     const blob  = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url   = URL.createObjectURL(blob);
     const a     = document.createElement('a');
@@ -826,7 +875,7 @@ const ActivityLog = (() => {
 </head>
 <body>
   <h1>📋 Activity Log Report</h1>
-  <div class="sub">${instName} &nbsp;|&nbsp; ${PERIOD_LABELS[fs.period] || ''} &nbsp;|&nbsp; তৈরি: ${stamp} &nbsp;|&nbsp; মোট: ${logs.length} টি log</div>
+  <div class="sub">${instName} &nbsp;|&nbsp; ${fs.period === 'custom' ? '📅 ' + _customRangeLabel() : (PERIOD_LABELS[fs.period] || '')} &nbsp;|&nbsp; তৈরি: ${stamp} &nbsp;|&nbsp; মোট: ${logs.length} টি log</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px">${summaryCards}</div>
   <table>
     <thead>
@@ -867,7 +916,7 @@ const ActivityLog = (() => {
   });
 
   return {
-    panel, refresh, filter, clearFilters, clear, log,
+    panel, refresh, filter, onPeriodChange, clearFilters, clear, log,
     pullAndRefresh, startAutoRefresh, stopAutoRefresh,
     getLogs, getActivityLogs,
     downloadPDF, downloadExcel,
