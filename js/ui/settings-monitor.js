@@ -25,12 +25,48 @@ window.SettingsMonitor = (function () {
   function buildPanelHTML(activeTab) {
     const entries = _loadLedger();
 
+    // পুরনো entry-তে total_after নেই — current total থেকে উল্টো হিসাব করে approximate total দেখাব
+    // entries newest-first তাই আমরা সামনে থেকে চলব, index 0 সবচেয়ে নতুন
+    const currentTotal = (() => {
+      try {
+        const accounts = (typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.accounts || 'accounts') : [])
+          .filter(a => a && a.type && a.balance !== undefined);
+        return accounts.reduce((s, a) => s + Number(a.balance || 0), 0);
+      } catch { return null; }
+    })();
+
+    // প্রতিটি entry-র total_after বের করা:
+    // যে entry-তে total_after আছে সেটা সরাসরি নাও।
+    // যে entry-তে নেই সেটার জন্য: পরবর্তী (newer) entry-র total থেকে
+    // এই entry-র change উল্টো করে বের করো।
+    const enriched = [...entries]; // newest first
+    // প্রথমে total_after যেখানে আছে সেটা দিয়ে শুরু করি
+    // index 0 = newest, তাই forward pass এ আমরা older-এর total বের করব
+    for (let i = 0; i < enriched.length; i++) {
+      const r = enriched[i];
+      if (r.total_after != null && r.total_after !== undefined) continue; // আছে, skip
+      // নেই — আগেরটা (newer, i-1) থেকে উল্টো হিসাব
+      const newerTotal = i === 0
+        ? currentTotal
+        : (enriched[i - 1]._derivedTotal ?? enriched[i - 1].total_after ?? null);
+      if (newerTotal == null) { r._derivedTotal = null; continue; }
+      const amt  = Number(r.change_amount || 0);
+      const dir  = r.direction === 'in' ? 'in' : 'out';
+      // newer total = older total ± this entry's change
+      // so: older total = newer total ∓ this entry's change
+      r._derivedTotal = dir === 'in' ? newerTotal - amt : newerTotal + amt;
+    }
+
     const rows = entries.length === 0
-      ? `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted)">কোনো এন্ট্রি নেই — কোনো account-এর balance change হলে এখানে দেখাবে।</td></tr>`
-      : entries.map((r) => {
+      ? `<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-muted)">কোনো এন্ট্রি নেই — কোনো account-এর balance change হলে এখানে দেখাবে।</td></tr>`
+      : enriched.map((r) => {
           const dirColor = r.direction === 'in' ? 'var(--success)' : 'var(--error)';
           const dirLabel = r.direction === 'in' ? '⬇ In' : '⬆ Out';
           const dateStr = r.created_at ? new Date(r.created_at).toLocaleString('en-BD', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+          const totalVal = r.total_after != null ? r.total_after : (r._derivedTotal != null ? r._derivedTotal : null);
+          const totalCell = totalVal != null
+            ? `<span style="font-weight:800;color:#00d9ff">${_taka(totalVal)}</span>`
+            : `<span style="color:var(--text-muted);font-size:.75rem">—</span>`;
           return `
           <tr>
             <td style="font-size:.82rem">${dateStr}</td>
@@ -38,9 +74,11 @@ window.SettingsMonitor = (function () {
             <td><span style="font-size:.72rem;font-weight:700;color:${dirColor}">${dirLabel}</span></td>
             <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;color:${dirColor}">${_taka(r.change_amount)}</td>
             <td class="text-right" style="font-family:var(--font-ui);font-size:.82rem;color:#f0c040;white-space:nowrap">${_taka(r.balance_before)} → ${_taka(r.balance_after)}</td>
+            <td class="text-right" style="font-family:var(--font-ui);font-size:.85rem;white-space:nowrap">${totalCell}</td>
             <td style="font-size:.78rem;color:var(--text-muted)">${_esc(r.source_note) || '—'}</td>
           </tr>`;
         }).join('');
+
 
     // ── Balance Update Card ──────────────────────────────────────────
     const accounts = (typeof SupabaseSync !== 'undefined' ? SupabaseSync.getAll(DB.accounts || 'accounts') : [])
@@ -96,7 +134,7 @@ window.SettingsMonitor = (function () {
 
         <div class="table-wrapper">
           <table>
-            <thead><tr><th>DATE</th><th>ACCOUNT</th><th>DIRECTION</th><th class="text-right">AMOUNT</th><th class="text-right">BALANCE (BEFORE → AFTER)</th><th>NOTE</th></tr></thead>
+            <thead><tr><th>DATE</th><th>ACCOUNT</th><th>DIRECTION</th><th class="text-right">AMOUNT</th><th class="text-right">BALANCE (BEFORE → AFTER)</th><th class="text-right" style="color:#00d9ff">TOTAL BALANCE</th><th>NOTE</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>

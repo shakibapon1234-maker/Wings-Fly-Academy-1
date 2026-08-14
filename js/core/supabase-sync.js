@@ -381,7 +381,7 @@ const TABLE_COLUMNS = {
   school_subjects: ['id','class_name','subject_name','full_marks','pass_marks','is_active','created_at','updated_at'],
   school_marks: ['id','student_id','student_no','student_name','class_name','section','roll_no','academic_year','exam_type','subject_id','subject_name','marks_obtained','full_marks','grade','gpa','pass','created_at','updated_at'],
   sms_logs: ['id','recipient','message','type','status','provider_response','sent_at'],
-  monitor_ledger: ['id','account_method','balance_before','balance_after','change_amount','direction','source_note','created_at','updated_at'],
+  monitor_ledger: ['id','account_method','balance_before','balance_after','change_amount','direction','source_note','total_after','created_at','updated_at'],
 };
 
 const SupabaseSync = (() => {
@@ -673,7 +673,7 @@ const SupabaseSync = (() => {
    * টেবিলে সরাসরি save করে। localStorage না — IndexedDB + Supabase,
    * তাই device পাল্টালেও/reinstall করলেও data থাকবে। কোনো cap নেই (১৫-এর মতো)।
    */
-  function _logMonitorLedger(methodName, before, after, amount, direction, note) {
+  function _logMonitorLedger(methodName, before, after, amount, direction, note, totalAfter) {
     try {
       const row = {
         account_method: String(methodName || ''),
@@ -682,6 +682,7 @@ const SupabaseSync = (() => {
         change_amount:  Number(amount) || 0,
         direction:      direction === 'in' ? 'in' : 'out',
         source_note:    note ? String(note).slice(0, 200) : '',
+        total_after:    totalAfter !== undefined ? Math.round(Number(totalAfter) * 100) / 100 : null,
       };
       insert(DB.monitor, row, { bypassLog: true });
     } catch (e) {
@@ -2658,7 +2659,9 @@ const SupabaseSync = (() => {
       // এটা pure screenshot: accounts.balance-এর current state সরাসরি save হবে
       _finalizeMonitorSnapshot();
       // ✅ Raw cloud-synced ledger — currentBal/newBal ইতিমধ্যে computed, শুধু save করছি
-      _logMonitorLedger(methodName, currentBal, newBal, normalizedAmount, direction);
+      // Total balance = updated accounts array-এর সব balance যোগ (balance update সম্পন্ন হওয়ার পরে)
+      const _totalAfter = accounts.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+      _logMonitorLedger(methodName, currentBal, newBal, normalizedAmount, direction, '', _totalAfter);
       return true;
     } catch (e) {
       console.warn('[Sync] _updateBalanceCore failed:', e);
