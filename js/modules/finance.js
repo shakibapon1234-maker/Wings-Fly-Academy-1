@@ -7,6 +7,7 @@
 const Finance = (() => {
 
   let filterType   = '';
+  let filterCategory = '';
   let filterMethod = '';
   let filterFrom   = '';
   let filterTo     = '';
@@ -66,7 +67,7 @@ const Finance = (() => {
     all.forEach(f => {
       _allNet += _ledgerDelta(f.type, Utils.safeNum(f.amount));
     });
-    const _noFilters = !searchQuery && !filterType && !filterMethod && !filterFrom && !filterTo;
+    const _noFilters = !searchQuery && !filterType && !filterCategory && !filterMethod && !filterFrom && !filterTo;
     const _initialBal = _noFilters ? (_totalStored - _allNet) : 0;
 
      let running = _initialBal;
@@ -119,6 +120,10 @@ const Finance = (() => {
           <option value="Transfer Out"   ${filterType==='Transfer Out'?'selected':''}>Transfer Out</option>
           <option value="Investment In"  ${filterType==='Investment In'?'selected':''}>Investment In</option>
           <option value="Investment Out" ${filterType==='Investment Out'?'selected':''}>Investment Out</option>
+        </select>
+        <select class="form-control" style="flex:0 0 auto;width:auto;max-width:190px" onchange="Finance.onFilter('category',this.value)" title="Filter by transaction category">
+          <option value="">All Categories</option>
+          ${getFilterCategories(all).map(category => `<option value="${Utils.escAttr(category)}" ${filterCategory===category?'selected':''}>${Utils.esc(category)}</option>`).join('')}
         </select>
         <select class="form-control" style="flex:0 0 auto;width:auto" onchange="Finance.onFilter('method',this.value)">
           <option value="">All Methods</option>
@@ -185,7 +190,7 @@ const Finance = (() => {
             <span style="font-size:0.75rem;color:rgba(255,255,255,0.5);font-weight:600">NET</span>
             <span style="font-size:0.92rem;font-weight:800;color:${net>=0?'#00e5ff':'#ff6b35'};font-family:var(--font-ui)">${net>=0?'+':''}${Utils.takaEn(net)}</span>
           </span>
-          ${(filterFrom||filterTo||filterType||filterMethod||searchQuery)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filterFrom?Utils.formatDateDMY(filterFrom):'All'} → ${filterTo?Utils.formatDateDMY(filterTo):'Today'} &nbsp;&bull;&nbsp; ${filtered.length} records</span>`:''}
+          ${(filterFrom||filterTo||filterType||filterCategory||filterMethod||searchQuery)?`<span style="font-size:0.72rem;color:rgba(255,255,255,0.3);margin-left:auto">${filterFrom?Utils.formatDateDMY(filterFrom):'All'} → ${filterTo?Utils.formatDateDMY(filterTo):'Today'} &nbsp;&bull;&nbsp; ${filtered.length} records</span>`:''}
         </div>
       </div>
     `;
@@ -278,15 +283,32 @@ const Finance = (() => {
 
     if (searchQuery)  r = Utils.searchFilter(r, searchQuery, ['description','category','note']);
     if (filterType)   r = r.filter(f=>f.type===filterType);
+    if (filterCategory) r = r.filter(f => String(f.category || '') === filterCategory);
     if (filterMethod) r = r.filter(f=>f.method===filterMethod);
     if (filterFrom||filterTo) r = Utils.dateRangeFilter(r,'date',filterFrom,filterTo);
     return r;
   }
 
+  function getFilterCategories(rows) {
+    const categories = new Set();
+    rows.forEach(entry => {
+      if (entry.category && entry.category !== 'Balance Adjustment' &&
+          (!filterType || entry.type === filterType)) {
+        categories.add(String(entry.category));
+      }
+    });
+    if (filterType) getCategories(filterType).forEach(category => categories.add(String(category)));
+    return [...categories].sort((a, b) => a.localeCompare(b));
+  }
+
   const debouncedRender = Utils.debounce(()=>render(),250);
   function onSearch(val) { searchQuery = val; currentPage = 1; debouncedRender(); }
   function onFilter(t, v) {
-    if (t === 'type') filterType = v;
+    if (t === 'type') {
+      filterType = v;
+      filterCategory = '';
+    }
+    if (t === 'category') filterCategory = v;
     if (t === 'method') filterMethod = v;
     if (t === 'from') filterFrom = v;
     if (t === 'to') filterTo = v;
@@ -294,7 +316,7 @@ const Finance = (() => {
     render();
   }
   function resetFilters() {
-    filterType = filterMethod = filterFrom = filterTo = searchQuery = '';
+    filterType = filterCategory = filterMethod = filterFrom = filterTo = searchQuery = '';
     currentPage = 1;
     render();
   }
