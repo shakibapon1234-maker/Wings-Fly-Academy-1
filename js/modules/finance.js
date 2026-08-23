@@ -597,6 +597,14 @@ const Finance = (() => {
       Utils.toast('Transaction added ✓','success');
     }
 
+    // Fee Reconciliation — Student Fee entry add/edit হলে students.paid/due sync করো
+    // (AUDIT_IGNORE Section 11.9 — Fee Reconciliation tool: ledger → student.paid/due sync)
+    if (record.category === 'Student Fee') {
+      if (typeof Students !== 'undefined' && typeof Students.reconcileAllStudents === 'function') {
+        Students.reconcileAllStudents({ silent: true });
+      }
+    }
+
     Utils.closeModal();
     render();
   }
@@ -721,6 +729,12 @@ const Finance = (() => {
       );
     }
     Utils.toast('Transaction deleted — RecycleBin-এ আছে','info');
+    // Student Fee delete হলে students.paid/due re-sync করো
+    if (entry && entry.category === 'Student Fee') {
+      if (typeof Students !== 'undefined' && typeof Students.reconcileAllStudents === 'function') {
+        Students.reconcileAllStudents({ silent: true });
+      }
+    }
     render();
   }
 

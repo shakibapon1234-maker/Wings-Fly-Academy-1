@@ -7,18 +7,48 @@
 const Students = (() => {
 
   function _feePaymentsForStudent(studentId, s) {
-    return SupabaseSync.getAll(DB.finance).filter(f =>
-      f.category === 'Student Fee' &&
-      (f.ref_id === studentId || (s && s.student_id && f.ref_id === s.student_id))
-    );
+    const allFin = SupabaseSync.getAll(DB.finance);
+    if (!studentId && !s) return [];
+    const sid = studentId || (s && s.id);
+    const stuIdStr = s && s.student_id ? String(s.student_id).trim().toUpperCase() : '';
+    const stuName = s && s.name ? String(s.name).trim().toLowerCase() : '';
+
+    return allFin.filter(f => {
+      if (!f) return false;
+      const cat = String(f.category || '').trim().toLowerCase();
+      if (!['student fee', 'student installment', 'student payment'].includes(cat)) return false;
+
+      // 1. Direct match by ref_id (UUID or student_id string)
+      if (f.ref_id) {
+        if (sid && f.ref_id === sid) return true;
+        if (stuIdStr && String(f.ref_id).trim().toUpperCase() === stuIdStr) return true;
+      }
+
+      // 2. Match by student_id embedded in description or person_name (e.g. WFA-21014)
+      if (stuIdStr) {
+        const descUpper = String(f.description || '').toUpperCase();
+        const pUpper = String(f.person_name || '').toUpperCase();
+        if (descUpper.includes(stuIdStr) || pUpper.includes(stuIdStr)) return true;
+        const m = descUpper.match(/(?:WF|WFA)-\d+/);
+        if (m && m[0] === stuIdStr) return true;
+      }
+
+      // 3. Match by student name if description / person_name matches
+      if (stuName && stuName.length > 2) {
+        const descLower = String(f.description || '').toLowerCase();
+        const pLower = String(f.person_name || '').toLowerCase();
+        if (pLower === stuName || descLower.includes(`(${stuName})`) || descLower.startsWith(stuName + ' (') || descLower.startsWith(stuName + ' —') || descLower.startsWith(stuName + ' -')) {
+          return true;
+        }
+      }
+
+      return false;
+    });
   }
 
   function _syncPaidDueAfterLedgerChange(studentId, s, removedPaymentAmount) {
-    // ✅ Bug Fix: Always re-read the latest student data from DB.
-    // The passed-in `s` may hold a stale `paid` value if another update
-    // happened between when `s` was read and when this function runs,
-    // causing cascading math errors in sequential delete operations.
     const fresh = SupabaseSync.getById(DB.students, studentId) || s;
+    if (!fresh) return { paid: 0, due: 0 };
     const ledgerCurrent = _feePaymentsForStudent(studentId, fresh)
       .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const ledgerBefore = ledgerCurrent + Utils.safeNum(removedPaymentAmount || 0);
@@ -119,10 +149,73 @@ const Students = (() => {
     }
   }
 
+  function _reconcileStudentsInternal() {
+    const allStudents = SupabaseSync.getAll(DB.students);
+    const allFinance  = SupabaseSync.getAll(DB.finance);
+    if (!Array.isArray(allStudents) || !allStudents.length) return { fixedCount: 0, auditLog: [] };
+
+    let fixedCount = 0;
+    const auditLog = [];
+
+    allStudents.forEach(s => {
+      if (!s || !s.id) return;
+      const sid = s.id;
+      const payments = _feePaymentsForStudent(sid, s);
+      const ledgerPaid = payments.reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+
+      // Auto-heal missing ref_id on finance entries
+      payments.forEach(f => {
+        if (!f.ref_id) {
+          SupabaseSync.update(DB.finance, f.id, { ref_id: sid }, { bypassLog: true });
+        }
+      });
+
+      const totalFee   = Utils.safeNum(s.total_fee);
+      const storedPaid = Utils.safeNum(s.paid);
+      const storedDue  = Utils.safeNum(s.due);
+
+      let newPaid = storedPaid;
+      let newDue  = storedDue;
+      let needsFix = false;
+
+      if (ledgerPaid > storedPaid) {
+        newPaid  = ledgerPaid;
+        newDue   = Math.max(0, totalFee - newPaid);
+        needsFix = true;
+      } else if (storedPaid > ledgerPaid) {
+        const unrecorded = storedPaid - ledgerPaid;
+        const expectedDue = Math.max(0, totalFee - (ledgerPaid + unrecorded));
+        if (storedDue !== expectedDue || Math.abs((storedPaid + storedDue) - totalFee) > 1) {
+          newDue = expectedDue;
+          needsFix = true;
+        }
+      } else {
+        const expectedDue = Math.max(0, totalFee - newPaid);
+        if (storedDue !== expectedDue) {
+          newDue = expectedDue;
+          needsFix = true;
+        }
+      }
+
+      if (needsFix) {
+        SupabaseSync.update(DB.students, sid, { paid: newPaid, due: newDue }, { bypassLog: true });
+        s.paid = newPaid;
+        s.due = newDue;
+        fixedCount++;
+        auditLog.push(`${s.name} (${s.student_id}): paid ${storedPaid}→${newPaid}, due ${storedDue}→${newDue}`);
+      }
+    });
+
+    return { fixedCount, auditLog };
+  }
+
   function render() {
     _loadFilterState();
     const container = document.getElementById('students-content');
     if (!container) return;
+
+    // ✅ Silent Auto-reconcile: keep student list paid/due in 100% harmony with finance ledger
+    _reconcileStudentsInternal();
 
     let all      = SupabaseSync.getAll(DB.students);
     if (_repairCorruptedCourseFieldsOnce(all)) all = SupabaseSync.getAll(DB.students);
@@ -1065,22 +1158,31 @@ const Students = (() => {
     if (!s) return;
     const eid = Utils.escAttr(id);
 
-    const allFinance = SupabaseSync.getAll(DB.finance);
-    // Match by UUID (new) OR by student_id string (legacy) for backward compatibility
-    const history = allFinance
-      .filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s.student_id))
+    const history = _feePaymentsForStudent(id, s)
       .sort((a, b) => new Date(a.date) - new Date(b.date));
 
+    // Ensure all finance entries have ref_id populated
+    history.forEach(f => {
+      if (!f.ref_id) {
+        SupabaseSync.update(DB.finance, f.id, { ref_id: id }, { bypassLog: true });
+      }
+    });
+
     const totalFee  = Utils.safeNum(s.total_fee);
-    const totalPaid = Utils.safeNum(s.paid);
-    const totalDue  = Utils.safeNum(s.due);
+    const sumOfFinanceEntries = history.reduce((acc, f) => acc + Utils.safeNum(f.amount), 0);
+    const unrecordedInitial   = Math.max(0, Utils.safeNum(s.paid) - sumOfFinanceEntries);
+    const totalPaid = sumOfFinanceEntries + unrecordedInitial;
+    const totalDue  = Math.max(0, totalFee - totalPaid);
+
+    // Synchronize student in DB if out of sync
+    if (Utils.safeNum(s.paid) !== totalPaid || Utils.safeNum(s.due) !== totalDue) {
+      SupabaseSync.update(DB.students, id, { paid: totalPaid, due: totalDue }, { bypassLog: true });
+      s.paid = totalPaid;
+      s.due = totalDue;
+    }
+
     const paidPct   = totalFee > 0 ? Math.min(100, Math.round((totalPaid / totalFee) * 100)) : 0;
     const barColor  = paidPct >= 100 ? '#00ff88' : paidPct >= 50 ? '#ffaa00' : '#ff4757';
-
-    // Detect any initial paid amount NOT recorded in finance ledger
-    // (e.g. student added with a paid amount but without selecting a payment method)
-    const sumOfFinanceEntries = history.reduce((acc, f) => acc + Utils.safeNum(f.amount), 0);
-    const unrecordedInitial   = Math.max(0, totalPaid - sumOfFinanceEntries);
 
     // Build rows — prepend a ghost row for the unrecorded initial payment if present
     let rowIndex    = 0;
@@ -1110,15 +1212,25 @@ const Students = (() => {
     if (history.length === 0 && unrecordedInitial === 0) {
       historyTableRows = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:20px;"><i class="fa fa-inbox" style="display:block;font-size:1.8rem;opacity:.3;margin-bottom:8px;"></i>No payment history yet</td></tr>';
     } else {
-      historyTableRows += history.map((f) => {
+      historyTableRows += history.map((f, idx) => {
         runningTotal += Utils.safeNum(f.amount);
         rowIndex++;
         const remaining = Math.max(0, totalFee - runningTotal);
+        const isDuplicate = history.some((other, oIdx) =>
+          oIdx !== idx &&
+          Utils.safeNum(other.amount) === Utils.safeNum(f.amount) &&
+          (other.date || '').split('T')[0] === (f.date || '').split('T')[0] &&
+          (other.method || 'Cash') === (f.method || 'Cash')
+        );
+
         return `
         <tr style="border-bottom:1px solid rgba(255,255,255,0.05)">
           <td style="padding:10px 12px;color:var(--text-muted);font-size:0.82rem">${rowIndex}</td>
           <td style="padding:10px 12px">${Utils.formatDateDMY(f.date)}</td>
-          <td style="padding:10px 12px"><span class="badge badge-info">${Utils.esc(f.method || 'Cash')}</span></td>
+          <td style="padding:10px 12px">
+            <span class="badge badge-info">${Utils.esc(f.method || 'Cash')}</span>
+            ${isDuplicate ? '<span class="badge badge-warning" style="font-size:0.65rem;margin-left:4px;background:rgba(255,170,0,0.2);color:#ffaa00;" title="Duplicate payment detected? You can delete one using the trash button.">Duplicate?</span>' : ''}
+          </td>
           <td style="padding:10px 12px;font-weight:700;color:#00ff88">${Utils.takaEn(f.amount)}</td>
           <td style="padding:10px 12px;color:${remaining > 0 ? '#ff4757' : '#00ff88'};font-weight:600">${Utils.takaEn(remaining)}</td>
           <td style="padding:10px 12px;text-align:right">
@@ -1165,7 +1277,7 @@ const Students = (() => {
           '</div>' +
           '<div id="pay-bal-display" style="display:none;margin-bottom:8px"></div>' +
           '<div id="pay-error" class="form-error hidden" style="margin-bottom:8px"></div>' +
-          '<button onclick="Students.savePayment(\'' + eid + '\')" style="width:100%;padding:12px;background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;border-radius:8px;font-weight:800;font-size:0.9rem;color:#fff;cursor:pointer;letter-spacing:0.5px">' +
+          '<button id="btn-save-installment" onclick="Students.savePayment(\'' + eid + '\')" style="width:100%;padding:12px;background:linear-gradient(90deg,#00d9ff,#b537f2);border:none;border-radius:8px;font-weight:800;font-size:0.9rem;color:#fff;cursor:pointer;letter-spacing:0.5px">' +
             '<i class="fa fa-plus"></i> SAVE INSTALLMENT' +
           '</button>' +
         '</div>';
@@ -1519,7 +1631,11 @@ const Students = (() => {
   /* ══════════════════════════════════════════
      SAVE PAYMENT
   ══════════════════════════════════════════ */
-  function savePayment(studentId) {
+  let _isSavingPayment = false;
+  let _lastPaymentSubmission = { studentId: null, amount: null, time: 0 };
+
+  async function savePayment(studentId) {
+    if (_isSavingPayment) return;
     const s      = SupabaseSync.getById(DB.students, studentId);
     const errEl  = document.getElementById('pay-error');
 
@@ -1537,48 +1653,83 @@ const Students = (() => {
       else { Utils.toast(msg, 'error'); }
     }
 
+    // Dynamic ledger calculation to prevent stale calculation
+    const existingPayments = _feePaymentsForStudent(studentId, s);
+    const currentLedgerPaid = existingPayments.reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - currentLedgerPaid);
+    const effectivePaid = currentLedgerPaid + unrecordedInitial;
+    const effectiveDue  = Math.max(0, Utils.safeNum(s.total_fee) - effectivePaid);
+
     if (!amount || amount <= 0) { showErr('Payment amount required'); return; }
-    if (amount > Utils.safeNum(s.due)) { showErr('Amount ৳' + Utils.formatMoneyPlain(amount) + ' cannot exceed due ৳' + Utils.formatMoneyPlain(s.due)); return; }
+    if (amount > effectiveDue) { showErr('Amount ৳' + Utils.formatMoneyPlain(amount) + ' cannot exceed due ৳' + Utils.formatMoneyPlain(effectiveDue)); return; }
 
     const method = Utils.formVal('pay-method');
     if (!method) { showErr('Please select a Payment Method'); return; }
     if (!Utils.isValidPaymentMethod(method)) { showErr('Invalid or inactive Payment Method selected'); return; }
 
+    const payDate = Utils.formVal('pay-date') || Utils.today();
+    const payNote = Utils.formVal('pay-note') || '';
+
+    // Rapid double-submission guard (4 seconds debounce)
+    const now = Date.now();
+    if (_lastPaymentSubmission.studentId === studentId &&
+        _lastPaymentSubmission.amount === amount &&
+        (now - _lastPaymentSubmission.time) < 4000) {
+      console.warn('[savePayment] Blocked accidental duplicate submit within 4s');
+      return;
+    }
+
+    _isSavingPayment = true;
+    _lastPaymentSubmission = { studentId, amount, time: now };
+
+    const saveBtn = document.getElementById('btn-save-installment');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+    }
+
     if (errEl) errEl.classList.add('hidden');
 
-    const newPaid = Utils.safeNum(s.paid) + amount;
-    const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
+    try {
+      const newPaid = effectivePaid + amount;
+      const newDue  = Math.max(0, Utils.safeNum(s.total_fee) - newPaid);
 
-    SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
+      SupabaseSync.update(DB.students, studentId, { paid: newPaid, due: newDue }, { bypassLog: true });
 
-    SupabaseSync.insert(DB.finance, {
-      type:        'Income',
-      category:    'Student Fee',
-      description: s.name + ' (' + s.student_id + ') — Course Fee Installment',
-      amount:      amount,
-      method:      method,
-      date:        Utils.formVal('pay-date') || Utils.today(),
-      note:        Utils.formVal('pay-note') || '',
-      ref_id:      studentId,
-    }, { bypassLog: true });
+      SupabaseSync.insert(DB.finance, {
+        type:        'Income',
+        category:    'Student Fee',
+        description: s.name + ' (' + s.student_id + ') — Course Fee Installment',
+        amount:      amount,
+        method:      method,
+        date:        payDate,
+        note:        payNote,
+        ref_id:      studentId,
+      }, { bypassLog: true });
 
-    if (typeof SupabaseSync.updateAccountBalance === 'function') {
-      SupabaseSync.updateAccountBalance(method, amount, 'in');
+      if (typeof SupabaseSync.updateAccountBalance === 'function') {
+        await SupabaseSync.updateAccountBalance(method, amount, 'in');
+      }
+      if (typeof SupabaseSync.logActivity === 'function') {
+        SupabaseSync.logActivity('payment', 'students',
+          'ফি পরিশোধ: ' + s.name + ' (' + s.student_id + ') — ৳' + Utils.formatMoneyPlain(amount) + ' (' + method + ') — বকেয়া: ৳' + Utils.formatMoneyPlain(newDue));
+      }
+
+      Utils.toast('Payment saved ✓ ৳' + Utils.formatMoneyPlain(amount), 'success');
+      // ── Feature 4: SMS — fee_due reminder if still has balance ──
+      if (typeof SMSEngine !== 'undefined') {
+        const updatedStudent = SupabaseSync.getById(DB.students, studentId);
+        if (updatedStudent) SMSEngine.sendFeeDue(updatedStudent);
+      }
+      openPayModal(studentId);
+      render();
+      App.updateNotifCount();
+    } catch (e) {
+      console.error('[savePayment] Error:', e);
+      showErr('Failed to save payment: ' + (e.message || e));
+    } finally {
+      setTimeout(() => { _isSavingPayment = false; }, 800);
     }
-    if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('payment', 'students',
-        'ফি পরিশোধ: ' + s.name + ' (' + s.student_id + ') — ৳' + Utils.formatMoneyPlain(amount) + ' (' + method + ') — বকেয়া: ৳' + Utils.formatMoneyPlain(newDue));
-    }
-
-    Utils.toast('Payment saved \u2713 \u09F3' + Utils.formatMoneyPlain(amount), 'success');
-    // ── Feature 4: SMS — fee_due reminder if still has balance ──
-    if (typeof SMSEngine !== 'undefined') {
-      const updatedStudent = SupabaseSync.getById(DB.students, studentId);
-      if (updatedStudent) SMSEngine.sendFeeDue(updatedStudent);
-    }
-    openPayModal(studentId);
-    render();
-    App.updateNotifCount();
   }
 
   async function deletePayment(paymentId, studentId) {
@@ -1707,11 +1858,8 @@ const Students = (() => {
       SupabaseSync.updateAccountBalance(method, amount, 'in');
     }
 
-    const allFin = SupabaseSync.getAll(DB.finance);
-    const ledgerSum = allFin
-      .filter(f => f.category === 'Student Fee' &&
-                   (f.ref_id === studentId || f.ref_id === s.student_id))
-      .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const ledgerPayments = _feePaymentsForStudent(studentId, s);
+    const ledgerSum = ledgerPayments.reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const ledgerBeforeEdit = ledgerSum - amount + Utils.safeNum(oldPayment.amount);
     const unrecordedInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerBeforeEdit);
     const effectivePaid = ledgerSum + unrecordedInitial;
@@ -1734,11 +1882,8 @@ const Students = (() => {
     const s = SupabaseSync.getById(DB.students, studentId);
     if (!s) { Utils.toast('Student not found', 'error'); return; }
 
-    const allFin   = SupabaseSync.getAll(DB.finance);
-    const ledgerSum = allFin
-      .filter(f => f.category === 'Student Fee' &&
-                   (f.ref_id === studentId || f.ref_id === s.student_id))
-      .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
+    const ledgerPayments = _feePaymentsForStudent(studentId, s);
+    const ledgerSum = ledgerPayments.reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
     const currentInitial = Math.max(0, Utils.safeNum(s.paid) - ledgerSum);
     const maxInitial     = Utils.safeNum(s.total_fee) - ledgerSum;
 
@@ -1833,9 +1978,7 @@ const Students = (() => {
     const logoUrl      = (/^https?:\/\//i.test(rawLogo) || /^data:image\//i.test(rawLogo) || rawLogo.startsWith('assets/') || rawLogo.startsWith('./'))
       ? Utils.escAttr(rawLogo) : '';
 
-    const allFinance = SupabaseSync.getAll(DB.finance);
-    const payments = allFinance
-      .filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s.student_id))
+    const payments = _feePaymentsForStudent(id, s)
       .sort((a, b) => new Date(a.date) - new Date(b.date)); // oldest first = #1 is first payment
 
     const totalFee  = Utils.safeNum(s.total_fee);
@@ -2132,9 +2275,7 @@ const Students = (() => {
       if (!ok) return;
 
       // এই student-এর সব finance payment খুঁজে account balance reverse করো
-      const allFinance = SupabaseSync.getAll(DB.finance);
-      // Match by UUID or legacy student_id string
-      const studentPayments = allFinance.filter(f => f.category === 'Student Fee' && (f.ref_id === id || f.ref_id === s?.student_id));
+      const studentPayments = _feePaymentsForStudent(id, s);
       studentPayments.forEach(f => {
         if (f.method && typeof SupabaseSync.updateAccountBalance === 'function') {
           SupabaseSync.updateAccountBalance(f.method, Utils.safeNum(f.amount), 'out', true);
@@ -2282,70 +2423,31 @@ const Students = (() => {
      RECONCILE — Finance Ledger vs Student.paid
      Scans every student and fixes mismatches.
   ══════════════════════════════════════════ */
-  function reconcileAllStudents() {
-    const allStudents = SupabaseSync.getAll(DB.students);
-    const allFinance  = SupabaseSync.getAll(DB.finance);
-    let fixedCount    = 0;
-    let auditLog      = [];
+  function reconcileAllStudents(opts = {}) {
+    const silent = opts && opts.silent === true;
+    const { fixedCount, auditLog } = _reconcileStudentsInternal();
 
-    allStudents.forEach(s => {
-      const sid = s.id;
-      // Sum all finance entries for this student (by UUID or student_id string)
-      const ledgerPaid = allFinance
-        .filter(f => f.category === 'Student Fee' &&
-                     (f.ref_id === sid || f.ref_id === s.student_id))
-        .reduce((sum, f) => sum + Utils.safeNum(f.amount), 0);
-
-      const totalFee   = Utils.safeNum(s.total_fee);
-      const storedPaid = Utils.safeNum(s.paid);
-      const storedDue  = Utils.safeNum(s.due);
-
-      // Only fix if the stored DUE doesn't match total_fee - paid
-      // OR if ledger is GREATER than s.paid (ledger is always authoritative upward)
-      const ledgerDue = Math.max(0, totalFee - ledgerPaid);
-
-      let needsFix = false;
-      let newPaid  = storedPaid;
-      let newDue   = storedDue;
-
-      // If ledger sum > s.paid → ledger wins (someone may have deleted a student.paid edit)
-      if (ledgerPaid > storedPaid) {
-        newPaid  = ledgerPaid;
-        newDue   = ledgerDue;
-        needsFix = true;
-      }
-      // If s.paid + s.due ≠ total_fee → recalculate due (keeps manual initial payments)
-      if (Math.abs((storedPaid + storedDue) - totalFee) > 1) {
-        newDue   = Math.max(0, totalFee - newPaid);
-        needsFix = true;
+    if (!silent) {
+      if (typeof SupabaseSync.logActivity === 'function' && fixedCount > 0) {
+        SupabaseSync.logActivity('system', 'students',
+          `Fee reconciliation ran — ${fixedCount} student(s) corrected`);
       }
 
-      if (needsFix) {
-        SupabaseSync.update(DB.students, sid, { paid: newPaid, due: newDue });
-        fixedCount++;
-        auditLog.push(`${s.name} (${s.student_id}): paid ${storedPaid}→${newPaid}, due ${storedDue}→${newDue}`);
+      if (fixedCount === 0) {
+        Utils.toast('✅ All student payment records are consistent — no fixes needed!', 'success');
+      } else {
+        Utils.toast(`🔧 Fixed ${fixedCount} student(s) with payment mismatch. Check Activity Log.`, 'warning');
+        console.info('[Reconcile] Fixed students:\n' + auditLog.join('\n'));
       }
-    });
-
-    if (typeof SupabaseSync.logActivity === 'function') {
-      SupabaseSync.logActivity('system', 'students',
-        `Fee reconciliation ran — ${fixedCount} student(s) corrected`);
+      render();
+      if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') {
+        DashboardModule.render();
+      }
+      if (typeof App !== 'undefined' && typeof App.updateNotifCount === 'function') {
+        App.updateNotifCount();
+      }
     }
 
-    if (fixedCount === 0) {
-      Utils.toast('✅ All student payment records are consistent — no fixes needed!', 'success');
-    } else {
-      Utils.toast(`🔧 Fixed ${fixedCount} student(s) with payment mismatch. Check Activity Log.`, 'warning');
-      console.info('[Reconcile] Fixed students:\n' + auditLog.join('\n'));
-    }
-    render();
-    // Directly refresh dashboard if it's loaded
-    if (typeof DashboardModule !== 'undefined' && typeof DashboardModule.render === 'function') {
-      DashboardModule.render();
-    }
-    if (typeof App !== 'undefined' && typeof App.updateNotifCount === 'function') {
-      App.updateNotifCount();
-    }
     window.dispatchEvent(new CustomEvent('wfa:synced', { detail: { source: 'reconcile' } }));
     return { fixedCount, auditLog };
   }

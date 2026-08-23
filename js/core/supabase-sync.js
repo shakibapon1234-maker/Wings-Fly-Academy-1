@@ -3604,6 +3604,11 @@ const SyncEngine = (() => {
             // isFullPull-এও চালাও — প্রথম load বা forced full sync-এ বিশেষভাবে দরকার
             SupabaseSync.recalculateAccountBalancesFromLedger({ silent: true });
           }
+          if (_changedTables.has('students') || _changedTables.has('finance_ledger') || isFullPull) {
+            if (typeof Students !== 'undefined' && typeof Students.reconcileAllStudents === 'function') {
+              Students.reconcileAllStudents({ silent: true });
+            }
+          }
           // Cleanup
           try { delete document._wfa_pull_changed_tables; } catch { /* ignore */ }
         }
