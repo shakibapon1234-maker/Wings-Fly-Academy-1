@@ -1407,3 +1407,28 @@ if (localRow.exam_settings) {
 - **ড্যাশবোর্ডের অতিরিক্ত খরচ:** অটো-হেল করার কারণে তৈরি হওয়া `Balance Adjustment` ক্যাটাগরির এন্ট্রিগুলো রানিং ব্যাচের খরচে কাউন্ট হচ্ছিল কারণ `dashboard.js` এ একে বাদ দেওয়া হয়নি (অল-টাইম খরচে অলরেডি বাদ দেওয়া ছিল)। ড্যাশবোর্ডে রানিং ব্যাচের খরচে `Balance Adjustment` এক্সক্লুড করা হয়েছে।
 
 *আপডেট: 2026-07-16 — Section 27: exam_settings Cutoff Sync Loss Bug Fix & Dashboard Balance Adjustment Filter Fix।*
+
+---
+
+## Section 28: Activity Log Cross-Device Realtime & Auto-Pull Sync (2026-08-24)
+
+### সমস্যার বিবরণ
+অন্যান্য ডিভাইসে (অন্য PC বা মোবাইল) লেনদেন বা এন্ট্রি করার পর Activity Log স্বয়ংক্রিয়ভাবে অন্য ডিভাইসে দৃশ্যমান হচ্ছিল না। 
+
+### মূল কারণ (Root Causes)
+1. **Realtime সাবস্ক্রিপশন অনুপস্থিত:** `startRealtime()` শুধু `_cloudTableKeys()` লুপ করত, যেখানে `activity_log` তালিকাভুক্ত ছিল না। ফলে Supabase-এ নতুন activity log ইনসার্ট হলে অন্য ডিভাইস কোনো Realtime ইভেন্ট পাচ্ছিল না।
+2. **Auto-Pull-এ Activity Log মিসিং:** প্রতি ৩০ সেকেন্ডের ব্যাকগ্রাউন্ড সিঙ্ক পুলে (`_pullCoreInternal()`) Activity Log পুল করা হতো না; এটি কেবল শুরুতে একবার চলত।
+3. **Cooldown ও Missing-Table ট্র্যাপ:** কোনো সাময়িক নেটওয়ার্ক ত্রুটিতে `_activityCooldownUntil` বা `_activityTableMissing` সেট হয়ে গেলে ম্যানুয়াল সিঙ্ক বাটন চাপলেও রিকোয়েস্ট ব্লক হয়ে যেত।
+
+### সমাধান
+1. `SyncEngine.startRealtime()`-এ `activity_log` টেবিলের জন্য ডেডিকেটেড Realtime Postgres Changes চ্যানেল যোগ করা হয়েছে এবং `_handleRealtimeEventInternal()`-এ `activity_log` হ্যান্ডলার যুক্ত করা হয়েছে যা রিয়েলটাইমে `localStorage.wfa_activity_log`-এ ইনসার্ট/আপডেট/ডিলিট মার্জ করে `wfa:activity-log` ইভেন্ট ডিসপ্যাচ করে।
+2. `_pullCoreInternal()`-এর প্রতিটি পুলে স্বয়ংক্রিয়ভাবে `SupabaseSync.pullActivityLog({ silent: true })` যুক্ত করা হয়েছে।
+3. `_pullActivityFromCloud()` এবং `_pushActivityToCloud()`-এ `force: true` সাপোর্ট যোগ করা হয়েছে যাতে ম্যানুয়াল সিঙ্ক/রিফ্রেশে কোনো কুলডাউন বাধা না দেয়।
+4. `js/ui/activity-log.js`-এর SYNC বাটন এবং `pullAndRefresh()`-কে `force: true` দিয়ে আপগ্রেড করা হয়েছে।
+
+### প্রভাবিত ফাইল
+- `js/core/supabase-sync.js`
+- `js/ui/activity-log.js`
+- `version.json` (5.1.4 / `20260824-activity-log-cross-device-sync`)
+- `service-worker.js` (DEPLOY_ID synced)
+- `www/` build synced via `node build-www.js`

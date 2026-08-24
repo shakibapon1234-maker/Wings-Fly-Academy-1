@@ -1019,13 +1019,19 @@ const SupabaseSync = (() => {
   let _activityTableMissing = false; // once confirmed missing, stop retrying
   let _activityCooldownUntil = 0;   // cooldown to avoid spamming console on network disconnects
 
-  async function _pushActivityToCloud(entry) {
-    if (_activityTableMissing) return;
-    if (!navigator.onLine) return; // silently skip if offline
-    if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+  async function _pushActivityToCloud(entry, opts = {}) {
+    const isForce = opts && opts.force === true;
+    if (!isForce) {
+      if (_activityTableMissing) return;
+      if (!navigator.onLine) return; // silently skip if offline
+      if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+    } else {
+      _activityTableMissing = false;
+      _activityCooldownUntil = 0;
+    }
 
     try {
-      const { client } = window.SUPABASE_CONFIG;
+      const client = (typeof _client === 'function' ? _client() : null) || window.SUPABASE_CONFIG?.client;
       if (!client) return;
       const clean = {
         id:          entry.id,
@@ -1036,7 +1042,7 @@ const SupabaseSync = (() => {
         user:        entry.user || 'Admin',
         device_id:   entry.device_id || _deviceId(),
         time:        entry.time,
-        created_at:  entry.created_at,
+        created_at:  entry.created_at || new Date().toISOString(),
       };
       const { error } = await client.from(_ACTIVITY_TABLE).upsert([clean], { onConflict: 'id' });
       if (error) {
@@ -1048,8 +1054,8 @@ const SupabaseSync = (() => {
         
         // Network/fetch errors or connection closed
         if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('connection')) {
-          _activityCooldownUntil = Date.now() + 60000;
-          console.warn('[ActivityLog] Cloud push failed (network error, will retry in 60s):', error.message);
+          _activityCooldownUntil = Date.now() + 15000;
+          console.warn('[ActivityLog] Cloud push failed (network error, will retry in 15s):', error.message);
           return;
         }
 
@@ -1057,8 +1063,8 @@ const SupabaseSync = (() => {
       }
     } catch (e) {
       if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('connection')) {
-        _activityCooldownUntil = Date.now() + 60000;
-        console.warn('[ActivityLog] Push error (network error, will retry in 60s):', e?.message || e);
+        _activityCooldownUntil = Date.now() + 15000;
+        console.warn('[ActivityLog] Push error (network error, will retry in 15s):', e?.message || e);
       } else {
         console.warn('[ActivityLog] Push error:', e?.message || e);
       }
@@ -1066,13 +1072,19 @@ const SupabaseSync = (() => {
   }
 
   // সব device-এর activity log Supabase থেকে pull করে localStorage-এ merge করে
-  async function _pullActivityFromCloud() {
-    if (_activityTableMissing) return;
-    if (!navigator.onLine) return; // silently skip if offline
-    if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+  async function _pullActivityFromCloud(opts = {}) {
+    const isForce = opts && (opts.force === true || opts.full === true);
+    if (!isForce) {
+      if (_activityTableMissing) return;
+      if (!navigator.onLine) return; // silently skip if offline
+      if (Date.now() < _activityCooldownUntil) return; // skip during cooldown
+    } else {
+      _activityTableMissing = false;
+      _activityCooldownUntil = 0;
+    }
 
     try {
-      const { client } = window.SUPABASE_CONFIG;
+      const client = (typeof _client === 'function' ? _client() : null) || window.SUPABASE_CONFIG?.client;
       if (!client) return;
       const { data, error } = await client
         .from(_ACTIVITY_TABLE)
@@ -1087,8 +1099,8 @@ const SupabaseSync = (() => {
 
         // Network/fetch errors or connection closed
         if (error.message?.includes('fetch') || error.message?.includes('network') || error.message?.includes('connection')) {
-          _activityCooldownUntil = Date.now() + 60000;
-          console.warn('[ActivityLog] Pull failed (network error, will retry in 60s):', error.message);
+          _activityCooldownUntil = Date.now() + 15000;
+          console.warn('[ActivityLog] Pull failed (network error, will retry in 15s):', error.message);
           return;
         }
 
@@ -1103,20 +1115,28 @@ const SupabaseSync = (() => {
       const cloudIds = new Set(cloudRows.map(row => row.id));
       const mergedMap = new Map(local.map(l => [l.id, l]));
       cloudRows.forEach(row => {
-        if (!mergedMap.has(row.id)) mergedMap.set(row.id, row);
+        if (!mergedMap.has(row.id)) {
+          mergedMap.set(row.id, row);
+        } else {
+          mergedMap.set(row.id, Object.assign({}, mergedMap.get(row.id), row));
+        }
       });
       const merged = Array.from(mergedMap.values())
         .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
         .slice(0, 500);
       localStorage.setItem('wfa_activity_log', JSON.stringify(merged));
       // Retry local-only entries after an offline period. Upsert is idempotent.
-      local.filter(entry => entry && entry.id && !cloudIds.has(entry.id))
-        .forEach(entry => { _pushActivityToCloud(entry); });
+      const unpushed = local.filter(entry => entry && entry.id && !cloudIds.has(entry.id));
+      if (unpushed.length > 0) {
+        for (const entry of unpushed) {
+          _pushActivityToCloud(entry, { force: isForce });
+        }
+      }
       try { window.dispatchEvent(new CustomEvent('wfa:activity-log', { detail: { source: 'cloud-pull' } })); } catch { /* ignore */ }
     } catch (e) {
       if (e?.message?.includes('fetch') || e?.message?.includes('network') || e?.message?.includes('connection')) {
-        _activityCooldownUntil = Date.now() + 60000;
-        console.warn('[ActivityLog] Pull error (network error, will retry in 60s):', e?.message || e);
+        _activityCooldownUntil = Date.now() + 15000;
+        console.warn('[ActivityLog] Pull error (network error, will retry in 15s):', e?.message || e);
       } else {
         console.warn('[ActivityLog] Pull error:', e?.message || e);
       }
@@ -3616,6 +3636,15 @@ const SyncEngine = (() => {
 
       await SupabaseSync.processRetryQueue();
 
+      // ✅ Pull Activity Log on each sync pull so all devices stay updated
+      if (typeof SupabaseSync.pullActivityLog === 'function') {
+        try {
+          await SupabaseSync.pullActivityLog({ silent: true });
+        } catch (actErr) {
+          console.warn('[Sync] Activity log pull in core pull failed:', actErr);
+        }
+      }
+
     } catch (e) {
       console.error('[Sync] Pull failed:', e);
       setStatus('error');
@@ -3953,7 +3982,10 @@ const SyncEngine = (() => {
     if (!client?.channel) return;
     stopRealtime();
 
-    for (const key of _cloudTableKeys()) {
+    const realtimeTables = [..._cloudTableKeys()];
+    if (!realtimeTables.includes('activity_log')) realtimeTables.push('activity_log');
+
+    for (const key of realtimeTables) {
       try {
         const channel = client
           .channel(`realtime:${key}`)
@@ -3989,6 +4021,40 @@ const SyncEngine = (() => {
   function _handleRealtimeEventInternal(table, payload) {
     try {
       const { eventType, new: newRow, old: oldRow } = payload;
+
+      // ── Dedicated Realtime handler for activity_log (Cross-Device Sync) ──
+      if (table === 'activity_log') {
+        const getLocalLogs = () => {
+          try { return JSON.parse(localStorage.getItem('wfa_activity_log') || '[]'); } catch { return []; }
+        };
+        if (eventType === 'INSERT' || eventType === 'UPDATE') {
+          if (!newRow?.id) return;
+          const local = getLocalLogs();
+          const idx = local.findIndex(r => r.id === newRow.id);
+          if (idx >= 0) {
+            local[idx] = Object.assign({}, local[idx], newRow);
+          } else {
+            local.unshift(newRow);
+          }
+          const sorted = local
+            .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+            .slice(0, 500);
+          localStorage.setItem('wfa_activity_log', JSON.stringify(sorted));
+          try {
+            window.dispatchEvent(new CustomEvent('wfa:activity-log', { detail: newRow }));
+          } catch { /* ignore */ }
+        } else if (eventType === 'DELETE') {
+          if (!oldRow?.id) return;
+          const local = getLocalLogs().filter(r => r.id !== oldRow.id);
+          localStorage.setItem('wfa_activity_log', JSON.stringify(local));
+          try {
+            window.dispatchEvent(new CustomEvent('wfa:activity-log', { detail: { action: 'delete', id: oldRow.id } }));
+          } catch { /* ignore */ }
+        }
+        setStatus('realtime');
+        return;
+      }
+
       const rows = SupabaseSync.getAll(table);
 
       if (eventType === 'INSERT' || eventType === 'UPDATE') {

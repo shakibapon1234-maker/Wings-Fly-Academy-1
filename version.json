@@ -1,7 +1,7 @@
 {
-  "version": "5.1.3",
-  "deploy_id": "20260718-monitor-ui-fix",
-  "changelog": "Data Monitor UI cache fix — Service Worker forced update for corrected raw ledger display.",
+  "version": "5.1.4",
+  "deploy_id": "20260824-activity-log-cross-device-sync",
+  "changelog": "Activity Log Cross-Device Sync — Added Realtime Postgres channel subscription for activity_log, automatic pull during regular sync intervals, and forced retry on manual sync.",
   "size": "~2MB",
-  "released": "2026-07-10"
+  "released": "2026-08-24"
 }

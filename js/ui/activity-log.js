@@ -557,7 +557,7 @@ const ActivityLog = (() => {
           </button>
           <button class="settings-top-action"
             style="background:rgba(0,212,255,0.1);border-color:rgba(0,212,255,0.3);color:#00d4ff"
-            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog().then(()=>{ActivityLog.refresh();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
+            onclick="if(typeof SupabaseSync!=='undefined'&&SupabaseSync.pullActivityLog){this.innerHTML='<i class=&quot;fa fa-rotate fa-spin&quot;></i> Syncing…';const me=this;SupabaseSync.pullActivityLog({force:true}).then(()=>{ActivityLog.refresh();me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';Utils.toast('Activity log synced ✅','success');}).catch(()=>{me.innerHTML='<i class=&quot;fa fa-rotate&quot;></i> SYNC';})}">
             <i class="fa fa-rotate"></i> SYNC
           </button>
           <button class="settings-top-action" onclick="ActivityLog.clear()">
@@ -702,9 +702,9 @@ const ActivityLog = (() => {
   // ── Real-time: pull cloud log + refresh, then poll while the tab is open ──
   let _pollTimer = null;
 
-  function pullAndRefresh() {
+  function pullAndRefresh(opts = { force: true }) {
     if (typeof SupabaseSync !== 'undefined' && SupabaseSync.pullActivityLog) {
-      return SupabaseSync.pullActivityLog().then(refresh).catch(refresh);
+      return SupabaseSync.pullActivityLog(opts).then(refresh).catch(refresh);
     }
     refresh();
     return Promise.resolve();
