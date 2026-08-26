@@ -105,7 +105,10 @@ const Students = (() => {
      MAIN RENDER
   ══════════════════════════════════════════ */
   function _normCourse(val) {
-    return Utils.decodeHtmlEntities(String(val || '').trim());
+    if (!val) return '';
+    let clean = Utils.decodeHtmlEntities(String(val).trim());
+    clean = clean.replace(/&;+/g, '&').replace(/\s*&+\s*$/, '').trim();
+    return clean;
   }
 
   function _courseOption(c, selectedVal) {
@@ -116,17 +119,16 @@ const Students = (() => {
 
   /** Fix course fields that were saved with repeated &amp; encoding */
   function _repairCorruptedCourseFieldsOnce(all) {
-    if (sessionStorage.getItem('wfa_students_course_repair_v1')) return false;
     let fixed = 0;
-    for (const s of all) {
+    for (const s of (all || [])) {
       if (!s?.course || !s?.id) continue;
       const clean = _normCourse(s.course);
       if (clean && clean !== s.course) {
         SupabaseSync.update(DB.students, s.id, { ...s, course: clean }, { bypassLog: true });
+        s.course = clean;
         fixed++;
       }
     }
-    sessionStorage.setItem('wfa_students_course_repair_v1', '1');
     if (fixed > 0) console.info('[Students] Repaired corrupted course on', fixed, 'record(s)');
     return fixed > 0;
   }
@@ -151,7 +153,6 @@ const Students = (() => {
 
   function _reconcileStudentsInternal() {
     const allStudents = SupabaseSync.getAll(DB.students);
-    const allFinance  = SupabaseSync.getAll(DB.finance);
     if (!Array.isArray(allStudents) || !allStudents.length) return { fixedCount: 0, auditLog: [] };
 
     let fixedCount = 0;

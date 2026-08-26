@@ -19,10 +19,17 @@ function esc(str) {
     .replace(/\//g, '&#x2F;');
 }
 
-function decodeHtmlEntities(str, maxPasses = 8) {
+function decodeHtmlEntities(str, maxPasses = 30) {
   if (str === null || str === undefined) return '';
   let s = String(str);
-  if (!/&(?:#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/i.test(s)) return s;
+  if (!/&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z]+);/i.test(s)) return s;
+
+  while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+    const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+    if (next === s) break;
+    s = next;
+  }
+
   for (let i = 0; i < maxPasses; i++) {
     const prev = s;
     s = prev
@@ -33,6 +40,11 @@ function decodeHtmlEntities(str, maxPasses = 8) {
       .replace(/&#0*39;/gi, "'")
       .replace(/&#x27;/gi, "'")
       .replace(/&apos;/gi, "'");
+    while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+      const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+      if (next === s) break;
+      s = next;
+    }
     if (s === prev) break;
   }
   return s;
@@ -93,6 +105,11 @@ describe('Utils.decodeHtmlEntities', () => {
 
   it('repeated encoding সরায়', () => {
     expect(decodeHtmlEntities('Air Ticket &amp;amp;amp; Visa')).toBe('Air Ticket & Visa');
+  });
+
+  it('অত্যধিক পুনরাবৃত্ত (runaway 50+ passes) &amp;amp;amp;... সফলভাবে সমাধান করে', () => {
+    const runaway = 'Air Ticket ' + '&amp;'.repeat(50) + ' Visa';
+    expect(decodeHtmlEntities(runaway)).toBe('Air Ticket & Visa');
   });
 });
 

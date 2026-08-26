@@ -84,7 +84,7 @@ const Salary = (() => {
       } else {
         picker.focus();
       }
-    } catch (err) {
+    } catch {
       picker.focus();
     }
   }

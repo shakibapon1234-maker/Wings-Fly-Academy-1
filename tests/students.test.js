@@ -15,10 +15,17 @@ function safeNum(val) {
 
 // ── Mirror: utils.js → decodeHtmlEntities ───────────────
 // Source: js/core/utils.js line ~22
-function decodeHtmlEntities(str, maxPasses = 8) {
+function decodeHtmlEntities(str, maxPasses = 30) {
   if (str === null || str === undefined) return '';
   let s = String(str);
-  if (!/&(?:#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/i.test(s)) return s;
+  if (!/&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z]+);/i.test(s)) return s;
+
+  while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+    const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+    if (next === s) break;
+    s = next;
+  }
+
   for (let i = 0; i < maxPasses; i++) {
     const prev = s;
     s = prev
@@ -29,16 +36,23 @@ function decodeHtmlEntities(str, maxPasses = 8) {
       .replace(/&#0*39;/gi, "'")
       .replace(/&#x27;/gi, "'")
       .replace(/&apos;/gi, "'");
+    while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+      const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+      if (next === s) break;
+      s = next;
+    }
     if (s === prev) break;
   }
   return s;
 }
 
 // ── Mirror: students.js → _normCourse ───────────────────
-// Source: js/modules/students.js line ~69
-// HTML entity decode করে এবং trim করে
+// Source: js/modules/students.js
 function _normCourse(val) {
-  return decodeHtmlEntities(String(val || '').trim());
+  if (!val) return '';
+  let clean = decodeHtmlEntities(String(val).trim());
+  clean = clean.replace(/&;+/g, '&').replace(/\s*&+\s*$/, '').trim();
+  return clean;
 }
 
 // ── Mirror: students.js → _normCourseList ───────────────
@@ -116,6 +130,19 @@ describe('Students._normCourseList — Course List Deduplication', () => {
     // 'Air &amp; Space' এবং 'Air & Space' একই হওয়া উচিত
     const result = _normCourseList(['Air &amp; Space', 'Air & Space', 'CPL']);
     expect(result).toHaveLength(2);
+  });
+
+  it('বহুবার &amp;amp;amp; এনকোড হওয়া কোর্স নাম সঠিক নামে পরিণত করে ও মার্জ করে', () => {
+    const corrupted = [
+      'Air Ticket &amp;amp;amp;amp;amp;amp; Visa',
+      'Air Ticket &amp; Visa',
+      'Air Ticket & Visa',
+      'Student Visa Processing'
+    ];
+    const result = _normCourseList(corrupted);
+    expect(result).toHaveLength(2);
+    expect(result).toContain('Air Ticket & Visa');
+    expect(result).toContain('Student Visa Processing');
   });
 
   it('empty string বাদ দেয়', () => {

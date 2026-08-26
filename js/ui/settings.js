@@ -946,22 +946,44 @@ const SettingsModule = (() => {
   // TAB 2: CATEGORIES & COURSES
   // ════════════════════════════════════════════════════════════════
 
+  // ── Helper: Clean, decode HTML entities and deduplicate category lists ──
+  function _cleanCategoryList(rawList, defaultList = []) {
+    const list = Array.isArray(rawList) ? rawList : (Utils.safeJSON(rawList) || defaultList);
+    const seen = new Set();
+    const result = [];
+    for (const item of list) {
+      if (!item) continue;
+      let clean = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities
+        ? Utils.decodeHtmlEntities(String(item)).trim()
+        : String(item).replace(/&(?:amp|#38|#x26);/gi, '&').trim();
+      
+      // Clean any broken trailing entity fragments or cut-offs
+      clean = clean.replace(/&;+/g, '&').replace(/\s*&+\s*$/, '').trim();
+      if (!clean) continue;
+
+      const lower = clean.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        result.push(clean);
+      }
+    }
+    return result.length ? result : [...defaultList];
+  }
+
   // ── Silent auto-detect: merges student course names into cfg without UI interruption ──
   function _silentAutoDetect() {
     try {
       const cfg      = getConfig();
-      const existing = Utils.parseJsonArray(cfg.courses, []);
-      if (typeof cfg.courses === 'string' && cfg.courses.trim() && !cfg.courses.trim().startsWith('[')) {
-        cfg.courses = JSON.stringify(existing);
-        saveConfig(cfg);
-      }
+      const existing = _cleanCategoryList(cfg.courses, []);
       const students = (typeof SupabaseSync !== 'undefined') ? (SupabaseSync.getAll(DB.students) || []) : [];
-      const found    = [...new Set(students.map(s => Utils.decodeHtmlEntities(s.course)).filter(Boolean))];
-      const toAdd    = found.filter(c => !existing.includes(c));
-      if (toAdd.length > 0) {
-        cfg.courses = JSON.stringify([...existing, ...toAdd]);
+      const found    = students.map(s => (typeof Utils !== 'undefined' ? Utils.decodeHtmlEntities(s.course) : String(s.course || '')).trim()).filter(Boolean);
+      
+      const merged = _cleanCategoryList([...existing, ...found], []);
+      const newJSON = JSON.stringify(merged);
+      if (newJSON !== cfg.courses) {
+        cfg.courses = newJSON;
         saveConfig(cfg);
-        console.info('[Settings] Silent auto-detect: added courses:', toAdd);
+        console.info('[Settings] Silent auto-detect & sanitized courses:', merged);
       }
     } catch { /* silent */ }
   }
@@ -987,10 +1009,18 @@ const SettingsModule = (() => {
 
   function panelCategories() {
     const cfg = getConfig();
-    const incomeCats = cfg.income_categories ? (Utils.safeJSON(cfg.income_categories) || ['Course Fee', 'Incentive', 'Loan Received', 'Other']) : ['Course Fee', 'Incentive', 'Loan Received', 'Other'];
-    const expenseCats = cfg.expense_categories ? (Utils.safeJSON(cfg.expense_categories) || ['Rent', 'Salary', 'Loan Given', 'Other']) : ['Rent', 'Salary', 'Loan Given', 'Other'];
-    const courses = cfg.courses ? (Utils.safeJSON(cfg.courses) || ['Air Ticketing', 'Air Ticket & Visa processing Both']) : ['Air Ticketing', 'Air Ticket & Visa processing Both'];
-    const roles = cfg.employee_roles ? (Utils.safeJSON(cfg.employee_roles) || ['Admin', 'Instructor', 'Staff']) : ['Admin', 'Instructor', 'Staff'];
+    const incomeCats  = _cleanCategoryList(cfg.income_categories, ['Course Fee', 'Incentive', 'Loan Received', 'Other']);
+    const expenseCats = _cleanCategoryList(cfg.expense_categories, ['Rent', 'Salary', 'Loan Given', 'Other']);
+    const courses     = _cleanCategoryList(cfg.courses, ['Air Ticketing', 'Air Ticket & Visa processing Both']);
+    const roles       = _cleanCategoryList(cfg.employee_roles, ['Admin', 'Instructor', 'Staff']);
+
+    // Stored value corrupted বা duplicate থাকলে সাথে সাথে clean version save করে নাও
+    let needsSave = false;
+    if (JSON.stringify(incomeCats) !== cfg.income_categories) { cfg.income_categories = JSON.stringify(incomeCats); needsSave = true; }
+    if (JSON.stringify(expenseCats) !== cfg.expense_categories) { cfg.expense_categories = JSON.stringify(expenseCats); needsSave = true; }
+    if (JSON.stringify(courses) !== cfg.courses) { cfg.courses = JSON.stringify(courses); needsSave = true; }
+    if (JSON.stringify(roles) !== cfg.employee_roles) { cfg.employee_roles = JSON.stringify(roles); needsSave = true; }
+    if (needsSave) saveConfig(cfg);
 
     return `
     <div class="settings-panel ${activeTab === 'categories' ? 'active' : ''}" data-panel="categories">
@@ -1016,7 +1046,7 @@ const SettingsModule = (() => {
         <div class="category-list" id="cat-list-${key}">
           ${items.map(item => `
             <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
-              <span class="cat-item-label">${item}</span>
+              <span class="cat-item-label">${Utils.displayText(item)}</span>
               <div class="cat-item-actions">
                 <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
                 <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
@@ -1047,7 +1077,7 @@ const SettingsModule = (() => {
           ${items.length === 0 ? `<div style="color:var(--text-muted);font-size:0.82rem;padding:10px 4px;">কোনো course নেই। "+ ADD" বা "🔍 Auto-detect" ব্যবহার করুন।</div>` : ''}
           ${items.map(item => `
             <div class="category-item" id="cat-item-${key}-${item.replace(/[^a-z0-9]/gi,'_')}">
-              <span class="cat-item-label">${item}</span>
+              <span class="cat-item-label">${Utils.displayText(item)}</span>
               <div class="cat-item-actions">
                 <button class="cat-rename" title="Rename" onclick="SettingsModule.startRenameCategory('${key}','${item.replace(/'/g, "\\'")}')">✏️</button>
                 <button class="cat-delete" title="Delete" onclick="SettingsModule.removeCategory('${key}','${item.replace(/'/g, "\\'")}')">✕</button>
@@ -1061,25 +1091,24 @@ const SettingsModule = (() => {
 
   function autoDetectCourses() {
     const cfg      = getConfig();
-    const existing = cfg.courses ? (Utils.safeJSON(cfg.courses) || []) : [];
+    const existing = _cleanCategoryList(cfg.courses, []);
 
-    // সব students থেকে unique course নাম বের করো
+    // সব students থেকে unique course নাম বের করো ও decode/cleanse করো
     const allStudents  = SupabaseSync.getAll(DB.students) || [];
-    const fromStudents = [...new Set(allStudents.map(s => s.course).filter(Boolean))];
+    const fromStudents = allStudents.map(s => (typeof Utils !== 'undefined' ? Utils.decodeHtmlEntities(s.course) : String(s.course || '')).trim()).filter(Boolean);
 
-    // যেগুলো already list-এ নেই সেগুলোই যোগ হবে
-    const toAdd = fromStudents.filter(c => !existing.includes(c));
+    const merged = _cleanCategoryList([...existing, ...fromStudents], []);
+    const addedCount = merged.length - existing.length;
 
-    if (toAdd.length === 0) {
-      Utils.toast('সব course ইতিমধ্যে list-এ আছে!', 'info');
-      return;
-    }
-
-    const merged = [...existing, ...toAdd];
     cfg.courses = JSON.stringify(merged);
     saveConfig(cfg);
-    logActivity('edit', 'settings', `Auto-detected ${toAdd.length} course(s): ${toAdd.join(', ')}`);
-    Utils.toast(`✅ ${toAdd.length}টি course যোগ হয়েছে: ${toAdd.join(', ')}`, 'success');
+
+    if (addedCount <= 0) {
+      Utils.toast('সব course ইতিমধ্যে list-এ ঠিকভাবে আছে!', 'info');
+    } else {
+      logActivity('edit', 'settings', `Auto-detected ${addedCount} course(s)`);
+      Utils.toast(`✅ ${addedCount}টি নতুন course যোগ হয়েছে!`, 'success');
+    }
     refreshModal();
   }
 
@@ -1087,9 +1116,9 @@ const SettingsModule = (() => {
     const input = document.getElementById(`cat-add-${key}`);
     if (!input || !input.value.trim()) return;
     const cfg = getConfig();
-    const items = cfg[key] ? (Utils.safeJSON(cfg[key]) || []) : [];
-    const newItem = input.value.trim();
-    if (items.includes(newItem)) { Utils.toast('Already exists', 'error'); return; }
+    const items = _cleanCategoryList(cfg[key], []);
+    const newItem = (typeof Utils !== 'undefined' && Utils.decodeHtmlEntities ? Utils.decodeHtmlEntities(input.value) : input.value).trim();
+    if (items.some(it => it.toLowerCase() === newItem.toLowerCase())) { Utils.toast('Already exists', 'error'); return; }
     items.push(newItem);
     cfg[key] = JSON.stringify(items);
     saveConfig(cfg);
@@ -3175,8 +3204,8 @@ ${expenseEntries.length > 0 ? `
   function panelMonitor() {
     // ✅ FIX: পুরনো wfa_recent_changes-ভিত্তিক UI সরানো হয়েছে।
     // নতুন Raw ledger UI সম্পূর্ণভাবে settings-monitor.js (SettingsMonitor)-এ।
-    if (typeof SettingsMonitor !== 'undefined' && typeof SettingsMonitor.buildPanelHTML === 'function') {
-      return SettingsMonitor.buildPanelHTML(activeTab);
+    if (typeof window.SettingsMonitor !== 'undefined' && typeof window.SettingsMonitor.buildPanelHTML === 'function') {
+      return window.SettingsMonitor.buildPanelHTML(activeTab);
     }
     // Fallback — SettingsMonitor load না হলে খালি panel দেখাও
     return `<div class="settings-panel ${activeTab === 'monitor' ? 'active' : ''}" data-panel="monitor">
@@ -3196,7 +3225,7 @@ ${expenseEntries.length > 0 ? `
 
   /** Fix corrupted date strings in settings (e.g. expense_start_date = "admin"). */
   function _healConfigDateFields(cfg) {
-    if (!cfg || typeof cfg !== 'object') return cfg;
+    if (!cfg || typeof cfg !== 'object') return { cfg, dirty: false };
     const _d = new Date();
     const today = `${_d.getFullYear()}-${String(_d.getMonth() + 1).padStart(2, '0')}-${String(_d.getDate()).padStart(2, '0')}`;
     let dirty = false;
@@ -3213,10 +3242,38 @@ ${expenseEntries.length > 0 ? `
     return { cfg, dirty };
   }
 
+  /** Fix corrupted category lists in settings (e.g. repeated &amp; entities or duplicates). */
+  function _healConfigCategories(cfg) {
+    if (!cfg || typeof cfg !== 'object') return { cfg, dirty: false };
+    let dirty = false;
+    const arrayFields = [
+      { key: 'courses', defaults: ['Air Ticketing', 'Air Ticket & Visa processing Both'] },
+      { key: 'income_categories', defaults: ['Course Fee', 'Incentive', 'Loan Received', 'Other'] },
+      { key: 'expense_categories', defaults: ['Rent', 'Salary', 'Loan Given', 'Other'] },
+      { key: 'employee_roles', defaults: ['Admin', 'Instructor', 'Staff'] }
+    ];
+
+    for (const { key, defaults } of arrayFields) {
+      if (cfg[key] !== undefined) {
+        const raw = cfg[key];
+        const parsed = Array.isArray(raw) ? raw : (Utils.safeJSON(raw) || defaults);
+        const cleaned = _cleanCategoryList(parsed, defaults);
+        const newJSON = JSON.stringify(cleaned);
+        if (typeof raw !== 'string' || newJSON !== raw) {
+          cfg[key] = newJSON;
+          dirty = true;
+        }
+      }
+    }
+    return { cfg, dirty };
+  }
+
   function _persistHealedConfigDates() {
     const raw = SupabaseSync.getAll(DB.settings)[0] || {};
-    const { cfg, dirty } = _healConfigDateFields({ ...raw });
-    if (dirty && cfg.id) saveConfig(cfg);
+    let current = { ...raw };
+    const { cfg: cfg1, dirty: dirty1 } = _healConfigDateFields(current);
+    const { cfg: cfg2, dirty: dirty2 } = _healConfigCategories(cfg1);
+    if ((dirty1 || dirty2) && cfg2.id) saveConfig(cfg2);
   }
 
   function saveConfig(cfg) {

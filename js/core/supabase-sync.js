@@ -1031,7 +1031,7 @@ const SupabaseSync = (() => {
     }
 
     try {
-      const client = (typeof _client === 'function' ? _client() : null) || window.SUPABASE_CONFIG?.client;
+      const client = (typeof window.SUPABASE_CONFIG !== 'undefined' && window.SUPABASE_CONFIG?.client) || window.supabaseClient;
       if (!client) return;
       const clean = {
         id:          entry.id,
@@ -1084,7 +1084,7 @@ const SupabaseSync = (() => {
     }
 
     try {
-      const client = (typeof _client === 'function' ? _client() : null) || window.SUPABASE_CONFIG?.client;
+      const client = (typeof window.SUPABASE_CONFIG !== 'undefined' && window.SUPABASE_CONFIG?.client) || window.supabaseClient;
       if (!client) return;
       const { data, error } = await client
         .from(_ACTIVITY_TABLE)
@@ -3789,7 +3789,21 @@ const SyncEngine = (() => {
         const localArr = JSON.parse(localVal);
         const cloudArr = JSON.parse(cloudVal);
         if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
-          result[key] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+          const seen = new Set();
+          const cleanArr = [];
+          for (const item of [...localArr, ...cloudArr]) {
+            if (!item) continue;
+            const str = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities
+              ? Utils.decodeHtmlEntities(String(item)).trim()
+              : String(item).replace(/&(?:amp|#38|#x26);/gi, '&').trim();
+            if (!str) continue;
+            const lower = str.toLowerCase();
+            if (!seen.has(lower)) {
+              seen.add(lower);
+              cleanArr.push(str);
+            }
+          }
+          result[key] = JSON.stringify(cleanArr);
           arrayMerged = true;
         }
       } catch { /* Not a JSON array — skip array merge for this field */ }
@@ -3874,7 +3888,21 @@ const SyncEngine = (() => {
                   const localArr = JSON.parse(localRow[f]);
                   const cloudArr = JSON.parse(merged[f]);
                   if (Array.isArray(localArr) && Array.isArray(cloudArr)) {
-                    merged[f] = JSON.stringify(Array.from(new Set([...localArr, ...cloudArr])));
+                    const seen = new Set();
+                    const cleanArr = [];
+                    for (const item of [...localArr, ...cloudArr]) {
+                      if (!item) continue;
+                      const str = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities
+                        ? Utils.decodeHtmlEntities(String(item)).trim()
+                        : String(item).replace(/&(?:amp|#38|#x26);/gi, '&').trim();
+                      if (!str) continue;
+                      const lower = str.toLowerCase();
+                      if (!seen.has(lower)) {
+                        seen.add(lower);
+                        cleanArr.push(str);
+                      }
+                    }
+                    merged[f] = JSON.stringify(cleanArr);
                   }
                 } catch { /* Not a JSON array — skip smart merge for this field */ }
               }

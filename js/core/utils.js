@@ -19,10 +19,18 @@ const Utils = (() => {
   }
 
   /** Undo repeated HTML entity encoding (e.g. &amp;amp; → &) */
-  function decodeHtmlEntities(str, maxPasses = 8) {
+  function decodeHtmlEntities(str, maxPasses = 30) {
     if (str === null || str === undefined) return '';
     let s = String(str);
-    if (!/&(?:#\d+|#x[\da-f]+|amp|lt|gt|quot|apos);/i.test(s)) return s;
+    if (!/&(?:#\d+|#x[\da-fA-F]+|[a-zA-Z]+);/i.test(s)) return s;
+
+    // Fast collapse for runaway &amp; / &#38; / &#x26; loops
+    while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+      const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+      if (next === s) break;
+      s = next;
+    }
+
     for (let i = 0; i < maxPasses; i++) {
       const prev = s;
       if (typeof document !== 'undefined') {
@@ -38,6 +46,11 @@ const Utils = (() => {
           .replace(/&#0*39;/gi, "'")
           .replace(/&#x27;/gi, "'")
           .replace(/&apos;/gi, "'");
+      }
+      while (/&(?:amp|#0*38|#x0*26);/gi.test(s)) {
+        const next = s.replace(/&(?:amp|#0*38|#x0*26);/gi, '&');
+        if (next === s) break;
+        s = next;
       }
       if (s === prev) break;
     }
