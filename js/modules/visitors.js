@@ -85,11 +85,32 @@ const VisitorsModule = (() => {
       : `${window.location.origin}${window.location.pathname.replace(/[^/]*$/, '')}visitor-form.html`;
   }
 
+  function _repairCorruptedVisitorCourses(all) {
+    let fixed = 0;
+    for (const v of (all || [])) {
+      if (!v?.interested_course || !v?.id) continue;
+      let clean = (typeof Utils !== 'undefined' && Utils.decodeHtmlEntities)
+        ? Utils.decodeHtmlEntities(String(v.interested_course)).trim()
+        : String(v.interested_course).replace(/&(?:amp|#38|#x26);/gi, '&').trim();
+      clean = clean.replace(/&;+/g, '&').replace(/\s*&+\s*$/, '').trim();
+      if (clean && clean !== v.interested_course) {
+        SupabaseSync.update(DB.visitors, v.id, { ...v, interested_course: clean }, { bypassLog: true });
+        v.interested_course = clean;
+        fixed++;
+      }
+    }
+    if (fixed > 0) console.info('[Visitors] Repaired corrupted interested_course on', fixed, 'record(s)');
+    return fixed > 0;
+  }
+
   function render() {
     const container = document.getElementById('visitors-content');
     if (!container) return; // Silent return if not rendered
 
-    const allVisitors = getRecords();
+    let allVisitors = getRecords();
+    if (_repairCorruptedVisitorCourses(allVisitors)) {
+      allVisitors = getRecords();
+    }
     const visitors = searchQuery
       ? allVisitors.filter(v =>
           (v.name || '').toLowerCase().includes(searchQuery) ||
@@ -219,7 +240,7 @@ const VisitorsModule = (() => {
                   <td>
                     ${v.reference ? `<span style="background:rgba(124,58,237,0.2); color:#a78bfa; border-radius:20px; padding:2px 10px; font-size:0.78rem; font-weight:700;"><i class="fa fa-share-nodes" style="margin-right:4px;"></i>${Utils.esc(v.reference)}</span>` : '<span style="color:var(--text-muted)">-</span>'}
                   </td>
-                  <td style="font-weight:600; color:#00d4ff;">${Utils.esc(v.interested_course || '-')}</td>
+                  <td style="font-weight:600; color:#00d4ff;">${Utils.displayText(v.interested_course || '-')}</td>
                   <td>${statusBadge}</td>
                   <td><span style="font-size:0.8rem; color:${v.follow_up_date ? '#ffb703' : 'var(--text-muted)'}"><i class="fa fa-clock"></i> ${v.follow_up_date ? Utils.formatDateDMY(v.follow_up_date) : '-'}</span></td>
                   <td style="text-align:right;">
@@ -327,7 +348,7 @@ const VisitorsModule = (() => {
       <div class="form-row">
         <div class="form-group">
           <label>Course Interested</label>
-          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${Utils.escAttr(r?.interested_course || '')}" />
+          <input type="text" id="vis-course" class="form-control" placeholder="e.g. Ticketing" value="${Utils.escAttr(typeof Utils !== 'undefined' && Utils.decodeHtmlEntities ? Utils.decodeHtmlEntities(r?.interested_course || '') : (r?.interested_course || ''))}" />
         </div>
         <div class="form-group">
           <label>Status <span class="req">*</span></label>
@@ -377,12 +398,17 @@ const VisitorsModule = (() => {
       return;
     }
 
+    const rawCourse = document.getElementById('vis-course')?.value.trim() || '';
+    const cleanCourse = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities
+      ? Utils.decodeHtmlEntities(rawCourse).replace(/&;+/g, '&').replace(/\s*&+\s*$/, '').trim()
+      : rawCourse;
+
     const data = {
       name,
       phone,
       address: document.getElementById('vis-address')?.value.trim() || '',
       reference: document.getElementById('vis-reference')?.value || '',
-      interested_course: document.getElementById('vis-course')?.value.trim() || '',
+      interested_course: cleanCourse,
       status: document.getElementById('vis-status')?.value || 'Interested',
       visit_date: document.getElementById('vis-vdate')?.value || Utils.today(),
       follow_up_date: document.getElementById('vis-fdate')?.value || '',
@@ -439,7 +465,7 @@ const VisitorsModule = (() => {
           const c = document.getElementById('sf-course');
           if (n) n.value = v.name || '';
           if (p) p.value = v.phone || '';
-          if (c) c.value = v.interested_course || '';
+          if (c) c.value = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities ? Utils.decodeHtmlEntities(v.interested_course || '') : (v.interested_course || '');
           Utils.toast('Visitor data pre-filled into Student form', 'success');
         }, 100);
       }
