@@ -5735,7 +5735,11 @@ ${expenseEntries.length > 0 ? `
     const failures = [];
     for (const tableName of [...new Set(tableNames)]) {
       try {
-        const { error } = await client.from(tableName).delete().neq('id', '__never_match__');
+        // `id` is UUID in Supabase.  A text placeholder (for example
+        // "__never_match__") is rejected before DELETE executes.  Every
+        // persisted row has an ID, so this safely selects all rows regardless
+        // of whether the primary-key type is UUID or text.
+        const { error } = await client.from(tableName).delete().not('id', 'is', null);
         // Optional feature tables are not present in every customer schema.
         // Their absence must not block reset of the tables that do exist.
         const missingTable = error && (
@@ -5892,10 +5896,7 @@ ${expenseEntries.length > 0 ? `
     const ok = await Utils.confirm('⚠️ All cloud data will be permanently deleted!', '☁️ Delete Cloud Data');
     if (!ok) return;
     try {
-      const { client } = window.SUPABASE_CONFIG;
-      for (const tableName of Object.values(DB)) {
-        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch (e) { console.warn('[ClearCloud] Table delete failed:', tableName, e?.message); }
-      }
+      await deleteCloudTables(Object.values(DB));
       Utils.toast('Cloud data deleted', 'info');
     } catch (e) {
       Utils.toast('Failed: ' + e.message, 'error');
