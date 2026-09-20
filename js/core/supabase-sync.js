@@ -322,21 +322,36 @@ const WFA_IDB = (() => {
     } catch { return 0; }
   }
 
+  function clearTables(tableNames) {
+    const names = [...new Set((Array.isArray(tableNames) ? tableNames : [])
+      .filter(name => typeof name === 'string' && name))];
+    names.forEach(name => {
+      _cache[name] = [];
+      _writeToIDB(name, []);
+    });
+    // A reset reloads immediately afterwards.  Wait for the IndexedDB queue so
+    // the old in-memory data cannot reappear after the reload.
+    return flushWrites();
+  }
+
   function clearAllTables() {
-    _cache = {};
+    const cachedTableNames = Object.keys(_cache);
     const TABLE_KEYS = [
       'students', 'finance_ledger', 'accounts', 'loans', 'exams',
       'staff', 'salary', 'attendance', 'visitors', 'notices', 'settings',
-      'sub_accounts', 'recycle_bin', 'deleted_items', 'retry_queue', 'recent_changes', 'activity_log'
+      'advance_payments', 'investments', 'keep_records', 'custom_themes',
+      'sub_accounts', 'student_portal_access', 'payment_requests',
+      'class_routines', 'school_classes', 'school_subjects', 'school_marks',
+      'sms_logs', 'monitor_ledger', 'recycle_bin', 'deleted_items',
+      'retry_queue', 'recent_changes', 'activity_log'
     ];
-    TABLE_KEYS.forEach(key => {
-      _cache[key] = [];
-      _writeToIDB(key, []);
-    });
+    const configuredTableNames = Object.values(window.DB || {});
+    const done = clearTables([...cachedTableNames, ...TABLE_KEYS, ...configuredTableNames]);
     console.info('[IDB] Cleared all local tables.');
+    return done;
   }
 
-  return { init, onReady, getTable, setTable, flushWrites, getUsageKB, getTableSizeKB, clearAllTables };
+  return { init, onReady, getTable, setTable, flushWrites, getUsageKB, getTableSizeKB, clearTables, clearAllTables };
 })();
 
 window.WFA_IDB = WFA_IDB;

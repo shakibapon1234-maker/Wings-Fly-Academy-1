@@ -5727,18 +5727,53 @@ ${expenseEntries.length > 0 ? `
     return imported;
   }
 
-  // ── Clear Local Data ──────────────────────────────────────────
+  // ── Reset Data / Factory Reset helpers ─────────────────────────
+  async function deleteCloudTables(tableNames) {
+    const client = window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.client;
+    if (!client) throw new Error('Cloud connection is not ready');
+
+    const failures = [];
+    for (const tableName of [...new Set(tableNames)]) {
+      try {
+        const { error } = await client.from(tableName).delete().neq('id', '__never_match__');
+        // Optional feature tables are not present in every customer schema.
+        // Their absence must not block reset of the tables that do exist.
+        const missingTable = error && (
+          error.code === '42P01' || error.status === 404 ||
+          /does not exist|relation|could not find/i.test(error.message || '')
+        );
+        if (error && !missingTable) failures.push(`${tableName}: ${error.message || error.code || 'delete failed'}`);
+      } catch (e) {
+        failures.push(`${tableName}: ${e?.message || 'delete failed'}`);
+      }
+    }
+    if (failures.length) throw new Error(failures.join(' | '));
+  }
+
+  // ── Reset Data Only (keeps settings) ───────────────────────────
   async function clearLocalData() {
-    const ok = await Utils.confirm('Delete all local data? Cloud data will remain. Settings will be kept.', 'Reset Data');
+    const ok = await Utils.confirm('Delete all data except settings? This removes local and cloud records, but keeps your categories and settings.', 'Reset Data');
     if (!ok) return;
-    SyncEngine.stopRealtime();
+    if (typeof SyncEngine !== 'undefined' && typeof SyncEngine.stopAutoSync === 'function') SyncEngine.stopAutoSync();
+    const dataTables = [...new Set(Object.values(DB).filter(t => t !== DB.settings))];
+    try {
+      await deleteCloudTables(dataTables);
+    } catch (e) {
+      console.error('[ResetData] Cloud delete failed:', e);
+      Utils.toast(`Data reset stopped: cloud data was not deleted. ${e?.message || ''}`, 'error', 10000);
+      return;
+    }
+    // App records are IDB-backed.  Removing only legacy localStorage keys left
+    // the actual records untouched, so a reload appeared to undo this reset.
+    if (typeof WFA_IDB !== 'undefined' && typeof WFA_IDB.clearTables === 'function') {
+      await WFA_IDB.clearTables(dataTables);
+    }
     Object.entries(DB).forEach(([key, t]) => {
       if (key !== 'settings') localStorage.removeItem(`wfa_${t}`);
     });
     localStorage.removeItem('wfa_deletedItems');
     localStorage.removeItem('wfa_recycle_bin');
     localStorage.removeItem('wfa_retry_queue');
-    logActivity('delete', 'system', 'Local data reset (kept settings)');
     Utils.toast('Local data deleted. Page reloading...', 'success');
     setTimeout(() => location.reload(), 800);
   }
@@ -5820,15 +5855,22 @@ ${expenseEntries.length > 0 ? `
     const ok2 = await Utils.confirm('Are you ABSOLUTELY sure? ALL data will be permanently lost!', 'Final Confirmation');
     if (!ok2) return;
 
-    // Delete cloud data
+    if (typeof SyncEngine !== 'undefined' && typeof SyncEngine.stopAutoSync === 'function') SyncEngine.stopAutoSync();
+
+    // Delete cloud data first.  If RLS/network prevents this, do not pretend a
+    // factory reset succeeded: the next sync would simply bring every record back.
     try {
-      const { client } = window.SUPABASE_CONFIG;
-      for (const tableName of Object.values(DB)) {
-        try { await client.from(tableName).delete().neq('id', '__never_match__'); } catch (e) { console.warn('[FactoryReset] Table delete failed:', tableName, e?.message); }
-      }
-    } catch (e) { console.warn('[FactoryReset] Cloud delete skipped (offline or no client):', e?.message); }
+      await deleteCloudTables(Object.values(DB));
+    } catch (e) {
+      console.error('[FactoryReset] Cloud delete failed:', e);
+      Utils.toast(`Factory reset stopped: cloud data was not deleted. ${e?.message || ''}`, 'error', 10000);
+      return;
+    }
 
     // Delete all local data
+    if (typeof WFA_IDB !== 'undefined' && typeof WFA_IDB.clearAllTables === 'function') {
+      await WFA_IDB.clearAllTables();
+    }
     Object.values(DB).forEach(t => localStorage.removeItem(`wfa_${t}`));
     localStorage.removeItem('wfa_deletedItems');
     localStorage.removeItem('wfa_recycle_bin');
@@ -5838,6 +5880,8 @@ ${expenseEntries.length > 0 ? `
     localStorage.removeItem('wfa_investments');
     localStorage.removeItem('wfa_recent_changes');
     localStorage.removeItem('wfa_retry_queue');
+    localStorage.removeItem('wfa_idb_migrated_v1');
+    if (typeof SyncEngine !== 'undefined' && typeof SyncEngine.resetSyncAnchor === 'function') SyncEngine.resetSyncAnchor();
 
     Utils.toast('Factory reset complete. Page reloading...', 'success');
     setTimeout(() => location.reload(), 800);
