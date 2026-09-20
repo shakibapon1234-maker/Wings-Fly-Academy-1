@@ -28,7 +28,10 @@ jobs:
         distribution: 'temurin'
 
     - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
+      # v3 still requests Google's removed legacy `tools` SDK package, which
+      # makes sdkmanager exit 1 before the Gradle build can start.  v4 uses the
+      # supported command-line tools package instead.
+      uses: android-actions/setup-android@v4
 
     - name: Install dependencies
       run: npm ci
