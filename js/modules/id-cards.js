@@ -39,6 +39,7 @@ const IDCardsModule = (() => {
       ? `<img src="${_safePhoto}" class="id-photo" onerror="this.style.display='none'">`
       : `<div class="id-photo" style="display:flex;align-items:center;justify-content:center;background:#eee;color:#999;font-size:12px;">No Photo</div>`;
 
+    const courseClean = (typeof Utils !== 'undefined' && Utils.decodeHtmlEntities ? Utils.decodeHtmlEntities(person.course || 'N/A') : String(person.course || 'N/A')).replace(/&(?:amp|#38|#x26);/gi, '&').trim();
     return `<div class="id-card-v2-container">
       <img src="${Utils.escAttr(_academyLogoUrl())}" style="position:absolute; top:8px; right:8px; width:45px; height:45px; border-radius:50%; box-shadow:0 2px 5px rgba(0,0,0,0.3); z-index:5;" onerror="this.style.display='none'">
       ${photoHTML}
@@ -46,7 +47,7 @@ const IDCardsModule = (() => {
       
       <div class="id-info">
         <div><span>ID NO</span> <span>${Utils.esc(idNumber)}</span></div>
-        <div><span>COURSE</span> <span style="font-size:8px;max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${Utils.esc(person.course || 'N/A')}">${Utils.esc((person.course || 'N/A').substring(0, 15))}</span></div>
+        <div><span>COURSE</span> <span style="font-size:8px;max-width:80px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${Utils.esc(courseClean)}">${Utils.esc(courseClean.substring(0, 15))}</span></div>
         <div><span>BATCH</span> <span>${Utils.esc(person.batch || 'N/A')}</span></div>
         <div><span>BLOOD G.</span> <span>${Utils.esc(person.bloodGroup || 'N/A')}</span></div>
         <div><span>JOINED</span> <span>${fmtDate(enrollDate)}</span></div>
@@ -128,7 +129,7 @@ const IDCardsModule = (() => {
               </div>
               <div style="flex:1;">
                 <div style="font-weight:700; color:#fff; font-size:0.92rem;">${Utils.esc(s.name || 'Unknown')}</div>
-                <div style="font-size:0.78rem; color:rgba(6,182,212,0.7); margin-top:2px;">${Utils.esc(s.student_id || s.id)} &middot; ${Utils.esc(s.course || '—')} &middot; Batch ${Utils.esc(s.batch || '—')}</div>
+                <div style="font-size:0.78rem; color:rgba(6,182,212,0.7); margin-top:2px;">${Utils.esc(s.student_id || s.id)} &middot; ${Utils.displayText(s.course || '—')} &middot; Batch ${Utils.esc(s.batch || '—')}</div>
               </div>
             </div>
             <div style="display:flex; gap:8px;">

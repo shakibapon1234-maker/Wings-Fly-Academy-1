@@ -207,7 +207,7 @@ const VisitorsModule = (() => {
     } else {
       // Table
       html += `
-        <div class="table-wrapper">
+        <div class="table-wrapper table-wrapper-scrollable">
           <table class="data-table">
             <thead>
               <tr>

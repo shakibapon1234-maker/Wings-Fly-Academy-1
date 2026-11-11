@@ -40,6 +40,11 @@
   }
 
   /* Tables */
+  .table-wrapper, .table-wrapper-scrollable {
+    overflow: visible !important;
+    max-height: none !important;
+    border: none !important;
+  }
   table {
     width: 100% !important;
     border-collapse: collapse;

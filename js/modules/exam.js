@@ -156,7 +156,7 @@ const Exam = (() => {
       </div>
 
       <div id="exam-print-area">
-        <div class="table-wrapper">
+        <div class="table-wrapper table-wrapper-scrollable">
           <table>
             <thead>
               <tr>

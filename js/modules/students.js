@@ -302,7 +302,7 @@ const Students = (() => {
 
       <!-- Table -->
       <div id="students-print-area">
-        <div class="table-wrapper">
+        <div class="table-wrapper table-wrapper-scrollable">
           <table>
             <thead>
               <tr>

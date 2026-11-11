@@ -407,9 +407,10 @@
 
     // ── Render Certificate ───────────────────────
     function loadCertificate(s) {
+      const _clean = (v) => String(v ?? '').replace(/&(?:amp|#38|#x26);/gi, '&').trim();
       const certNumber  = esc(`WFA-${new Date().getFullYear()}-${(s.student_id || s.id || '0000').toString().slice(-4)}`);
-      const studentName = esc((s.name || 'N/A').toUpperCase());
-      const courseName  = esc((s.course || 'N/A').toUpperCase());
+      const studentName = esc(_clean(s.name || 'N/A').toUpperCase());
+      const courseName  = esc(_clean(s.course || 'N/A').toUpperCase());
       const batch       = esc(s.batch || 'N/A');
       const stdId       = esc(s.student_id || s.id || 'N/A');
 

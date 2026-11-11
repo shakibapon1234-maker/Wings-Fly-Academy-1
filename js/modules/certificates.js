@@ -51,10 +51,15 @@ const CertificatesModule = (() => {
     const sigShakib = `assets/shakib_sign.png`;
     const sigChairman = `assets/ferdous_sign.png`;
     const _esc = (v) => (typeof Utils !== 'undefined' ? Utils.esc(v) : String(v ?? ''));
+    const _clean = (v) => {
+      if (v === null || v === undefined) return '';
+      let s = typeof Utils !== 'undefined' && Utils.decodeHtmlEntities ? Utils.decodeHtmlEntities(String(v)) : String(v);
+      return s.replace(/&(?:amp|#38|#x26);/gi, '&').trim();
+    };
     const certNumber = _esc(data.certNumber || 'WFA-' + new Date().getFullYear());
     const studentId = _esc(data.studentId || 'N/A');
-    const courseName = _esc(data.courseName || 'N/A').toUpperCase();
-    const studentName = _esc(data.studentName || 'N/A').toUpperCase();
+    const courseName = _esc(_clean(data.courseName || 'N/A').toUpperCase());
+    const studentName = _esc(_clean(data.studentName || 'N/A').toUpperCase());
     const batch = _esc(data.batch || 'N/A');
 
     return `
