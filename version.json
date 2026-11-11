@@ -1,7 +1,7 @@
 {
-  "version": "5.1.4",
-  "deploy_id": "20260824-activity-log-cross-device-sync",
-  "changelog": "Activity Log Cross-Device Sync — Added Realtime Postgres channel subscription for activity_log, automatic pull during regular sync intervals, and forced retry on manual sync.",
+  "version": "5.1.5",
+  "deploy_id": "20261111-table-scroll-cert-fix",
+  "changelog": "Fix table horizontal scroll and certificate course name entity encoding",
   "size": "~2MB",
-  "released": "2026-08-24"
+  "released": "2026-11-11"
 }
