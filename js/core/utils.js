@@ -150,19 +150,11 @@ const Utils = (() => {
   // ✅ Req 4: formatDateEN now delegates to DD/MM/YYYY for consistency across the app
   function formatDateEN(dateStr) { return formatDateDMY(dateStr); }
 
-  // ✅ Phase 3.1: CSS-based Virtual Scrolling — drastically improves performance for large pages
+  // ✅ Note: content-visibility & contain-intrinsic-size on table rows disabled because
+  // it causes Chromium horizontal scroll snap-back bugs where scrollLeft jumps to 0 on mouseup.
   (function injectVirtualScrollCSS() {
-    if (document.getElementById('wfa-virtual-scroll-css')) return;
-    const style = document.createElement('style');
-    style.id = 'wfa-virtual-scroll-css';
-    style.textContent = `
-      .table-wrapper tbody tr {
-        content-visibility: auto;
-        contain-intrinsic-size: 0 48px;
-        will-change: transform;
-      }
-    `;
-    document.head.appendChild(style);
+    const existing = document.getElementById('wfa-virtual-scroll-css');
+    if (existing) existing.remove();
   })();
 
   // ✅ Phase 2: Parse any date string to YYYY-MM-DD — handles DD/MM/YYYY, MM/DD/YYYY, ISO, etc.

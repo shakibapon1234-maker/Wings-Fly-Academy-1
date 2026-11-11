@@ -215,6 +215,9 @@ const Students = (() => {
     const container = document.getElementById('students-content');
     if (!container) return;
 
+    const oldWrapper = container.querySelector('.table-wrapper');
+    const savedScrollLeft = oldWrapper ? oldWrapper.scrollLeft : 0;
+
     // ✅ Silent Auto-reconcile: keep student list paid/due in 100% harmony with finance ledger
     _reconcileStudentsInternal();
 
@@ -302,7 +305,7 @@ const Students = (() => {
 
       <!-- Table -->
       <div id="students-print-area">
-        <div class="table-wrapper table-wrapper-scrollable">
+        <div class="table-wrapper">
           <table>
             <thead>
               <tr>
@@ -360,6 +363,11 @@ const Students = (() => {
         </div>
       </div>
     `;
+
+    const newWrapper = container.querySelector('.table-wrapper');
+    if (newWrapper && savedScrollLeft > 0) {
+      newWrapper.scrollLeft = savedScrollLeft;
+    }
   }
 
   function renderRows(rows, startIndex = 0) {

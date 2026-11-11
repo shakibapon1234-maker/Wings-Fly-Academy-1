@@ -144,7 +144,7 @@ const Finance = (() => {
 
       <!-- Table -->
       <div id="finance-print-area">
-        <div class="table-wrapper table-wrapper-scrollable">
+        <div class="table-wrapper">
           <table>
             <thead>
               <tr>

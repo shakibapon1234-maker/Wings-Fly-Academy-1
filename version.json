@@ -1,7 +1,7 @@
 {
-  "version": "5.1.5",
-  "deploy_id": "20261111-table-scroll-cert-fix",
-  "changelog": "Fix table horizontal scroll and certificate course name entity encoding",
+  "version": "5.1.6",
+  "deploy_id": "20261111-table-full-height-no-snap",
+  "changelog": "Restore full vertical table height and remove Chromium table containment causing horizontal scroll snap-back",
   "size": "~2MB",
   "released": "2026-11-11"
 }

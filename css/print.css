@@ -40,9 +40,8 @@
   }
 
   /* Tables */
-  .table-wrapper, .table-wrapper-scrollable {
+  .table-wrapper {
     overflow: visible !important;
-    max-height: none !important;
     border: none !important;
   }
   table {
