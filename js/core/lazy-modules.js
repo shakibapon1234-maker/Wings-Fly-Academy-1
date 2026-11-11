@@ -80,7 +80,7 @@ const LazyModules = (() => {
     'sms-engine',
   ];
 
-  const PREFETCH_MODULES = ['students', 'finance', 'settings'];
+  const PREFETCH_MODULES = ['students', 'finance', 'settings', 'certificates', 'id-cards'];
 
   function _resolve(path) {
     const rel = String(path || '').replace(/^\.\//, '').replace(/^\//, '');

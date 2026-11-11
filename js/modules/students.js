@@ -1006,11 +1006,11 @@ const Students = (() => {
         <i class="fa fa-plus-circle"></i> ADD INSTALLMENT
       </button>
       
-      <button class="action-btn-glow btn-cyan" onclick="IDCardsModule && IDCardsModule.previewCard('${eid}')">
+      <button class="action-btn-glow btn-cyan" onclick="Students.openIDCard('${eid}')">
         <i class="fa fa-id-badge"></i> VIEW ID CARD
       </button>
       
-      <button class="action-btn-glow btn-orange" onclick="CertificatesModule && CertificatesModule.previewCertificate('${eid}')">
+      <button class="action-btn-glow btn-orange" onclick="Students.openCertificate('${eid}')">
         <i class="fa fa-award"></i> GENERATE CERTIFICATE
       </button>
       
@@ -2498,6 +2498,46 @@ const Students = (() => {
     return result;
   }
 
+  // ✅ Fix: GENERATE CERTIFICATE from Students action modal (lazy-load certificates.js if not yet loaded)
+  function openCertificate(id) {
+    Utils.closeModal();
+    function _run() {
+      if (typeof CertificatesModule !== 'undefined' && typeof CertificatesModule.previewCertificate === 'function') {
+        CertificatesModule.previewCertificate(id);
+      } else {
+        Utils.toast('Certificate module load failed', 'error');
+      }
+    }
+    if (typeof CertificatesModule !== 'undefined' && typeof CertificatesModule.previewCertificate === 'function') {
+      setTimeout(_run, 350); // wait for modal close animation
+    } else if (typeof LazyModules !== 'undefined' && LazyModules.ensure) {
+      LazyModules.ensure('certificates').then(() => setTimeout(_run, 350)).catch(() => Utils.toast('Certificate module load failed', 'error'));
+    } else {
+      Utils.toast('Certificate module not available', 'error');
+    }
+  }
+
+  // ✅ Fix: VIEW ID CARD from Students action modal (lazy-load id-cards.js if not yet loaded)
+  function openIDCard(id) {
+    Utils.closeModal();
+    function _run() {
+      if (typeof IDCardsModule !== 'undefined') {
+        if (typeof IDCardsModule.previewCard === 'function') IDCardsModule.previewCard(id);
+        else if (typeof IDCardsModule.previewStudent === 'function') IDCardsModule.previewStudent(id);
+        else Utils.toast('ID Card module load failed', 'error');
+      } else {
+        Utils.toast('ID Card module load failed', 'error');
+      }
+    }
+    if (typeof IDCardsModule !== 'undefined') {
+      setTimeout(_run, 350);
+    } else if (typeof LazyModules !== 'undefined' && LazyModules.ensure) {
+      LazyModules.ensure('id-cards').then(() => setTimeout(_run, 350)).catch(() => Utils.toast('ID Card module load failed', 'error'));
+    } else {
+      Utils.toast('ID Card module not available', 'error');
+    }
+  }
+
   return {
     render, onSearch, onFilter, resetFilters,
     changePage, changePageSize,
@@ -2517,6 +2557,7 @@ const Students = (() => {
     editPayment, saveEditedPayment,
     editInitialPayment, saveEditedInitialPayment,
     _syncPaidDueAfterLedgerChange,
+    openCertificate, openIDCard,
   };
 
 })();

@@ -1,7 +1,7 @@
 {
-  "version": "5.1.6",
-  "deploy_id": "20261111-table-full-height-no-snap",
-  "changelog": "Restore full vertical table height and remove Chromium table containment causing horizontal scroll snap-back",
+  "version": "5.1.7",
+  "deploy_id": "20261111-cert-idcard-action-fix",
+  "changelog": "Fix GENERATE CERTIFICATE and VIEW ID CARD buttons from Students action modal via lazy-load",
   "size": "~2MB",
   "released": "2026-11-11"
 }
